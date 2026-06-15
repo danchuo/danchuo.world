@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>danchuo.world — мобайл (волна 01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-page:#FAF1EB; --bg-surface:#FFFFFF; --bg-surface-muted:#F3E6DE;
+  --text-primary:#211A16; --text-secondary:#6E635C; --text-tertiary:#A89B92;
+  --border-pixel:#211A16; --accent:#E2604C; --accent-warm:#F4A52A;
+  --success:#3E9D77; --danger:#D2553F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#cabfb6;font-family:"Inter",system-ui,sans-serif;display:flex;justify-content:center;padding:24px 0}
+.mono{font-family:"JetBrains Mono",monospace}
+.muted{color:var(--text-secondary)}.hint{color:var(--text-tertiary)}
+
+.phone{width:390px;background:var(--bg-page);color:var(--text-primary);
+  min-height:844px;padding:14px;display:flex;flex-direction:column;gap:12px;
+  border:3px solid var(--border-pixel)}
+
+.topbar{display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:500;font-size:16px;display:flex;align-items:center;gap:8px}
+.brand b{color:var(--accent)}
+.avatar{width:24px;height:24px;image-rendering:pixelated;border:2px solid var(--border-pixel);
+  background:conic-gradient(var(--accent) 0 25%,var(--accent-warm) 0 50%,var(--text-primary) 0 75%,var(--bg-surface-muted) 0)}
+.topright{display:flex;align-items:center;gap:10px}
+.waves{display:flex;gap:6px}
+.wv{width:22px;height:22px;border:2px solid transparent;image-rendering:pixelated}
+.wv.active{border-color:var(--border-pixel)}
+.wv.w1{background:repeating-linear-gradient(45deg,#F4A52A 0 4px,#E2604C 4px 8px),var(--bg-surface-muted)}
+.wv.slot{background:var(--bg-surface-muted)}
+.fresh{display:flex;align-items:center;gap:5px;font-size:11px}
+.dot{width:7px;height:7px;background:var(--success);display:inline-block}
+
+.tile{background:var(--bg-surface);border:3px solid var(--border-pixel);
+  clip-path:polygon(0 6px,3px 6px,3px 3px,6px 3px,6px 0,calc(100% - 6px) 0,calc(100% - 6px) 3px,calc(100% - 3px) 3px,calc(100% - 3px) 6px,100% 6px,100% calc(100% - 6px),calc(100% - 3px) calc(100% - 6px),calc(100% - 3px) calc(100% - 3px),calc(100% - 6px) calc(100% - 3px),calc(100% - 6px) 100%,6px 100%,6px calc(100% - 3px),3px calc(100% - 3px),3px calc(100% - 6px),0 calc(100% - 6px));
+  padding:12px 14px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.muted-tile{background:var(--bg-surface-muted)}
+.tile-label{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-tertiary);font-weight:500}
+
+/* today */
+.date{font-size:36px;line-height:1.05;font-weight:500}
+.dayname{font-size:17px;color:var(--accent);font-weight:500;margin-top:-2px}
+.stats-row{display:flex;gap:16px;flex-wrap:wrap;font-size:15px;margin-top:4px}
+.stats-row b{font-weight:500}
+.checklist{display:flex;flex-direction:column;gap:6px;margin-top:4px;font-size:14px}
+.chk{display:flex;align-items:center;gap:8px}
+.box{width:14px;height:14px;border:2px solid var(--border-pixel);background:var(--bg-surface)}
+.box.done{background:var(--success);position:relative}
+.box.done::after{content:"";position:absolute;inset:2px;background:var(--bg-surface);clip-path:polygon(0 50%,40% 100%,100% 0,80% 0,40% 70%,15% 45%)}
+.monster{margin-top:4px;display:flex;align-items:center;gap:10px}
+.can{width:24px;height:36px;background:var(--accent-warm);border:2px solid var(--border-pixel);position:relative}
+.can::before{content:"";position:absolute;left:3px;right:3px;top:5px;height:9px;background:var(--text-primary)}
+
+/* week strip calendar */
+.weekstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.wday{flex:0 0 44px;height:52px;background:var(--bg-surface-muted);position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.wday.data{background:var(--bg-surface);box-shadow:inset 0 0 0 1px var(--border-pixel)}
+.wday.today{box-shadow:inset 0 0 0 3px var(--border-pixel);background:var(--bg-surface)}
+.wday .dow{font-size:9px;color:var(--text-tertiary)}
+.wday .num{font-size:14px;font-weight:500}
+.wday .mpix{position:absolute;right:3px;bottom:3px;width:7px;height:7px}
+.wday .name-mark{position:absolute;left:3px;top:3px;width:4px;height:4px;background:var(--text-secondary)}
+
+/* stats */
+.statgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .v{font-size:20px;font-weight:500}.stat .k{font-size:11px;color:var(--text-secondary)}
+
+/* music */
+.np-now .t{font-weight:500;font-size:14px}
+.bar{height:6px;background:var(--bg-surface-muted);margin:5px 0;position:relative}
+.bar::after{content:"";position:absolute;left:0;top:0;bottom:0;width:38%;background:var(--accent)}
+.recent{margin-top:2px;border-top:1px dashed var(--border-pixel);padding-top:4px}
+.recent .r{font-size:11px;color:var(--text-secondary);padding:2px 0}
+
+/* two-up row: projects + social */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.icons{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.ico{width:26px;height:26px;border:2px solid var(--border-pixel);background:var(--bg-surface-muted)}
+
+/* hero */
+.hero{height:150px;padding:0;position:relative}
+.hero-img{position:absolute;inset:0;background:repeating-linear-gradient(45deg,var(--bg-surface-muted) 0 8px,#EAD9CE 8px 16px)}
+.hero-cap{position:relative;margin-top:auto;background:rgba(33,26,22,.78);color:#fff;font-size:12px;padding:4px 8px;align-self:flex-start}
+
+/* marquee */
+.M{padding:0;overflow:hidden}
+.marq{display:flex;gap:24px;align-items:center;white-space:nowrap;animation:scroll 20s linear infinite;padding:12px}
+.marq .item{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px}
+.art{width:52px;height:52px;border:3px solid var(--border-pixel);background:repeating-conic-gradient(var(--bg-surface-muted) 0 25%,#EAD9CE 0 50%) 0 0/14px 14px}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-55%)}}
+@media (prefers-reduced-motion:reduce){.marq{animation:none}}
+.note{font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="topbar">
+    <div class="brand"><span class="avatar"></span>danchuo<b>.world</b></div>
+    <div class="topright">
+      <div class="waves">
+        <span class="wv w1 active"></span><span class="wv slot"></span><span class="wv slot"></span>
+      </div>
+      <div class="fresh mono"><span class="dot"></span>12:00</div>
+    </div>
+  </div>
+
+  <!-- 1. Today -->
+  <div class="tile">
+    <div class="tile-label">сегодня</div>
+    <div class="date mono">15 ИЮН 2026</div>
+    <div class="dayname mono">«первый забег»</div>
+    <div class="stats-row mono">
+      <div><b>12 480</b> <span class="muted">шагов</span></div>
+      <div><b>7ч 12м</b> <span class="muted">сон</span></div>
+    </div>
+    <div class="stats-row mono" style="margin-top:0"><div><b>бег 5.2км · 42м</b></div></div>
+    <div class="checklist">
+      <div class="chk"><span class="box done"></span> растяжка</div>
+      <div class="chk"><span class="box done"></span> чтение</div>
+      <div class="chk"><span class="box"></span> медитация</div>
+    </div>
+    <div class="monster">
+      <div class="can"></div>
+      <div><div style="font-weight:500;font-size:14px">Monster Ultra Peachy</div><div class="hint" style="font-size:11px">вкус дня</div></div>
+    </div>
+  </div>
+
+  <!-- 2. Calendar week strip -->
+  <div class="tile">
+    <div class="tile-label">календарь · неделя ◂ ▸</div>
+    <div class="weekstrip mono">
+      <div class="wday data"><span class="dow">пн</span><span class="num">9</span><span class="mpix" style="background:var(--accent-warm)"></span></div>
+      <div class="wday data"><span class="dow">вт</span><span class="num">10</span></div>
+      <div class="wday data"><span class="dow">ср</span><span class="num">11</span><span class="name-mark"></span></div>
+      <div class="wday data"><span class="dow">чт</span><span class="num">12</span></div>
+      <div class="wday data"><span class="dow">пт</span><span class="num">13</span><span class="mpix" style="background:var(--accent)"></span></div>
+      <div class="wday data"><span class="dow">сб</span><span class="num">14</span></div>
+      <div class="wday today"><span class="dow">вс</span><span class="num">15</span><span class="mpix" style="background:var(--accent-warm)"></span><span class="name-mark"></span></div>
+    </div>
+    <div class="note">тап = сводка · повторный тап = открыть как «Сегодня»</div>
+  </div>
+
+  <!-- 3. Stats -->
+  <div class="tile">
+    <div class="tile-label">статы</div>
+    <div class="statgrid mono">
+      <div class="stat"><span class="v">12 480</span><span class="k">шаги</span></div>
+      <div class="stat"><span class="v">7:12</span><span class="k">сон</span></div>
+      <div class="stat"><span class="v">42м</span><span class="k">тренировка</span></div>
+    </div>
+  </div>
+
+  <!-- 4. Music -->
+  <div class="tile">
+    <div class="tile-label">▶ музыка · spotify</div>
+    <div class="np-now">
+      <div class="t">Midnight City <span class="muted" style="font-weight:400">— M83</span></div>
+      <div class="bar"></div>
+    </div>
+    <div class="recent">
+      <div class="r">↺ Flume — Holdin On</div>
+      <div class="r">↺ Bonobo — Kerala</div>
+    </div>
+  </div>
+
+  <!-- 5. Projects + Social -->
+  <div class="row2">
+    <div class="tile muted-tile">
+      <div class="tile-label">проекты ▸</div>
+      <div class="mono" style="font-size:13px">2026 · Q2<br>4 проекта</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">соцсети</div>
+      <div class="icons"><span class="ico"></span><span class="ico"></span><span class="ico"></span></div>
+    </div>
+  </div>
+
+  <!-- 6. Hero -->
+  <div class="tile hero">
+    <div class="hero-img"></div>
+    <div class="hero-cap mono">пхукет, март</div>
+  </div>
+
+  <!-- 7. Marquee -->
+  <div class="tile M">
+    <div class="marq mono">
+      <div class="item"><span class="art"></span>футболка</div>
+      <div class="item"><span class="art"></span>ракетка</div>
+      <div class="item"><span class="art"></span>камера</div>
+      <div class="item"><span class="art"></span>iphone</div>
+      <div class="item"><span class="art"></span>очки</div>
+      <div class="item"><span class="art"></span>футболка</div>
+      <div class="item"><span class="art"></span>ракетка</div>
+    </div>
+  </div>
+
+  <div class="note">мобайл &lt;640px · стек: Сегодня → календарь(неделя) → статы → музыка → проекты/соц → hero → marquee · без горизонтального скролла страницы</div>
+</div>
+</body>
+</html>

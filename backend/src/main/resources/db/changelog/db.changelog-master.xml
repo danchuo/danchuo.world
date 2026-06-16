@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Конвейер миграций danchuo.world (M0 — пустой шов).
+
+      Каждый feature-слайс кладёт свои чейнджлоги в db/changelog/changes/
+      и они подхватываются includeAll ниже (по имени файла, лексикографически).
+      Схема — зона ответственности Liquibase, а не hbm2ddl
+      (quarkus.hibernate-orm.database.generation=none).
+    -->
+    <includeAll path="changes/" relativeToChangelogFile="true" errorIfMissingOrEmpty="false"/>
+</databaseChangeLog>

@@ -1,0 +1,2 @@
+# Сюда feature-слайсы кладут свои Liquibase-чейнджлоги (M1+).
+# Имя: NNNN_<slice>_<что>.xml (или .sql), напр. 0001_days_create_day_record.xml

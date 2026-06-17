@@ -1,0 +1,71 @@
+package world.danchuo.days
+
+import jakarta.enterprise.context.ApplicationScoped
+import world.danchuo.core.config.MskTime
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+
+/**
+ * Единая точка записи в [DayRecord] (PRD §3.1, §4). Слайсы (`health`, `checklist`)
+ * не трогают день напрямую — пишут через узкие методы здесь, а сервис держит
+ * сквозные инварианты: генезис-гард, find-or-create по дате, отметки `created/updatedAt`.
+ *
+ * Идемпотентность ingest (PRD §12 M1, exit): запись адресуется датой-ключом, повтор
+ * за ту же дату обновляет ту же строку (upsert), а не плодит дубли.
+ */
+@ApplicationScoped
+class DayRecordService(
+    private val repo: DayRecordRepository,
+    private val mskTime: MskTime,
+    private val clock: Clock,
+) {
+
+    /** Применить статы здоровья дня (PRD §5.4). `null` пишется как «нет данных», 0 — как ноль. */
+    fun applyHealth(
+        date: LocalDate,
+        steps: Int?,
+        sleepMinutes: Int?,
+        sleepRem: Int?,
+        sleepDeep: Int?,
+        sleepLight: Int?,
+        sleepAwake: Int?,
+    ): DayRecord = upsert(date) { day ->
+        day.steps = steps
+        day.sleepMinutes = sleepMinutes
+        day.sleepRemMinutes = sleepRem
+        day.sleepDeepMinutes = sleepDeep
+        day.sleepLightMinutes = sleepLight
+        day.sleepAwakeMinutes = sleepAwake
+    }
+
+    /** Применить ручную мету дня (PRD §5.6): имя дня и вкус монстра (`null` = «не пил»). */
+    fun applyDailyMeta(
+        date: LocalDate,
+        title: String?,
+        monsterFlavorId: Long?,
+    ): DayRecord = upsert(date) { day ->
+        day.title = title?.takeIf { it.isNotBlank() }
+        day.monsterFlavorId = monsterFlavorId
+    }
+
+    /**
+     * Find-or-create за дату с генезис-гардом, применяет [mutate], бьёт `updatedAt`.
+     * Внутренний шов: каждый публичный метод выражается через него — инварианты в одном месте.
+     */
+    private inline fun upsert(date: LocalDate, mutate: (DayRecord) -> Unit): DayRecord {
+        if (date.isBefore(mskTime.genesis)) {
+            throw DateBeforeGenesisException(date, mskTime.genesis)
+        }
+        val now = Instant.now(clock)
+        val day = repo.findByDate(date) ?: DayRecord().apply {
+            this.date = date
+            createdAt = now
+            updatedAt = now
+            repo.persist(this)
+        }
+        mutate(day)
+        day.updatedAt = now
+        return day
+    }
+}

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс monster (PRD §5.6, §7). Вкусы — data-driven: новый вкус = ещё одна
+      строка (сид ниже или INSERT на проде), без релиза. Создаётся раньше day_record
+      (0030): на него ссылается FK day_record.monster_flavor_id.
+    -->
+    <changeSet id="0010-monster-flavor-table" author="danchuo">
+        <createTable tableName="monster_flavor">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="key" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="image_url" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="accent_color" type="VARCHAR(16)"/>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!--
+      Сид вкусов (первая итерация). Ключи стабильны (на них шлёт шорткат),
+      image_url — статика фронта (раздаётся в M2+). Без явных id: IDENTITY сам
+      проставит, резолв идёт по key (ноль хардкод-id).
+    -->
+    <changeSet id="0010-monster-flavor-seed" author="danchuo">
+        <insert tableName="monster_flavor">
+            <column name="key" value="ultra-paradise"/>
+            <column name="name" value="Ultra Paradise"/>
+            <column name="image_url" value="/assets/monster/ultra-paradise.png"/>
+            <column name="accent_color" value="#7FD13B"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="monster_flavor">
+            <column name="key" value="mango-loco"/>
+            <column name="name" value="Mango Loco"/>
+            <column name="image_url" value="/assets/monster/mango-loco.png"/>
+            <column name="accent_color" value="#F2A900"/>
+            <column name="sort_order" valueNumeric="20"/>
+        </insert>
+        <insert tableName="monster_flavor">
+            <column name="key" value="original"/>
+            <column name="name" value="Original Green"/>
+            <column name="image_url" value="/assets/monster/original.png"/>
+            <column name="accent_color" value="#84BD00"/>
+            <column name="sort_order" valueNumeric="30"/>
+        </insert>
+        <insert tableName="monster_flavor">
+            <column name="key" value="pacific-punch"/>
+            <column name="name" value="Pacific Punch"/>
+            <column name="image_url" value="/assets/monster/pacific-punch.png"/>
+            <column name="accent_color" value="#2BB3C0"/>
+            <column name="sort_order" valueNumeric="40"/>
+        </insert>
+        <insert tableName="monster_flavor">
+            <column name="key" value="ultra-fiesta"/>
+            <column name="name" value="Ultra Fiesta"/>
+            <column name="image_url" value="/assets/monster/ultra-fiesta.png"/>
+            <column name="accent_color" value="#FF5DA2"/>
+            <column name="sort_order" valueNumeric="50"/>
+        </insert>
+        <insert tableName="monster_flavor">
+            <column name="key" value="ultra-red"/>
+            <column name="name" value="Ultra Red"/>
+            <column name="image_url" value="/assets/monster/ultra-red.png"/>
+            <column name="accent_color" value="#D6001C"/>
+            <column name="sort_order" valueNumeric="60"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

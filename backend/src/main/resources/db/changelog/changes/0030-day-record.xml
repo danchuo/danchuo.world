@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс days (PRD §7): ось данных — день (date = PK, LocalDate в MSK). Статы
+      здоровья nullable (null = нет данных, 0 = ноль; §5.4). monster_flavor_id —
+      плоский FK на monster_flavor (создан в 0010). Поля screen_time/reading/photo —
+      задел бэклога: схема готова, ingest M1 их не пишет.
+    -->
+    <changeSet id="0030-day-record-table" author="danchuo">
+        <createTable tableName="day_record">
+            <column name="date" type="DATE">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(256)"/>
+            <column name="steps" type="INT"/>
+            <column name="sleep_minutes" type="INT"/>
+            <column name="sleep_rem_minutes" type="INT"/>
+            <column name="sleep_deep_minutes" type="INT"/>
+            <column name="sleep_light_minutes" type="INT"/>
+            <column name="sleep_awake_minutes" type="INT"/>
+            <column name="monster_flavor_id" type="BIGINT"/>
+            <column name="screen_time_minutes" type="INT"/>
+            <column name="reading_progress_percent" type="INT"/>
+            <column name="day_photo_url" type="VARCHAR(512)"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                constraintName="fk_day_record_monster_flavor"
+                baseTableName="day_record" baseColumnNames="monster_flavor_id"
+                referencedTableName="monster_flavor" referencedColumnNames="id"
+                onDelete="SET NULL"/>
+    </changeSet>
+</databaseChangeLog>

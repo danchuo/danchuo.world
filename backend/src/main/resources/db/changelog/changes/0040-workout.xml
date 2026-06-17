@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс health (PRD §5.4, §7): тренировки, N на день по date (плоская связь,
+      без FK-отношения на day_record — слайсы расцеплены; ось общая — дата в MSK).
+      Идемпотентность ingest держится заменой набора за дату → индекс по date.
+    -->
+    <changeSet id="0040-workout-table" author="danchuo">
+        <createTable tableName="workout">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="duration_minutes" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active_energy_kcal" type="INT"/>
+            <column name="distance_meters" type="INT"/>
+            <column name="source" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="workout" indexName="idx_workout_date">
+            <column name="date"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

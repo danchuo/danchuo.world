@@ -1,4 +1,4 @@
-import type { DaySummary, DayView } from "./types";
+import type { DaySummary, DayView, NowPlayingView, RecentTrackView } from "./types";
 
 /**
  * JSON-клиент к Quarkus (PRD §3 — фронт изолирован в клиента к бэкенду). Только публичное
@@ -28,6 +28,16 @@ export function getDay(date: string, init?: RequestInit): Promise<DayView> {
 export function getDays(from: string, to: string, init?: RequestInit): Promise<DaySummary[]> {
   const qs = new URLSearchParams({ from, to }).toString();
   return getJson<DaySummary[]>(`/api/days?${qs}`, init);
+}
+
+/** Текущий трек Spotify (`GET /api/spotify/now-playing`). IDLE, если ничего не играет. */
+export function getNowPlaying(init?: RequestInit): Promise<NowPlayingView> {
+  return getJson<NowPlayingView>(`/api/spotify/now-playing`, init);
+}
+
+/** Недавние треки Spotify (`GET /api/spotify/recent?limit=`). */
+export function getRecent(limit = 8, init?: RequestInit): Promise<RecentTrackView[]> {
+  return getJson<RecentTrackView[]>(`/api/spotify/recent?limit=${limit}`, init);
 }
 
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {

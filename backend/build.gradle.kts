@@ -21,6 +21,10 @@ dependencies {
     implementation("io.quarkus:quarkus-rest-jackson")
     implementation("io.quarkus:quarkus-kotlin")
 
+    // Исходящий HTTP к внешним API (Spotify Web API + accounts OAuth, PRD §M3).
+    // Живёт только в слайсе spotify — ядро внешних источников не знает.
+    implementation("io.quarkus:quarkus-rest-client-jackson")
+
     // Постоянство: Hibernate ORM Panache (Kotlin) + PostgreSQL
     implementation("io.quarkus:quarkus-hibernate-orm-panache-kotlin")
     implementation("io.quarkus:quarkus-jdbc-postgresql")
@@ -38,7 +42,9 @@ dependencies {
 }
 
 group = "world.danchuo"
-version = "0.4.0-SNAPSHOT"
+// M3: бэк и фронт получили рабочие версии — с этой ветки версии разведены
+// (CLAUDE.md §версионирование). Ветка трогает бэк → minor бэка.
+version = "0.5.0-SNAPSHOT"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

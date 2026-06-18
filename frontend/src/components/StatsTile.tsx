@@ -43,9 +43,10 @@ function Sparkline({ window }: { window: DaySummary[] }) {
  * Статы (S) — значения выбранного дня (шаги/сон/тренировка) + мини-график шагов за окно
  * (DESIGN §7.4). null ≠ 0: реальный 0 рисуется как 0, отсутствие — «нет данных».
  */
-export function StatsTile({ day, window, state, onRetry, style, className }: StatsTileProps) {
-  const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
+/** Mono-стиль — статичен, держим вне компонента (не пересобираем на рендер). */
+const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
+export function StatsTile({ day, window, state, onRetry, style, className }: StatsTileProps) {
   return (
     <TileShell state={state} onRetry={onRetry} ariaLabel="Статы" style={style} className={className}>
       {day && (

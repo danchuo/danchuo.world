@@ -11,14 +11,20 @@ interface TodayTileProps {
   className?: string;
 }
 
+// Форматтер строится один раз на модуль (создание Intl дорогое).
+const LONG_DATE_RU_FMT = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** Mono-стиль — статичен, держим вне компонента (не пересобираем на рендер). */
+const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
+
 /** Длинная дата RU в mono (DESIGN §4 — «ДАТА крупно, mono»). */
 function longDateRu(iso: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${iso}T00:00:00Z`));
+  return LONG_DATE_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
 }
 
 /**
@@ -27,8 +33,6 @@ function longDateRu(iso: string): string {
  * статы «нет данных» (но 0 как 0), дисциплина в каркасе с 0, монстр «не пил».
  */
 export function TodayTile({ day, state, onRetry, style, className }: TodayTileProps) {
-  const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
-
   return (
     <TileShell
       state={state}

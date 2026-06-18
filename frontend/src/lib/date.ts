@@ -7,10 +7,14 @@
 const MSK_ZONE = "Europe/Moscow";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Intl-форматтеры строятся один раз на модуль (создание дорогое — не повторяем на каждый вызов).
+const MSK_TODAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: MSK_ZONE });
+const WEEKDAY_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "UTC" });
+
 /** Сегодня в каноне MSK (`YYYY-MM-DD`), независимо от зоны посетителя. */
 export function mskToday(now: Date = new Date()): string {
   // en-CA форматирует как YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", { timeZone: MSK_ZONE }).format(now);
+  return MSK_TODAY_FMT.format(now);
 }
 
 /** Сдвиг даты на [days] дней (может быть отрицательным). */
@@ -44,9 +48,7 @@ export function dayOfMonth(iso: string): number {
 /** Короткий день недели в RU (`пн`..`вс`) — для недельной полосы на мобиле (§8). */
 export function weekdayShortRu(iso: string): string {
   assertIso(iso);
-  return new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "UTC" }).format(
-    new Date(`${iso}T00:00:00Z`),
-  );
+  return WEEKDAY_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
 }
 
 function assertIso(iso: string): void {

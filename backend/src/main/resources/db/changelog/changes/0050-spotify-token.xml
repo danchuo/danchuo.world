@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс spotify (PRD §M3): синглтон-строка с OAuth-кредами. refresh-токен хранится
+      ШИФРОВАННО (AES-GCM, §8) — в БД лежит Base64(IV‖ciphertext), не открытый текст.
+      Один аккаунт-владелец ⇒ одна строка с фиксированным id=1 (upsert при ре-авторизации).
+    -->
+    <changeSet id="0050-spotify-token-table" author="danchuo">
+        <createTable tableName="spotify_token">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="encrypted_refresh_token" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scope" type="VARCHAR(256)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

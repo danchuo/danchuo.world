@@ -1,3 +1,8 @@
 .claude/
 .gstack/
 .idea/
+
+# Локальные .env с секретами — НЕ коммитим; трекаются только образцы *.env.example
+.env
+.env.*
+!.env.example

@@ -25,6 +25,11 @@ services:
 
   backend:
     build: ./backend
+    # Spotify-креды (PRD §M3) подтягиваются из backend/.env (он в .gitignore, секреты
+    # не в репозитории). Файла нет ⇒ слайс грузится «не сконфигурирован», не падает.
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       # Профиль prod (дефолт упакованного Quarkus) читает датасорс/токен строго из env.
       DANCHUO_DB_URL: jdbc:postgresql://postgres:5432/danchuo

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { mskToday, windowAround } from "@/lib/date";
@@ -12,9 +12,23 @@ import { TodayTile } from "./TodayTile";
 import { WeekStrip } from "./WeekStrip";
 
 type Status = "loading" | "error" | "loaded";
+type TileVariant = "grid" | "stack" | "strip";
 
 /** Радиус окна календаря/мини-графика — ±15 дней (PRD §5.3). */
 const RADIUS = 15;
+
+/** Данные/хендлеры борда, прокидываемые в каждый тайл. */
+interface BoardData {
+  day: DayView | null;
+  dayStatus: Status;
+  summaries: DaySummary[];
+  rangeStatus: Status;
+  selected: string;
+  today: string;
+  selectDay: (date: string) => void;
+  retryDay: () => void;
+  retryRange: () => void;
+}
 
 /**
  * Борд danchuo.world (PRD §12 M2). Тянет данные на клиенте с независимыми per-tile
@@ -31,7 +45,9 @@ export function Board() {
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
   const [dayStatus, setDayStatus] = useState<Status>("loading");
   const [day, setDay] = useState<DayView | null>(null);
-  const [dayCache, setDayCache] = useState<Record<string, DayView>>({});
+  // Кэш загруженных дней — это накопитель ответов сети, не отображаемое состояние:
+  // держим в ref, чтобы запись в кэш не вызывала лишний рендер.
+  const dayCache = useRef<Record<string, DayView>>({});
 
   const loadRange = useCallback(() => {
     setRangeStatus("loading");
@@ -45,80 +61,37 @@ export function Board() {
 
   useEffect(loadRange, [loadRange]);
 
-  const loadDay = useCallback(
-    (date: string) => {
-      const cached = dayCache[date];
-      if (cached) {
-        setDay(cached);
+  const loadDay = useCallback((date: string) => {
+    const cached = dayCache.current[date];
+    if (cached) {
+      setDay(cached);
+      setDayStatus("loaded");
+      return;
+    }
+    setDayStatus("loading");
+    setDay(null);
+    getDay(date)
+      .then((d) => {
+        dayCache.current[date] = d;
+        setDay(d);
         setDayStatus("loaded");
-        return;
-      }
-      setDayStatus("loading");
-      setDay(null);
-      getDay(date)
-        .then((d) => {
-          setDay(d);
-          setDayStatus("loaded");
-          setDayCache((c) => ({ ...c, [date]: d }));
-        })
-        .catch(() => setDayStatus("error"));
-    },
-    [dayCache],
-  );
+      })
+      .catch(() => setDayStatus("error"));
+  }, []);
 
   useEffect(() => loadDay(selected), [selected, loadDay]);
 
-  /** Один тайл реестра. [variant] управляет тем, чем заменить календарь на узких экранах. */
-  const renderTile = useCallback(
-    (id: TileId, variant: "grid" | "stack" | "strip", style?: CSSProperties, className?: string): ReactNode => {
-      switch (id) {
-        case "today":
-          return (
-            <TodayTile day={day} state={dayStatus} onRetry={() => loadDay(selected)} style={style} className={className} />
-          );
-        case "stats":
-          return (
-            <StatsTile
-              day={day}
-              window={summaries}
-              state={dayStatus}
-              onRetry={() => loadDay(selected)}
-              style={style}
-              className={className}
-            />
-          );
-        case "calendar":
-          return variant === "strip" ? (
-            <WeekStrip
-              days={summaries}
-              selected={selected}
-              today={today}
-              onSelect={setSelected}
-              state={rangeStatus}
-              onRetry={loadRange}
-              style={style}
-              className={className}
-            />
-          ) : (
-            <Calendar
-              days={summaries}
-              selected={selected}
-              today={today}
-              onSelect={setSelected}
-              state={rangeStatus}
-              onRetry={loadRange}
-              style={style}
-              className={className}
-            />
-          );
-        case "identity":
-          return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
-        default:
-          return <PlaceholderTile label={TILE_NOTES[id]} style={style} className={className} />;
-      }
-    },
-    [day, dayStatus, summaries, selected, today, rangeStatus, loadDay, loadRange],
-  );
+  const data: BoardData = {
+    day,
+    dayStatus,
+    summaries,
+    rangeStatus,
+    selected,
+    today,
+    selectDay: setSelected,
+    retryDay: () => loadDay(selected),
+    retryRange: loadRange,
+  };
 
   return (
     <main className="min-h-screen p-4">
@@ -135,7 +108,7 @@ export function Board() {
       >
         {(Object.keys(TILE_LAYOUT) as TileId[]).map((id) => (
           <div key={id} style={{ gridArea: gridArea(TILE_LAYOUT[id]), minHeight: 0 }}>
-            {renderTile(id, "grid", { height: "100%", width: "100%" })}
+            <BoardTile id={id} variant="grid" data={data} style={{ height: "100%", width: "100%" }} />
           </div>
         ))}
       </div>
@@ -145,16 +118,87 @@ export function Board() {
         {MOBILE_ORDER.map((id) =>
           id === "calendar" ? (
             <div key={id}>
-              <div className="hidden sm:block">{renderTile(id, "grid")}</div>
-              <div className="sm:hidden">{renderTile(id, "strip")}</div>
+              <div className="hidden sm:block">
+                <BoardTile id={id} variant="grid" data={data} />
+              </div>
+              <div className="sm:hidden">
+                <BoardTile id={id} variant="strip" data={data} />
+              </div>
             </div>
           ) : (
-            <div key={id}>{renderTile(id, "stack")}</div>
+            <div key={id}>
+              <BoardTile id={id} variant="stack" data={data} />
+            </div>
           ),
         )}
       </div>
     </main>
   );
+}
+
+/**
+ * Один тайл реестра как полноценный компонент (а не inline-функция в рендере —
+ * иначе React терял бы идентичность поддерева). [variant] управляет тем, чем заменить
+ * календарь на узких экранах: сетка (`grid`/`stack`) или недельная полоса (`strip`).
+ */
+function BoardTile({
+  id,
+  variant,
+  data,
+  style,
+  className,
+}: {
+  id: TileId;
+  variant: TileVariant;
+  data: BoardData;
+  style?: CSSProperties;
+  className?: string;
+}) {
+  switch (id) {
+    case "today":
+      return (
+        <TodayTile day={data.day} state={data.dayStatus} onRetry={data.retryDay} style={style} className={className} />
+      );
+    case "stats":
+      return (
+        <StatsTile
+          day={data.day}
+          window={data.summaries}
+          state={data.dayStatus}
+          onRetry={data.retryDay}
+          style={style}
+          className={className}
+        />
+      );
+    case "calendar":
+      return variant === "strip" ? (
+        <WeekStrip
+          days={data.summaries}
+          selected={data.selected}
+          today={data.today}
+          onSelect={data.selectDay}
+          state={data.rangeStatus}
+          onRetry={data.retryRange}
+          style={style}
+          className={className}
+        />
+      ) : (
+        <Calendar
+          days={data.summaries}
+          selected={data.selected}
+          today={data.today}
+          onSelect={data.selectDay}
+          state={data.rangeStatus}
+          onRetry={data.retryRange}
+          style={style}
+          className={className}
+        />
+      );
+    case "identity":
+      return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
+    default:
+      return <PlaceholderTile label={TILE_NOTES[id]} style={style} className={className} />;
+  }
 }
 
 /** Подписи пустых швов борда (тайлы будущих эр, DESIGN §7 Empty). */

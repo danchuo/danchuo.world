@@ -60,7 +60,7 @@ export function WeekStrip({
                 background: d.hasData ? "var(--bg-surface)" : "var(--bg-surface-muted)",
               }}
             >
-              <span style={{ color: "var(--text-tertiary)", fontSize: 11 }}>
+              <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
                 {weekdayShortRu(d.date)}
               </span>
               <span style={{ fontWeight: isToday ? 500 : 400 }}>{dayOfMonth(d.date)}</span>

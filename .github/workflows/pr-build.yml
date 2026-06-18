@@ -1,0 +1,73 @@
+name: PR · сборка и тесты
+
+# Гейт на пул-реквестах: при PR в main собираем бэкенд с прогоном тестов.
+# Проваленная сборка/тесты => job красный => PR не вмёрджить (если check сделан required).
+on:
+  pull_request:
+    branches: [ main ]
+
+# Новый пуш в ветку PR отменяет предыдущий ещё бегущий прогон.
+concurrency:
+  group: pr-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Сборка + тесты (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Java 25 — канон стека. Раннер ставит JDK и выставляет JAVA_HOME.
+      - name: Установить JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Подготовить Gradle (с кэшем)
+        uses: gradle/actions/setup-gradle@v4
+
+      # build тянет за собой test (Dev Services поднимает Postgres в Docker раннера).
+      # org.gradle.java.home в gradle.properties указывает на Windows-путь разработчика —
+      # перебиваем его на JAVA_HOME раннера, иначе Gradle-демон не стартует.
+      - name: Сборка с тестами
+        working-directory: backend
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build -Dorg.gradle.java.home="$JAVA_HOME" --no-daemon
+
+      # Отчёты тестов — артефактом, чтобы разбирать падения не вслепую.
+      - name: Загрузить отчёты тестов
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: backend/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Тесты + сборка (frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Установить Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Установить зависимости
+        working-directory: frontend
+        run: npm ci
+
+      # Тесты (Vitest) + проверка типов + продакшн-сборка Next.js.
+      - name: Тесты и сборка
+        working-directory: frontend
+        run: |
+          npm run test
+          npm run typecheck
+          npm run build

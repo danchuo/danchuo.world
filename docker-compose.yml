@@ -1,0 +1,56 @@
+# danchuo.world — локальный стек для тестирования (PRD §8, расцепленный монолит).
+# Полный прогон одной командой:  docker compose up --build
+#   • сайт   → http://localhost:3000
+#   • API    → http://localhost:8080/api/days/<дата>
+#   • postgres → localhost:5432 (danchuo/danchuo)
+# Это ТЕСТОВЫЙ конфиг: дефолтные креды и токен открыты намеренно. Не для прода
+# (там — env-секреты + Caddy/TLS, отдельный deploy-compose появится в эру деплоя).
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: danchuo
+      POSTGRES_USER: danchuo
+      POSTGRES_PASSWORD: danchuo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U danchuo -d danchuo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      # Профиль prod (дефолт упакованного Quarkus) читает датасорс/токен строго из env.
+      DANCHUO_DB_URL: jdbc:postgresql://postgres:5432/danchuo
+      DANCHUO_DB_USER: danchuo
+      DANCHUO_DB_PASSWORD: danchuo
+      DANCHUO_INGEST_TOKEN: dev-ingest-token-change-me
+      # Генезис-дата (раньше неё данных нет, PRD §4) — для теста ставим начало года.
+      DANCHUO_TIME_GENESIS: "2026-01-01"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Браузер ходит на тот же origin (/api/*), Next-сервер проксирует на бэкенд
+        # по docker-имени сервиса — CORS не нужен (зеркалит прод за Caddy).
+        # Цель запекается в rewrites на build-time, поэтому это build-arg.
+        API_PROXY_TARGET: http://backend:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

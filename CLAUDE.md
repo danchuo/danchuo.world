@@ -4,15 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Текущее состояние репозитория
 
-**Эра M1 (спина данных и ingestion) реализована на бэкенде; фронта ещё нет.** Документация и вайрфреймы — на месте; Quarkus-скелет наполнен первыми вертикальными слайсами и принимает ingest с телефона.
+**Эра M2 (публичный каркас и календарь) в работе.** Бэкенд: спина данных M1 + read-API дня/календаря и агрегатор. Фронт: Next.js-каркас с плиткой «Сегодня», календарём ±15, статами и токенами волны 01 в `:root`. Дальше — эра M3 (Spotify).
 
 - `docs/PRD-danchuoworld.md` — **что** строим: функциональные требования, acceptance criteria, модель данных, этапы M0–M5 + бэклог.
 - `docs/DESIGN.md` — **как** это выглядит и ощущается: источник правды по дизайну (волна 01, токены, bento-сетка, состояния).
 - `examples/wave01-desktop.html`, `examples/wave01-mobile.html` — статические вайрфреймы волны 01; `examples/explore-depth.html` — эксплорация глубины/рамки (референс, **не продакшн-код**).
 - `backend/` — Quarkus (Kotlin), Gradle. Feature-пакеты (вертикальные слайсы, PRD §3.1) + `core` (сквозные соглашения).
   - **M1 наполнены:** `days` (`DayRecord` + `DayRecordService` — единая точка записи дня, генезис-гард), `health` (`Workout`, `POST /api/ingest/health`), `checklist` (`ChecklistItem`/`ChecklistEntry`, `POST /api/ingest/daily`, пункт `monster` — производная от вкуса), `monster` (`MonsterFlavor`, data-driven вкусы). Сиды пунктов и вкусов — в Liquibase. Ingest идемпотентен (upsert по дате), null ≠ 0 (§5.4).
-  - **Ещё пустые швы (M2+):** `spotify/theme/projects/social/analytics` — пока пакет-маркеры.
+  - **M2 (бэкенд) готов:** `days` дополнен агрегатором (`DayAggregator`) и публичными `GET /api/days/{date}` (полная проекция `DayView`) + `GET /api/days?from=&to=` (сводки `DaySummary` для календаря/мини-графика). Все GET публичны, генезис-гард, null ≠ 0.
+  - **Ещё пустые швы (M3+):** `spotify/theme/projects/social/analytics` — пока пакет-маркеры.
   - `core` содержит bearer-фильтр (`/api/ingest/*`), MSK/генезис-конфиг и кэш-шов.
+- `frontend/` — Next.js (App Router) + TypeScript + Tailwind v4. Публичный JSON-клиент к Quarkus (только чтение).
+  - **M2 каркас:** токены волны 01 в `:root` (`src/app/globals.css`; M4 заменит на инжект из `/api/theme/active`), data-driven layout-конфиг тайлов (`src/lib/layout.ts`, bento 20×14), плитка «Сегодня»/календарь/статы + недельная полоса на мобиле, per-tile состояния (loading/empty/error/loaded). Прочие тайлы — пустые швы под M3+.
+  - Тесты — Vitest + React Testing Library (`*.test.ts(x)` рядом с кодом).
 
 ### Версии стека (самые свежие, что тянем — см. память `latest-stack-preference`)
 - **Java 25** нативно (toolchain + Gradle-демон через `org.gradle.java.home`); байткод-таргет 25 (Java и Kotlin консистентно).
@@ -25,7 +29,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Тесты: `./backend/gradlew -p backend test` (требуют Docker для Dev Services Postgres)
 - JDK для Gradle зашит в `backend/gradle.properties` (`D:/Programms/Java/jdk-25`); на другой машине — поправить путь.
 
-Фронт (Next.js/React/TS/Tailwind/shadcn) появится в эру M2 — обновить раздел командами, когда заведётся `package.json`.
+### Команды фронта (запускать из `frontend/`)
+- Установка: `npm ci` (или `npm install`)
+- Dev-сервер: `npm run dev` (ожидает бэкенд на `NEXT_PUBLIC_API_BASE_URL`, дефолт `http://localhost:8080` — см. `.env.example`)
+- Тесты: `npm run test` (Vitest); типы: `npm run typecheck`; прод-сборка: `npm run build`
+- shadcn пока не подключён — добавим, когда понадобятся его компоненты.
 
 ## Документы — кто за что отвечает
 

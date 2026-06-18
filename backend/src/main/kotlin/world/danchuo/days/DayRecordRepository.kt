@@ -12,4 +12,8 @@ import java.time.LocalDate
 class DayRecordRepository : PanacheRepositoryBase<DayRecord, LocalDate> {
 
     fun findByDate(date: LocalDate): DayRecord? = findById(date)
+
+    /** Записи в диапазоне дат `[from, to]` включительно — для агрегатора календаря (M2). */
+    fun listByDateRange(from: LocalDate, to: LocalDate): List<DayRecord> =
+        list("date >= ?1 and date <= ?2", from, to)
 }

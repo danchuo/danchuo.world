@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+ * Токены волны 01 «Студия / Персик» (DESIGN §2.1–2.3) в :root.
+ * M2: токены захардкожены здесь под активную волну. M4 заменит их на инжект из
+ * `GET /api/theme/active` (JSONB в БД) — компоненты не меняются, читают те же переменные.
+ * Правило: ни одного хардкод-цвета/размера в компонентах — только var(--token).
+ */
+:root {
+  /* Цвет (§2.1) */
+  --bg-page: #faf1eb;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #fffbf8;
+  --bg-surface-muted: #f3e6de;
+  --text-primary: #211a16;
+  --text-secondary: #6e635c;
+  --text-tertiary: #a89b92;
+  --border: rgba(33, 26, 22, 0.1);
+  --border-pixel: #211a16;
+  --accent: #e2604c;
+  --accent-warm: #f4a52a;
+  --success: #3e9d77;
+  --danger: #d2553f;
+
+  /* Типографика (§2.2). --font-sans/--font-mono подставляет next/font в layout. */
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
+
+  /* Радиусы (§2.3) */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* Глубина — плитки парят над фоном (§2.3) */
+  --elev-1: 0 1px 2px rgba(33, 26, 22, 0.05);
+  --elev-2: 0 1px 2px rgba(33, 26, 22, 0.04), 0 6px 14px rgba(33, 26, 22, 0.06),
+    0 14px 30px rgba(33, 26, 22, 0.05);
+  --elev-3: 0 2px 4px rgba(33, 26, 22, 0.05), 0 10px 22px rgba(33, 26, 22, 0.08),
+    0 24px 48px rgba(33, 26, 22, 0.07);
+
+  /* Пиксель-сетка: 1 «пиксель» = 4 css-px (§2.3) */
+  --px: 4px;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  /* Фон — тёплый радиальный свет сверху-слева поверх персика, не плоская заливка (§2.3). */
+  background-color: var(--bg-page);
+  background-image: radial-gradient(
+    120% 120% at 12% 0%,
+    rgba(255, 255, 255, 0.6),
+    rgba(255, 255, 255, 0) 55%
+  );
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Пиксель-шиммер лоадера (§7) — бежит по поверхности плитки. */
+@keyframes pixel-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 250% 0;
+  }
+}
+
+.pixel-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--bg-surface-muted) 0%,
+    var(--bg-surface-2) 50%,
+    var(--bg-surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: pixel-shimmer 1.4s steps(8, end) infinite;
+}
+
+/* prefers-reduced-motion: lift/тени/шиммер замирают (§2.3, §9). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

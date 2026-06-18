@@ -22,6 +22,12 @@
   --success: #3e9d77;
   --danger: #d2553f;
 
+  /* Календарь (§5): оттенки выходных и дней соседнего месяца — тихие, AA не ломают. */
+  --cal-weekend: #f7ece8; /* выходной (сб/вс) — чуть розовее обычной плитки */
+  --cal-othermonth: #ece0d7; /* день не текущего месяца — заметно приглушён */
+  /* Поверхность плитки «Сегодня», когда выбран день соседнего месяца (§4). */
+  --surface-othermonth: linear-gradient(180deg, #fdf6f1, #f6ece4);
+
   /* Типографика (§2.2). --font-sans/--font-mono подставляет next/font в layout. */
   --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
@@ -38,8 +44,32 @@
   --elev-3: 0 2px 4px rgba(33, 26, 22, 0.05), 0 10px 22px rgba(33, 26, 22, 0.08),
     0 24px 48px rgba(33, 26, 22, 0.07);
 
+  /* Парящая тень пиксель-рамки — через filter: drop-shadow (§2.4): повторяет
+     ступенчатый силуэт clip-path, который box-shadow обрезал бы. Многослойно. */
+  --drop-2: drop-shadow(0 1px 1px rgba(33, 26, 22, 0.06))
+    drop-shadow(0 7px 11px rgba(33, 26, 22, 0.1));
+  --drop-3: drop-shadow(0 2px 1px rgba(33, 26, 22, 0.08))
+    drop-shadow(0 12px 18px rgba(33, 26, 22, 0.14));
+  --drop-4: drop-shadow(0 3px 2px rgba(33, 26, 22, 0.1))
+    drop-shadow(0 18px 26px rgba(33, 26, 22, 0.18));
+
+  /* Тёплый вертикальный перелив поверхности плитки — не плоский белый (§2.3). */
+  --surface-fill: linear-gradient(180deg, var(--bg-surface), var(--bg-surface-2));
+
   /* Пиксель-сетка: 1 «пиксель» = 4 css-px (§2.3) */
   --px: 4px;
+
+  /* Ступенчатые углы пиксель-рамки (§2.4): 2 ступени по 4px (кратно --px). */
+  --pixel-corners: polygon(
+    0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0,
+    calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px,
+    calc(100% - 4px) 8px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px),
+    calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px),
+    calc(100% - 8px) 100%,
+    8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px),
+    4px calc(100% - 8px), 0 calc(100% - 8px)
+  );
 }
 
 html,
@@ -49,18 +79,81 @@ body {
 }
 
 body {
-  /* Фон — тёплый радиальный свет сверху-слева поверх персика, не плоская заливка (§2.3). */
+  /* Фон — тёплый радиальный свет сверху-слева + лёгкое зерно (≈4.5% noise) поверх
+     персика: убивает «пластиковость», не плоская заливка (§2.3). Зерно — тайл-SVG
+     feTurbulence (без сети), радиальный свет — поверх. */
   background-color: var(--bg-page);
   background-image: radial-gradient(
-    120% 120% at 12% 0%,
-    rgba(255, 255, 255, 0.6),
-    rgba(255, 255, 255, 0) 55%
-  );
+      120% 120% at 12% 0%,
+      rgba(255, 255, 255, 0.6),
+      rgba(255, 255, 255, 0) 55%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-sans);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Заполненная плитка (§2.4): ступенчатая пиксель-рамка + тёплый перелив поверхности +
+   парящая drop-shadow-тень. Hover-lift — ключевой оживляющий жест (§2.3):
+   приподнимает плитку и углубляет тень за ~180ms. CSS-класс (не инлайн) ради :hover. */
+.pixel-tile {
+  --rest-elev: var(--drop-2);
+  --hover-elev: var(--drop-3);
+  position: relative;
+  background: var(--surface-fill);
+  border: 2px solid var(--border-pixel);
+  clip-path: var(--pixel-corners);
+  filter: var(--rest-elev);
+  transition: transform 180ms ease, filter 180ms ease;
+}
+/* «Сегодня» лежит выше остальных уже в покое (§2.3). */
+.pixel-tile[data-elevated="true"] {
+  --rest-elev: var(--drop-3);
+  --hover-elev: var(--drop-4);
+}
+@media (hover: hover) {
+  .pixel-tile:hover {
+    transform: translateY(-3px);
+    filter: var(--hover-elev);
+  }
+}
+
+/* Приглушённая плитка (§2.4): мягкая рамка, ниже по высоте, без углового узора. */
+.muted-tile {
+  position: relative;
+  background: var(--bg-surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-1);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+@media (hover: hover) {
+  .muted-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elev-2);
+  }
+}
+
+/* Тихая мета-подпись плитки (§3 вайрфрейм .tile-label) — даёт дашбордную структуру.
+   Inter (не пиксель: метки — не данные), uppercase, tertiary. */
+.tile-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* reduced-motion: тени остаются, но подъём не дёргается (§9). */
+@media (prefers-reduced-motion: reduce) {
+  .pixel-tile:hover,
+  .muted-tile:hover {
+    transform: none;
+  }
 }
 
 /* Пиксель-шиммер лоадера (§7) — бежит по поверхности плитки. */

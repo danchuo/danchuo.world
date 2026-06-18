@@ -103,7 +103,9 @@ export function Board() {
         style={{
           gridTemplateColumns: `repeat(${BENTO_COLS}, 1fr)`,
           gridTemplateRows: `repeat(${BENTO_ROWS}, minmax(0, 1fr))`,
-          gap: 12,
+          // Прослойки между тайлами теперь структурные (пустые треки сетки 40×28,
+          // см. layout.ts), поэтому CSS-gap минимальный — только чтобы не было касаний.
+          gap: 4,
           height: "calc(100vh - 32px)",
         }}
       >
@@ -158,7 +160,14 @@ function BoardTile({
   switch (id) {
     case "today":
       return (
-        <TodayTile day={data.day} state={data.dayStatus} onRetry={data.retryDay} style={style} className={className} />
+        <TodayTile
+          day={data.day}
+          today={data.today}
+          state={data.dayStatus}
+          onRetry={data.retryDay}
+          style={style}
+          className={className}
+        />
       );
     case "stats":
       return (

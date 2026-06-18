@@ -42,6 +42,20 @@ describe("Calendar (±15)", () => {
     expect(screen.getByTestId("name-mark-2026-06-18")).toBeInTheDocument();
   });
 
+  it("размечает выходные и дни соседнего месяца", () => {
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    // 2026-06-13 — суббота; 2026-06-14 — воскресенье (сегодня 18-е = четверг).
+    expect(screen.getByTestId("day-2026-06-13")).toHaveAttribute("data-weekend", "true");
+    expect(screen.getByTestId("day-2026-06-14")).toHaveAttribute("data-weekend", "true");
+    // 2026-06-18 — будний → метки выходного нет.
+    expect(screen.getByTestId("day-2026-06-18")).not.toHaveAttribute("data-weekend");
+    // Окно ±15 захватывает июль → дни соседнего месяца помечены.
+    expect(screen.getByTestId("day-2026-07-01")).toHaveAttribute("data-other-month", "true");
+    expect(screen.getByTestId("day-2026-06-20")).not.toHaveAttribute("data-other-month");
+  });
+
   it("клик по дню перефокусирует (onSelect с датой)", async () => {
     const onSelect = vi.fn();
     render(

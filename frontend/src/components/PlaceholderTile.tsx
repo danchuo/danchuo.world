@@ -29,6 +29,14 @@ export function PlaceholderTile({ label, note, brand = false, style, className }
   }
 
   return (
-    <TileShell state="empty" emptyText={note ?? `${label} — скоро`} muted ariaLabel={label} style={style} className={className} />
+    <TileShell
+      state="empty"
+      label={label}
+      emptyText={note ?? "скоро"}
+      muted
+      ariaLabel={label}
+      style={style}
+      className={className}
+    />
   );
 }

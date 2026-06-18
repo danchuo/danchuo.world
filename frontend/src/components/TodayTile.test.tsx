@@ -21,7 +21,7 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 
 describe("TodayTile", () => {
   it("рендерит дату, имя дня, статы, дисциплину дробями и монстра", () => {
-    render(<TodayTile day={dayFixture()} state="loaded" />);
+    render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
     expect(screen.getByTestId("today-title")).toHaveTextContent("первый забег");
@@ -43,7 +43,7 @@ describe("TodayTile", () => {
       workouts: [],
       monster: null,
     });
-    render(<TodayTile day={empty} state="loaded" />);
+    render(<TodayTile day={empty} today="2026-06-18" state="loaded" />);
 
     expect(screen.queryByTestId("today-title")).not.toBeInTheDocument();
     expect(screen.getByText(/шаги: нет данных/)).toBeInTheDocument();
@@ -52,12 +52,19 @@ describe("TodayTile", () => {
 
   it("реальный 0 показывается как 0, а не «нет данных» (null ≠ 0)", () => {
     const zero = dayFixture({ health: { steps: 0, sleepMinutes: null, sleepStages: null } });
-    render(<TodayTile day={zero} state="loaded" />);
+    render(<TodayTile day={zero} today="2026-06-18" state="loaded" />);
     expect(screen.getByText(/шаги: 0$/)).toBeInTheDocument();
   });
 
+  it("подпись плитки относительна выбранной дате (а не всегда «сегодня»)", () => {
+    // Выбран 17-е при сегодня 18-м → «вчера».
+    render(<TodayTile day={dayFixture({ date: "2026-06-17" })} today="2026-06-18" state="loaded" />);
+    expect(screen.getByText("вчера")).toBeInTheDocument();
+    expect(screen.queryByText("сегодня")).not.toBeInTheDocument();
+  });
+
   it("в состоянии loading показывает шиммер, а не контент", () => {
-    render(<TodayTile day={null} state="loading" />);
+    render(<TodayTile day={null} today="2026-06-18" state="loading" />);
     expect(screen.getByTestId("tile-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("today-date")).not.toBeInTheDocument();
   });

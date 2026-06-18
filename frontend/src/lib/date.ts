@@ -51,6 +51,18 @@ export function weekdayShortRu(iso: string): string {
   return WEEKDAY_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
 }
 
+/** Индекс дня недели с началом в понедельник: 0=пн … 5=сб, 6=вс (для сетки календаря §5). */
+export function weekdayMondayIndex(iso: string): number {
+  assertIso(iso);
+  return (new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7;
+}
+
+/** Месяц даты как `YYYY-MM` — для сравнения «этот месяц / соседний» (§5). */
+export function monthOf(iso: string): string {
+  assertIso(iso);
+  return iso.slice(0, 7);
+}
+
 function assertIso(iso: string): void {
   if (!ISO_DATE.test(iso)) throw new Error(`Ожидалась дата YYYY-MM-DD, получено: ${iso}`);
 }

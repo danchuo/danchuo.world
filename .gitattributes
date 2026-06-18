@@ -1,0 +1,15 @@
+# Скрипты обязаны быть LF, иначе ломаются в Linux/Docker (dash не читает CRLF-shebang).
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows-батники — CRLF.
+*.bat text eol=crlf
+
+# Бинарники не нормализуем.
+*.jar binary
+*.png binary
+*.gif binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

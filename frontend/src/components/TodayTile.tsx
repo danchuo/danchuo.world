@@ -1,30 +1,34 @@
 import type { CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
 import { formatFraction, formatSleep, formatSteps, isDisciplineDone } from "@/lib/format";
+import { relativeDayRu } from "@/lib/relativeDay";
 import { TileShell, type TileState } from "./TileShell";
 
 interface TodayTileProps {
   day: DayView | null;
+  /** Сегодня MSK — для относительной подписи плитки («вчера», «в прошлый вторник», …). */
+  today: string;
   state: TileState;
   onRetry?: () => void;
   style?: CSSProperties;
   className?: string;
 }
 
-// Форматтер строится один раз на модуль (создание Intl дорогое).
-const LONG_DATE_RU_FMT = new Intl.DateTimeFormat("ru-RU", {
+// Форматтер строится один раз на модуль (создание Intl дорогое). День+месяц — из Intl,
+// год дописываем словом «год» (Intl в ru-RU даёт «г.», а мы хотим полностью, DESIGN §4).
+const DAY_MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", {
   day: "numeric",
   month: "long",
-  year: "numeric",
   timeZone: "UTC",
 });
 
 /** Mono-стиль — статичен, держим вне компонента (не пересобираем на рендер). */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
-/** Длинная дата RU в mono (DESIGN §4 — «ДАТА крупно, mono»). */
+/** Длинная дата RU в mono (DESIGN §4): «3 июля 2026 год» — год словом, без «г.». */
 function longDateRu(iso: string): string {
-  return LONG_DATE_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${DAY_MONTH_RU_FMT.format(d)} ${d.getUTCFullYear()} год`;
 }
 
 /**
@@ -32,14 +36,20 @@ function longDateRu(iso: string): string {
  * статы строкой → дисциплина дробями → монстр. Пустой/будущий день — валидный вид:
  * статы «нет данных» (но 0 как 0), дисциплина в каркасе с 0, монстр «не пил».
  */
-export function TodayTile({ day, state, onRetry, style, className }: TodayTileProps) {
+export function TodayTile({ day, today, state, onRetry, style, className }: TodayTileProps) {
+  // Подпись плитки относительна выбранной дате: «сегодня» только когда выбран сегодня.
+  const label = day ? relativeDayRu(day.date, today) : "сегодня";
+  // Выбран день соседнего месяца → фон плитки чуть меняется (§4), как и ячейка в календаре.
+  const otherMonth = day != null && day.date.slice(0, 7) !== today.slice(0, 7);
+  const tileStyle = otherMonth ? { ...style, background: "var(--surface-othermonth)" } : style;
   return (
     <TileShell
       state={state}
       onRetry={onRetry}
       elevated
+      label={label}
       ariaLabel="Сегодня"
-      style={style}
+      style={tileStyle}
       className={className}
     >
       {day && (

@@ -48,10 +48,9 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 export function StatsTile({ day, window, state, onRetry, style, className }: StatsTileProps) {
   return (
-    <TileShell state={state} onRetry={onRetry} ariaLabel="Статы" style={style} className={className}>
+    <TileShell state={state} onRetry={onRetry} label="статы" ariaLabel="Статы" style={style} className={className}>
       {day && (
         <div className="flex h-full flex-col gap-2" style={mono}>
-          <div style={{ color: "var(--text-tertiary)", fontSize: 12 }}>статы</div>
           <div className="flex justify-between">
             <span style={{ color: "var(--text-secondary)" }}>шаги</span>
             <span>{formatSteps(day.health.steps)}</span>

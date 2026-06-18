@@ -26,13 +26,17 @@ function track(over: Partial<TrackView> = {}): TrackView {
   };
 }
 
+function nowView(over: Partial<NowPlayingView> = {}): NowPlayingView {
+  return { isPlaying: true, progressMs: 0, track: track(), source: null, ...over };
+}
+
 afterEach(() => {
   vi.clearAllMocks();
 });
 
 describe("MusicTile", () => {
   it("рендерит now-playing: трек, артиста и метку «сейчас играет»", async () => {
-    const now: NowPlayingView = { isPlaying: true, progressMs: 1000, track: track() };
+    const now = nowView({ progressMs: 1000 });
     getNowPlayingMock.mockResolvedValue(now);
     getRecentMock.mockResolvedValue([]);
 
@@ -54,8 +58,25 @@ describe("MusicTile", () => {
     );
   });
 
+  it("источник (плейлист) показывается ссылкой с названием", async () => {
+    getNowPlayingMock.mockResolvedValue(
+      nowView({
+        source: { type: "playlist", url: "https://open.spotify.com/playlist/p", name: "Ночной драйв" },
+      }),
+    );
+    getRecentMock.mockResolvedValue([]);
+
+    render(<MusicTile />);
+
+    expect(await screen.findByTestId("now-playing")).toBeInTheDocument();
+    expect(screen.getByText("плейлист: Ночной драйв").closest("a")).toHaveAttribute(
+      "href",
+      "https://open.spotify.com/playlist/p",
+    );
+  });
+
   it("при играющем треке недавние не показываются", async () => {
-    getNowPlayingMock.mockResolvedValue({ isPlaying: true, progressMs: 0, track: track() });
+    getNowPlayingMock.mockResolvedValue(nowView());
     getRecentMock.mockResolvedValue([
       { track: track({ title: "Ghosts 'n' Stuff" }), playedAt: "2026-06-18T10:00:00Z" },
     ]);
@@ -67,8 +88,7 @@ describe("MusicTile", () => {
   });
 
   it("альбом-сингл/одноимённый не показывается (album=null)", async () => {
-    const single = track({ album: null });
-    getNowPlayingMock.mockResolvedValue({ isPlaying: true, progressMs: 0, track: single });
+    getNowPlayingMock.mockResolvedValue(nowView({ track: track({ album: null }) }));
     getRecentMock.mockResolvedValue([]);
 
     render(<MusicTile />);
@@ -78,7 +98,7 @@ describe("MusicTile", () => {
   });
 
   it("ничего не играет и нет недавних → тихое пустое состояние", async () => {
-    getNowPlayingMock.mockResolvedValue({ isPlaying: false, progressMs: null, track: null });
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue([]);
 
     render(<MusicTile />);
@@ -88,7 +108,7 @@ describe("MusicTile", () => {
   });
 
   it("без now-playing, но с недавними — показывает список недавних", async () => {
-    getNowPlayingMock.mockResolvedValue({ isPlaying: false, progressMs: null, track: null });
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     const recent: RecentTrackView[] = [
       { track: track({ title: "Ghosts 'n' Stuff" }), playedAt: "2026-06-18T10:00:00Z" },
     ];

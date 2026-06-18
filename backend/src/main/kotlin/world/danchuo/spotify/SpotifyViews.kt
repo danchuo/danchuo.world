@@ -64,8 +64,34 @@ data class TrackView(
 }
 
 /**
+ * Источник воспроизведения (PRD §M3): откуда играет трек. Альбом сюда НЕ кладём —
+ * он уже показан строкой альбома ([TrackView.album]); источник — про плейлист/артиста/
+ * подкаст/«любимое». `null`, если контекста нет или у него нет ссылки.
+ */
+data class SourceRef(
+    /** Тип контекста Spotify: `playlist` / `artist` / `collection` / `show`. */
+    val type: String,
+    /** Ссылка на источник в Spotify. */
+    val url: String,
+    /** Имя источника (плейлиста/артиста). `null`, если не удалось получить — фронт покажет тип. */
+    val name: String?,
+) {
+    companion object {
+        /** Базовый ([type]+[url]) без имени — имя дорезолвивает [SpotifyService] доп. запросом. */
+        fun from(context: SpotifyContext?): SourceRef? {
+            val type = context?.type?.takeIf { it.isNotBlank() } ?: return null
+            // Альбом уже выводится отдельной строкой — источником не дублируем.
+            if (type.equals("album", ignoreCase = true)) return null
+            val url = context.externalUrls?.spotify?.takeIf { it.isNotBlank() } ?: return null
+            return SourceRef(type, url, name = null)
+        }
+    }
+}
+
+/**
  * Состояние «сейчас играет». [track] = `null` ⇒ ничего не играет (или не подключено) —
- * фронт рисует тихое пустое состояние, без спец-ветки.
+ * фронт рисует тихое пустое состояние, без спец-ветки. [source] — откуда играет
+ * (плейлист/артист/подкаст), `null` для альбома и «вне контекста».
  */
 data class NowPlayingView(
     // Без явного имени Jackson срезал бы `is`-префикс булева → поле «playing»;
@@ -73,10 +99,11 @@ data class NowPlayingView(
     @get:JsonProperty("isPlaying") val isPlaying: Boolean,
     val progressMs: Long?,
     val track: TrackView?,
+    val source: SourceRef?,
 ) {
     companion object {
         /** Тихое «ничего не играет» — единая форма для 204 и неподключённого слайса. */
-        val IDLE = NowPlayingView(isPlaying = false, progressMs = null, track = null)
+        val IDLE = NowPlayingView(isPlaying = false, progressMs = null, track = null, source = null)
     }
 }
 

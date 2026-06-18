@@ -81,11 +81,21 @@ export interface TrackView {
   durationMs: number | null;
 }
 
+/** Источник воспроизведения: плейлист/артист/подкаст/«любимое». `null` для альбома и «вне контекста». */
+export interface SourceRef {
+  /** Тип контекста Spotify: `playlist` | `artist` | `collection` | `show`. */
+  type: string;
+  url: string;
+  /** Имя источника (плейлиста/артиста); `null`, если не добралось — показываем тип. */
+  name: string | null;
+}
+
 /** «Сейчас играет»: `track === null` ⇒ ничего не играет / не подключено. */
 export interface NowPlayingView {
   isPlaying: boolean;
   progressMs: number | null;
   track: TrackView | null;
+  source: SourceRef | null;
 }
 
 /** Недавно сыгранный трек с ISO-меткой времени проигрывания. */

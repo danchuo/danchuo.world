@@ -17,6 +17,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient
 class SpotifyService(
     @param:RestClient private val api: SpotifyApiClient,
     private val tokenService: SpotifyTokenService,
+    private val sources: SpotifySourceResolver,
 ) {
 
     @CacheResult(cacheName = "spotify-now-playing")
@@ -27,7 +28,15 @@ class SpotifyService(
             isPlaying = current.isPlaying,
             progressMs = current.progressMs,
             track = TrackView.from(current.item),
+            source = resolveSource(current.context),
         )
+    }
+
+    /** Источник + дорезолвенное имя (плейлист/артист), кэш в [SpotifySourceResolver]. */
+    private fun resolveSource(context: SpotifyContext?): SourceRef? {
+        val base = SourceRef.from(context) ?: return null
+        val name = context?.uri?.let { sources.name(it) }
+        return if (name == null) base else base.copy(name = name)
     }
 
     @CacheResult(cacheName = "spotify-recent")

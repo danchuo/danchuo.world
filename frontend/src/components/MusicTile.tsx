@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { getNowPlaying, getRecent } from "@/lib/api/client";
-import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, TrackView } from "@/lib/api/types";
+import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, SourceRef, TrackView } from "@/lib/api/types";
 import { TileShell, type TileState } from "./TileShell";
 
 interface MusicTileProps {
@@ -30,15 +30,24 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /** Статичные стили — вне рендера, чтобы не пересобирать на каждый кадр. */
 const albumStyle = { color: "var(--text-tertiary)", fontSize: 11 } satisfies CSSProperties;
+const sourceStyle = { color: "var(--text-tertiary)", fontSize: 11 } satisfies CSSProperties;
 /**
- * Высота блока now-playing фиксирована: при смене трека (опрос) появление/исчезновение
- * строки альбома НЕ должно дёргать раскладку — иначе обложка «ездит», а лого Spotify
- * съезжает. Вмещает заголовок + исполнителей + альбом; лишнее обрезается.
+ * Тело блока now-playing. Высоту НЕ фиксируем (Spotify ушёл в угол шапки, снизу его
+ * больше нет) — блок растёт по контенту в освободившуюся вертикаль. Обложка прижата к
+ * верху (`items-start` на строке), поэтому при смене трека не «ездит».
  */
-const nowPlayingBody = { ...mono, height: 54, lineHeight: 1.25 } satisfies CSSProperties;
+const nowPlayingBody = { ...mono, lineHeight: 1.3 } satisfies CSSProperties;
 
 /** Исполнители — чуть отодвинуты от названия (между альбомом и ними отступ не нужен). */
 const artistsStyle = { color: "var(--text-secondary)", fontSize: 12, marginTop: 3 } satisfies CSSProperties;
+
+/** Человекочитаемая метка источника по типу контекста Spotify. */
+const SOURCE_LABEL: Record<string, string> = {
+  playlist: "плейлист",
+  artist: "артист",
+  collection: "любимое",
+  show: "подкаст",
+};
 
 /**
  * Бегущая строка: содержимое едет, только если не влезло по ширине (замеряем overflow
@@ -133,13 +142,27 @@ function Album({ album }: { album: AlbumRef }) {
   );
 }
 
-/** Блок «сейчас играет»: обложка + трек-ссылка + исполнители-ссылки + (опц.) альбом-ссылка. */
-function NowPlaying({ track }: { track: TrackView }) {
+/**
+ * Источник воспроизведения строкой-ссылкой: «{тип}: {название}» (бегущей строкой, если
+ * длинно). Без имени — просто «{тип} ↗».
+ */
+function Source({ source }: { source: SourceRef }) {
+  const label = SOURCE_LABEL[source.type] ?? "источник";
   return (
-    <div data-testid="now-playing" className="flex min-w-0 items-center gap-3">
+    <Marquee style={sourceStyle}>
+      <a href={source.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
+        {source.name ? `${label}: ${source.name}` : `${label} ↗`}
+      </a>
+    </Marquee>
+  );
+}
+
+/** Блок «сейчас играет»: обложка + трек/исполнители/альбом + источник (всё со ссылками). */
+function NowPlaying({ track, source }: { track: TrackView; source: SourceRef | null }) {
+  return (
+    <div data-testid="now-playing" className="flex min-w-0 items-start gap-3">
       <Cover url={track.albumImageUrl} alt={`Обложка: ${track.album?.name ?? track.title}`} />
-      {/* Фиксированная высота + центрирование: смена трека не дёргает раскладку. */}
-      <div className="flex min-w-0 flex-1 flex-col justify-center overflow-hidden" style={nowPlayingBody}>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden" style={nowPlayingBody}>
         <Marquee>
           {track.url ? (
             <a href={track.url} target="_blank" rel="noreferrer" style={{ color: "var(--text-primary)" }}>
@@ -159,6 +182,7 @@ function NowPlaying({ track }: { track: TrackView }) {
             <Album album={track.album} />
           </div>
         )}
+        {source && <Source source={source} />}
       </div>
     </div>
   );
@@ -243,7 +267,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
             <span style={{ fontSize: 10 }}>Spotify</span>
           </div>
 
-          {playing && <NowPlaying track={playing} />}
+          {playing && <NowPlaying track={playing} source={now?.source ?? null} />}
 
           {showRecent && (
             <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">

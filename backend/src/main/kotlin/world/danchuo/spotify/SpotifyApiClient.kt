@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.HeaderParam
 import jakarta.ws.rs.Path
+import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
@@ -43,7 +44,32 @@ interface SpotifyApiClient {
         @QueryParam("limit") limit: Int,
         @QueryParam("time_range") timeRange: String,
     ): SpotifyPaging
+
+    /** Имя плейлиста по id (для строки-источника). `fields=name` — отдаёт только имя. */
+    @GET
+    @Path("/v1/playlists/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun playlist(
+        @HeaderParam("Authorization") bearer: String,
+        @PathParam("id") id: String,
+        @QueryParam("fields") fields: String,
+    ): SpotifyNamed
+
+    /** Имя артиста по id (для строки-источника, когда играешь со страницы артиста). */
+    @GET
+    @Path("/v1/artists/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun artist(
+        @HeaderParam("Authorization") bearer: String,
+        @PathParam("id") id: String,
+    ): SpotifyNamed
 }
+
+/** Минимальная проекция «объект с именем» — плейлист/артист (берём только name). */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class SpotifyNamed(
+    @param:JsonProperty("name") val name: String? = null,
+)
 
 // ── Сырые DTO Spotify Web API (только нужные поля) ──
 
@@ -52,6 +78,15 @@ data class SpotifyCurrentlyPlaying(
     @param:JsonProperty("is_playing") val isPlaying: Boolean = false,
     @param:JsonProperty("progress_ms") val progressMs: Long? = null,
     @param:JsonProperty("item") val item: SpotifyTrack? = null,
+    // Откуда играет: плейлист/альбом/артист/подкаст/«любимое». Бывает null (вне контекста).
+    @param:JsonProperty("context") val context: SpotifyContext? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class SpotifyContext(
+    @param:JsonProperty("type") val type: String? = null,
+    @param:JsonProperty("uri") val uri: String? = null,
+    @param:JsonProperty("external_urls") val externalUrls: SpotifyExternalUrls? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

@@ -6,6 +6,7 @@ import type { DaySummary, DayView } from "@/lib/api/types";
 import { mskToday, windowAround } from "@/lib/date";
 import { BENTO_COLS, BENTO_ROWS, gridArea, MOBILE_ORDER, TILE_LAYOUT, type TileId } from "@/lib/layout";
 import { Calendar } from "./Calendar";
+import { MusicTile } from "./MusicTile";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
@@ -194,6 +195,9 @@ function BoardTile({
           className={className}
         />
       );
+    case "music":
+      // Музыка тянет данные сама (независимо от выбранного дня) — Board ей ничего не прокидывает.
+      return <MusicTile style={style} className={className} />;
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
     default:

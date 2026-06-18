@@ -56,6 +56,54 @@ export interface MonsterMark {
   accentColor: string | null;
 }
 
+// ── Spotify (PRD §M3) — зеркало `world.danchuo.spotify.SpotifyViews`. ──
+
+/** Исполнитель со ссылкой-атрибуцией на его страницу в Spotify. */
+export interface ArtistRef {
+  name: string;
+  url: string | null;
+}
+
+/** Альбом со ссылкой-атрибуцией на его страницу в Spotify. */
+export interface AlbumRef {
+  name: string;
+  url: string | null;
+}
+
+/** Один трек в человекочитаемом виде; `url` — ссылка-атрибуция на Spotify. */
+export interface TrackView {
+  title: string;
+  artists: ArtistRef[];
+  /** `null` для синглов/одноимённых релизов — альбом не показываем. */
+  album: AlbumRef | null;
+  albumImageUrl: string | null;
+  url: string | null;
+  durationMs: number | null;
+}
+
+/** Источник воспроизведения: плейлист/артист/подкаст/«любимое». `null` для альбома и «вне контекста». */
+export interface SourceRef {
+  /** Тип контекста Spotify: `playlist` | `artist` | `collection` | `show`. */
+  type: string;
+  url: string;
+  /** Имя источника (плейлиста/артиста); `null`, если не добралось — показываем тип. */
+  name: string | null;
+}
+
+/** «Сейчас играет»: `track === null` ⇒ ничего не играет / не подключено. */
+export interface NowPlayingView {
+  isPlaying: boolean;
+  progressMs: number | null;
+  track: TrackView | null;
+  source: SourceRef | null;
+}
+
+/** Недавно сыгранный трек с ISO-меткой времени проигрывания. */
+export interface RecentTrackView {
+  track: TrackView;
+  playedAt: string | null;
+}
+
 /** Лёгкая сводка дня (`GET /api/days?from=&to=`) — ячейка календаря / мини-график. */
 export interface DaySummary {
   date: string;

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Текущее состояние репозитория
 
-**Эра M2 (публичный каркас и календарь) в работе.** Бэкенд: спина данных M1 + read-API дня/календаря и агрегатор. Фронт: Next.js-каркас с плиткой «Сегодня», календарём ±15, статами и токенами волны 01 в `:root`. Дальше — эра M3 (Spotify).
+**Эра M3 (Spotify) в работе.** Бэкенд: спина данных M1 + read-API дня/календаря (M2) + изолированный слайс `spotify` (внешний OAuth, шифр-токен at-rest, кэш-GET). Фронт: Next.js-каркас с плиткой «Сегодня», календарём ±15, статами + живой `MusicTile`. Дальше — эра M4 (темы/аналитика).
 
 - `docs/PRD-danchuoworld.md` — **что** строим: функциональные требования, acceptance criteria, модель данных, этапы M0–M5 + бэклог.
 - `docs/DESIGN.md` — **как** это выглядит и ощущается: источник правды по дизайну (волна 01, токены, bento-сетка, состояния).
@@ -12,10 +12,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `backend/` — Quarkus (Kotlin), Gradle. Feature-пакеты (вертикальные слайсы, PRD §3.1) + `core` (сквозные соглашения).
   - **M1 наполнены:** `days` (`DayRecord` + `DayRecordService` — единая точка записи дня, генезис-гард), `health` (`Workout`, `POST /api/ingest/health`), `checklist` (`ChecklistItem`/`ChecklistEntry`, `POST /api/ingest/daily`, пункт `monster` — производная от вкуса), `monster` (`MonsterFlavor`, data-driven вкусы). Сиды пунктов и вкусов — в Liquibase. Ingest идемпотентен (upsert по дате), null ≠ 0 (§5.4).
   - **M2 (бэкенд) готов:** `days` дополнен агрегатором (`DayAggregator`) и публичными `GET /api/days/{date}` (полная проекция `DayView`) + `GET /api/days?from=&to=` (сводки `DaySummary` для календаря/мини-графика). Все GET публичны, генезис-гард, null ≠ 0.
-  - **Ещё пустые швы (M3+):** `spotify/theme/projects/social/analytics` — пока пакет-маркеры.
+  - **M3 (бэкенд) готов:** слайс `spotify` — внешний источник целиком в своём пакете, ядро не тронуто. `SpotifyConfig` (креды/скоупы/ключ из env), `SpotifyToken` + `SpotifyCrypto` (refresh-токен шифрованно at-rest, AES-GCM), `SpotifyTokenService` (one-time обмен кода + прозрачный рефреш access-токена), `SpotifyAuthResource` (`GET /api/ingest/spotify/authorize` за bearer + публичный `GET /api/spotify/callback` со сверкой `state`), REST-клиенты к Spotify + `SpotifyService` с Caffeine-кэшем (now-playing ~20с, recent/top — минуты), публичные `GET /api/spotify/{now-playing,recent,top}`. Не сконфигурирован/не подключён ⇒ пустая форма (200), не падение.
+  - **Ещё пустые швы (M4+):** `theme/projects/social/analytics` — пока пакет-маркеры.
   - `core` содержит bearer-фильтр (`/api/ingest/*`), MSK/генезис-конфиг и кэш-шов.
 - `frontend/` — Next.js (App Router) + TypeScript + Tailwind v4. Публичный JSON-клиент к Quarkus (только чтение).
-  - **M2 каркас:** токены волны 01 в `:root` (`src/app/globals.css`; M4 заменит на инжект из `/api/theme/active`), data-driven layout-конфиг тайлов (`src/lib/layout.ts`, bento 20×14), плитка «Сегодня»/календарь/статы + недельная полоса на мобиле, per-tile состояния (loading/empty/error/loaded). Прочие тайлы — пустые швы под M3+.
+  - **M2 каркас:** токены волны 01 в `:root` (`src/app/globals.css`; M4 заменит на инжект из `/api/theme/active`), data-driven layout-конфиг тайлов (`src/lib/layout.ts`, bento 20×14), плитка «Сегодня»/календарь/статы + недельная полоса на мобиле, per-tile состояния (loading/empty/error/loaded).
+  - **M3:** `MusicTile` (`src/components/MusicTile.tsx`) — живой слой Spotify; тянет `/api/spotify/now-playing` (опрос на интервале) + `/api/spotify/recent` сам, независимо от выбранного дня. Пусто ⇒ «ничего не играет». Прочие тайлы — пустые швы под M4+.
   - Тесты — Vitest + React Testing Library (`*.test.ts(x)` рядом с кодом).
 
 ### Версии стека (самые свежие, что тянем — см. память `latest-stack-preference`)
@@ -74,4 +76,5 @@ PRD и DESIGN — разделённые источники правды, не �
 
 - Изменения идут через **feature-ветку + PR**, не напрямую в `main` (см. память проекта).
 - Коммиты: маркированный список изменений; крупные задачи разбивать; в сообщениях коммитов **не упоминать AI/ассистента** (см. память проекта).
+- **Максимум 3 коммита в ветке.** Мелкие правки по ходу ревью не плодят отдельные коммиты — если их становится больше трёх, история логически сквошится (обычно по слоям: бэкенд+инфра / фронт / доки), а сообщения объединяются в маркированные списки. Это до пуша/PR — переписывать историю уже отправленной ветки нельзя.
 - **Версионирование.** В начале каждой новой ветки `feature/*` или `hotfix/*` инкрементить версию проекта первым коммитом ветки (feature → minor, hotfix → patch; semver). Пока бэк и фронт не разведены, версия одна. Когда у обоих появятся хотя бы еле рабочие версии — держать **две независимые версии** (отдельно фронт, отдельно бэк) и инкрементить ту часть, которой касается ветка (ветка, трогающая обе, — обе).

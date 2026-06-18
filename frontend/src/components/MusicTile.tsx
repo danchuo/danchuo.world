@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { getNowPlaying, getRecent } from "@/lib/api/client";
 import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, SourceRef, TrackView } from "@/lib/api/types";
@@ -24,6 +25,45 @@ interface MusicTileProps {
 
 /** Сколько недавних показывать в простое (когда нет играющего трека). */
 const RECENT_WHEN_IDLE = 5;
+
+/**
+ * Прячет недавние треки, которые не влезают в контейнер по высоте (§7.1): лучше 4 целых,
+ * чем 5 внахлёст. Меньше пятёрки = видимый сигнал владельцу, что плитке стало тесно.
+ * Подгонка чисто визуальная (без React-state) — меряем раскладку и гасим лишние `<li>`
+ * императивно (`visibility:hidden` сохраняет место, замер не осциллирует). [signature]
+ * перезапускает подгонку при смене состава списка; ResizeObserver — при ресайзе плитки.
+ * В jsdom (тесты) геометрия нулевая ⇒ ничего не прячем. Спан считаем по
+ * `getBoundingClientRect` относительно контейнера — независимо от offsetParent.
+ */
+function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
+  const ref = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const apply = () => {
+      const kids = Array.from(el.children) as HTMLElement[];
+      if (kids.length === 0) return;
+      const limit = el.getBoundingClientRect().top + el.clientHeight + 1;
+      let overflow = false;
+      for (const kid of kids) {
+        // limit==1 (jsdom: всё по нулям) ⇒ всё «влезает», ничего не гасим.
+        if (!overflow && kid.getBoundingClientRect().bottom <= limit) {
+          kid.style.visibility = "";
+        } else {
+          overflow = true;
+          kid.style.visibility = "hidden";
+        }
+      }
+    };
+    apply();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [signature]);
+
+  return ref;
+}
 
 /** Mono-стиль — статичен, держим вне компонента. */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
@@ -246,6 +286,10 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   const showRecent = !playing && recent.length > 0;
   const isEmpty = !playing && !showRecent;
 
+  // Прячем недавние, что не влезают по высоте (§7.1). Сигнатура состава — чтобы подгонка
+  // перезапускалась при смене треков, а не только их числа.
+  const recentRef = useFitOverflow(recent.map((r) => r.track.url ?? r.track.title).join("|"));
+
   return (
     <TileShell
       state={state === "loaded" && isEmpty ? "empty" : state}
@@ -270,8 +314,12 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
           {playing && <NowPlaying track={playing} source={now?.source ?? null} />}
 
           {showRecent && (
-            <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
-              {recent.map((r, i) => (
+            // Обёртка с жёсткой высотой (flex-1 + relative), список — absolute inset-0:
+            // так его clientHeight всегда равен доступному месту, а не контенту — замер
+            // в useFitOverflow корректен и лишние треки реально прячутся (не наезжают).
+            <div className="relative min-h-0 flex-1">
+              <ul ref={recentRef} className="absolute inset-0 flex flex-col gap-0.5 overflow-hidden">
+                {recent.map((r, i) => (
                 <li
                   key={`${r.track.url ?? r.track.title}-${r.playedAt ?? i}`}
                   data-testid="recent-track"
@@ -291,9 +339,10 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                       <Artists artists={r.track.artists} color="var(--text-tertiary)" />
                     </span>
                   )}
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}

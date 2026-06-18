@@ -8,4 +8,8 @@ import jakarta.enterprise.context.ApplicationScoped
 class ChecklistItemRepository : PanacheRepository<ChecklistItem> {
 
     fun findByKey(key: String): ChecklistItem? = find("key", key).firstResult()
+
+    /** Активные пункты в порядке отображения — каркас дисциплины для агрегатора (M2). */
+    fun listActive(): List<ChecklistItem> =
+        find("active = ?1 order by sortOrder", true).list()
 }

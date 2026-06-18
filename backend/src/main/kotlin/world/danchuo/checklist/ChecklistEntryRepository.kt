@@ -13,6 +13,10 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
 
     fun listByDate(date: LocalDate): List<ChecklistEntry> = list("date", date)
 
+    /** Отметки в диапазоне дат `[from, to]` включительно — для агрегатора календаря (M2). */
+    fun listByDateRange(from: LocalDate, to: LocalDate): List<ChecklistEntry> =
+        list("date >= ?1 and date <= ?2", from, to)
+
     private fun findByDateAndItem(date: LocalDate, itemId: Long): ChecklistEntry? =
         find("date = ?1 and itemId = ?2", date, itemId).firstResult()
 

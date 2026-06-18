@@ -49,7 +49,7 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   music: { col: 1, row: 5, colSpan: 9, rowSpan: 6 },
   // Статы ужаты ~вдвое по высоте и прижаты к низу левой колонки (воздух сверху, ряды 11–15).
   stats: { col: 1, row: 16, colSpan: 9, rowSpan: 6 },
-  today: { col: 12, row: 5, colSpan: 17, rowSpan: 17 },
+  today: { col: 14, row: 5, colSpan: 15, rowSpan: 17 },
   calendar: { col: 31, row: 5, colSpan: 9, rowSpan: 11 },
   projects: { col: 31, row: 17, colSpan: 9, rowSpan: 5 },
   hero: { col: 1, row: 23, colSpan: 11, rowSpan: 5 },

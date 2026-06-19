@@ -1,8 +1,10 @@
 /**
- * Feature-слайс **analytics** (PRD §3, §3.1; M4) — пустой шов M0.
+ * Feature-слайс **analytics** (PRD §3, §3.1, §5.11; M4) — наполнен в M4.
  *
- * Зона ответственности (M4): `AnalyticsEvent` + cookieless бикон-эндпоинт
- * (своё решение в Postgres, без третьих сторон). Запись событий — публичный POST
- * бикона (не ingest-мутация владельца), чтение/агрегаты — приватные/служебные.
+ * Своё cookieless-решение в Postgres, без третьих сторон. `AnalyticsEvent` (сырьё; сырой
+ * IP не хранится — только суточный хэш [VisitorHash]) → [AnalyticsService] (запись +
+ * сводка) → публичный бикон [AnalyticsBeaconResource] (`POST /api/analytics/beacon`, вне
+ * `api/ingest`) и приватная сводка [AnalyticsSummaryResource] (`GET /api/ingest/analytics/
+ * summary`, за bearer). Боты метятся [BotHeuristics] и исключаются из сводки.
  */
 package world.danchuo.analytics

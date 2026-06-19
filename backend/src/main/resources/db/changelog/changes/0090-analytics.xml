@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс analytics (PRD §5.11, §7, §12 M4): своё cookieless-решение в Postgres.
+      Сырой IP не хранится — только суточный хэш visitor_day_hash. Индексы под сводку
+      (по дате) и под подсчёт уников (по хэшу) + добивку dwell (по visit_id).
+    -->
+    <changeSet id="0090-analytics-event-table" author="danchuo">
+        <createTable tableName="analytics_event">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="occurred_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="path" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="visitor_day_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="referrer" type="VARCHAR(512)"/>
+            <column name="dwell_ms" type="INT"/>
+            <column name="is_bot" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="visit_id" type="VARCHAR(64)"/>
+        </createTable>
+
+        <createIndex tableName="analytics_event" indexName="idx_analytics_occurred_at">
+            <column name="occurred_at"/>
+        </createIndex>
+        <createIndex tableName="analytics_event" indexName="idx_analytics_visitor_day_hash">
+            <column name="visitor_day_hash"/>
+        </createIndex>
+        <createIndex tableName="analytics_event" indexName="idx_analytics_visit_id">
+            <column name="visit_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

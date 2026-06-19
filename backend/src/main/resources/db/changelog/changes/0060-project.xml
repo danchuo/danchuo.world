@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс projects (PRD §5.7, §7, §12 M4). Data-driven: новый проект = строка
+      (сид ниже или INSERT/admin на проде), без релиза. Диапазон — числами (год+квартал);
+      человекочитаемую форму собирает фронт.
+    -->
+    <changeSet id="0060-project-table" author="danchuo">
+        <createTable tableName="project">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="icon_url" type="VARCHAR(512)"/>
+            <column name="title" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(512)"/>
+            <column name="start_year" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_quarter" type="INT"/>
+            <column name="end_year" type="INT"/>
+            <column name="end_quarter" type="INT"/>
+            <column name="url" type="VARCHAR(512)"/>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!--
+      Сид проектов (первая итерация, правится владельцем). Иконки — статика фронта
+      (/assets/projects/*). end_year/quarter null = «по настоящее».
+    -->
+    <changeSet id="0060-project-seed" author="danchuo">
+        <insert tableName="project">
+            <column name="title" value="danchuo.world"/>
+            <column name="description" value="Личный дашборд жизни"/>
+            <column name="icon_url" value="/assets/projects/danchuo-world.png"/>
+            <column name="start_year" valueNumeric="2026"/>
+            <column name="start_quarter" valueNumeric="1"/>
+            <column name="url" value="https://github.com/dontyouo"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

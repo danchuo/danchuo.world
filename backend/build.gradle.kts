@@ -43,8 +43,8 @@ dependencies {
 
 group = "world.danchuo"
 // M3: бэк и фронт получили рабочие версии — с этой ветки версии разведены
-// (CLAUDE.md §версионирование). Ветка трогает бэк → minor бэка.
-version = "0.5.0-SNAPSHOT"
+// (CLAUDE.md §версионирование). M4 трогает бэк → minor бэка.
+version = "0.6.0-SNAPSHOT"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

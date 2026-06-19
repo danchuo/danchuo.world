@@ -36,6 +36,9 @@ services:
       DANCHUO_DB_USER: danchuo
       DANCHUO_DB_PASSWORD: danchuo
       DANCHUO_INGEST_TOKEN: dev-ingest-token-change-me
+      # Соль суточного хэша аналитики (PRD §5.11): в prod-профиле обязательна из env.
+      # Это тестовый конфиг — дефолтное значение открыто намеренно (как ingest-токен выше).
+      DANCHUO_ANALYTICS_SALT: dev-analytics-salt-change-me
       # Генезис-дата (раньше неё данных нет, PRD §4) — для теста ставим начало года.
       DANCHUO_TIME_GENESIS: "2026-01-01"
     ports:
@@ -52,6 +55,10 @@ services:
         # по docker-имени сервиса — CORS не нужен (зеркалит прод за Caddy).
         # Цель запекается в rewrites на build-time, поэтому это build-arg.
         API_PROXY_TARGET: http://backend:8080
+    environment:
+      # SSR-инжект токенов активной волны (M4): Next-сервер тянет /api/theme/active по
+      # внутреннему docker-имени бэкенда (браузерные /api/* идут через rewrites выше).
+      API_INTERNAL_URL: http://backend:8080
     ports:
       - "3000:3000"
     depends_on:

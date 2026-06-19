@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Layout-per-wave (DESIGN §3, §10): волна может нести свой layout-блок (JSONB) и
+      переопределять дефолтную bento-раскладку фронта — переставить/ресайзить/спрятать тайлы,
+      сменить размер грида и порядок мобильного стека. null ⇒ фронт берёт дефолт layout.ts.
+      Бэкенд хранит JSON как есть, реестр тайлов и мерж — во фронте (layout.ts).
+    -->
+    <changeSet id="0120-theme-layout-column" author="danchuo">
+        <addColumn tableName="theme">
+            <column name="layout" type="jsonb"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+      Демо-волна 02 «Ночь»: показывает весь конвейер layout-per-wave вживую (своп токенов +
+      раскладки + скрытие тайла без перезагрузки). tokens — частичный набор (своп пишет только
+      эти ключи поверх текущих :root, остальное — от волны 01/globals.css). layout — дельта к
+      дефолту: меняет местами музыку и статы, прячет плитку свежести. Контент владельца —
+      можно удалить/переписать; добавление волны = одна запись, без правок кода.
+    -->
+    <changeSet id="0120-theme-seed-wave02-demo" author="danchuo">
+        <sql><![CDATA[
+INSERT INTO theme (key, name, tokens, layout, active, released_at) VALUES (
+  'wave-02',
+  'Волна 02 «Ночь»',
+  $J${
+    "bg-page": "#1a1410",
+    "bg-surface": "#241c17",
+    "bg-surface-2": "#2b211b",
+    "bg-surface-muted": "#3a2c24",
+    "text-primary": "#f4ece6",
+    "text-secondary": "#c9bcb2",
+    "text-tertiary": "#8f8178",
+    "border": "rgba(244, 236, 230, 0.12)",
+    "border-pixel": "#f4ece6",
+    "accent": "#f4a52a",
+    "accent-warm": "#e2604c"
+  }$J$::jsonb,
+  $J${
+    "tiles": {
+      "music": { "row": 16 },
+      "stats": { "row": 5 },
+      "freshness": { "hidden": true }
+    },
+    "mobileOrder": ["today", "calendar", "music", "stats", "photoDrops", "projects", "social", "hero", "marquee"]
+  }$J$::jsonb,
+  false,
+  now()
+);
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

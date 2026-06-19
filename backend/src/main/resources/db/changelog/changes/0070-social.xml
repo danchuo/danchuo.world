@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс social (PRD §5.8, §7, §12 M4): соцссылки + артефакты marquee. Data-driven —
+      новая ссылка/артефакт = строка, без релиза. Иконки/картинки — статика фронта.
+    -->
+    <changeSet id="0070-social-link-table" author="danchuo">
+        <createTable tableName="social_link">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="platform" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="url" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="icon" type="VARCHAR(512)"/>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0070-artifact-table" author="danchuo">
+        <createTable tableName="artifact">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="image_url" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="first_mentioned_on" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model_3d_url" type="VARCHAR(512)"/>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- Сид соцссылок (правится владельцем). -->
+    <changeSet id="0070-social-link-seed" author="danchuo">
+        <insert tableName="social_link">
+            <column name="platform" value="github"/>
+            <column name="name" value="GitHub"/>
+            <column name="url" value="https://github.com/dontyouo"/>
+            <column name="icon" value="/assets/social/github.png"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="social_link">
+            <column name="platform" value="telegram"/>
+            <column name="name" value="Telegram"/>
+            <column name="url" value="https://t.me/danchuo"/>
+            <column name="icon" value="/assets/social/telegram.png"/>
+            <column name="sort_order" valueNumeric="20"/>
+        </insert>
+    </changeSet>
+
+    <!-- Сид артефактов marquee (картинки — статика фронта; дата первого упоминания — в поповере). -->
+    <changeSet id="0070-artifact-seed" author="danchuo">
+        <insert tableName="artifact">
+            <column name="name" value="Камера"/>
+            <column name="image_url" value="/assets/artifacts/camera.png"/>
+            <column name="first_mentioned_on" valueDate="2026-01-15"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+        <insert tableName="artifact">
+            <column name="name" value="Ракетка"/>
+            <column name="image_url" value="/assets/artifacts/racket.png"/>
+            <column name="first_mentioned_on" valueDate="2026-02-20"/>
+            <column name="sort_order" valueNumeric="20"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

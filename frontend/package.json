@@ -1,8 +1,8 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
-  "description": "danchuo.world — публичный фронт (M3: + музыкальный слой Spotify)",
+  "description": "danchuo.world — публичный фронт (M4: + контент, темы, аналитика)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

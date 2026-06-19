@@ -4,12 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { mskToday, windowAround } from "@/lib/date";
-import { BENTO_COLS, BENTO_ROWS, gridArea, MOBILE_ORDER, TILE_LAYOUT, type TileId } from "@/lib/layout";
+import { gridArea, type TileId } from "@/lib/layout";
+import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
+import { HeroTile } from "./HeroTile";
 import { MusicTile } from "./MusicTile";
+import { PhotoDropsTile } from "./PhotoDropsTile";
 import { PlaceholderTile } from "./PlaceholderTile";
+import { ProjectsTile } from "./ProjectsTile";
+import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
+import { useWave } from "./WaveProvider";
+import { WaveSwitcher } from "./WaveSwitcher";
 import { WeekStrip } from "./WeekStrip";
 
 type Status = "loading" | "error" | "loaded";
@@ -38,6 +45,9 @@ interface BoardData {
  * на мобиле (<640px) календарь заменяется недельной полосой (DESIGN §8).
  */
 export function Board() {
+  // Раскладка активной волны (мерж волны с дефолтом, DESIGN §3, §10). Своп волны
+  // переключателем меняет её вживую — борд перерисовывается в новой сетке без перезагрузки.
+  const { layout } = useWave();
   const today = useMemo(() => mskToday(), []);
   const { from, to } = useMemo(() => windowAround(today, RADIUS), [today]);
 
@@ -101,25 +111,29 @@ export function Board() {
         data-testid="bento"
         className="hidden min-[1440px]:grid"
         style={{
-          gridTemplateColumns: `repeat(${BENTO_COLS}, 1fr)`,
-          gridTemplateRows: `repeat(${BENTO_ROWS}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+          gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))`,
           // Прослойки между тайлами теперь структурные (пустые треки сетки 40×28,
           // см. layout.ts), поэтому CSS-gap минимальный — только чтобы не было касаний.
           gap: 4,
           height: "calc(100vh - 32px)",
         }}
       >
-        {(Object.keys(TILE_LAYOUT) as TileId[]).map((id) => (
-          <div key={id} style={{ gridArea: gridArea(TILE_LAYOUT[id]), minHeight: 0 }}>
-            <BoardTile id={id} variant="grid" data={data} style={{ height: "100%", width: "100%" }} />
-          </div>
-        ))}
+        {(Object.keys(layout.tiles) as TileId[]).map((id) => {
+          const span = layout.tiles[id];
+          if (span.hidden) return null; // волна спрятала тайл (DESIGN §10)
+          return (
+            <div key={id} style={{ gridArea: gridArea(span), minHeight: 0 }}>
+              <BoardTile id={id} variant="grid" data={data} style={{ height: "100%", width: "100%" }} />
+            </div>
+          );
+        })}
       </div>
 
       {/* <1440px: одноколоночный стек; календарь → недельная полоса на мобиле (<640px). */}
       <div data-testid="stack" className="flex flex-col gap-4 min-[1440px]:hidden">
-        {MOBILE_ORDER.map((id) =>
-          id === "calendar" ? (
+        {layout.mobileOrder.map((id) =>
+          layout.tiles[id]?.hidden ? null : id === "calendar" ? (
             <div key={id}>
               <div className="hidden sm:block">
                 <BoardTile id={id} variant="grid" data={data} />
@@ -204,12 +218,25 @@ function BoardTile({
           className={className}
         />
       );
+    // Контентные тайлы M4 тянут данные сами (независимо от выбранного дня) — как музыка.
     case "music":
-      // Музыка тянет данные сама (независимо от выбранного дня) — Board ей ничего не прокидывает.
       return <MusicTile style={style} className={className} />;
+    case "projects":
+      return <ProjectsTile style={style} className={className} />;
+    case "social":
+      return <SocialTile style={style} className={className} />;
+    case "marquee":
+      return <ArtifactMarquee style={style} className={className} />;
+    case "hero":
+      return <HeroTile style={style} className={className} />;
+    case "photoDrops":
+      return <PhotoDropsTile style={style} className={className} />;
+    case "waveSwitcher":
+      return <WaveSwitcher style={style} className={className} />;
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
     default:
+      // Остаётся пустым швом: freshness (lastIngestAt — эра M5).
       return <PlaceholderTile label={TILE_NOTES[id]} style={style} className={className} />;
   }
 }

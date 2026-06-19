@@ -195,6 +195,26 @@ body {
   }
 }
 
+/* Бесконечная бегущая строка артефактов (M, §7.2): дублируем контент и едем на -50%,
+   так петля бесшовна. Пауза на ховер — чтобы можно было навести и открыть поповер.
+   Reduced-motion замирает (правило ниже). Темп задаёт --artifact-duration (по контенту). */
+.artifact-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: artifact-scroll var(--artifact-duration, 30s) linear infinite;
+}
+.artifact-track:hover {
+  animation-play-state: paused;
+}
+@keyframes artifact-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 /* prefers-reduced-motion: lift/тени/шиммер замирают (§2.3, §9). */
 @media (prefers-reduced-motion: reduce) {
   *,

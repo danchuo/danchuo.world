@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс theme (PRD §5.9, §7, §12 M4; DESIGN §10). Токены волны — в JSONB; смена активной
+      волны меняет весь сайт без правок компонентов. Data-driven: новая волна = новая запись.
+    -->
+    <changeSet id="0080-theme-table" author="danchuo">
+        <createTable tableName="theme">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="key" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tokens" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="released_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!--
+      Сид волны 01 «Студия / Персик» (DESIGN §2.1–2.3). tokens = весь визуальный набор из
+      frontend globals.css (ключи без CSS-префикса; фронт сам добавляет префикс и инжектит
+      в :root). Шрифты сюда НЕ кладём — их подставляет next/font. Dollar-quoting ($J$…$J$) —
+      чтобы JSON с двойными кавычками жил в SQL без экранирования (Postgres-специфика, мы только PG).
+    -->
+    <changeSet id="0080-theme-seed-wave01" author="danchuo">
+        <sql><![CDATA[
+INSERT INTO theme (key, name, tokens, active, released_at) VALUES (
+  'wave-01',
+  'Волна 01 «Студия / Персик»',
+  $J${
+    "bg-page": "#faf1eb",
+    "bg-surface": "#ffffff",
+    "bg-surface-2": "#fffbf8",
+    "bg-surface-muted": "#f3e6de",
+    "text-primary": "#211a16",
+    "text-secondary": "#6e635c",
+    "text-tertiary": "#a89b92",
+    "border": "rgba(33, 26, 22, 0.1)",
+    "border-pixel": "#211a16",
+    "accent": "#e2604c",
+    "accent-warm": "#f4a52a",
+    "success": "#3e9d77",
+    "danger": "#d2553f",
+    "cal-weekend": "#f7ece8",
+    "cal-othermonth": "#ece0d7",
+    "surface-othermonth": "linear-gradient(180deg, #fdf6f1, #f6ece4)",
+    "radius-sm": "6px",
+    "radius-md": "10px",
+    "radius-lg": "16px",
+    "elev-1": "0 1px 2px rgba(33, 26, 22, 0.05)",
+    "elev-2": "0 1px 2px rgba(33, 26, 22, 0.04), 0 6px 14px rgba(33, 26, 22, 0.06), 0 14px 30px rgba(33, 26, 22, 0.05)",
+    "elev-3": "0 2px 4px rgba(33, 26, 22, 0.05), 0 10px 22px rgba(33, 26, 22, 0.08), 0 24px 48px rgba(33, 26, 22, 0.07)",
+    "drop-2": "drop-shadow(0 1px 1px rgba(33, 26, 22, 0.06)) drop-shadow(0 7px 11px rgba(33, 26, 22, 0.1))",
+    "drop-3": "drop-shadow(0 2px 1px rgba(33, 26, 22, 0.08)) drop-shadow(0 12px 18px rgba(33, 26, 22, 0.14))",
+    "drop-4": "drop-shadow(0 3px 2px rgba(33, 26, 22, 0.1)) drop-shadow(0 18px 26px rgba(33, 26, 22, 0.18))",
+    "surface-fill": "linear-gradient(180deg, var(--bg-surface), var(--bg-surface-2))",
+    "px": "4px",
+    "pixel-corners": "polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px))"
+  }$J$::jsonb,
+  true,
+  now()
+);
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

@@ -4,6 +4,8 @@
  * через `number | null` — `null` = «нет данных», `0` = реальный ноль.
  */
 
+import type { WaveLayout } from "@/lib/layout";
+
 export interface SleepStagesView {
   rem: number | null;
   deep: number | null;
@@ -102,6 +104,64 @@ export interface NowPlayingView {
 export interface RecentTrackView {
   track: TrackView;
   playedAt: string | null;
+}
+
+// ── Контент M4 (PRD §5.7/§5.8/§5.9/§5.12) — зеркало Kotlin-DTO соответствующих слайсов. ──
+
+/** Проект (`GET /api/projects`); диапазон («Q3 2025 — наст.») форматирует фронт из сырых полей. */
+export interface ProjectView {
+  iconUrl: string | null;
+  title: string;
+  description: string | null;
+  startYear: number;
+  startQuarter: number | null;
+  endYear: number | null;
+  endQuarter: number | null;
+  url: string | null;
+}
+
+/** Соцссылка (`GET /api/social-links`): иконка + подпись + гиперссылка. */
+export interface SocialLinkView {
+  platform: string;
+  name: string;
+  url: string;
+  icon: string | null;
+}
+
+/** Артефакт marquee (`GET /api/artifacts`); `firstMentionedOn` — только в ховер-поповере (§5.8). */
+export interface ArtifactView {
+  name: string;
+  /** PNG/GIF артефакта; `null` — артефакт без картинки (рисуем пиксель-плейсхолдер). */
+  imageUrl: string | null;
+  firstMentionedOn: string;
+}
+
+/** Волна (`GET /api/theme/active`, `/api/themes`): `tokens` инжектятся в `:root` как `--<ключ>`. */
+export interface ThemeView {
+  key: string;
+  name: string;
+  tokens: Record<string, string>;
+  /** Layout-блок волны (переопределяет дефолт bento); `null` ⇒ дефолт `layout.ts` (§3, §10). */
+  layout: WaveLayout | null;
+  active: boolean;
+  releasedAt: string;
+}
+
+/** Дроп для тизер-тайла (`GET /api/drops`). */
+export interface FilmDropView {
+  id: number;
+  title: string;
+  droppedOn: string;
+  monthLabel: string | null;
+  photoCount: number;
+  coverPhotoUrl: string | null;
+}
+
+/** Кадр дропа (`GET /api/drops/{id}`); `width/height` — для justified-композиции модалки. */
+export interface FilmPhotoView {
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
 }
 
 /** Лёгкая сводка дня (`GET /api/days?from=&to=`) — ячейка календаря / мини-график. */

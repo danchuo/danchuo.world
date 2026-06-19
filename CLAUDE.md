@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Текущее состояние репозитория
 
-**Эра M3 (Spotify) в работе.** Бэкенд: спина данных M1 + read-API дня/календаря (M2) + изолированный слайс `spotify` (внешний OAuth, шифр-токен at-rest, кэш-GET). Фронт: Next.js-каркас с плиткой «Сегодня», календарём ±15, статами + живой `MusicTile`. Дальше — эра M4 (темы/аналитика).
+**Эра M4 (статика/темы/аналитика) готова.** Бэкенд: спина данных M1 + read-API дня/календаря (M2) + слайс `spotify` (M3) + контент-слайсы `projects`/`social`, система тем `theme` (токены **и layout-per-wave** в JSONB → инжект в `:root` / раскладка борда), приватная аналитика `analytics` (cookieless бикон), каркас фото-дропов `film` + мягкий рейтлимит публичных GET. Фронт: борд наполнен живыми тайлами (проекты, соцссылки, marquee артефактов, hero, фото-дропы + модалка, переключатель волн), SSR-инжект токенов **и раскладки** активной волны, JS-бикон аналитики. Дальше — эра M5 (полировка/адаптив/запуск).
 
 - `docs/PRD-danchuoworld.md` — **что** строим: функциональные требования, acceptance criteria, модель данных, этапы M0–M5 + бэклог.
 - `docs/DESIGN.md` — **как** это выглядит и ощущается: источник правды по дизайну (волна 01, токены, bento-сетка, состояния).
@@ -13,11 +13,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **M1 наполнены:** `days` (`DayRecord` + `DayRecordService` — единая точка записи дня, генезис-гард), `health` (`Workout`, `POST /api/ingest/health`), `checklist` (`ChecklistItem`/`ChecklistEntry`, `POST /api/ingest/daily`, пункт `monster` — производная от вкуса), `monster` (`MonsterFlavor`, data-driven вкусы). Сиды пунктов и вкусов — в Liquibase. Ingest идемпотентен (upsert по дате), null ≠ 0 (§5.4).
   - **M2 (бэкенд) готов:** `days` дополнен агрегатором (`DayAggregator`) и публичными `GET /api/days/{date}` (полная проекция `DayView`) + `GET /api/days?from=&to=` (сводки `DaySummary` для календаря/мини-графика). Все GET публичны, генезис-гард, null ≠ 0.
   - **M3 (бэкенд) готов:** слайс `spotify` — внешний источник целиком в своём пакете, ядро не тронуто. `SpotifyConfig` (креды/скоупы/ключ из env), `SpotifyToken` + `SpotifyCrypto` (refresh-токен шифрованно at-rest, AES-GCM), `SpotifyTokenService` (one-time обмен кода + прозрачный рефреш access-токена), `SpotifyAuthResource` (`GET /api/ingest/spotify/authorize` за bearer + публичный `GET /api/spotify/callback` со сверкой `state`), REST-клиенты к Spotify + `SpotifyService` с Caffeine-кэшем (now-playing ~20с, recent/top — минуты), публичные `GET /api/spotify/{now-playing,recent,top}`. Не сконфигурирован/не подключён ⇒ пустая форма (200), не падение.
-  - **Ещё пустые швы (M4+):** `theme/projects/social/analytics` — пока пакет-маркеры.
-  - `core` содержит bearer-фильтр (`/api/ingest/*`), MSK/генезис-конфиг и кэш-шов.
+  - **M4 (бэкенд) готов:** контент-слайсы `projects` (`GET /api/projects`) и `social` (`SocialLink`+`Artifact`, `GET /api/social-links`/`/api/artifacts`); `theme` — волны с токенами **и опциональным layout-блоком** в JSONB (`Theme`, `@JdbcTypeCode(JSON)`; `LayoutSpec` — переопределение спанов/видимости/грида/мобильного порядка, бэкенд хранит как непрозрачный JSON), `GET /api/theme/active` (кэш, отдаёт `tokens`+`layout`) + `GET /api/themes`, сид волны 01 = весь токен-набор из `globals.css` (layout=null ⇒ дефолт фронта) + демо-«Волна 02» с layout-дельтой; `analytics` — cookieless-телеметрия (сырой IP не хранится, только суточный хэш `VisitorHash`), публичный `POST /api/analytics/beacon` + фильтр ботов `BotHeuristics` + приватная сводка `GET /api/ingest/analytics/summary` (за bearer); `film` — каркас фото-дропов (`FilmDrop`/`FilmPhoto`, `GET /api/drops*`, пусто до B1-загрузки). Артефакты могут быть без картинки (`Artifact.imageUrl` nullable — marquee рисует пиксель-плейсхолдер). Сиды/схема — Liquibase `0060`–`0120`.
+  - **Ещё пустые швы (M5+):** индикатор свежести данных (`lastIngestAt`).
+  - `core` содержит bearer-фильтр (`/api/ingest/*`), мягкий рейтлимит публичных GET (`RateLimitFilter`, in-memory токен-бакет по IP), MSK/генезис-конфиг и кэш-шов.
 - `frontend/` — Next.js (App Router) + TypeScript + Tailwind v4. Публичный JSON-клиент к Quarkus (только чтение).
-  - **M2 каркас:** токены волны 01 в `:root` (`src/app/globals.css`; M4 заменит на инжект из `/api/theme/active`), data-driven layout-конфиг тайлов (`src/lib/layout.ts`, bento 20×14), плитка «Сегодня»/календарь/статы + недельная полоса на мобиле, per-tile состояния (loading/empty/error/loaded).
-  - **M3:** `MusicTile` (`src/components/MusicTile.tsx`) — живой слой Spotify; тянет `/api/spotify/now-playing` (опрос на интервале) + `/api/spotify/recent` сам, независимо от выбранного дня. Пусто ⇒ «ничего не играет». Прочие тайлы — пустые швы под M4+.
+  - **M2 каркас:** токены волны 01 в `:root` (`src/app/globals.css` — теперь **дефолт-фолбэк**, поверх которого M4 инжектит токены из БД), data-driven layout-конфиг тайлов (`src/lib/layout.ts`, bento 20×14), плитка «Сегодня»/календарь/статы + недельная полоса на мобиле, per-tile состояния (loading/empty/error/loaded).
+  - **M3:** `MusicTile` (`src/components/MusicTile.tsx`) — живой слой Spotify; тянет `/api/spotify/now-playing` (опрос на интервале) + `/api/spotify/recent` сам, независимо от выбранного дня. Пусто ⇒ «ничего не играет».
+  - **M4:** контентные тайлы (`ProjectsTile`/`SocialTile`/`ArtifactMarquee`/`HeroTile`/`PhotoDropsTile`+`PhotoDropModal`) — каждый тянет свой источник сам (общий шов `useTileData`, per-tile состояния); `WaveSwitcher` — клиентский своп волны через контекст `WaveProvider` (токены в `:root` + раскладка борда); SSR-инжект токенов **и layout** активной волны (`layout.tsx` токены в `<head>`, `page.tsx` → `WaveProvider`, без вспышки, фолбэк на `globals.css`/`layout.ts`); `AnalyticsBeacon` — cookieless JS-бикон (load + dwell на уходе). Остаётся пустой шов: `freshness` (M5).
+  - **Layout-per-wave (`src/lib/layout.ts`):** `TileSpan.hidden` + `resolveLayout(wave)` — мерж layout-блока волны **поверх** дефолта `TILE_LAYOUT` (волна задаёт дельту: переставить/ресайзить/спрятать тайлы, грид, мобильный порядок). Реестр тайлов (`TileId`) за кодом; неизвестные коду тайлы игнорируются; `waveSwitcher` спрятать нельзя; `null` ⇒ чистый дефолт. `Board` рендерит из `useWave().layout`. Добавление волны = запись в БД с опц. `layout`-JSON, без правок кода. См. DESIGN §10.1.
   - Тесты — Vitest + React Testing Library (`*.test.ts(x)` рядом с кодом).
 
 ### Версии стека (самые свежие, что тянем — см. память `latest-stack-preference`)
@@ -82,7 +85,7 @@ PRD и DESIGN — разделённые источники правды, не �
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **danchuo.world** (1017 symbols, 2066 relationships, 83 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **danchuo.world** (1444 symbols, 2922 relationships, 109 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

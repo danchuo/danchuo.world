@@ -323,22 +323,25 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                 <li
                   key={`${r.track.url ?? r.track.title}-${r.playedAt ?? i}`}
                   data-testid="recent-track"
-                  className="truncate"
-                  style={{ ...mono, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.4 }}
+                  style={{ lineHeight: 1.4 }}
                 >
-                  {r.track.url ? (
-                    <a href={r.track.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
-                      {r.track.title}
-                    </a>
-                  ) : (
-                    r.track.title
-                  )}
-                  {r.track.artists.length > 0 && (
-                    <span style={{ color: "var(--text-tertiary)" }}>
-                      {" · "}
-                      <Artists artists={r.track.artists} color="var(--text-tertiary)" />
-                    </span>
-                  )}
+                  {/* Как и в now-playing: едет бегущей строкой, только если не влезло по
+                      ширине (Marquee меряет overflow сам). Влезло — обычная строка. */}
+                  <Marquee style={{ ...mono, color: "var(--text-secondary)", fontSize: 12 }}>
+                    {r.track.url ? (
+                      <a href={r.track.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
+                        {r.track.title}
+                      </a>
+                    ) : (
+                      r.track.title
+                    )}
+                    {r.track.artists.length > 0 && (
+                      <span style={{ color: "var(--text-tertiary)" }}>
+                        {" · "}
+                        <Artists artists={r.track.artists} color="var(--text-tertiary)" />
+                      </span>
+                    )}
+                  </Marquee>
                   </li>
                 ))}
               </ul>

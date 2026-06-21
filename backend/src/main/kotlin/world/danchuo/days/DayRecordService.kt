@@ -19,6 +19,7 @@ class DayRecordService(
     private val repo: DayRecordRepository,
     private val mskTime: MskTime,
     private val clock: Clock,
+    private val ingestStatus: IngestStatusService,
 ) {
 
     /** Применить статы здоровья дня (PRD §5.4). `null` пишется как «нет данных», 0 — как ноль. */
@@ -66,6 +67,9 @@ class DayRecordService(
         }
         mutate(day)
         day.updatedAt = now
+        // Свежесть данных (PRD §8): любой успешный приём двигает singleton-отметку. Здесь,
+        // в единой точке записи, — значит оба канала (health/дисциплина) учтены без дублей.
+        ingestStatus.markIngest(now)
         return day
     }
 }

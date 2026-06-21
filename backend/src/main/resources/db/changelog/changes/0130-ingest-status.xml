@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Индикатор свежести данных (PRD §8, эра M5). Singleton-строка: «когда телефон
+      последний раз достучался до ingest» (последний успешный upsert дня — оба канала,
+      health 12/18/24 и интерактивная дисциплина, пишут через DayRecordService).
+      Семантика — момент *приёма*, не последнего изменения дня; алерт об отвале шортката —
+      бэклог (B5), здесь только тихий индикатор в UI. Сидим единственную строку (id=1)
+      с пустым last_ingest_at (NULL = «приёмов ещё не было», UI покажет пусто).
+    -->
+    <changeSet id="0130-ingest-status" author="danchuo">
+        <createTable tableName="ingest_status">
+            <column name="id" type="smallint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="last_ingest_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+        <insert tableName="ingest_status">
+            <column name="id" valueNumeric="1"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

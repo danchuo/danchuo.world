@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Доступность волны 01 (PRD §12 M5, DESIGN §9): токен text-tertiary #a89b92 проваливал AA
+      на bg-page/surface (~2.5–2.7:1 для мелкого текста). Затемняем до #756a61 (~4.7–5.3:1,
+      проходит AA, остаётся самым светлым тиром). Новый changeset (не правка применённого
+      0080) — чтобы не ломать чексумму на уже наполненной базе. Синхронно с globals.css
+      (фронт-дефолт) и DESIGN.md (таблица токенов).
+    -->
+    <changeSet id="0140-theme-tertiary-aa" author="danchuo">
+        <sql>
+            UPDATE theme
+            SET tokens = jsonb_set(tokens, '{text-tertiary}', '"#756a61"')
+            WHERE key = 'wave-01';
+        </sql>
+        <rollback>
+            UPDATE theme
+            SET tokens = jsonb_set(tokens, '{text-tertiary}', '"#a89b92"')
+            WHERE key = 'wave-01';
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatFraction, formatSleep, formatSteps, isDisciplineDone, NO_DATA } from "./format";
+import { formatAgo, formatFraction, formatSleep, formatSteps, isDisciplineDone, NO_DATA } from "./format";
 
 describe("format (null != 0, PRD 5.4)", () => {
   it("null -> «нет данных», но реальный 0 показывается как 0", () => {
@@ -24,5 +24,24 @@ describe("format (null != 0, PRD 5.4)", () => {
     expect(formatFraction(2, 2)).toBe("2/2");
     expect(isDisciplineDone(2, 2)).toBe(true);
     expect(isDisciplineDone(1, 2)).toBe(false);
+  });
+});
+
+describe("formatAgo (свежесть, PRD 8)", () => {
+  const now = Date.parse("2026-06-21T12:00:00Z");
+
+  it("ступени единиц: только что / мин / ч / дн", () => {
+    expect(formatAgo("2026-06-21T11:59:30Z", now)).toBe("только что");
+    expect(formatAgo("2026-06-21T11:45:00Z", now)).toBe("15 мин назад");
+    expect(formatAgo("2026-06-21T09:00:00Z", now)).toBe("3 ч назад");
+    expect(formatAgo("2026-06-19T12:00:00Z", now)).toBe("2 дн назад");
+  });
+
+  it("будущая метка (часы рассинхронизированы) не уходит в минус", () => {
+    expect(formatAgo("2026-06-21T12:00:30Z", now)).toBe("только что");
+  });
+
+  it("невалидный ISO → пустая строка", () => {
+    expect(formatAgo("не-дата", now)).toBe("");
   });
 });

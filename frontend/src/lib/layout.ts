@@ -70,6 +70,8 @@ export const MOBILE_ORDER: TileId[] = [
   "social",
   "hero",
   "marquee",
+  // Тихий индикатор свежести — хвостом стека (зеркалит его угловую роль на десктопе, §8).
+  "freshness",
 ];
 
 /** CSS grid-area для тайла (`row / col / row-end / col-end`). */

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Favicon волны 01 «пиксель-персик»: тёплый фон + ступенчатый пиксель-блок акцентом
+       (тот же мотив, что рамки плиток). -->
+  <rect width="32" height="32" rx="6" fill="#faf1eb"/>
+  <g fill="#e2604c">
+    <rect x="10" y="6" width="12" height="2"/>
+    <rect x="8" y="8" width="16" height="2"/>
+    <rect x="6" y="10" width="20" height="12"/>
+    <rect x="8" y="22" width="16" height="2"/>
+    <rect x="10" y="24" width="12" height="2"/>
+  </g>
+  <rect x="13" y="13" width="6" height="6" fill="#f4a52a"/>
+</svg>

@@ -77,6 +77,7 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
           <button
             ref={closeRef}
             type="button"
+            className="tap-target"
             onClick={onClose}
             aria-label="Закрыть"
             style={{ ...monoTertiary, fontSize: 20, cursor: "pointer", background: "none", border: "none" }}

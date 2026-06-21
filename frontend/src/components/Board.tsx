@@ -7,6 +7,7 @@ import { mskToday, windowAround } from "@/lib/date";
 import { gridArea, type TileId } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
+import { FreshnessTile } from "./FreshnessTile";
 import { HeroTile } from "./HeroTile";
 import { MusicTile } from "./MusicTile";
 import { PhotoDropsTile } from "./PhotoDropsTile";
@@ -231,12 +232,14 @@ function BoardTile({
       return <HeroTile style={style} className={className} />;
     case "photoDrops":
       return <PhotoDropsTile style={style} className={className} />;
+    case "freshness":
+      return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":
       return <WaveSwitcher style={style} className={className} />;
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
     default:
-      // Остаётся пустым швом: freshness (lastIngestAt — эра M5).
+      // Пустых швов борда не осталось — все TileId имеют свой компонент.
       return <PlaceholderTile label={TILE_NOTES[id]} style={style} className={className} />;
   }
 }

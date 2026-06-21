@@ -4,6 +4,7 @@ import type {
   DayView,
   FilmDropView,
   FilmPhotoView,
+  FreshnessView,
   NowPlayingView,
   ProjectView,
   RecentTrackView,
@@ -86,6 +87,11 @@ export function getDrops(init?: RequestInit): Promise<FilmDropView[]> {
 /** Кадры дропа (`GET /api/drops/{id}`). */
 export function getDrop(id: number, init?: RequestInit): Promise<FilmPhotoView[]> {
   return getJson<FilmPhotoView[]>(`/api/drops/${id}`, init);
+}
+
+/** Свежесть данных (`GET /api/freshness`, PRD §8) — момент последнего приёма ingest. */
+export function getFreshness(init?: RequestInit): Promise<FreshnessView> {
+  return getJson<FreshnessView>(`/api/freshness`, init);
 }
 
 /**

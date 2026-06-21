@@ -33,3 +33,20 @@ export function formatFraction(count: number, target: number): string {
 export function isDisciplineDone(count: number, target: number): boolean {
   return count >= target;
 }
+
+/**
+ * «N назад» для индикатора свежести (PRD §8). Компактные единицы (мин/ч/дн) под mono-плитку;
+ * меньше минуты — «только что». Невалидный ISO → пустая строка (тайл покажет пусто).
+ */
+export function formatAgo(iso: string, now: number = Date.now()): string {
+  const ms = now - Date.parse(iso);
+  if (Number.isNaN(ms)) return "";
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  if (sec < 60) return "только что";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} мин назад`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `${hours} ч назад`;
+  const days = Math.floor(hours / 24);
+  return `${days} дн назад`;
+}

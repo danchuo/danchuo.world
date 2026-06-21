@@ -69,8 +69,9 @@ function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /** Статичные стили — вне рендера, чтобы не пересобирать на каждый кадр. */
-const albumStyle = { color: "var(--text-tertiary)", fontSize: 11 } satisfies CSSProperties;
-const sourceStyle = { color: "var(--text-tertiary)", fontSize: 11 } satisfies CSSProperties;
+// Альбом прижат к исполнителям (меньше воздуха), источник отодвинут от альбома (больше).
+const albumStyle = { color: "var(--text-tertiary)", fontSize: 11, marginTop: -2 } satisfies CSSProperties;
+const sourceStyle = { color: "var(--text-tertiary)", fontSize: 11, marginTop: 7 } satisfies CSSProperties;
 /**
  * Тело блока now-playing. Высоту НЕ фиксируем (Spotify ушёл в угол шапки, снизу его
  * больше нет) — блок растёт по контенту в освободившуюся вертикаль. Обложка прижата к

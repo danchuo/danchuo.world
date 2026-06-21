@@ -8,9 +8,32 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin", "cyrillic"], weight: ["400", "500"], variable: "--font-inter" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400"], variable: "--font-jetbrains" });
 
+// Базовый URL сайта для абсолютных ссылок в OG/canonical/sitemap (PRD §12 M5). Прод —
+// домен; локально/в превью переопределяется env. metadataBase делает OG-картинку и
+// canonical абсолютными (соцсети требуют абсолютный URL картинки).
+const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "danchuo.world",
-  description: "Дашборд жизни со статистикой и визитная карточка.",
+  description: "Дашборд жизни со статистикой и визитная карточка — «Сегодня», календарь, музыка, проекты.",
+  applicationName: "danchuo.world",
+  authors: [{ name: "DANCHUO" }],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "danchuo.world",
+    title: "danchuo.world",
+    description: "Дашборд жизни со статистикой и визитная карточка.",
+    url: "/",
+    locale: "ru_RU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "danchuo.world",
+    description: "Дашборд жизни со статистикой и визитная карточка.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

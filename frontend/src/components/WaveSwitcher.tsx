@@ -49,13 +49,14 @@ export function WaveSwitcher({ style, className, placeholderSlots = 2 }: WaveSwi
               <button
                 key={t.key}
                 type="button"
+                className="tap-target"
                 aria-pressed={isActive}
                 aria-label={`Волна: ${t.name}`}
                 title={t.name}
                 onClick={() => applyWave(t)}
                 style={{
-                  width: 24,
-                  height: 24,
+                  width: 18,
+                  height: 18,
                   cursor: "pointer",
                   background: t.tokens["bg-page"] ?? "var(--bg-surface-muted)",
                   border: isActive ? "2px solid var(--border-pixel)" : "1px solid var(--border)",
@@ -70,8 +71,8 @@ export function WaveSwitcher({ style, className, placeholderSlots = 2 }: WaveSwi
               key={`slot-${i}`}
               aria-hidden
               style={{
-                width: 24,
-                height: 24,
+                width: 18,
+                height: 18,
                 background: "var(--bg-surface-muted)",
                 border: "1px dashed var(--border)",
                 borderRadius: "var(--radius-sm)",

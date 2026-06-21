@@ -50,7 +50,8 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
       label={label}
       ariaLabel="Сегодня"
       style={tileStyle}
-      className={className}
+      // Заклёпки (§2.4) — только на фокусной плитке; кант приходит из .pixel-tile.
+      className={["pixel-tile--rivets", className].filter(Boolean).join(" ")}
     >
       {day && (
         <div className="flex h-full flex-col gap-3">

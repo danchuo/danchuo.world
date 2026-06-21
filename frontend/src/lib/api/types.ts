@@ -164,6 +164,11 @@ export interface FilmPhotoView {
   height: number | null;
 }
 
+/** Свежесть данных (`GET /api/freshness`, PRD §8); `lastIngestAt` `null` = приёмов ещё не было. */
+export interface FreshnessView {
+  lastIngestAt: string | null;
+}
+
 /** Лёгкая сводка дня (`GET /api/days?from=&to=`) — ячейка календаря / мини-график. */
 export interface DaySummary {
   date: string;

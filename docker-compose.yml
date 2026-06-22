@@ -41,8 +41,13 @@ services:
       DANCHUO_ANALYTICS_SALT: dev-analytics-salt-change-me
       # Генезис-дата (раньше неё данных нет, PRD §4) — для теста ставим начало года.
       DANCHUO_TIME_GENESIS: "2026-01-01"
+      # Каталог кадров фото-дропов (B1, PRD §5.12). В prod-профиле обязателен из env;
+      # монтируем именованный том ниже, чтобы загруженные дропы переживали пересборку контейнера.
+      DANCHUO_FILM_DIR: /data/film
     ports:
       - "8080:8080"
+    volumes:
+      - filmdata:/data/film
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,3 +71,4 @@ services:
 
 volumes:
   pgdata:
+  filmdata:

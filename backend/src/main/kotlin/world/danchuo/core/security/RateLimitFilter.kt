@@ -38,6 +38,9 @@ class RateLimitFilter(
         if (ctx.method != "GET") return
         val path = ctx.uriInfo.path.trim('/')
         if (!path.startsWith("api/") || path.startsWith("api/ingest")) return
+        // Раздача кадров фото-дропа (B1): одна модалка-галерея = ~36 GET картинок — это не абуз,
+        // а штатная загрузка статики (в проде её кэширует/отдаёт Caddy/CDN). Не лимитируем.
+        if (path.startsWith("api/film-media")) return
 
         val key = ctx.getHeaderString("X-Forwarded-For")
             ?.split(",")?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() }

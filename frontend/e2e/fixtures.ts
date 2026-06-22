@@ -94,8 +94,23 @@ const ARTIFACTS = [
 ];
 
 const DROPS = [
-  { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: null },
+  { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 8, coverPhotoUrl: "/api/film-media/1/0/thumb" },
 ];
+
+/** Кадры последнего дропа для тайла/модалки. Картинки стаб-1×1 — снимок детерминирован
+ *  независимо от того, какие 5 «случайных» кадров выбрал тайл (все варианты пиксельно равны). */
+const DROP_PHOTOS = Array.from({ length: 8 }, (_, i) => ({
+  imageUrl: `/api/film-media/1/${i}/web`,
+  thumbUrl: `/api/film-media/1/${i}/thumb`,
+  width: 120,
+  height: 80,
+}));
+
+/** 1×1 PNG — стаб для всех media-запросов кадров (без сети, без битых картинок в эталоне). */
+const PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 const FRESHNESS = { lastIngestAt: "2026-06-21T06:00:00Z" }; // 6 ч назад от FIXED_TIME
 
@@ -113,7 +128,9 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === "/api/projects") return json(PROJECTS);
     if (path === "/api/social-links") return json(SOCIAL);
     if (path === "/api/artifacts") return json(ARTIFACTS);
+    if (path.startsWith("/api/film-media")) return route.fulfill({ status: 200, contentType: "image/png", body: PIXEL_PNG });
     if (path === "/api/drops") return json(DROPS);
+    if (path.startsWith("/api/drops/")) return json(DROP_PHOTOS);
     if (path === "/api/freshness") return json(FRESHNESS);
     if (path === "/api/theme/active" || path === "/api/themes") return route.continue(); // тема — из реальной БД (детерминирована)
     return json({});

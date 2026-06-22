@@ -8,10 +8,22 @@ const getDropsMock = vi.mocked(getDrops);
 
 afterEach(() => vi.clearAllMocks());
 
-describe("PhotoDropsTile", () => {
-  it("до B1 (нет дропов) → пустое состояние «пока нет дропов»", async () => {
+describe("PhotoDropsTile (компактная лента)", () => {
+  it("нет дропов → пустое состояние «пока нет дропов»", async () => {
     getDropsMock.mockResolvedValue([]);
     render(<PhotoDropsTile />);
     expect(await screen.findByText("пока нет дропов")).toBeInTheDocument();
+  });
+
+  it("есть дропы → перечисляет все (сама лента и есть архив)", async () => {
+    getDropsMock.mockResolvedValue([
+      { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
+      { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: "/api/film-media/1/0/thumb" },
+    ]);
+
+    render(<PhotoDropsTile />);
+
+    expect(await screen.findByText("Июльская плёнка")).toBeInTheDocument();
+    expect(screen.getByText("Июньская плёнка")).toBeInTheDocument();
   });
 });

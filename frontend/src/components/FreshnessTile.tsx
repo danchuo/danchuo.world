@@ -23,6 +23,7 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 export function FreshnessTile({ style, className }: FreshnessTileProps) {
   const { phase, data, retry } = useTileData<FreshnessView>(
     useCallback((signal) => getFreshness({ signal }), []),
+    "freshness",
   );
 
   // Тик раз в минуту: «N мин назад» не должно застревать на значении момента загрузки.

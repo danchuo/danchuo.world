@@ -159,9 +159,38 @@ export interface FilmDropView {
 
 /** Кадр дропа (`GET /api/drops/{id}`); `width/height` — для justified-композиции модалки. */
 export interface FilmPhotoView {
+  /** web-вариант (для модалки/борда). */
   imageUrl: string;
+  /** thumb-вариант (для сетки/превью-тайла). */
+  thumbUrl: string;
   width: number | null;
   height: number | null;
+}
+
+// ── Админ фото-дропов (`/api/ingest/drops*`, за bearer; зеркало Kotlin-DTO film) ──
+
+/** Дроп в админке — управление + текущая обложка. */
+export interface AdminDropView {
+  id: number;
+  title: string;
+  droppedOn: string;
+  monthLabel: string | null;
+  photoCount: number;
+  coverPhotoId: number | null;
+}
+
+/** Кадр в админ-сетке выбора обложки. */
+export interface AdminPhotoView {
+  id: number;
+  thumbUrl: string;
+  isCover: boolean;
+}
+
+/** Итог загрузки zip: дроп + сколько кадров обработано/пропущено. */
+export interface UploadResultView {
+  drop: AdminDropView;
+  processed: number;
+  skipped: number;
 }
 
 /** Свежесть данных (`GET /api/freshness`, PRD §8); `lastIngestAt` `null` = приёмов ещё не было. */

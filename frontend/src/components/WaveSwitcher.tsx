@@ -23,6 +23,7 @@ interface WaveSwitcherProps {
 export function WaveSwitcher({ style, className, placeholderSlots = 2 }: WaveSwitcherProps) {
   const { phase, data, retry } = useTileData<ThemeView[]>(
     useCallback((signal) => getThemes({ signal }), []),
+    "themes",
   );
   const themes = data ?? [];
   // Активная волна и своп — из контекста (SSR-дефолт = активная волна владельца). Своп

@@ -32,6 +32,7 @@ function formatFirstMentioned(iso: string): string {
 export function ArtifactMarquee({ style, className }: ArtifactMarqueeProps) {
   const { phase, data, retry } = useTileData<ArtifactView[]>(
     useCallback((signal) => getArtifacts({ signal }), []),
+    "artifacts",
   );
   const artifacts = data ?? [];
   const isEmpty = phase === "loaded" && artifacts.length === 0;

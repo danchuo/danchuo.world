@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 88" role="img"
+     aria-label="danchuo.world">
+  <!--
+    Лого danchuo.world, вариант B «планета-точка домена» (волна 01 «пиксель-персик»).
+    Вордмарк «danchuo·world», где точка-разделитель — крутящаяся пиксель-Земля.
+    Правило DESIGN: пиксель-крафт только в иконке (глобус crispEdges),
+    текст остаётся гладким и резким. Текст якорится по краям от центра
+    глобуса (cx=190) — выравнивание не зависит от подставленного шрифта.
+  -->
+  <defs>
+    <clipPath id="globe-clip">
+      <circle cx="18" cy="18" r="18"/>
+    </clipPath>
+  </defs>
+
+  <!-- левая часть ника: «danchuo», конец слова прижат к глобусу -->
+  <text x="166" y="62" text-anchor="end"
+        font-family="Inter, system-ui, sans-serif" font-weight="700"
+        font-size="44" letter-spacing="-1.2" fill="#211a16">danchuo</text>
+
+  <!-- крутящаяся пиксель-Земля как точка домена (центр 190,48) -->
+  <g transform="translate(172,30)">
+    <!-- мягкая атмосфера: чистая AA-окружность, не пиксель -->
+    <circle cx="18" cy="18" r="19" fill="none" stroke="#f4a52a"
+            stroke-width="1.5" opacity="0.55"/>
+    <!-- океан -->
+    <circle cx="18" cy="18" r="18" fill="#8fc9c2"/>
+    <!-- материки: пиксель-лента, бесшовно прокручивается влево (эффект вращения) -->
+    <g clip-path="url(#globe-clip)" shape-rendering="crispEdges">
+      <g fill="#3e9d77">
+        <!-- половина A (x 0..36) -->
+        <rect x="15" y="3" width="3" height="3"/><rect x="18" y="3" width="3" height="3"/>
+        <rect x="12" y="6" width="3" height="3"/><rect x="15" y="6" width="3" height="3"/><rect x="18" y="6" width="3" height="3"/><rect x="27" y="6" width="3" height="3"/>
+        <rect x="12" y="9" width="3" height="3"/><rect x="15" y="9" width="3" height="3"/><rect x="24" y="9" width="3" height="3"/><rect x="27" y="9" width="3" height="3"/><rect x="30" y="9" width="3" height="3"/>
+        <rect x="9" y="12" width="3" height="3"/><rect x="12" y="12" width="3" height="3"/><rect x="24" y="12" width="3" height="3"/><rect x="27" y="12" width="3" height="3"/>
+        <rect x="12" y="15" width="3" height="3"/><rect x="21" y="15" width="3" height="3"/><rect x="24" y="15" width="3" height="3"/>
+        <rect x="9" y="18" width="3" height="3"/><rect x="12" y="18" width="3" height="3"/><rect x="21" y="18" width="3" height="3"/><rect x="24" y="18" width="3" height="3"/><rect x="27" y="18" width="3" height="3"/>
+        <rect x="12" y="21" width="3" height="3"/><rect x="15" y="21" width="3" height="3"/><rect x="24" y="21" width="3" height="3"/>
+        <rect x="15" y="24" width="3" height="3"/><rect x="18" y="24" width="3" height="3"/><rect x="21" y="24" width="3" height="3"/><rect x="24" y="24" width="3" height="3"/>
+        <rect x="15" y="27" width="3" height="3"/><rect x="24" y="27" width="3" height="3"/><rect x="27" y="27" width="3" height="3"/>
+        <rect x="18" y="30" width="3" height="3"/>
+        <!-- половина B (= A, сдвиг +36) для бесшовного цикла -->
+        <rect x="51" y="3" width="3" height="3"/><rect x="54" y="3" width="3" height="3"/>
+        <rect x="48" y="6" width="3" height="3"/><rect x="51" y="6" width="3" height="3"/><rect x="54" y="6" width="3" height="3"/><rect x="63" y="6" width="3" height="3"/>
+        <rect x="48" y="9" width="3" height="3"/><rect x="51" y="9" width="3" height="3"/><rect x="60" y="9" width="3" height="3"/><rect x="63" y="9" width="3" height="3"/><rect x="66" y="9" width="3" height="3"/>
+        <rect x="45" y="12" width="3" height="3"/><rect x="48" y="12" width="3" height="3"/><rect x="60" y="12" width="3" height="3"/><rect x="63" y="12" width="3" height="3"/>
+        <rect x="48" y="15" width="3" height="3"/><rect x="57" y="15" width="3" height="3"/><rect x="60" y="15" width="3" height="3"/>
+        <rect x="45" y="18" width="3" height="3"/><rect x="48" y="18" width="3" height="3"/><rect x="57" y="18" width="3" height="3"/><rect x="60" y="18" width="3" height="3"/><rect x="63" y="18" width="3" height="3"/>
+        <rect x="48" y="21" width="3" height="3"/><rect x="51" y="21" width="3" height="3"/><rect x="60" y="21" width="3" height="3"/>
+        <rect x="51" y="24" width="3" height="3"/><rect x="54" y="24" width="3" height="3"/><rect x="57" y="24" width="3" height="3"/><rect x="60" y="24" width="3" height="3"/>
+        <rect x="51" y="27" width="3" height="3"/><rect x="60" y="27" width="3" height="3"/><rect x="63" y="27" width="3" height="3"/>
+        <rect x="54" y="30" width="3" height="3"/>
+        <animateTransform attributeName="transform" type="translate"
+                          from="0 0" to="-36 0" dur="14s" repeatCount="indefinite"/>
+      </g>
+    </g>
+    <!-- лёгкий блик слева сверху: объём без 3D -->
+    <circle cx="11" cy="11" r="4" fill="#ffffff" opacity="0.22"/>
+  </g>
+
+  <!-- правая часть: «world», начало слова прижато к глобусу -->
+  <text x="214" y="62" text-anchor="start"
+        font-family="Inter, system-ui, sans-serif" font-weight="700"
+        font-size="44" letter-spacing="-1.2" fill="#211a16">world</text>
+</svg>

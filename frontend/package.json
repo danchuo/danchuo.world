@@ -1,8 +1,8 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
-  "description": "danchuo.world — публичный фронт (M5: полировка, свежесть, a11y, SEO, визуальная регрессия)",
+  "description": "danchuo.world — публичный фронт + админка фото-дропов (B1: загрузка zip, обложка, архив /drops)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

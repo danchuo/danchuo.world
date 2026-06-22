@@ -24,6 +24,7 @@ const DESKTOP: Tile[] = [
   { label: "Артефакты", slug: "marquee" },
   { label: "Избранное фото", slug: "hero" },
   { label: "Фото-дропы", slug: "photoDrops" },
+  { label: "Последний фото-дроп", slug: "latestDrop" },
   { label: "Свежесть данных", slug: "freshness" },
   { label: "Переключатель волн", slug: "waveSwitcher" },
 ];
@@ -34,6 +35,7 @@ const MOBILE: Tile[] = [
   { label: "Календарь (полоса)", slug: "calendar" },
   { label: "Статы", slug: "stats" },
   { label: "Музыка", slug: "music" },
+  { label: "Последний фото-дроп", slug: "latestDrop" },
   { label: "Фото-дропы", slug: "photoDrops" },
   { label: "Проекты", slug: "projects" },
   { label: "Соцсети", slug: "social" },

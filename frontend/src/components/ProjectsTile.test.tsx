@@ -47,4 +47,17 @@ describe("ProjectsTile", () => {
     render(<ProjectsTile />);
     await waitFor(() => expect(screen.getByText("не удалось загрузить")).toBeInTheDocument());
   });
+
+  it("сбой при наличии кэш-копии → показывает её, а не пустоту/ошибку", async () => {
+    // Прошлая удачная загрузка (как после серии F5 с рейтлимитом на повторе).
+    window.localStorage.setItem(
+      "dw:cache:v1:projects",
+      JSON.stringify({ t: Date.now(), v: [project({ title: "из кэша" })] }),
+    );
+    getProjectsMock.mockRejectedValue(new Error("rate limited"));
+    render(<ProjectsTile />);
+
+    expect(await screen.findByText("из кэша")).toBeInTheDocument();
+    expect(screen.queryByText("не удалось загрузить")).not.toBeInTheDocument();
+  });
 });

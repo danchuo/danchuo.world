@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import {
   AdminApiError,
@@ -195,9 +196,12 @@ export default function AdminPage() {
     <main className="mx-auto min-h-screen max-w-5xl p-6">
       <header className="mb-6 flex items-baseline justify-between">
         <h1 style={{ fontSize: 22, color: "var(--text-primary)" }}>admin · фото-дропы</h1>
-        <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
-          выйти
-        </button>
+        <nav className="flex items-baseline gap-4">
+          <Link href="/admin/heatmap" style={{ ...mono, color: "var(--accent)" }}>хитмапа →</Link>
+          <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
+            выйти
+          </button>
+        </nav>
       </header>
 
       {/* Загрузка нового дропа. */}

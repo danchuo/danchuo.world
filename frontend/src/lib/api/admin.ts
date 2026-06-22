@@ -1,4 +1,4 @@
-import type { AdminDropView, AdminPhotoView, UploadResultView } from "./types";
+import type { AdminDropView, AdminPhotoView, HeatmapView, UploadResultView } from "./types";
 
 /**
  * Админ-клиент фото-дропов (B1, PRD §5.12, §9 п.8) — `/api/ingest/drops*` за статическим bearer
@@ -90,4 +90,24 @@ export async function deleteDrop(token: string, dropId: number): Promise<void> {
     headers: authHeaders(token),
   });
   if (!res.ok) return parseError(res);
+}
+
+/**
+ * Хитмапа кликов по тайлам борда (B2) — `GET /api/ingest/analytics/heatmap`, за тем же bearer.
+ * `from`/`to` — даты MSK (ISO `yyyy-MM-dd`); пусто ⇒ серверный дефолт (последние 30 дней).
+ */
+export async function getHeatmap(
+  token: string,
+  path = "/",
+  from?: string,
+  to?: string,
+): Promise<HeatmapView> {
+  const qs = new URLSearchParams({ path });
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const res = await fetch(`${BASE}/api/ingest/analytics/heatmap?${qs.toString()}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as HeatmapView;
 }

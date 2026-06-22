@@ -15,8 +15,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Мягкий рейтлимит публичных GET (PRD §3, §8, M4): in-memory токен-бакет на клиента.
  *
  * Останавливает одного шумного клиента, **не** настоящий DDoS (для последнего — Cloudflare в
- * бэклоге). Лимитируем только публичное чтение `GET /api/…`; `/api/ingest/…` пропускаем (там
- * свой шов «креды записи» — это трафик владельца/шортката, не публичный абуз).
+ * бэклоге). Лимитируем публичное чтение `GET /api/…` и публичную телеметрию `POST /api/analytics/…`
+ * (бикон + клики хитмапы, B2 — анти-абуз накрутки); `/api/ingest/…` пропускаем (там свой шов
+ * «креды записи» — это трафик владельца/шортката, не публичный абуз).
  *
  * Это лёгкий самописный токен-бакет (PRD называет Bucket4j — он in-memory ровно так же; при
  * нужде заменяется без правок вызовов). Ключ клиента — `X-Forwarded-For` (за прокси Caddy);
@@ -35,8 +36,12 @@ class RateLimitFilter(
 
     override fun filter(ctx: ContainerRequestContext) {
         if (maxRequests <= 0) return // выключен (тесты/дев)
-        if (ctx.method != "GET") return
         val path = ctx.uriInfo.path.trim('/')
+        // Лимитируем публичное чтение (GET) и публичную телеметрию аналитики (POST бикон/клики).
+        // Прочие методы (мутации владельца под /api/ingest) — не наш контур.
+        val isPublicGet = ctx.method == "GET"
+        val isAnalyticsPost = ctx.method == "POST" && path.startsWith("api/analytics")
+        if (!isPublicGet && !isAnalyticsPost) return
         if (!path.startsWith("api/") || path.startsWith("api/ingest")) return
         // Раздача кадров фото-дропа (B1): одна модалка-галерея = ~36 GET картинок — это не абуз,
         // а штатная загрузка статики (в проде её кэширует/отдаёт Caddy/CDN). Не лимитируем.

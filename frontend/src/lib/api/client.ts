@@ -116,6 +116,40 @@ export interface BeaconPayload {
   referrer?: string;
 }
 
+/** Один клик для хитмапы (B2): тайл + доля внутри него (0..1). `tileId` null — клик мимо плиток. */
+export interface ClickPayload {
+  tileId: string | null;
+  offsetXPct: number;
+  offsetYPct: number;
+  viewportW: number;
+}
+
+export interface InteractionsPayload {
+  visitId: string;
+  path: string;
+  clicks: ClickPayload[];
+}
+
+/**
+ * Батч кликов хитмапы (`POST /api/analytics/interactions`, PRD §5.11 B2) — публичный, cookieless.
+ * Шлётся одним пакетом на уходе через `navigator.sendBeacon` (переживает выгрузку вкладки, не
+ * спамит по событию). Без кликов не шлём. Сбой телеметрии глотаем (не критично).
+ */
+export function postInteractions(payload: InteractionsPayload): void {
+  if (payload.clicks.length === 0) return;
+  const url = `${BASE}/api/analytics/interactions`;
+  const body = JSON.stringify(payload);
+  const blob = new Blob([body], { type: "application/json" });
+  if (typeof navigator !== "undefined" && navigator.sendBeacon?.(url, blob)) return;
+  // Фолбэк, если sendBeacon недоступен/отказал — keepalive-fetch.
+  void fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE}${path}`;
   const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });

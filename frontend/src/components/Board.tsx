@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { readCache, writeCache } from "@/lib/api/cache";
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { mskToday, windowAround } from "@/lib/date";
@@ -9,6 +10,7 @@ import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
 import { FreshnessTile } from "./FreshnessTile";
 import { HeroTile } from "./HeroTile";
+import { LatestDropTile } from "./LatestDropTile";
 import { MusicTile } from "./MusicTile";
 import { PhotoDropsTile } from "./PhotoDropsTile";
 import { PlaceholderTile } from "./PlaceholderTile";
@@ -61,34 +63,57 @@ export function Board() {
   // держим в ref, чтобы запись в кэш не вызывала лишний рендер.
   const dayCache = useRef<Record<string, DayView>>({});
 
+  // Stale-while-revalidate (как у [useTileData]): сразу показываем последнюю удачную копию из
+  // localStorage, чтобы серия F5 при сработавшем рейтлимите не обнуляла дневной слой борда.
   const loadRange = useCallback(() => {
-    setRangeStatus("loading");
+    const key = `days:${from}:${to}`;
+    const cached = readCache<DaySummary[]>(key);
+    if (cached) {
+      setSummaries(cached);
+      setRangeStatus("loaded");
+    } else {
+      setRangeStatus("loading");
+    }
     getDays(from, to)
       .then((data) => {
         setSummaries(data);
         setRangeStatus("loaded");
+        writeCache(key, data);
       })
-      .catch(() => setRangeStatus("error"));
+      .catch(() => {
+        if (!cached) setRangeStatus("error");
+      });
   }, [from, to]);
 
   useEffect(loadRange, [loadRange]);
 
   const loadDay = useCallback((date: string) => {
-    const cached = dayCache.current[date];
-    if (cached) {
-      setDay(cached);
+    const memo = dayCache.current[date];
+    if (memo) {
+      setDay(memo);
       setDayStatus("loaded");
       return;
     }
-    setDayStatus("loading");
-    setDay(null);
+    // Перед сетью — последняя удачная копия дня с прошлой сессии (переживает F5/рейтлимит).
+    const key = `day:${date}`;
+    const persisted = readCache<DayView>(key);
+    if (persisted) {
+      setDay(persisted);
+      setDayStatus("loaded");
+    } else {
+      setDayStatus("loading");
+      setDay(null);
+    }
     getDay(date)
       .then((d) => {
         dayCache.current[date] = d;
         setDay(d);
         setDayStatus("loaded");
+        writeCache(key, d);
       })
-      .catch(() => setDayStatus("error"));
+      .catch(() => {
+        if (!persisted) setDayStatus("error");
+      });
   }, []);
 
   useEffect(() => loadDay(selected), [selected, loadDay]);
@@ -232,6 +257,8 @@ function BoardTile({
       return <HeroTile style={style} className={className} />;
     case "photoDrops":
       return <PhotoDropsTile style={style} className={className} />;
+    case "latestDrop":
+      return <LatestDropTile style={style} className={className} />;
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":
@@ -247,7 +274,8 @@ function BoardTile({
 /** Подписи пустых швов борда (тайлы будущих эр, DESIGN §7 Empty). */
 const TILE_NOTES: Record<TileId, string> = {
   identity: "danchuo.world",
-  photoDrops: "фото-дропы",
+  photoDrops: "дропы",
+  latestDrop: "последний дроп",
   waveSwitcher: "волны",
   freshness: "свежесть данных",
   music: "музыка",

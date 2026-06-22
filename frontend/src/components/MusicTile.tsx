@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { readCache, writeCache } from "@/lib/api/cache";
 import { getNowPlaying, getRecent } from "@/lib/api/client";
 import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, SourceRef, TrackView } from "@/lib/api/types";
 import { TileShell, type TileState } from "./TileShell";
@@ -25,6 +26,13 @@ interface MusicTileProps {
 
 /** Сколько недавних показывать в простое (когда нет играющего трека). */
 const RECENT_WHEN_IDLE = 5;
+
+/** Снимок музыки для кэш-копии (stale-while-revalidate, как у тайлов на [useTileData]). */
+interface MusicSnapshot {
+  now: NowPlayingView | null;
+  recent: RecentTrackView[];
+}
+const MUSIC_CACHE_KEY = "music";
 
 /**
  * Прячет недавние треки, которые не влезают в контейнер по высоте (§7.1): лучше 4 целых,
@@ -245,24 +253,43 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
 
   const pollNow = useCallback((signal?: AbortSignal) => {
     return getNowPlaying({ signal })
-      .then((data) => setNow(data))
+      .then((data) => {
+        setNow(data);
+        // Держим now-playing в кэш-копии свежим (recent опрос не трогает — берём из копии).
+        const prev = readCache<MusicSnapshot>(MUSIC_CACHE_KEY);
+        writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: data, recent: prev?.recent ?? [] });
+      })
       .catch(() => {
         /* опрос тих: разовый сбой не роняет уже показанную плитку */
       });
   }, []);
 
   const loadAll = useCallback((signal?: AbortSignal) => {
-    if (!loaded.current) setState("loading");
+    // Сидируем из последней удачной копии (переживает F5/рейтлимит) — без вспышки лоадера;
+    // живой опрос now-playing сверху быстро её актуализирует.
+    if (!loaded.current) {
+      const cached = readCache<MusicSnapshot>(MUSIC_CACHE_KEY);
+      if (cached) {
+        setNow(cached.now);
+        setRecent(cached.recent);
+        loaded.current = true;
+        setState("loaded");
+      } else {
+        setState("loading");
+      }
+    }
     return Promise.all([getNowPlaying({ signal }), getRecent(recentLimit, { signal })])
       .then(([np, rec]) => {
         setNow(np);
         setRecent(rec);
         loaded.current = true;
         setState("loaded");
+        writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: np, recent: rec });
       })
       .catch((err) => {
         if (signal?.aborted) return;
-        setState("error");
+        // Есть копия на экране — оставляем её, а не обнуляем в ошибку.
+        if (!loaded.current) setState("error");
         throw err;
       });
   }, [recentLimit]);

@@ -21,6 +21,7 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 export function ProjectsTile({ style, className }: ProjectsTileProps) {
   const { phase, data, retry } = useTileData<ProjectView[]>(
     useCallback((signal) => getProjects({ signal }), []),
+    "projects",
   );
   const projects = data ?? [];
   const isEmpty = phase === "loaded" && projects.length === 0;

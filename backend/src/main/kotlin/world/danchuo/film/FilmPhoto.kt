@@ -8,9 +8,10 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 
 /**
- * Кадр фото-дропа (PRD §5.12, §7). [width]/[height] хранятся для justified-композиции на
- * клиенте (плотная раскладка «встык по швам» без догадок об ориентации). [dropId] — плоский
- * FK на [FilmDrop]. Загрузка/ресайз/превью — задача B1-админки.
+ * Кадр фото-дропа (PRD §5.12, §7). [width]/[height] — размеры web-варианта (после EXIF-поворота)
+ * для justified-композиции на клиенте без догадок об ориентации. [dropId] — плоский FK на
+ * [FilmDrop]. Сами байты лежат в [PhotoStorage] под ключом `"{dropId}/{sortOrder}"`; URL-ы
+ * вариантов (web/thumb) генерятся из ключа, поэтому путь в БД не хранится (B1).
  */
 @Entity
 @Table(name = "film_photo")
@@ -22,9 +23,6 @@ class FilmPhoto {
     @Column(name = "drop_id", nullable = false)
     var dropId: Long = 0
 
-    @Column(name = "image_url", nullable = false)
-    lateinit var imageUrl: String
-
     @Column(name = "width")
     var width: Int? = null
 
@@ -33,4 +31,7 @@ class FilmPhoto {
 
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0
+
+    /** Стабильный ключ кадра в [PhotoStorage]: `"{dropId}/{sortOrder}"`. */
+    val storageKey: String get() = "$dropId/$sortOrder"
 }

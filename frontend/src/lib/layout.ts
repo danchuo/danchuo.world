@@ -14,6 +14,7 @@
 export type TileId =
   | "identity"
   | "photoDrops"
+  | "latestDrop"
   | "waveSwitcher"
   | "freshness"
   | "music"
@@ -42,16 +43,14 @@ export const BENTO_ROWS = 28;
  * через `v → 2v−1` (см. шапку файла): между каждой парой соседей — пустой трек-прослойка.
  */
 export const TILE_LAYOUT: Record<TileId, TileSpan> = {
-  identity: { col: 1, row: 1, colSpan: 9, rowSpan: 3 },
-  // Центральная колонка (тизер дропов + главная «Сегодня») сдвинута на 1 клетку вправо
-  // → прослойки по бокам центра симметричны (по 2 трека).
-  photoDrops: { col: 12, row: 1, colSpan: 17, rowSpan: 3 },
+  identity: { col: 2, row: 13, colSpan: 6, rowSpan: 3 },
+  latestDrop: { col: 1, row: 1, colSpan: 10, rowSpan: 11 },
   waveSwitcher: { col: 32, row: 1, colSpan: 4, rowSpan: 3 },
   freshness: { col: 37, row: 1, colSpan: 3, rowSpan: 3 },
-  music: { col: 1, row: 5, colSpan: 9, rowSpan: 6 },
-  // Статы ужаты ~вдвое по высоте и прижаты к низу левой колонки (воздух сверху, ряды 11–15).
-  stats: { col: 1, row: 16, colSpan: 9, rowSpan: 6 },
-  today: { col: 14, row: 5, colSpan: 15, rowSpan: 16 },
+  music: { col: 22, row: 1, colSpan: 8, rowSpan: 4 },
+  photoDrops: { col: 10, row: 13, colSpan: 3, rowSpan: 9 },
+  stats: { col: 1, row: 17, colSpan: 8, rowSpan: 5 },
+  today: { col: 14, row: 6, colSpan: 16, rowSpan: 16 },
   calendar: { col: 31, row: 5, colSpan: 9, rowSpan: 11 },
   projects: { col: 31, row: 17, colSpan: 9, rowSpan: 5 },
   hero: { col: 1, row: 23, colSpan: 11, rowSpan: 5 },
@@ -65,6 +64,7 @@ export const MOBILE_ORDER: TileId[] = [
   "calendar",
   "stats",
   "music",
+  "latestDrop",
   "photoDrops",
   "projects",
   "social",

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 import { getDrop } from "@/lib/api/client";
+import { mediaUrl } from "@/lib/api/media";
 import type { FilmPhotoView } from "@/lib/api/types";
 import { useTileData } from "./useTileData";
 
@@ -98,7 +99,7 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={`${p.imageUrl}-${i}`}
-                src={p.imageUrl}
+                src={mediaUrl(p.imageUrl)}
                 alt=""
                 width={p.width ?? undefined}
                 height={p.height ?? undefined}

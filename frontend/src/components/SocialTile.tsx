@@ -18,6 +18,7 @@ interface SocialTileProps {
 export function SocialTile({ style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
     useCallback((signal) => getSocialLinks({ signal }), []),
+    "social-links",
   );
   const links = data ?? [];
   const isEmpty = phase === "loaded" && links.length === 0;

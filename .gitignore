@@ -2,6 +2,9 @@
 .gstack/
 .idea/
 
+# Crash-дампы Git Bash на Windows — мусор, не трекаем
+*.stackdump
+
 # Локальные .env с секретами — НЕ коммитим; трекаются только образцы *.env.example
 .env
 .env.*

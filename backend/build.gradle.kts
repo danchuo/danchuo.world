@@ -37,14 +37,19 @@ dependencies {
 
     implementation("io.quarkus:quarkus-arc")
 
+    // EXIF-ориентация фото-дропов (B1, слайс film): телефонные JPEG несут поворот в EXIF,
+    // ImageIO его не применяет — читаем тег и доворачиваем при ресайзе. Лёгкая зависимость,
+    // живёт только в слайсе film (ядро о ней не знает).
+    implementation("com.drewnoakes:metadata-extractor:2.19.0")
+
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
 }
 
 group = "world.danchuo"
 // M3: бэк и фронт получили рабочие версии — с этой ветки версии разведены
-// (CLAUDE.md §версионирование). M5 трогает бэк (свежесть данных) → minor бэка.
-version = "0.7.0-SNAPSHOT"
+// (CLAUDE.md §версионирование). B1 (загрузка фото-дропов) — feature → minor бэка.
+version = "0.8.0-SNAPSHOT"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

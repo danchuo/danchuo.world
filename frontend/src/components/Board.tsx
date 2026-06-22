@@ -149,7 +149,8 @@ export function Board() {
           const span = layout.tiles[id];
           if (span.hidden) return null; // волна спрятала тайл (DESIGN §10)
           return (
-            <div key={id} style={{ gridArea: gridArea(span), minHeight: 0 }}>
+            // data-tile-id: атрибуция кликов для потайловой хитмапы (PRD §5.11 B2).
+            <div key={id} data-tile-id={id} style={{ gridArea: gridArea(span), minHeight: 0 }}>
               <BoardTile id={id} variant="grid" data={data} style={{ height: "100%", width: "100%" }} />
             </div>
           );
@@ -160,7 +161,7 @@ export function Board() {
       <div data-testid="stack" className="flex flex-col gap-4 min-[1440px]:hidden">
         {layout.mobileOrder.map((id) =>
           layout.tiles[id]?.hidden ? null : id === "calendar" ? (
-            <div key={id}>
+            <div key={id} data-tile-id={id}>
               <div className="hidden sm:block">
                 <BoardTile id={id} variant="grid" data={data} />
               </div>
@@ -169,7 +170,7 @@ export function Board() {
               </div>
             </div>
           ) : (
-            <div key={id}>
+            <div key={id} data-tile-id={id}>
               <BoardTile id={id} variant="stack" data={data} />
             </div>
           ),

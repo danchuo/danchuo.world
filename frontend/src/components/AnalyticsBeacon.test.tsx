@@ -2,7 +2,7 @@ import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsBeacon } from "./AnalyticsBeacon";
 
-vi.mock("@/lib/api/client", () => ({ postBeacon: vi.fn() }));
+vi.mock("@/lib/api/client", () => ({ postBeacon: vi.fn(), postInteractions: vi.fn() }));
 import { postBeacon } from "@/lib/api/client";
 const postBeaconMock = vi.mocked(postBeacon);
 

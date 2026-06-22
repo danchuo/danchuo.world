@@ -198,6 +198,24 @@ export interface FreshnessView {
   lastIngestAt: string | null;
 }
 
+// ── Хитмапа (`GET /api/ingest/analytics/heatmap`, за bearer; PRD §5.11 B2) ──
+
+/** Потайловый агрегат кликов; `tileId` null — клики мимо плиток. `clicks` уже с cap-вклада. */
+export interface HeatmapTileView {
+  tileId: string | null;
+  clicks: number;
+  uniques: number;
+}
+
+/** Хитмапа одной страницы за период — клики по тайлам борда. */
+export interface HeatmapView {
+  path: string;
+  from: string;
+  to: string;
+  totalClicks: number;
+  tiles: HeatmapTileView[];
+}
+
 /** Лёгкая сводка дня (`GET /api/days?from=&to=`) — ячейка календаря / мини-график. */
 export interface DaySummary {
   date: string;

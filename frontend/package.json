@@ -1,8 +1,8 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
-  "description": "danchuo.world — публичный фронт + админка фото-дропов (B1: загрузка zip, обложка, архив /drops)",
+  "description": "danchuo.world — публичный фронт + админка (B1: фото-дропы; B2: потайловая хитмапа кликов /admin/heatmap)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

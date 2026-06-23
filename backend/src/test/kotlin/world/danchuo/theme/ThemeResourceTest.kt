@@ -43,14 +43,17 @@ class ThemeResourceTest {
     }
 
     @Test
-    fun `wave02 carries a layout delta - hidden tile and moved span`() {
-        // Демо-волна 02 переопределяет раскладку: прячет плитку свежести и двигает музыку вниз.
-        // Незаданные поля приходят как null (фронт мержит их поверх дефолта).
+    fun `wave02 carries a layout delta - mirrored board, distinct from wave01`() {
+        // Демо-волна 02 несёт переработанную раскладку (зеркальная перекомпоновка, миграция 0180):
+        // доминанта «Сегодня» и периферия меняют сторону относительно дефолта волны 01, и в layout
+        // учтён тайл поездки (ride). Фронт мержит дельту поверх дефолта layout.ts.
         given().get("/api/themes")
             .then().statusCode(200)
             .body("key", hasItem("wave-02"))
-            .body("find { it.key == 'wave-02' }.layout.tiles.freshness.hidden", equalTo(true))
-            .body("find { it.key == 'wave-02' }.layout.tiles.music.row", equalTo(16))
-            .body("find { it.key == 'wave-02' }.layout.tiles.music.col", nullValue())
+            // «Сегодня» сдвинута влево (дефолт col 14 → 12), календарь уехал в левую колонку (31 → 2).
+            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(12))
+            .body("find { it.key == 'wave-02' }.layout.tiles.calendar.col", equalTo(2))
+            // новый тайл поездки разложен волной (правая колонка).
+            .body("find { it.key == 'wave-02' }.layout.tiles.ride.col", equalTo(33))
     }
 }

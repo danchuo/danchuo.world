@@ -114,6 +114,14 @@ const PIXEL_PNG = Buffer.from(
 
 const FRESHNESS = { lastIngestAt: "2026-06-21T06:00:00Z" }; // 6 ч назад от FIXED_TIME
 
+/** Поездки Велобайк. Координаты `null` — карта (внешние тайлы CARTO) НЕ рисуется ⇒ эталон
+ *  не зависит от сети/рендера Leaflet; снимаем верстку тайла (цифры/«когда»/«предыдущие»). */
+const RIDES = [
+  { id: 2, rideDate: "2026-06-18", startTime: "2026-06-18T09:00:00Z", finishTime: "2026-06-18T09:30:00Z", distanceMeters: 5000, durationSeconds: 1800, calories: 120, vehicleType: "OMNI_24", tariffName: "Пакет 60 минут", startLat: null, startLon: null, finishLat: null, finishLon: null, startAddress: null, finishAddress: null },
+  { id: 1, rideDate: "2026-06-10", startTime: "2026-06-10T10:00:00Z", finishTime: "2026-06-10T10:20:00Z", distanceMeters: 3000, durationSeconds: 1200, calories: 60, vehicleType: "OMNI_24", tariffName: "Поминутный", startLat: null, startLon: null, finishLat: null, finishLon: null, startAddress: null, finishAddress: null },
+];
+const RIDE_STATS = { totalRides: 2, totalDistanceMeters: 8000, totalDurationSeconds: 3000, totalCalories: 180, longestRideMeters: 5000, firstRideDate: "2026-06-10", lastRideDate: "2026-06-18" };
+
 /** Подменяет все клиентские `/api/*` детерминированными фикстурами. */
 export async function stubApi(page: Page): Promise<void> {
   await page.route("**/api/**", async (route) => {
@@ -132,6 +140,8 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === "/api/drops") return json(DROPS);
     if (path.startsWith("/api/drops/")) return json(DROP_PHOTOS);
     if (path === "/api/freshness") return json(FRESHNESS);
+    if (path === "/api/rides") return json(RIDES);
+    if (path === "/api/rides/stats") return json(RIDE_STATS);
     if (path === "/api/theme/active" || path === "/api/themes") return route.continue(); // тема — из реальной БД (детерминирована)
     return json({});
   });

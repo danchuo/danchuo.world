@@ -37,6 +37,10 @@ dependencies {
 
     implementation("io.quarkus:quarkus-arc")
 
+    // Планировщик (@Scheduled) — фоновый поллинг истории поездок Велобайка (слайс bike).
+    // Живёт только в слайсе bike; ядро о нём не знает.
+    implementation("io.quarkus:quarkus-scheduler")
+
     // EXIF-ориентация фото-дропов (B1, слайс film): телефонные JPEG несут поворот в EXIF,
     // ImageIO его не применяет — читаем тег и доворачиваем при ресайзе. Лёгкая зависимость,
     // живёт только в слайсе film (ядро о ней не знает).
@@ -44,12 +48,14 @@ dependencies {
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
+    // Десериализация Kotlin-DTO в чистых юнит-тестах (рантайм-модуль quarkus не виден компилятору теста).
+    testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 }
 
 group = "world.danchuo"
-// M3: бэк и фронт получили рабочие версии — с этой ветки версии разведены
-// (CLAUDE.md §версионирование). B2 (хитмапа кликов) — feature → minor бэка.
-version = "0.9.0-SNAPSHOT"
+// M3: бэк и фронт получили рабочие версии — версии разведены
+// (CLAUDE.md §версионирование). Велобайк (история поездок) — feature → minor бэка.
+version = "0.10.0-SNAPSHOT"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

@@ -22,6 +22,7 @@ export type TileId =
   | "today"
   | "calendar"
   | "projects"
+  | "ride"
   | "hero"
   | "social"
   | "marquee";
@@ -49,12 +50,13 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   freshness: { col: 37, row: 1, colSpan: 3, rowSpan: 3 },
   music: { col: 22, row: 1, colSpan: 8, rowSpan: 4 },
   photoDrops: { col: 10, row: 13, colSpan: 3, rowSpan: 9 },
-  stats: { col: 1, row: 17, colSpan: 8, rowSpan: 5 },
+  stats: { col: 1, row: 13, colSpan: 8, rowSpan: 4 },
   today: { col: 14, row: 6, colSpan: 16, rowSpan: 16 },
   calendar: { col: 31, row: 5, colSpan: 9, rowSpan: 11 },
   projects: { col: 31, row: 17, colSpan: 9, rowSpan: 5 },
-  hero: { col: 1, row: 23, colSpan: 11, rowSpan: 5 },
-  social: { col: 13, row: 23, colSpan: 7, rowSpan: 5 },
+  ride: { col: 1, row: 18, colSpan: 8, rowSpan: 7 },
+  hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5 },
+  social: { col: 14, row: 23, colSpan: 7, rowSpan: 5 },
   marquee: { col: 23, row: 23, colSpan: 15, rowSpan: 5 },
 };
 
@@ -64,13 +66,13 @@ export const MOBILE_ORDER: TileId[] = [
   "calendar",
   "stats",
   "music",
+  "ride",
   "latestDrop",
   "photoDrops",
   "projects",
   "social",
   "hero",
   "marquee",
-  // Тихий индикатор свежести — хвостом стека (зеркалит его угловую роль на десктопе, §8).
   "freshness",
 ];
 

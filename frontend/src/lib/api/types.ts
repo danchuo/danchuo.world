@@ -198,6 +198,38 @@ export interface FreshnessView {
   lastIngestAt: string | null;
 }
 
+// ── Велобайк (PRD §9 B4) — зеркало Kotlin-DTO слайса bike. Всё публичное чтение. ──
+
+/** Поездка (`GET /api/rides`). Гео — только старт и финиш (трека маршрута нет). */
+export interface RideView {
+  id: number;
+  rideDate: string;
+  startTime: string;
+  finishTime: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  calories: number | null;
+  vehicleType: string | null;
+  tariffName: string | null;
+  startLat: number | null;
+  startLon: number | null;
+  finishLat: number | null;
+  finishLon: number | null;
+  startAddress: string | null;
+  finishAddress: string | null;
+}
+
+/** Агрегат истории поездок (`GET /api/rides/stats`). Нулевой — пока поездок нет. */
+export interface RideStatsView {
+  totalRides: number;
+  totalDistanceMeters: number;
+  totalDurationSeconds: number;
+  totalCalories: number;
+  longestRideMeters: number;
+  firstRideDate: string | null;
+  lastRideDate: string | null;
+}
+
 // ── Хитмапа (`GET /api/ingest/analytics/heatmap`, за bearer; PRD §5.11 B2) ──
 
 /** Потайловый агрегат кликов; `tileId` null — клики мимо плиток. `clicks` уже с cap-вклада. */

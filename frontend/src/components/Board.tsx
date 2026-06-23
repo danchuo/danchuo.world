@@ -15,6 +15,7 @@ import { MusicTile } from "./MusicTile";
 import { PhotoDropsTile } from "./PhotoDropsTile";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { ProjectsTile } from "./ProjectsTile";
+import { RideTile } from "./RideTile";
 import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
@@ -250,6 +251,8 @@ function BoardTile({
       return <MusicTile style={style} className={className} />;
     case "projects":
       return <ProjectsTile style={style} className={className} />;
+    case "ride":
+      return <RideTile style={style} className={className} />;
     case "social":
       return <SocialTile style={style} className={className} />;
     case "marquee":
@@ -284,6 +287,7 @@ const TILE_NOTES: Record<TileId, string> = {
   today: "сегодня",
   calendar: "календарь",
   projects: "проекты",
+  ride: "велобайк",
   hero: "hero",
   social: "соцсети",
   marquee: "артефакты",

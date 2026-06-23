@@ -8,6 +8,8 @@ import type {
   NowPlayingView,
   ProjectView,
   RecentTrackView,
+  RideStatsView,
+  RideView,
   SocialLinkView,
   ThemeView,
 } from "./types";
@@ -92,6 +94,16 @@ export function getDrop(id: number, init?: RequestInit): Promise<FilmPhotoView[]
 /** Свежесть данных (`GET /api/freshness`, PRD §8) — момент последнего приёма ingest. */
 export function getFreshness(init?: RequestInit): Promise<FreshnessView> {
   return getJson<FreshnessView>(`/api/freshness`, init);
+}
+
+/** Поездки Велобайка (`GET /api/rides`, PRD §9 B4), новые сверху; до ingest — пусто. */
+export function getRides(init?: RequestInit): Promise<RideView[]> {
+  return getJson<RideView[]>(`/api/rides`, init);
+}
+
+/** Агрегат истории поездок (`GET /api/rides/stats`). */
+export function getRideStats(init?: RequestInit): Promise<RideStatsView> {
+  return getJson<RideStatsView>(`/api/rides/stats`, init);
 }
 
 /**

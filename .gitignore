@@ -10,3 +10,5 @@
 .env.*
 !.env.example
 AGENTS.md
+# Velobike API capture (contains session token/PII — never commit)
+*.har

@@ -1,0 +1,336 @@
+{
+  "content": [
+    {
+      "id": 8476789,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "26201",
+      "clientExternalId": "0000000",
+      "startTime": 1782038347943,
+      "startParkingExternalId": "undefined",
+      "finishTime": 1782040146309,
+      "finishParkingExternalId": "p04446",
+      "distance": 5000.0,
+      "duration": 1798,
+      "cost": 0,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": true,
+      "finishPortOverflowed": false,
+      "tariffId": 2793,
+      "tariffName": "Пакет 60 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.7304775,
+        "lon": 37.45318638888889
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.73905723649726,
+        "lon": 37.53066574645683
+      },
+      "updatedAt": 1782040148624,
+      "calories": 120
+    },
+    {
+      "id": 8330927,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "24451",
+      "clientExternalId": "0000000",
+      "startTime": 1781626100985,
+      "startParkingExternalId": "p10390",
+      "finishTime": 1781626422904,
+      "finishParkingExternalId": "p06609",
+      "distance": 1070.0,
+      "duration": 321,
+      "cost": 3500,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": false,
+      "tariffId": 2785,
+      "tariffName": "Поминутный",
+      "startBikeGeoPosition": {
+        "lat": 55.73472675817225,
+        "lon": 37.43089195158577
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.73032005,
+        "lon": 37.4456689
+      },
+      "updatedAt": 1781626422935,
+      "calories": 24
+    },
+    {
+      "id": 8151195,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "25354",
+      "clientExternalId": "0000000",
+      "startTime": 1781110288594,
+      "startParkingExternalId": "undefined",
+      "finishTime": 1781112350816,
+      "finishParkingExternalId": "p19635",
+      "distance": 5040.0,
+      "duration": 2062,
+      "cost": 2800,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": true,
+      "tariffId": 2789,
+      "tariffName": "Пакет 30 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.81900125,
+        "lon": 37.648858733333334
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.79680165,
+        "lon": 37.716479
+      },
+      "updatedAt": 1781112350850,
+      "calories": 120
+    },
+    {
+      "id": 8142770,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "22767",
+      "clientExternalId": "0000000",
+      "startTime": 1781101781525,
+      "startParkingExternalId": "p10931",
+      "finishTime": 1781106732517,
+      "finishParkingExternalId": "p19854",
+      "distance": 10290.0,
+      "duration": 4950,
+      "cost": 15400,
+      "vehicleType": "OMNI_23",
+      "deviceType": "OMNI_HORSESHOE",
+      "startPortOverflowed": false,
+      "tariffId": 2793,
+      "tariffName": "Пакет 60 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.788119644,
+        "lon": 37.729887644
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.820194104258206,
+        "lon": 37.64753067880998
+      },
+      "updatedAt": 1781106736840,
+      "calories": 240
+    },
+    {
+      "id": 8051267,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "22023",
+      "clientExternalId": "0000000",
+      "startTime": 1780912659479,
+      "startParkingExternalId": "p10390",
+      "finishTime": 1780914171439,
+      "finishParkingExternalId": "p15783",
+      "distance": 5500.0,
+      "duration": 1511,
+      "cost": 17500,
+      "vehicleType": "OMNI_23",
+      "deviceType": "OMNI_HORSESHOE",
+      "startPortOverflowed": false,
+      "finishPortOverflowed": false,
+      "tariffId": 2785,
+      "tariffName": "Поминутный",
+      "startBikeGeoPosition": {
+        "lat": 55.73472675817225,
+        "lon": 37.43089195158577
+      },
+      "finishBikeGeoPosition": {
+        "lat": 56.4324900349485,
+        "lon": 38.00951212248635
+      },
+      "updatedAt": 1780914175409,
+      "calories": 144
+    },
+    {
+      "id": 8015135,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "25192",
+      "clientExternalId": "0000000",
+      "startTime": 1780833197908,
+      "startParkingExternalId": "p10427",
+      "finishTime": 1780842950833,
+      "finishParkingExternalId": "p03848",
+      "distance": 24140.0,
+      "duration": 9752,
+      "cost": 29400,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": false,
+      "finishPortOverflowed": false,
+      "tariffId": 2794,
+      "tariffName": "Пакет 120 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.700649383333335,
+        "lon": 37.62383113333333
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.7465986,
+        "lon": 37.514180616666664
+      },
+      "updatedAt": 1780842953829,
+      "calories": 576
+    },
+    {
+      "id": 8014917,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "25192",
+      "clientExternalId": "0000000",
+      "startTime": 1780832878085,
+      "startParkingExternalId": "p10427",
+      "finishTime": 1780832896110,
+      "finishParkingExternalId": "p10427",
+      "distance": 0.0,
+      "duration": 18,
+      "cost": 0,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": false,
+      "finishPortOverflowed": false,
+      "tariffId": 2794,
+      "tariffName": "Пакет 120 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.700590266666666,
+        "lon": 37.62393735
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.700649383333335,
+        "lon": 37.62383113333333
+      },
+      "updatedAt": 1780832918168,
+      "calories": 0
+    },
+    {
+      "id": 8014524,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "25192",
+      "clientExternalId": "0000000",
+      "startTime": 1780832378146,
+      "startParkingExternalId": "p17963",
+      "finishTime": 1780832860049,
+      "finishParkingExternalId": "p10427",
+      "distance": 1520.0,
+      "duration": 481,
+      "cost": 1400,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": false,
+      "finishPortOverflowed": false,
+      "tariffId": 2793,
+      "tariffName": "Пакет 60 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.68623098333333,
+        "lon": 37.62967368333333
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.700590266666666,
+        "lon": 37.62393735
+      },
+      "updatedAt": 1780832861619,
+      "calories": 48
+    },
+    {
+      "id": 8014432,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "27502",
+      "clientExternalId": "0000000",
+      "startTime": 1780832259600,
+      "startParkingExternalId": "p17963",
+      "finishTime": 1780832360647,
+      "finishParkingExternalId": "p17963",
+      "distance": 0.0,
+      "duration": 101,
+      "cost": 0,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": false,
+      "finishPortOverflowed": false,
+      "tariffId": 2793,
+      "tariffName": "Пакет 60 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.684461666666664,
+        "lon": 37.63252972222222
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.68478076666667,
+        "lon": 37.63191655
+      },
+      "updatedAt": 1780832363314,
+      "calories": 0
+    },
+    {
+      "id": 8013071,
+      "source": "mobile_ios",
+      "status": "DONE",
+      "frameNumber": "23634",
+      "clientExternalId": "0000000",
+      "startTime": 1780830254129,
+      "startParkingExternalId": "p10158",
+      "finishTime": 1780830359448,
+      "finishParkingExternalId": "p07614",
+      "distance": 310.0,
+      "duration": 105,
+      "cost": 0,
+      "vehicleType": "OMNI_24",
+      "deviceType": "OMNI_IOT_DEVICE",
+      "startPortOverflowed": false,
+      "finishPortOverflowed": false,
+      "tariffId": 2793,
+      "tariffName": "Пакет 60 минут",
+      "startBikeGeoPosition": {
+        "lat": 55.68002693333333,
+        "lon": 37.6600093
+      },
+      "finishBikeGeoPosition": {
+        "lat": 55.67961398333333,
+        "lon": 37.663549583333335
+      },
+      "updatedAt": 1780830432868,
+      "calories": 0
+    }
+  ],
+  "pageable": {
+    "sort": [
+      {
+        "direction": "DESC",
+        "property": "id",
+        "ignoreCase": false,
+        "nullHandling": "NATIVE",
+        "descending": true,
+        "ascending": false
+      }
+    ],
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 8,
+  "totalElements": 76,
+  "last": false,
+  "numberOfElements": 10,
+  "first": true,
+  "size": 10,
+  "number": 0,
+  "sort": [
+    {
+      "direction": "DESC",
+      "property": "id",
+      "ignoreCase": false,
+      "nullHandling": "NATIVE",
+      "descending": true,
+      "ascending": false
+    }
+  ],
+  "empty": false
+}

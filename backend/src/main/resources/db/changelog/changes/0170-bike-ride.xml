@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс bike (PRD §9 B4): история поездок Велобайка. Внешний источник
+      (pwa.velobike.ru), изолирован в слайсе — ядро не трогаем.
+
+      - bike_ride: поездки, идемпотентны по external_id (id аренды Велобайка) ⇒
+        UNIQUE; индекс по ride_date под дневной слой/агрегаты (ось данных MSK, §4).
+      - velobike_token: синглтон-строка с refresh-токеном ШИФРОВАННО at-rest (§8,
+        как spotify_token) для серверного поллинга; access-токен не персистится.
+    -->
+    <changeSet id="0170-bike-ride-table" author="danchuo">
+        <createTable tableName="bike_ride">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="external_id" type="BIGINT">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_bike_ride_external_id"/>
+            </column>
+            <column name="ride_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="finish_time" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="distance_meters" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="duration_seconds" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="calories" type="INT"/>
+            <column name="cost_kopecks" type="INT"/>
+            <column name="vehicle_type" type="VARCHAR(64)"/>
+            <column name="frame_number" type="VARCHAR(32)"/>
+            <column name="tariff_name" type="VARCHAR(255)"/>
+            <column name="start_lat" type="DOUBLE PRECISION"/>
+            <column name="start_lon" type="DOUBLE PRECISION"/>
+            <column name="finish_lat" type="DOUBLE PRECISION"/>
+            <column name="finish_lon" type="DOUBLE PRECISION"/>
+            <column name="start_address" type="VARCHAR(512)"/>
+            <column name="finish_address" type="VARCHAR(512)"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="bike_ride" indexName="idx_bike_ride_date">
+            <column name="ride_date"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0170-velobike-token-table" author="danchuo">
+        <createTable tableName="velobike_token">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="encrypted_refresh_token" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="external_id" type="VARCHAR(64)"/>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

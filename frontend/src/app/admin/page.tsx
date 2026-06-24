@@ -40,6 +40,15 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Человекочитаемая ошибка админ-API. Чистая (без состояния) — на уровне модуля, не пересоздаётся. */
+function describe(e: unknown): string {
+  return e instanceof AdminApiError
+    ? e.status === 401
+      ? "неверный токен"
+      : `ошибка ${e.status}${e.errorCode ? ` (${e.errorCode})` : ""}`
+    : "сеть недоступна";
+}
+
 /**
  * Админка фото-дропов (B1, PRD §5.12, §9 п.8). Под тем же bearer-токеном, что ingest: вводишь
  * токен (хранится в sessionStorage), грузишь zip (≈36 кадров) с названием и датой, затем кликом
@@ -58,15 +67,8 @@ export default function AdminPage() {
   // Форма загрузки.
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(todayIso); // ленивый инициализатор: todayIso() не гоняем на каждый рендер
   const [elapsed, setElapsed] = useState(0); // секунды с начала загрузки (честный таймер вместо прогресса)
-
-  const describe = (e: unknown): string =>
-    e instanceof AdminApiError
-      ? e.status === 401
-        ? "неверный токен"
-        : `ошибка ${e.status}${e.errorCode ? ` (${e.errorCode})` : ""}`
-      : "сеть недоступна";
 
   const loadDrops = useCallback(async (t: string) => {
     setError(null);
@@ -174,8 +176,9 @@ export default function AdminPage() {
       <main className="mx-auto min-h-screen max-w-md p-6">
         <h1 className="mb-4" style={{ fontSize: 22, color: "var(--text-primary)" }}>admin</h1>
         <form onSubmit={onLogin} className="flex flex-col gap-3">
-          <label style={mono}>токен записи (Authorization Bearer)</label>
+          <label htmlFor="admin-token" style={mono}>токен записи (Authorization Bearer)</label>
           <input
+            id="admin-token"
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
@@ -211,6 +214,7 @@ export default function AdminPage() {
           <div className="flex flex-wrap gap-3">
             <input
               type="text"
+              aria-label="название дропа"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="название"
@@ -218,6 +222,7 @@ export default function AdminPage() {
             />
             <input
               type="date"
+              aria-label="дата дропа"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               style={{ ...fieldStyle, flex: "1 1 160px" }}

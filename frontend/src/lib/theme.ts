@@ -2,8 +2,8 @@
  * Темы/волны (PRD §5.9, DESIGN §10): токены живут в БД (JSONB), фронт инжектит их в `:root`.
  *
  * Два пути:
- * - **SSR-инжект (без вспышки):** `fetchActiveThemeTokens` тянет активную волну на сервере,
- *   `serializeTokensToCss` превращает её в `:root{…}`; layout кладёт это `<style>` в `<head>`.
+ * - **SSR-инжект (без вспышки):** `fetchActiveTheme` тянет активную волну на сервере,
+ *   `serializeTokensToCss` превращает её токены в `:root{…}`; layout кладёт это `<style>` в `<head>`.
  *   Сбой ⇒ `null` ⇒ остаёмся на дефолтах `globals.css` (graceful degradation).
  * - **Клиентский своп (переключатель):** `applyThemeTokens` пишет токены в `:root` без
  *   перезагрузки — смена отображаемой волны (DESIGN §2.6) без правок компонентов.
@@ -13,7 +13,6 @@
  */
 
 import { cache } from "react";
-import type { WaveLayout } from "./layout";
 import type { ThemeView } from "./api/types";
 
 /** `{ "bg-page": "#faf1eb" }` → `:root{--bg-page:#faf1eb;…}` (одна строка, для `<style>`). */
@@ -43,16 +42,6 @@ export const fetchActiveTheme = cache(async (): Promise<ThemeView | null> => {
     return null;
   }
 });
-
-/** Токены активной волны для SSR-инжекта в `:root` (см. [fetchActiveTheme]). */
-export async function fetchActiveThemeTokens(): Promise<Record<string, string> | null> {
-  return (await fetchActiveTheme())?.tokens ?? null;
-}
-
-/** Layout активной волны для SSR (см. [fetchActiveTheme]); `null` ⇒ дефолт `layout.ts`. */
-export async function fetchActiveThemeLayout(): Promise<WaveLayout | null> {
-  return (await fetchActiveTheme())?.layout ?? null;
-}
 
 /** Клиентский своп: пишет токены волны в `:root` (переключатель волн, DESIGN §2.6). */
 export function applyThemeTokens(tokens: Record<string, string>): void {

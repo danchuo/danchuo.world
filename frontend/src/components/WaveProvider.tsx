@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, use, useCallback, useMemo, useState, type ReactNode } from "react";
 import type { ThemeView } from "@/lib/api/types";
 import { resolveLayout, type ResolvedLayout, type WaveLayout } from "@/lib/layout";
 import { applyThemeTokens } from "@/lib/theme";
@@ -20,7 +20,7 @@ interface WaveContextValue {
 const WaveContext = createContext<WaveContextValue | null>(null);
 
 export function useWave(): WaveContextValue {
-  const ctx = useContext(WaveContext);
+  const ctx = use(WaveContext);
   if (!ctx) throw new Error("useWave должен вызываться внутри <WaveProvider>");
   return ctx;
 }
@@ -39,7 +39,10 @@ export function WaveProvider({
   const [activeKey, setActiveKey] = useState<string | null>(initialActiveKey ?? null);
 
   const applyWave = useCallback((theme: ThemeView) => {
-    applyThemeTokens(theme.tokens); // визуал — в :root (без перезагрузки)
+    applyThemeTokens(theme.tokens); // цвет-токены — в :root (без перезагрузки)
+    // data-wave на <html> переключает СКИН волны (рамки/фон/декор/шрифт) — CSS под
+    // `[data-wave="…"]` в globals.css (DESIGN §10.2). Это и есть «разные стили под разные волны».
+    if (typeof document !== "undefined") document.documentElement.setAttribute("data-wave", theme.key);
     setLayout(resolveLayout(theme.layout)); // раскладка — в состояние борда
     setActiveKey(theme.key);
   }, []);

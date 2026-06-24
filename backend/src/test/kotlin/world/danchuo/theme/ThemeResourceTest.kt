@@ -43,17 +43,33 @@ class ThemeResourceTest {
     }
 
     @Test
-    fun `wave02 carries a layout delta - mirrored board, distinct from wave01`() {
-        // Демо-волна 02 несёт переработанную раскладку (зеркальная перекомпоновка, миграция 0180):
-        // доминанта «Сегодня» и периферия меняют сторону относительно дефолта волны 01, и в layout
-        // учтён тайл поездки (ride). Фронт мержит дельту поверх дефолта layout.ts.
+    fun `wave02 is the obscura restyle - cloud-paper palette and pixel display font`() {
+        // Волна 02 «Obscura» (миграция 0200): 8-бит аркада на «облачной бумаге». Полный токен-набор
+        // перекрывает :root целиком; сердце стиля — пиксельный дисплей-шрифт на бренд-блоке.
         given().get("/api/themes")
             .then().statusCode(200)
             .body("key", hasItem("wave-02"))
-            // «Сегодня» сдвинута влево (дефолт col 14 → 12), календарь уехал в левую колонку (31 → 2).
-            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(12))
-            .body("find { it.key == 'wave-02' }.layout.tiles.calendar.col", equalTo(2))
-            // новый тайл поездки разложен волной (правая колонка).
-            .body("find { it.key == 'wave-02' }.layout.tiles.ride.col", equalTo(33))
+            // небесно-голубой холст вместо персика волны 01
+            .body("find { it.key == 'wave-02' }.tokens.'bg-page'", equalTo("#e3f1fe"))
+            // единственный Signal Orange
+            .body("find { it.key == 'wave-02' }.tokens.accent", equalTo("#ff5e24"))
+            // токен дисплей-шрифта присутствует (Jersey 10 через --font-jersey)
+            .body("find { it.key == 'wave-02' }.tokens.'font-display'", notNullValue())
+    }
+
+    @Test
+    fun `wave02 carries its own arcade-cabinet layout, distinct from wave01`() {
+        // Волна 02 несёт уникальную раскладку «аркадный автомат» (миграция 0200): «Сегодня» —
+        // доминанта по центру (col 14), marquee — баннер на всю ширину сверху (row 1), календарь
+        // в левой колонке (col 1). Фронт мержит спаны поверх дефолта layout.ts.
+        given().get("/api/themes")
+            .then().statusCode(200)
+            .body("key", hasItem("wave-02"))
+            // «Сегодня» центрирована (col 14), доминанта сцены
+            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(14))
+            // marquee — верхний баннер на всю ширину (row 1)
+            .body("find { it.key == 'wave-02' }.layout.tiles.marquee.row", equalTo(1))
+            // календарь — левая колонка
+            .body("find { it.key == 'wave-02' }.layout.tiles.calendar.col", equalTo(1))
     }
 }

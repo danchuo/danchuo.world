@@ -21,7 +21,10 @@ export function PlaceholderTile({ label, note, brand = false, style, className }
     return (
       <TileShell state="loaded" ariaLabel={label} style={style} className={className}>
         <div className="flex h-full flex-col justify-center" style={{ fontFamily: "var(--font-mono)" }}>
-          <span style={{ fontSize: 18 }}>
+          {/* Бренд-headline — единственная «дисплейная» строка борда: на волне 02 «Obscura»
+              это чанковый пиксель Jersey 10 (§10.2), на волне 01 — mono (вид не меняется).
+              Мигающая каретка (итерация 2 волны 01) — после метки. */}
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>
             {label}
             <span className="pixel-caret" aria-hidden>
               ▮

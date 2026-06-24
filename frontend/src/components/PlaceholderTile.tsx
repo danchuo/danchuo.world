@@ -21,7 +21,12 @@ export function PlaceholderTile({ label, note, brand = false, style, className }
     return (
       <TileShell state="loaded" ariaLabel={label} style={style} className={className}>
         <div className="flex h-full flex-col justify-center" style={{ fontFamily: "var(--font-mono)" }}>
-          <span style={{ fontSize: 18 }}>{label}</span>
+          <span style={{ fontSize: 18 }}>
+            {label}
+            <span className="pixel-caret" aria-hidden>
+              ▮
+            </span>
+          </span>
           <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>дашборд жизни</span>
         </div>
       </TileShell>

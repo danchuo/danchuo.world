@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Jersey_10, Manrope, IBM_Plex_Mono } from "next/font/google";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
-import { fetchActiveThemeTokens, serializeTokensToCss } from "@/lib/theme";
+import { fetchActiveTheme, serializeTokensToCss } from "@/lib/theme";
 import "./globals.css";
 
 // Inter — UI/заголовки (§2.2, насыщенности 400/500). JetBrains Mono — цифры/данные/имена дней.
 const inter = Inter({ subsets: ["latin", "cyrillic"], weight: ["400", "500"], variable: "--font-inter" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400"], variable: "--font-jetbrains" });
+// Jersey 10 — чанковый пиксельный дисплей-шрифт волны 02 «Obscura» (DESIGN §10.2). Грузится
+// глобально (next/font), но через токен --font-display проявляется только на активной волне 02;
+// на волне 01 --font-display = mono, так что начертание остаётся прежним.
+const jersey = Jersey_10({ subsets: ["latin"], weight: ["400"], variable: "--font-jersey" });
+// Шрифты волны 02 «Obscura» (DESIGN §10.2): Manrope — UI-текст (primary-шрифт Obscura),
+// IBM Plex Mono — данные/цифры. Грузятся глобально, но включаются только под data-wave="wave-02"
+// (скин переопределяет --font-sans/--font-mono). Cyrillic-сабсет — для русских подписей.
+const manrope = Manrope({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700"], variable: "--font-manrope" });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"], variable: "--font-plex-mono" });
 
 // Базовый URL сайта для абсолютных ссылок в OG/canonical/sitemap (PRD §12 M5). Прод —
 // домен; локально/в превью переопределяется env. metadataBase делает OG-картинку и
@@ -39,10 +48,14 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // SSR-инжект токенов активной волны в <head> (M4, DESIGN §10) — без вспышки. Бэк недоступен
   // или нет активной волны ⇒ tokens=null ⇒ остаёмся на дефолтах globals.css (graceful).
-  const tokens = await fetchActiveThemeTokens();
+  const theme = await fetchActiveTheme();
+  const tokens = theme?.tokens ?? null;
 
   return (
-    <html lang="ru" className={`${inter.variable} ${jetbrains.variable}`}>
+    // data-wave — ключ активной волны на <html>: помимо цвет-токенов волна может нести
+    // СВОЙ СКИН (рамки/фон/декор/шрифт) — CSS под `[data-wave="…"]` в globals.css (DESIGN §10.2).
+    // SSR ставит ключ владельца; переключатель волн меняет его вживую (WaveProvider).
+    <html lang="ru" data-wave={theme?.key ?? undefined} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
       <head>
         {tokens && (
           // Переопределяет :root-дефолты globals.css значениями активной волны из БД.

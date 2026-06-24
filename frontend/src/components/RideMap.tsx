@@ -98,5 +98,16 @@ export function RideMap({ startLat, startLon, finishLat, finishLon, className }:
     };
   }, [startLat, startLon, finishLat, finishLon]);
 
-  return <div ref={ref} className={className} style={{ width: "100%", height: "100%", borderRadius: "var(--radius-sm)" }} aria-hidden />;
+  // isolation:isolate — собственный stacking context: внутренние z-index Leaflet (панель тайлов
+  // ~200, overlay-пунктир ~400, маркеры ~600) иначе «протекают» до корня и рисуются ПОВЕРХ
+  // модалок (z-50) — путь поездки наслаивался на открытый дамп фото-дропа. Теперь z-index карты
+  // замкнуты внутри тайла, и любой fixed-оверлей выше неё.
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ width: "100%", height: "100%", borderRadius: "var(--radius-sm)", isolation: "isolate" }}
+      aria-hidden
+    />
+  );
 }

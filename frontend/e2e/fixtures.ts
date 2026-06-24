@@ -83,8 +83,10 @@ const PROJECTS = [
 ];
 
 const SOCIAL = [
-  { platform: "github", name: "GitHub", url: "https://github.com", icon: null },
-  { platform: "telegram", name: "Telegram", url: "https://t.me", icon: null },
+  { platform: "github", name: "GitHub", url: "https://github.com/danchuo", icon: "/assets/social/github.svg" },
+  { platform: "telegram", name: "Telegram", url: "https://t.me/danchuo", icon: "/assets/social/telegram.svg" },
+  { platform: "x", name: "X", url: "https://x.com/danchuo", icon: "/assets/social/x.svg" },
+  { platform: "instagram", name: "Instagram", url: "https://instagram.com/danchuo_", icon: "/assets/social/instagram.svg" },
 ];
 
 const ARTIFACTS = [

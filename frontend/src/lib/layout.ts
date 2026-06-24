@@ -56,7 +56,7 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   projects: { col: 31, row: 17, colSpan: 9, rowSpan: 5 },
   ride: { col: 1, row: 18, colSpan: 8, rowSpan: 7 },
   hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5 },
-  social: { col: 14, row: 23, colSpan: 7, rowSpan: 5 },
+  social: { col: 14, row: 23, colSpan: 7, rowSpan: 3 },
   marquee: { col: 23, row: 23, colSpan: 15, rowSpan: 5 },
 };
 

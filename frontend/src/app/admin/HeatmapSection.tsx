@@ -1,12 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { AdminApiError, getHeatmap } from "@/lib/api/admin";
 import { gridArea, resolveLayout, type TileId } from "@/lib/layout";
 import type { HeatmapView } from "@/lib/api/types";
-
-const TOKEN_KEY = "danchuo_admin_token"; // тот же ключ, что логин /admin
 
 const mono = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" } satisfies CSSProperties;
 
@@ -14,58 +11,40 @@ const mono = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-
 const LAYOUT = resolveLayout(null);
 
 /**
- * Хитмапа кликов (B2, PRD §5.11) — приватный экран владельца под /admin (noindex, тот же bearer).
- * **Потайловая**, не пиксельная: рисуем сам bento борда и заливаем каждый тайл интенсивностью по
- * доле кликов — честная картина «куда смотрят/тыкают», стабильная через вьюпорты и волны.
- * Куки не ставит; данные cookieless, боты исключены, вклад одного посетителя в тайл ограничен.
+ * Хитмапа кликов (B2, PRD §5.11) — секция внизу /admin (тот же bearer, что дропы; рендерится
+ * только после логина). **Потайловая**, не пиксельная: рисуем сам bento борда и заливаем каждый
+ * тайл интенсивностью по доле кликов — честная картина «куда смотрят/тыкают», стабильная через
+ * вьюпорты и волны. Куки не ставит; данные cookieless, боты исключены, вклад одного посетителя
+ * в тайл ограничен.
  */
-export default function HeatmapPage() {
-  const [token, setToken] = useState<string | null>(null);
+export function HeatmapSection({ token }: { token: string }) {
   // Публичная страница одна — `/`; фильтр по path остаётся в API (forward-compat), но в UI не нужен.
   const path = "/";
   const [data, setData] = useState<HeatmapView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    setToken(sessionStorage.getItem(TOKEN_KEY));
+  const load = useCallback(async (t: string, p: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      setData(await getHeatmap(t, p));
+    } catch (e) {
+      setError(
+        e instanceof AdminApiError
+          ? e.status === 401
+            ? "неверный/просроченный токен — войди заново"
+            : `ошибка ${e.status}`
+          : "сеть недоступна",
+      );
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
-  const load = useCallback(
-    async (t: string, p: string) => {
-      setBusy(true);
-      setError(null);
-      try {
-        setData(await getHeatmap(t, p));
-      } catch (e) {
-        setError(
-          e instanceof AdminApiError
-            ? e.status === 401
-              ? "неверный/просроченный токен — войди заново на /admin"
-              : `ошибка ${e.status}`
-            : "сеть недоступна",
-        );
-      } finally {
-        setBusy(false);
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
-    if (token) load(token, path);
+    load(token, path);
   }, [token, path, load]);
-
-  if (token === null) {
-    return (
-      <main className="mx-auto min-h-screen max-w-md p-6">
-        <h1 className="mb-4" style={{ fontSize: 22, color: "var(--text-primary)" }}>хитмапа</h1>
-        <p style={mono}>
-          сначала войди на <Link href="/admin" style={{ color: "var(--accent)" }}>/admin</Link> — токен берётся оттуда.
-        </p>
-      </main>
-    );
-  }
 
   const maxClicks = data ? Math.max(1, ...data.tiles.map((t) => t.clicks)) : 1;
   const clicksByTile = new Map<string, number>();
@@ -75,27 +54,23 @@ export default function HeatmapPage() {
   const offBoard = data?.tiles.find((t) => t.tileId === null);
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl p-6">
-      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <h1 style={{ fontSize: 22, color: "var(--text-primary)" }}>хитмапа · клики по тайлам</h1>
-        <Link href="/admin" style={{ ...mono, color: "var(--accent)" }}>← дропы</Link>
+    <section>
+      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+        <h2 style={{ fontSize: 16, color: "var(--text-primary)" }}>хитмапа · клики по тайлам</h2>
+        <span style={mono}>
+          {data
+            ? `последние 7 дней (${data.from} → ${data.to}) · всего ${data.totalClicks} кликов`
+            : "последние 7 дней"}
+          {busy && " · загрузка…"}
+        </span>
       </header>
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        {data ? (
-          <span style={mono}>
-            последние 7 дней ({data.from} → {data.to}) · всего {data.totalClicks} кликов
-          </span>
-        ) : (
-          <span style={mono}>последние 7 дней</span>
-        )}
-        {busy && <span style={mono}>загрузка…</span>}
-      </div>
 
       {error && <p className="mb-4" style={{ ...mono, color: "var(--accent)" }}>{error}</p>}
 
       {data && data.totalClicks === 0 && (
-        <p style={mono}>за период кликов ещё нет — походи по борду и закрой вкладку (клики уходят батчем на уходе).</p>
+        <p className="mb-4" style={mono}>
+          за период кликов ещё нет — походи по борду и закрой вкладку (клики уходят батчем на уходе).
+        </p>
       )}
 
       {/* Оверлей: реальная сетка борда, тайлы залиты интенсивностью кликов. */}
@@ -123,7 +98,8 @@ export default function HeatmapPage() {
                 minHeight: 0,
                 borderRadius: "var(--radius-sm)",
                 border: "1px solid var(--border)",
-                // Заливка акцентом по интенсивности (прозрачность растёт с долей кликов).
+                // Заливка по интенсивности (прозрачность растёт с долей кликов). В монохромной
+                // админке --accent = чёрный, так что шкала — оттенки серого.
                 background: `color-mix(in srgb, var(--accent) ${Math.round(8 + ratio * 84)}%, transparent)`,
                 display: "flex",
                 flexDirection: "column",
@@ -133,8 +109,8 @@ export default function HeatmapPage() {
                 padding: 2,
               }}
             >
-              <span style={{ ...mono, fontSize: 10, color: "var(--text-secondary)" }}>{id}</span>
-              <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>{clicks}</span>
+              <span style={{ ...mono, fontSize: 10, color: ratio > 0.5 ? "var(--bg-page)" : "var(--text-secondary)" }}>{id}</span>
+              <span style={{ fontSize: 13, color: ratio > 0.5 ? "var(--bg-page)" : "var(--text-primary)", fontWeight: 600 }}>{clicks}</span>
             </div>
           );
         })}
@@ -170,6 +146,6 @@ export default function HeatmapPage() {
           </tbody>
         </table>
       )}
-    </main>
+    </section>
   );
 }

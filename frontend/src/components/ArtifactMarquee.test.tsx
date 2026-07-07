@@ -31,6 +31,22 @@ describe("ArtifactMarquee", () => {
     expect(dialog).toHaveTextContent("15 января 2026");
   });
 
+  it("orientation=vertical → трек-колонка (модификатор на бегущей строке)", async () => {
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee orientation="vertical" />);
+
+    await screen.findAllByText("Камера");
+    expect(container.querySelector(".artifact-track")).toHaveClass("artifact-track--vertical");
+  });
+
+  it("без orientation → горизонтальный трек (дефолт, как во всех волнах до)", async () => {
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee />);
+
+    await screen.findAllByText("Камера");
+    expect(container.querySelector(".artifact-track")).not.toHaveClass("artifact-track--vertical");
+  });
+
   it("пустой список → тихое пустое состояние", async () => {
     getArtifactsMock.mockResolvedValue([]);
     render(<ArtifactMarquee />);

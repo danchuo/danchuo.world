@@ -55,4 +55,18 @@ describe("resolveLayout", () => {
     expect(r.mobileOrder).not.toContain("bogus");
     expect(r.mobileOrder[0]).toBe("today");
   });
+
+  it("волна может развернуть тайл (orientation), дефолт — ориентация не задана", () => {
+    const r = resolveLayout({ tiles: { marquee: { orientation: "vertical" } } });
+    expect(r.tiles.marquee.orientation).toBe("vertical");
+    // Без переопределения — undefined (тайл рендерит свой дефолт).
+    expect(r.tiles.social.orientation).toBeUndefined();
+  });
+
+  it("битое значение orientation из JSON волны отбрасывается", () => {
+    const r = resolveLayout({
+      tiles: { marquee: { orientation: "diagonal" as unknown as "vertical" } },
+    });
+    expect(r.tiles.marquee.orientation).toBeUndefined();
+  });
 });

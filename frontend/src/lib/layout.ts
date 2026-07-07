@@ -27,6 +27,14 @@ export type TileId =
   | "social"
   | "marquee";
 
+/**
+ * Ориентация содержимого тайла. Отдельное поле, а не вывод из пропорций спана: спан — про
+ * место на сетке, ориентация — про то, как контент по нему течёт (лента может быть и широкой
+ * вертикальной). Уважают её только тайлы, у которых есть оба режима (сейчас — marquee);
+ * остальные молча игнорируют. Не задана ⇒ дефолт самого тайла.
+ */
+export type TileOrientation = "horizontal" | "vertical";
+
 export interface TileSpan {
   col: number;
   row: number;
@@ -34,6 +42,8 @@ export interface TileSpan {
   rowSpan: number;
   /** Волна может скрыть тайл целиком (не рендерится ни в bento, ни в стеке). */
   hidden?: boolean;
+  /** Волна может развернуть контент тайла (см. [TileOrientation]). */
+  orientation?: TileOrientation;
 }
 
 export const BENTO_COLS = 40;
@@ -96,6 +106,7 @@ export interface WaveTileSpan {
   colSpan?: number;
   rowSpan?: number;
   hidden?: boolean;
+  orientation?: TileOrientation;
 }
 
 /** Layout-блок волны (`ThemeView.layout`); любое поле опционально (фолбэк — дефолт ниже). */
@@ -123,6 +134,11 @@ function isTileId(key: string): key is TileId {
   return Object.prototype.hasOwnProperty.call(TILE_LAYOUT, key);
 }
 
+/** Ориентация из JSON волны: всё, кроме валидных значений, ⇒ `undefined` (дефолт тайла). */
+function sanitizeOrientation(value: unknown): TileOrientation | undefined {
+  return value === "horizontal" || value === "vertical" ? value : undefined;
+}
+
 /**
  * Мержит layout волны поверх дефолта [TILE_LAYOUT] и отдаёт готовый [ResolvedLayout].
  * `null`/`undefined` (нет активной волны / бэк недоступен / волна без layout) ⇒ чистый дефолт
@@ -140,6 +156,8 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       colSpan: ov?.colSpan ?? base.colSpan,
       rowSpan: ov?.rowSpan ?? base.rowSpan,
       hidden: (ov?.hidden ?? base.hidden ?? false) && !UNHIDEABLE.has(id),
+      // Битые значения из JSON волны отбрасываем — тайл вернётся к своему дефолту.
+      orientation: sanitizeOrientation(ov?.orientation) ?? base.orientation,
     };
   }
 

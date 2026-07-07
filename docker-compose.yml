@@ -60,10 +60,16 @@ services:
         # по docker-имени сервиса — CORS не нужен (зеркалит прод за Caddy).
         # Цель запекается в rewrites на build-time, поэтому это build-arg.
         API_PROXY_TARGET: http://backend:8080
+        # robots.txt/sitemap.xml/opengraph-image пререндерятся статикой на build-time —
+        # SITE_URL нужен как build-arg, иначе в них запечётся прод-дефолт danchuo.world.
+        SITE_URL: http://localhost:3000
     environment:
       # SSR-инжект токенов активной волны (M4): Next-сервер тянет /api/theme/active по
       # внутреннему docker-имени бэкенда (браузерные /api/* идут через rewrites выше).
       API_INTERNAL_URL: http://backend:8080
+      # Базовый URL сайта (OG-картинка, canonical, robots.txt, sitemap.xml). Без него
+      # фронт берёт прод-дефолт https://danchuo.world — для локального стека ставим localhost.
+      SITE_URL: http://localhost:3000
     ports:
       - "3000:3000"
     depends_on:

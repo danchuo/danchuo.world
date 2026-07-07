@@ -59,17 +59,19 @@ class ThemeResourceTest {
 
     @Test
     fun `wave02 carries its own arcade-cabinet layout, distinct from wave01`() {
-        // Волна 02 несёт уникальную раскладку «аркадный автомат» (миграция 0200): «Сегодня» —
-        // доминанта по центру (col 14), marquee — баннер на всю ширину сверху (row 1), календарь
-        // в левой колонке (col 1). Фронт мержит спаны поверх дефолта layout.ts.
+        // Волна 02 несёт уникальную раскладку «аркадный автомат» (миграция 0210): marquee —
+        // ВЕРТИКАЛЬНАЯ лента артефактов у левого края на всю высоту (col 1, orientation=vertical),
+        // «Сегодня» — доминанта центральной колонки (col 17). Фронт мержит спаны поверх layout.ts.
         given().get("/api/themes")
             .then().statusCode(200)
             .body("key", hasItem("wave-02"))
-            // «Сегодня» центрирована (col 14), доминанта сцены
-            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(14))
-            // marquee — верхний баннер на всю ширину (row 1)
-            .body("find { it.key == 'wave-02' }.layout.tiles.marquee.row", equalTo(1))
-            // календарь — левая колонка
-            .body("find { it.key == 'wave-02' }.layout.tiles.calendar.col", equalTo(1))
+            // marquee — вертикальный левый край: col 1, во всю высоту, развёрнута вертикально
+            .body("find { it.key == 'wave-02' }.layout.tiles.marquee.col", equalTo(1))
+            .body("find { it.key == 'wave-02' }.layout.tiles.marquee.rowSpan", equalTo(28))
+            .body("find { it.key == 'wave-02' }.layout.tiles.marquee.orientation", equalTo("vertical"))
+            // «Сегодня» — доминанта центральной колонки
+            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(17))
+            // тайл без ориентации отдаёт null (дефолт тайла на фронте)
+            .body("find { it.key == 'wave-02' }.layout.tiles.today.orientation", nullValue())
     }
 }

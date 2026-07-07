@@ -17,6 +17,11 @@ COPY . .
 # поэтому это build-arg, а не runtime-env. В compose = http://backend:8080.
 ARG API_PROXY_TARGET=http://localhost:8080
 ENV API_PROXY_TARGET=$API_PROXY_TARGET
+# SITE_URL — базовый URL для OG/canonical/robots/sitemap. robots.txt, sitemap.xml и
+# opengraph-image пререндерятся СТАТИКОЙ на build-time, поэтому значение нужно именно здесь
+# (build-arg), а не только в runtime-env. Дефолт — прод-домен; локально compose шлёт localhost.
+ARG SITE_URL=https://danchuo.world
+ENV SITE_URL=$SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

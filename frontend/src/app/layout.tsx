@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Jersey_10, Manrope, IBM_Plex_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
-import { fetchActiveTheme, serializeTokensToCss } from "@/lib/theme";
+import { fetchDisplayTheme, serializeTokensToCss } from "@/lib/theme";
+import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 import "./globals.css";
 
 // Inter — UI/заголовки (§2.2, насыщенности 400/500). JetBrains Mono — цифры/данные/имена дней.
@@ -46,9 +48,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // SSR-инжект токенов активной волны в <head> (M4, DESIGN §10) — без вспышки. Бэк недоступен
-  // или нет активной волны ⇒ tokens=null ⇒ остаёмся на дефолтах globals.css (graceful).
-  const theme = await fetchActiveTheme();
+  // SSR token inject into <head> (M4, DESIGN §10) — no flash. The rendered wave is the
+  // visitor's cookie pick when present, otherwise the owner's active wave. Backend down or
+  // no wave ⇒ tokens=null ⇒ stay on globals.css defaults (graceful).
+  const preferredWave = decodeWaveCookie((await cookies()).get(WAVE_COOKIE)?.value);
+  const theme = await fetchDisplayTheme(preferredWave);
   const tokens = theme?.tokens ?? null;
 
   return (

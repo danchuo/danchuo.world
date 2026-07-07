@@ -5,7 +5,7 @@ import { readCache, writeCache } from "@/lib/api/cache";
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { mskToday, windowAround } from "@/lib/date";
-import { gridArea, type TileId } from "@/lib/layout";
+import { gridArea, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
 import { FreshnessTile } from "./FreshnessTile";
@@ -152,7 +152,13 @@ export function Board() {
           return (
             // data-tile-id: атрибуция кликов для потайловой хитмапы (PRD §5.11 B2).
             <div key={id} data-tile-id={id} style={{ gridArea: gridArea(span), minHeight: 0 }}>
-              <BoardTile id={id} variant="grid" data={data} style={{ height: "100%", width: "100%" }} />
+              <BoardTile
+                id={id}
+                variant="grid"
+                data={data}
+                orientation={span.orientation}
+                style={{ height: "100%", width: "100%" }}
+              />
             </div>
           );
         })}
@@ -190,12 +196,15 @@ function BoardTile({
   id,
   variant,
   data,
+  orientation,
   style,
   className,
 }: {
   id: TileId;
   variant: TileVariant;
   data: BoardData;
+  /** Ориентация контента из layout волны (DESIGN §10.1) — только bento; в стеке всё full-width. */
+  orientation?: TileOrientation;
   style?: CSSProperties;
   className?: string;
 }) {
@@ -256,7 +265,7 @@ function BoardTile({
     case "social":
       return <SocialTile style={style} className={className} />;
     case "marquee":
-      return <ArtifactMarquee style={style} className={className} />;
+      return <ArtifactMarquee orientation={orientation} style={style} className={className} />;
     case "hero":
       return <HeroTile style={style} className={className} />;
     case "photoDrops":

@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { Board } from "@/components/Board";
 import { WaveProvider } from "@/components/WaveProvider";
-import { fetchActiveTheme } from "@/lib/theme";
+import { fetchDisplayTheme } from "@/lib/theme";
+import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 
 /**
  * Главная — публичный борд (PRD §12 M2). Сам борд тянет данные на клиенте (per-tile
@@ -11,7 +13,10 @@ import { fetchActiveTheme } from "@/lib/theme";
  * её вживую. Бэк недоступен / нет активной волны ⇒ дефолт `layout.ts` (graceful).
  */
 export default async function HomePage() {
-  const theme = await fetchActiveTheme();
+  // Same wave resolution as the root layout (visitor cookie → owner's active); `cache()`
+  // in fetchDisplayTheme keeps it a single backend call per request.
+  const preferredWave = decodeWaveCookie((await cookies()).get(WAVE_COOKIE)?.value);
+  const theme = await fetchDisplayTheme(preferredWave);
   return (
     <WaveProvider initialLayout={theme?.layout ?? null} initialActiveKey={theme?.key ?? null}>
       <Board />

@@ -55,7 +55,7 @@ dependencies {
 group = "world.danchuo"
 // M3: бэк и фронт получили рабочие версии — версии разведены
 // (CLAUDE.md §версионирование). Волна 02 «Obscura» (рестайл темы + слой скинов) — feature → minor бэка.
-version = "0.12.0-SNAPSHOT"
+version = "0.13.0-SNAPSHOT"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

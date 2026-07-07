@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, type CSSProperties } from "react";
+import { useCallback, useEffect, type CSSProperties } from "react";
 import { getThemes } from "@/lib/api/client";
 import type { ThemeView } from "@/lib/api/types";
+import { readWaveCookie } from "@/lib/waveCookie";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 import { useWave } from "./WaveProvider";
@@ -29,6 +30,18 @@ export function WaveSwitcher({ style, className, placeholderSlots = 2 }: WaveSwi
   // Активная волна и своп — из контекста (SSR-дефолт = активная волна владельца). Своп
   // меняет и токены, и раскладку борда разом.
   const { activeKey, applyWave } = useWave();
+
+  // Self-heal after a degraded SSR: backend down/rate-limited at render time ⇒ the page came
+  // without a resolved wave (activeKey=null, default skin). Once the released-waves list is
+  // here (network or stale cache), apply the visitor's cookie pick — or the owner's active
+  // wave — so skin/tokens/layout and the pressed swatch recover without another reload.
+  // `remember: false`: healing is not a pick, it must not (re)write the cookie.
+  useEffect(() => {
+    if (activeKey !== null || themes.length === 0) return;
+    const preferred = readWaveCookie();
+    const target = themes.find((t) => t.key === preferred) ?? themes.find((t) => t.active);
+    if (target) applyWave(target, { remember: false });
+  }, [activeKey, themes, applyWave]);
 
   const isEmpty = phase === "loaded" && themes.length === 0;
 

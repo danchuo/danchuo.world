@@ -1,0 +1,138 @@
+/* ═══════════════════════════ ОБЩИЙ СЛОЙ ВОЛН (wave-agnostic) ═══════════════════════════
+ * Стили, которые НЕ принадлежат ни одной конкретной волне: сбросы, доступность, тач-таргеты,
+ * механика анимаций (лоадер-шиммер, бегущие строки) и глобальный reduced-motion. Их видят ВСЕ
+ * волны независимо от `data-wave`. Сюда не кладём ничего, что задаёт «вид» волны (форму карт,
+ * фон, декор, шрифт) — это уже скин конкретной волны (`styles/waves/wave-XX.css`, DESIGN §10.2).
+ *
+ * Где живёт что (карта слоёв CSS, см. DESIGN §10.2):
+ *   globals.css            — точка входа: @import tailwind + общий слой + по файлу на волну.
+ *   styles/common.css      — ЭТОТ файл: общий слой (нейтральный, для всех волн).
+ *   styles/waves/wave-01.css — скин волны 01 «Студия / Персик» (базовый/фолбэк, без data-wave).
+ *   styles/waves/wave-02.css — скин волны 02 «Obscura» (под `[data-wave="wave-02"]`).
+ * Порядок @import в globals.css = порядок каскада: общий слой → волна 01 → волна 02.
+ */
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+/* Тихая мета-подпись плитки (§3 вайрфрейм .tile-label) — даёт дашбордную структуру.
+   Читает токены активной волны (--font-sans/--text-tertiary), поэтому следует за волной;
+   скин волны вправе её переопределить (волна 02 прячет, см. wave-02.css). */
+.tile-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* Клавиатурный фокус (§9 доступность): единый видимый аутлайн акцентом — UA-дефолт
+   на кастомных фонах читается плохо, а clip-path пиксель-плиток его подрезает. Только
+   :focus-visible (не на мышиный клик). offset держит кольцо снаружи элемента. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Тач-таргет ≥44px (PRD §5.10) — только на грубом указателе: на десктопе компактные
+   контролы (свотчи волн, крестик модалки) остаются мелкими, на тач — растут до 44px.
+   min-* поднимает размер даже при inline width/height (min-* клампит вверх). */
+@media (pointer: coarse) {
+  .tap-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Шиммер лоадера (§7) — бежит по поверхности плитки. Механика общая для всех волн
+   (заливка читает токены поверхностей активной волны). */
+@keyframes pixel-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 250% 0;
+  }
+}
+
+.pixel-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--bg-surface-muted) 0%,
+    var(--bg-surface-2) 50%,
+    var(--bg-surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: pixel-shimmer 1.4s steps(8, end) infinite;
+}
+
+/* Бегущая строка для длинных названий/исполнителей в музыке (M3): анимируется
+   только когда контент не влез (класс is-scrolling вешает JS, замеряя overflow).
+   Сдвиг/длительность — из inline CSS-переменных. Reduced-motion гасит её ниже. */
+.marquee-inner {
+  white-space: nowrap;
+}
+.marquee-inner.is-scrolling {
+  animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
+}
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--marquee-shift, 0));
+  }
+}
+
+/* Бесконечная бегущая строка артефактов (M, §7.2): дублируем контент и едем на -50%,
+   так петля бесшовна. Пауза на ховер — чтобы можно было навести и открыть поповер.
+   Reduced-motion замирает (правило ниже). Темп задаёт --artifact-duration (по контенту). */
+.artifact-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: artifact-scroll var(--artifact-duration, 30s) linear infinite;
+}
+.artifact-track:hover {
+  animation-play-state: paused;
+}
+@keyframes artifact-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Вертикальный режим ленты (ориентация тайла из layout волны, DESIGN §10.1): та же бесшовная
+   петля -50%, но колонкой и по оси Y. Механика (дубль контента, пауза на ховер, reduced-motion)
+   общая с горизонтальным треком выше. */
+.artifact-track--vertical {
+  flex-direction: column;
+  white-space: normal;
+  animation-name: artifact-scroll-y;
+}
+@keyframes artifact-scroll-y {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+/* prefers-reduced-motion: lift/тени/шиммер замирают (§2.3, §9). Глобально и через !important —
+   перебивает анимации/переходы любой волны независимо от порядка подключения. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

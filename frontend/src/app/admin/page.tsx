@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { HeatmapSection } from "./HeatmapSection";
 import {
   AdminApiError,
   deleteDrop,
@@ -50,9 +50,10 @@ function describe(e: unknown): string {
 }
 
 /**
- * Админка фото-дропов (B1, PRD §5.12, §9 п.8). Под тем же bearer-токеном, что ingest: вводишь
- * токен (хранится в sessionStorage), грузишь zip (≈36 кадров) с названием и датой, затем кликом
- * помечаешь «самый показательный» кадр обложкой. Прочие правки (удаление) — тут же. Не SSR/SEO.
+ * Админка (B1+B2, PRD §5.11–5.12, §9 п.8) — один скроллящийся экран под общим bearer-токеном
+ * ingest: сверху фото-дропы (zip ≈36 кадров с названием/датой, клик по кадру — обложка,
+ * удаление), ниже — секция хитмапы кликов [HeatmapSection]. Токен хранится в sessionStorage.
+ * Дизайн — фиксированный чёрно-белый (admin.css), волнам не следует. Не SSR/SEO.
  */
 export default function AdminPage() {
   const [token, setToken] = useState("");
@@ -198,17 +199,14 @@ export default function AdminPage() {
   return (
     <main className="mx-auto min-h-screen max-w-5xl p-6">
       <header className="mb-6 flex items-baseline justify-between">
-        <h1 style={{ fontSize: 22, color: "var(--text-primary)" }}>admin · фото-дропы</h1>
-        <nav className="flex items-baseline gap-4">
-          <Link href="/admin/heatmap" style={{ ...mono, color: "var(--accent)" }}>хитмапа →</Link>
-          <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
-            выйти
-          </button>
-        </nav>
+        <h1 style={{ fontSize: 22, color: "var(--text-primary)" }}>admin</h1>
+        <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
+          выйти
+        </button>
       </header>
 
       {/* Загрузка нового дропа. */}
-      <section className="mb-8 pixel-tile p-4">
+      <section className="admin-panel mb-8 p-4">
         <h2 className="mb-3" style={{ fontSize: 16, color: "var(--text-primary)" }}>новый дроп</h2>
         <form onSubmit={onUpload} className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-3">
@@ -343,6 +341,10 @@ export default function AdminPage() {
           )}
         </section>
       </div>
+
+      {/* Хитмапа кликов — ниже дропов, на одном скроллящемся экране (B2). */}
+      <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+      <HeatmapSection token={token} />
     </main>
   );
 }

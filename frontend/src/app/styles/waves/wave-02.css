@@ -1,0 +1,140 @@
+/* ═══════════════════ СКИН ВОЛНЫ 02 «Obscura» (DESIGN §10.2) ═══════════════════
+ * Всё в этом файле включается ТОЛЬКО когда на <html> стоит data-wave="wave-02"
+ * (ставит SSR-layout или переключатель волн). Волна 01 не видит ни строчки отсюда —
+ * это и есть «разные CSS-стили под разные волны»: волна несёт не только цвет-токены,
+ * но и свой СКИН (рамки, фон, декор-слой, шрифт меток). 8-бит здесь живёт в шрифте и
+ * облаках, а карточки — мягкая «облачная бумага» (рамки Obscura скруглённые, не ступенчатые).
+ *
+ * Переопределяет базовый скин волны 01 (styles/waves/wave-01.css) по специфичности
+ * (`[data-wave="wave-02"] .pixel-tile` > `.pixel-tile`). @import-ится ПОСЛЕ волны 01.
+ */
+
+/* Своя ТИПОГРАФИКА волны 02 (не только цвета): UI-текст — Manrope (primary-шрифт Obscura),
+   данные/цифры — IBM Plex Mono. Переопределяем сами var-токены шрифтов, поэтому ВСЕ компоненты,
+   читающие var(--font-sans)/var(--font-mono), переключаются разом — без правок. Волна 01 (Inter/
+   JetBrains) не затронута. --font-display (пиксельный Jersey) приходит из токенов волны. */
+:root[data-wave="wave-02"] {
+  --font-sans: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* Небо вместо персикового зерна: мягкий облачный градиент. */
+:root[data-wave="wave-02"] body {
+  background-color: var(--bg-page);
+  background-image: radial-gradient(120% 85% at 50% -8%, #ffffff 0%, rgba(255, 255, 255, 0) 58%),
+    linear-gradient(180deg, #eef6ff 0%, #e3f1fe 52%, #dcebfb 100%);
+  background-attachment: fixed;
+}
+
+/* Пиксельные облака ПЛЫВУТ слева направо за бордом (чистый CSS-SVG, без ассетов). z-index:-1 —
+   за карточками: облако подмигивает сквозь воздух-каналы сетки и уходит за карты — «живое небо».
+   Три слоя на разной высоте/скорости/размере дают глубину (параллакс). 4 псевдоэлемента: облака
+   на html (:root) и body. Старт разнесён отрицательной задержкой, чтобы не стартовали кучей. */
+:root[data-wave="wave-02"]::before,
+:root[data-wave="wave-02"]::after,
+:root[data-wave="wave-02"] body::before {
+  content: "";
+  position: fixed;
+  left: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2014%208'%20shape-rendering='crispEdges'%3E%3Cg%20fill='%23ffffff'%3E%3Crect%20x='5'%20y='1'%20width='4'%20height='1'/%3E%3Crect%20x='3'%20y='2'%20width='8'%20height='1'/%3E%3Crect%20x='2'%20y='3'%20width='10'%20height='1'/%3E%3Crect%20x='1'%20y='4'%20width='12'%20height='1'/%3E%3Crect%20x='1'%20y='5'%20width='12'%20height='1'/%3E%3C/g%3E%3Crect%20x='2'%20y='6'%20width='10'%20height='1'%20fill='%23cbe1f6'/%3E%3C/svg%3E");
+  animation: obscura-sail linear infinite;
+}
+/* верхнее — крупное и ближе (быстрее) */
+:root[data-wave="wave-02"]::before {
+  top: 92px;
+  width: 90px;
+  height: 51px;
+  opacity: 0.95;
+  animation-duration: 70s;
+  animation-delay: -8s;
+}
+/* среднее — мелкое и дальнее (медленнее), за центральной плиткой, мелькает в каналах */
+:root[data-wave="wave-02"]::after {
+  top: 446px;
+  width: 58px;
+  height: 33px;
+  opacity: 0.62;
+  animation-duration: 108s;
+  animation-delay: -62s;
+}
+/* нижнее — среднее */
+:root[data-wave="wave-02"] body::before {
+  top: 772px;
+  width: 74px;
+  height: 42px;
+  opacity: 0.82;
+  animation-duration: 88s;
+  animation-delay: -34s;
+}
+@keyframes obscura-sail {
+  from {
+    transform: translateX(-170px);
+  }
+  to {
+    transform: translateX(calc(100vw + 90px));
+  }
+}
+/* reduced-motion: облака не плывут — замирают в «карманах» неба между карточками. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-wave="wave-02"]::before {
+    left: 28%;
+  }
+  :root[data-wave="wave-02"]::after {
+    left: 46%;
+  }
+  :root[data-wave="wave-02"] body::before {
+    left: 63%;
+  }
+}
+
+/* Мягкие «облачные» карты вместо ступенчатой пиксель-рамки волны 01: скруглённые углы,
+   тонкий кант, многослойная сине-тонированная тень (feature card Obscura). */
+:root[data-wave="wave-02"] .pixel-tile {
+  clip-path: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(15, 34, 52, 0.04), 0 8px 18px rgba(15, 34, 52, 0.07),
+    0 18px 40px rgba(15, 34, 52, 0.06);
+  filter: none;
+}
+:root[data-wave="wave-02"] .pixel-tile[data-elevated="true"] {
+  box-shadow: 0 2px 4px rgba(15, 34, 52, 0.05), 0 14px 30px rgba(15, 34, 52, 0.1),
+    0 30px 60px rgba(15, 34, 52, 0.09);
+}
+/* Угловые заклёпки — персиковая пиксель-деталь волны 01; на облачных картах их нет. */
+:root[data-wave="wave-02"] .pixel-tile--rivets::before {
+  display: none;
+}
+/* Ховер волны 02 — НЕ физический подъём (как в волне 01), а аркадная «подсветка выбора»:
+   оранжевое пиксель-кольцо вокруг карты (Obscura orange-ring), без сдвига. Кольцо — box-shadow
+   spread (повторяет скруглённый угол), не меняет поток (нет наезда на соседей). */
+@media (hover: hover) {
+  :root[data-wave="wave-02"] .pixel-tile:hover {
+    transform: none;
+    filter: none;
+    box-shadow: 0 0 0 2px var(--accent), 0 10px 22px rgba(15, 34, 52, 0.13);
+  }
+  :root[data-wave="wave-02"] .pixel-tile[data-elevated="true"]:hover {
+    box-shadow: 0 0 0 2px var(--accent), 0 16px 34px rgba(15, 34, 52, 0.16);
+  }
+}
+
+/* Метки-подписи тайлов («волны», «свежесть», …) во 2-й волне НЕ показываем — это
+   «параметр волны» (скин решает): персиковая дашбордная мета убрана, основной контент
+   виджета растягивается на освободившееся место. Различие с волной 01 заметнее. */
+:root[data-wave="wave-02"] .tile-label {
+  display: none;
+}
+
+/* Пиксельный «голос» аркады остаётся на бренде (identity) и на ИМЕНИ дня (не данные/цифры) —
+   крупный центральный пиксель-акцент. !important перебивает инлайновый mono плитки «Сегодня». */
+:root[data-wave="wave-02"] [data-testid="today-title"] {
+  font-family: var(--font-display) !important;
+  font-size: 22px !important;
+}

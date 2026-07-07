@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { getArtifacts } from "@/lib/api/client";
 import type { ArtifactView } from "@/lib/api/types";
+import type { TileOrientation } from "@/lib/layout";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
 interface ArtifactMarqueeProps {
   style?: CSSProperties;
   className?: string;
+  /**
+   * Направление ленты — задаётся волной через layout (`tiles.marquee.orientation`,
+   * DESIGN §10.1). `vertical` — колонка, едет вверх; дефолт — горизонтальная строка.
+   */
+  orientation?: TileOrientation;
 }
 
 const RU_MONTHS = [
@@ -29,7 +35,8 @@ function formatFirstMentioned(iso: string): string {
  * название + мельче дата первого упоминания. `Esc`/клик вне закрывают; пауза марки на ховер.
  * Уважает `prefers-reduced-motion` (анимация замирает глобально).
  */
-export function ArtifactMarquee({ style, className }: ArtifactMarqueeProps) {
+export function ArtifactMarquee({ style, className, orientation = "horizontal" }: ArtifactMarqueeProps) {
+  const vertical = orientation === "vertical";
   const { phase, data, retry } = useTileData<ArtifactView[]>(
     useCallback((signal) => getArtifacts({ signal }), []),
     "artifacts",
@@ -60,8 +67,14 @@ export function ArtifactMarquee({ style, className }: ArtifactMarqueeProps) {
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
-        <div className="relative flex h-full items-center overflow-hidden" onMouseLeave={() => setActive(null)}>
-          <div className="artifact-track" style={{ "--artifact-duration": duration } as CSSProperties}>
+        <div
+          className={`relative flex h-full overflow-hidden ${vertical ? "justify-center" : "items-center"}`}
+          onMouseLeave={() => setActive(null)}
+        >
+          <div
+            className={`artifact-track${vertical ? " artifact-track--vertical" : ""}`}
+            style={{ "--artifact-duration": duration } as CSSProperties}
+          >
             {/* Дублируем список дважды — петля -50% бесшовна. Второй проход aria-hidden. */}
             {[...artifacts, ...artifacts].map((a, i) => {
               const idx = i % artifacts.length;
@@ -75,7 +88,7 @@ export function ArtifactMarquee({ style, className }: ArtifactMarqueeProps) {
                   onMouseEnter={() => setActive(idx)}
                   onFocus={() => setActive(idx)}
                   onClick={() => setActive((cur) => (cur === idx ? null : idx))}
-                  className="mx-4 inline-flex flex-col items-center gap-1 align-middle"
+                  className={`${vertical ? "my-3" : "mx-4"} inline-flex flex-col items-center gap-1 align-middle`}
                   style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
                   {a.imageUrl ? (

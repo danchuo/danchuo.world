@@ -1,5 +1,6 @@
 package world.danchuo.days
 
+import io.quarkus.runtime.annotations.RegisterForReflection
 import java.time.LocalDate
 
 /**
@@ -16,6 +17,8 @@ import java.time.LocalDate
  * Пустые/будущие дни диапазона тоже попадают в ответ ([hasData] = `false`) — календарь
  * рисует непрерывную сетку без дыр (§4: будущие дни пустые).
  */
+// Response-wrapped views need explicit reflection registration for native-image (else {} in JSON).
+@RegisterForReflection
 data class DaySummary(
     val date: LocalDate,
     val title: String?,
@@ -30,6 +33,7 @@ data class DaySummary(
 )
 
 /** Метка монстра для ячейки календаря: имя для превью + акцент для пиксель-метки. */
+@RegisterForReflection
 data class MonsterMark(
     val key: String,
     val name: String,

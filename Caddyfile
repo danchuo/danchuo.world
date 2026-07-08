@@ -1,0 +1,20 @@
+# danchuo.world — edge: TLS (Let's Encrypt auto) + reverse proxy (PRD §8, M0).
+# Routing mirrors the same-origin architecture: /api/* goes STRAIGHT to Quarkus (bypassing
+# Next, so photo-drop zip uploads never hit a proxy body limit), everything else to Next.js.
+# This file is synced to the VPS by the deploy workflow — edit it here, not on the server.
+
+danchuo.world {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
+
+www.danchuo.world {
+	redir https://danchuo.world{uri} permanent
+}

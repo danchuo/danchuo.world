@@ -14,7 +14,7 @@
       - velobike_token: синглтон-строка с refresh-токеном ШИФРОВАННО at-rest (§8,
         как spotify_token) для серверного поллинга; access-токен не персистится.
     -->
-    <changeSet id="0170-bike-ride-table" author="danchuo">
+    <changeSet id="0120-bike-ride-table" author="danchuo">
         <createTable tableName="bike_ride">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -61,7 +61,7 @@
         </createIndex>
     </changeSet>
 
-    <changeSet id="0170-velobike-token-table" author="danchuo">
+    <changeSet id="0120-velobike-token-table" author="danchuo">
         <createTable tableName="velobike_token">
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" nullable="false"/>

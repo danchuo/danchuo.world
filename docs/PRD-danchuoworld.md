@@ -41,8 +41,8 @@
 | Архитектура | Расцепленная: фронт ↔ Quarkus как JSON API (это **не** микросервисы) | изолирует фронт в стек с лучшей экосистемой |
 | Кэш | **quarkus-cache (Caffeine, in-process)** | Redis пока не нужен (см. §8) |
 | Рейтлимит | **Bucket4j (Quarkus ext)** на эндпоинты + L7-лимиты в Caddy | анти-абуз, не анти-DDoS |
-| Сборка | **JVM-jar + native-image** (GraalVM, под ARM/C6G) | native экономит память на маленьком боксе |
-| Деплой | **Docker Compose + GitHub Actions** | авто-деплой на VPS |
+| Сборка | **JVM-jar (дев) + native-image (GraalVM/Mandrel, прод)** | native экономит память на маленьком боксе |
+| Деплой | **Docker Compose + GitHub Actions** (native-сборка и смоук — в CI, VPS только `pull && up`) | авто-деплой на VPS |
 | Reverse proxy / TLS | **Caddy** + Let's Encrypt | авто-HTTPS, отдача статики Next.js |
 | Аналитика | **своё решение в Postgres** (JS-бикон, cookieless) | без третьих сторон |
 | Хранилище медиа | интерфейс **`PhotoStorage`**: сейчас локальный диск, далее **объектный сторадж (S3/R2)** | фото-дропы (§5.12, B1); подмена реализации без правок слайса |
@@ -437,8 +437,8 @@ backend/
 
 - **Кэш:** `quarkus-cache` (Caffeine, in-process). Кэшируем now-playing (~20с), recent/top (минуты), агрегаты дня и активную тему (инвалидация при ingest/смене темы). **Redis не нужен**, пока один инстанс; оправдан при мульти-инстансе / персистентности кэша / шаринге лимитов — или как осознанное «хочу пощупать» (бэклог).
 - **Рейтлимит / анти-абуз:** L7-лимиты в Caddy + точечные лимиты на публичные GET через **Bucket4j** (in-memory). Важно: это останавливает одного шумного клиента, **не настоящий DDoS** — для последнего в бэклоге **Cloudflare free (без капчи)** перед сайтом.
-- **Сборка:** JVM-jar (быстрый дев) + native-image (GraalVM, прод на ARM/C6G — экономия RAM). Dockerfile на оба.
-- **Деплой:** Docker Compose (app + postgres + caddy). GitHub Actions: push в `main` → сборка образа → GHCR → ssh-деплой на VPS (`compose pull && up -d`). Секреты — в env/секретах Actions, не в репо.
+- **Сборка:** JVM-jar (быстрый дев, `backend/Dockerfile`) + native-image (прод, `backend/Dockerfile.native`: GraalVM/Mandrel jdk-25; `quarkus-awt` — ImageIO фото-дропов в нативе, `quarkus-smallrye-health` — `/q/health` для смоука и деплой-гейта; Response-обёрнутые проекции помечены `@RegisterForReflection`).
+- **Деплой:** `docker-compose.prod.yml` (caddy + frontend + backend-native + postgres; секреты из `/opt/danchuoworld/.env`, в compose — `${…:?}` без дефолтов). GitHub Actions `deploy.yml`: push в `main` → native-бэк + Next-фронт → GHCR (теги `latest` + sha коммита; sha = ручной откат) → **смоук живых контейнеров** (health-готовность, загрузка zip через весь AWT-пайплайн, проверка формы JSON публичных проекций, фронт SSR против бэка) → ssh-деплой (`compose pull && up -d`) с health-гейтом. Native-сборка и смоук — только в CI: VPS ничего не собирает. Миграции Liquibase перед 1.0.0 консолидированы начисто (12 файлов `0010`–`0120` = финальное состояние; прод стартует без исторических промежуточных апдейтов). Чеклист выката/отката — `docs/deploy.md`.
 - **Мониторинг свежести:** хранить `lastIngestAt`; в UI — тихий индикатор свежести; простой алерт (напр. в Telegram), если данные «застряли» дольше N часов — иначе молчаливо устаревший дашборд.
 - **Бэкапы (бэклог):** cron на VPS → дамп Postgres → Google Drive (offsite).
 
@@ -486,15 +486,15 @@ backend/
 
 ## 12. Этапы разработки (подробно)
 
-### M0 — Каркас и деплой-конвейер
-**Цель:** пустой, но задеплоенный и защищённый скелет в проде.
-- Quarkus (Kotlin): REST, Panache, Postgres-датасорс, профили dev/prod, Flyway.
-- Каркас feature-пакетов + `core` (сквозные соглашения), пустые швы расширяемости заложены — см. §3.1.
-- Сборка в двух режимах (JVM-jar + native-image под ARM); Dockerfile на оба.
-- `docker-compose`: app + postgres + caddy.
-- GitHub Actions: push в `main` → образ → GHCR → ssh-деплой на VPS (`compose pull && up -d`).
-- Caddy: домен danchuo.world, авто-TLS, reverse-proxy, отдача статики Next.js, базовые L7-лимиты.
-- Bearer-фильтр записи в Quarkus; секрет в env.
+### M0 — Каркас и деплой-конвейер ✅
+**Цель:** пустой, но задеплоенный и защищённый скелет в проде. *(Каркас — с первого дня; деплой-конвейер дособран перед 1.0.0.)*
+- ✅ Quarkus (Kotlin): REST, Panache, Postgres-датасорс, профили dev/prod, Liquibase (заменил Flyway).
+- ✅ Каркас feature-пакетов + `core` (сквозные соглашения), пустые швы расширяемости заложены — см. §3.1.
+- ✅ Сборка в двух режимах: JVM-jar (`backend/Dockerfile`, дев/локальный стек) + native-image (`backend/Dockerfile.native`, прод).
+- ✅ `docker-compose.prod.yml`: caddy + frontend + backend(native) + postgres; секреты строго из `.env` на VPS.
+- ✅ GitHub Actions `deploy.yml`: push в `main` → два образа → GHCR → смоук живых контейнеров → ssh-деплой с health-гейтом (детали — §8 «Деплой» и `docs/deploy.md`).
+- ✅ Caddy: домен danchuo.world, авто-TLS, `/api/*` → Quarkus напрямую (большие zip мимо Next), остальное → Next SSR, `www` → apex.
+- ✅ Bearer-фильтр записи в Quarkus; секрет в env.
 **Exit:** открывается `https://danchuo.world` (заглушка), CI деплоит сам, защищённый POST без токена → 401.
 
 ### M1 — Спина данных и ingestion
@@ -537,8 +537,8 @@ backend/
 - ✅ SEO/OpenGraph/favicon (`robots.ts`/`sitemap.ts`/`icon.svg`/`opengraph-image`); доступность (контраст AA, `:focus-visible`, тач-таргеты ≥44px, reduced-motion).
 - ✅ Прогон пустых состояний: будущие дни, «нет данных», «ничего не играет» (аудит + per-tile состояния).
 - ✅ Визуальная регрессия UI: Playwright **пер-тайл** + скриншот-сравнение. Эталоны снимаются в Docker (стабильный рендер шрифтов для CI), вьюпорты desktop/mobile; детерминизм — стаб `/api/*` + фикс-часов. Закрепляет вёрстку плиток (вкл. музыкальную) перед релизом — то, что jsdom-юниты не ловят.
-- ⏳ **Выкатка** (деплой-конвейер M0: Compose → GHCR → VPS, домен, секреты) — отдельным проходом.
-**Exit:** danchuo.world v1 в проде, данные текут, выглядит достойно на телефоне и 16". *(Код готов; остаётся нажать «выкатить».)*
+- ✅ **Выкатка-конвейер** (M0) готов: native-образы → GHCR → смоук → ssh на VPS; миграции консолидированы начисто; версии подняты до **1.0.0**. Остались ручные шаги владельца перед первым прогоном: секреты Actions, DNS Porkbun, merge (чеклист — `docs/deploy.md`).
+**Exit:** danchuo.world v1 в проде, данные текут, выглядит достойно на телефоне и 16". *(Конвейер готов; прод включается merge'ем.)*
 
 ### Бэклог-фазы (после v1, порядок ориентировочный)
 - **B1 ✅:** админ-панель (`/admin`) + объектный сторадж → загрузка фото-дропов (экраны/модель уже в §5.12).

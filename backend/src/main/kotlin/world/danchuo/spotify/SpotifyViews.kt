@@ -1,6 +1,7 @@
 package world.danchuo.spotify
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import io.quarkus.runtime.annotations.RegisterForReflection
 
 /**
  * Публичные read-проекции музыкального слоя (PRD §M3) — то, что отдают `GET /api/spotify/…`
@@ -10,6 +11,9 @@ import com.fasterxml.jackson.annotation.JsonProperty
  */
 
 /** Исполнитель со ссылкой-атрибуцией на его страницу в Spotify. */
+// Views cross REST only inside Response entities - invisible to native-image static analysis,
+// so Jackson needs an explicit reflection registration (otherwise native serializes them as {}).
+@RegisterForReflection
 data class ArtistRef(
     val name: String,
     /** Ссылка на артиста в Spotify, `null` — если не пришла. */
@@ -17,6 +21,7 @@ data class ArtistRef(
 )
 
 /** Альбом со ссылкой-атрибуцией на его страницу в Spotify. */
+@RegisterForReflection
 data class AlbumRef(
     val name: String,
     /** Ссылка на альбом в Spotify, `null` — если не пришла. */
@@ -24,6 +29,7 @@ data class AlbumRef(
 )
 
 /** Один трек в человекочитаемом виде. */
+@RegisterForReflection
 data class TrackView(
     val title: String,
     /** Исполнители (Spotify отдаёт список); каждый со своей ссылкой. */
@@ -68,6 +74,7 @@ data class TrackView(
  * он уже показан строкой альбома ([TrackView.album]); источник — про плейлист/артиста/
  * подкаст/«любимое». `null`, если контекста нет или у него нет ссылки.
  */
+@RegisterForReflection
 data class SourceRef(
     /** Тип контекста Spotify: `playlist` / `artist` / `collection` / `show`. */
     val type: String,
@@ -93,6 +100,7 @@ data class SourceRef(
  * фронт рисует тихое пустое состояние, без спец-ветки. [source] — откуда играет
  * (плейлист/артист/подкаст), `null` для альбома и «вне контекста».
  */
+@RegisterForReflection
 data class NowPlayingView(
     // Без явного имени Jackson срезал бы `is`-префикс булева → поле «playing»;
     // держим контракт `isPlaying` в зеркале с фронтом (TrackView/progressMs — camelCase).
@@ -108,6 +116,7 @@ data class NowPlayingView(
 }
 
 /** Недавно сыгранный трек с меткой времени проигрывания (ISO-8601 из Spotify). */
+@RegisterForReflection
 data class RecentTrackView(
     val track: TrackView,
     val playedAt: String?,

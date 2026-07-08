@@ -1,0 +1,72 @@
+# syntax=docker/dockerfile:1
+
+# Multi-stage NATIVE build: GraalVM/Mandrel compiles the Quarkus app to a single native
+# executable INSIDE the image, then ships it on a small glibc runtime. No JVM at runtime —
+# startup in tens of ms and a much smaller memory footprint than the fast-jar Dockerfile.
+#
+#   docker build -f Dockerfile.native -t danchuoworld/backend:native .
+#
+# ⚠️ native-image is heavy: the build stage wants ~6-8 GB RAM and takes several minutes.
+#    Raise NATIVE_IMAGE_XMX on a beefier machine, lower Docker memory limits OOM-kill it (137).
+
+# ---- Stage 1: native build ---------------------------------------------------------------
+# Mandrel = Red Hat's GraalVM downstream tuned for Quarkus. Keep the jdk-25 tag in lockstep
+# with jvmToolchain(25) in build.gradle.kts.
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-25 AS build
+USER root
+WORKDIR /code
+
+# Cap the native-image heap: by default it grabs ~80% of the VM's RAM, which overshoots a
+# memory-constrained Docker and gets OOM-killed. 4g suits a local Docker Desktop; CI sets 6g.
+ARG NATIVE_IMAGE_XMX=4g
+
+# 1) Dependency layer: wrapper + build scripts first, so a source-only change doesn't
+#    re-resolve dependencies. sed strips CRLF (repo is checked out on Windows) — dash won't
+#    read a \r-terminated shebang otherwise.
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradle/ gradle/
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && \
+    ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" dependencies > /dev/null 2>&1 || true
+
+# 2) Compile to a native executable.
+#    - quarkus.native.enabled=true        : switch the package type to native
+#    - quarkus.package.jar.enabled=false  : the plugin refuses to emit native AND jar in one run
+#    - quarkus.native.container-build=false : we're already inside the builder image
+#    - org.gradle.java.home=$JAVA_HOME    : gradle.properties pins a Windows dev path — override
+#    Tests are skipped: no Docker daemon (Dev Services) inside `docker build`.
+COPY src/ src/
+RUN ./gradlew --no-daemon build -x test \
+    -Dquarkus.native.enabled=true \
+    -Dquarkus.package.jar.enabled=false \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=${NATIVE_IMAGE_XMX} \
+    -Dorg.gradle.java.home="$JAVA_HOME" \
+    -Dorg.gradle.java.installations.auto-download=false
+
+# The film slice uses java.awt (ImageIO resize): with quarkus-awt the native build emits JNI
+# shared libraries (libawt*.so, libjavajpeg.so, …) next to the runner — they must ship in the
+# runtime image alongside the executable. Collect everything into one dir for a single COPY.
+RUN mkdir /deploy && \
+    cp build/*-runner /deploy/application && \
+    (cp build/*.so /deploy/ 2>/dev/null || true)
+
+# ---- Stage 2: runtime --------------------------------------------------------------------
+# glibc-based (NOT Alpine/musl). ubi-minimal instead of quarkus-micro-image because AWT's
+# JNI libs need freetype/fontconfig at runtime, and micro has no package manager to add them.
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5
+WORKDIR /work/
+RUN microdnf install -y freetype fontconfig && microdnf clean all
+
+COPY --from=build --chown=1001:root /deploy/ /work/
+# The app user must own the workdir: Quarkus multipart uploads (photo-drop zips) spool to a
+# cwd-relative temp dir, and an unwritable /work turns every upload into a 500.
+RUN chown 1001 /work && chmod g+rwX /work && \
+    chmod 540 /work/application && \
+    # Photo-drop volume mount point (danchuo.film.storage-dir): pre-create it owned by the app
+    # user, so a fresh named volume inherits writable ownership instead of root's.
+    mkdir -p /data/film && chown -R 1001:root /data/film
+
+EXPOSE 8080
+USER 1001
+
+ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

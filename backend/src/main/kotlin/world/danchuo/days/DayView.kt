@@ -1,5 +1,6 @@
 package world.danchuo.days
 
+import io.quarkus.runtime.annotations.RegisterForReflection
 import java.time.LocalDate
 
 /**
@@ -13,6 +14,9 @@ import java.time.LocalDate
  *   [discipline] — каркас активных пунктов с прогрессом `0`, [monster] = `null`. Форма
  *   ответа одинакова для наполненного и пустого дня — фронт рисует per-tile empty без спец-ветки.
  */
+// Views cross REST only inside Response entities - invisible to native-image static analysis,
+// so Jackson needs an explicit reflection registration (otherwise native serializes them as {}).
+@RegisterForReflection
 data class DayView(
     val date: LocalDate,
     /** Имя дня (§5.6); `null` = не задано. */
@@ -28,6 +32,7 @@ data class DayView(
 )
 
 /** Статы Apple Health дня (§5.4). Все nullable — null ≠ 0. */
+@RegisterForReflection
 data class HealthView(
     val steps: Int?,
     /** Сон относится ко дню пробуждения (§4). */
@@ -36,6 +41,7 @@ data class HealthView(
     val sleepStages: SleepStagesView?,
 )
 
+@RegisterForReflection
 data class SleepStagesView(
     val rem: Int?,
     val deep: Int?,
@@ -43,6 +49,7 @@ data class SleepStagesView(
     val awake: Int?,
 )
 
+@RegisterForReflection
 data class WorkoutView(
     val type: String,
     val durationMinutes: Int,
@@ -56,6 +63,7 @@ data class WorkoutView(
  * Пункт `monster` тоже здесь (его прогресс — производная от вкуса, §5.6); визуал банки
  * даёт отдельное поле [DayView.monster].
  */
+@RegisterForReflection
 data class DisciplineItemView(
     val key: String,
     val label: String,
@@ -65,6 +73,7 @@ data class DisciplineItemView(
 )
 
 /** Монстр дня для плитки «Сегодня»: банка + акцент (DESIGN §6). */
+@RegisterForReflection
 data class MonsterView(
     val key: String,
     val name: String,

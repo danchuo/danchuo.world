@@ -1,0 +1,97 @@
+# Деплой danchuo.world на VPS
+
+Схема (PRD §8, M0): **GitHub Actions собирает образы и деплоит, VPS только запускает.**
+Native-сборка Quarkus требует 6–8 GB RAM — она живёт на CI-раннере; на сервере всегда
+только `docker compose pull && up -d`.
+
+```
+push в main ──> Actions: native-бэк + Next-фронт ──> push в ghcr.io
+                       └──> smoke: контейнеры реально гоняются (health + фото-пайплайн)
+                       └──> ssh на VPS ──> docker compose pull && up -d ──> health
+```
+
+Стек на VPS: `caddy` (единственный наружу: 80/443, авто-TLS) → `frontend` (Next SSR) +
+`backend` (Quarkus native) → `postgres`. `/api/*` Caddy ведёт **напрямую в Quarkus**,
+мимо Next — большие zip фото-дропов не упираются в прокси-лимиты.
+
+## Соседство с proxemics (тот же VPS)
+
+Стеки полностью изолированы: свой compose-проект `/opt/danchuoworld` (сеть/тома/имена),
+из хост-портов заняты только 80/443 (caddy) и loopback `127.0.0.1:8081` (health/туннель) +
+`127.0.0.1:5433` (psql) — proxemics держит loopback 8080/5432, пересечений нет.
+`docker image prune -f` в конце деплоя чистит только dangling-слои — чужие образы не трогает.
+
+---
+
+## 1. Разовая настройка VPS (руками, один раз)
+
+Docker + базовая гигиена уже сделаны для proxemics — переиспользуем.
+
+- [ ] `mkdir -p /opt/danchuoworld` — compose и Caddyfile туда дальше кладёт сам Actions.
+- [ ] **`/opt/danchuoworld/.env`**, права `chmod 600` — единственное место прод-секретов:
+      ```
+      POSTGRES_PASSWORD=...            # openssl rand -base64 24
+      DANCHUO_INGEST_TOKEN=...         # openssl rand -base64 24; его же — в iOS-шорткаты
+      DANCHUO_ANALYTICS_SALT=...       # openssl rand -base64 24
+      DANCHUO_TIME_GENESIS=2026-01-01  # реальная генезис-дата данных
+      # Spotify (опционально — без них слайс «не сконфигурирован»)
+      DANCHUO_SPOTIFY_CLIENT_ID=...
+      DANCHUO_SPOTIFY_CLIENT_SECRET=...
+      DANCHUO_SPOTIFY_TOKEN_KEY=...    # ТОТ ЖЕ ключ, каким шифровался сохранённый refresh-токен
+      # Велобайк (опционально; поллер выключен по умолчанию)
+      DANCHUO_BIKE_PHONE=...
+      DANCHUO_BIKE_TOKEN_KEY=...
+      ```
+- [ ] **Деплой-ключ для Actions**: отдельная SSH-пара только для этого репо
+      (`ssh-keygen -t ed25519 -f deploy_key`), публичный → `~/.ssh/authorized_keys` на VPS,
+      приватный → секрет GitHub (§2). Ключ proxemics не переиспользуем.
+- [ ] **ghcr.io**: на VPS уже есть `docker login ghcr.io` от proxemics (тот же владелец,
+      scope `read:packages`) — новые пакеты подтянутся им же. Альтернатива — сделать
+      пакеты публичными.
+- [ ] **Бэкапы**: по образцу `proxemics/ops/backup.sh` — дамп постгреса danchuoworld
+      (`docker exec danchuoworld-postgres pg_dump ...`) **плюс том `filmdata`**
+      (кадры фото-дропов — единственные невоспроизводимые файлы).
+
+## 2. GitHub (репозиторий)
+
+- [ ] **Секреты Actions** (Settings → Secrets and variables → Actions):
+      - `VPS_HOST` — IP/домен сервера
+      - `VPS_USER` — пользователь деплоя
+      - `VPS_SSH_KEY` — приватный деплой-ключ из §1
+      (для push в ghcr.io хватает встроенного `GITHUB_TOKEN`)
+- [ ] Сделать чеки `pr-build.yml` required в branch protection — в `main` (= в прод)
+      не попадает красное.
+- [ ] Workflow уже в репо: `.github/workflows/deploy.yml` — на push в `main`, три этапа
+      (сборка → smoke → ssh-деплой). Тесты гоняет `pr-build.yml` на PR, деплой их не дублирует.
+
+## 3. DNS (Porkbun)
+
+- [ ] `A`-запись `danchuo.world` → IP VPS (+ `AAAA`, если есть IPv6).
+- [ ] `www` → ALIAS/CNAME на apex (Caddy редиректит на голый домен).
+- [ ] Дождаться резолва **до** первого деплоя — иначе Caddy не выпустит сертификат
+      (он ретраит сам, но чище сразу).
+
+## 4. После первого деплоя
+
+- [ ] `docker ps` — оба стека живы (danchuoworld-* и proxemics-*); `ss -tlnp` — снаружи
+      только 22/80/443.
+- [ ] `https://danchuo.world` — зелёный серт, борд рендерится, активная волна применилась.
+- [ ] **Spotify без переавторизации**: вставить сохранённый шифрованный refresh-токен в
+      прод-БД (шифротекст + готовый INSERT сохранены вне репо; ключ в `.env` должен быть
+      тем же). `docker exec -it danchuoworld-postgres psql -U danchuo -d danchuo` → INSERT
+      в `spotify_token`. В дашборде Spotify добавить redirect
+      `https://danchuo.world/api/spotify/callback` (на случай будущей переавторизации).
+- [ ] iOS-шорткаты → `https://danchuo.world/api/ingest/*` с прод-токеном; прогнать ingest.
+- [ ] `/admin` с прод-токеном: загрузить реальный фото-дроп, проверить обложку.
+- [ ] `robots.txt` / `sitemap.xml` / OG-картинка отдаются с прод-URL.
+- [ ] Настроить бэкапы (§1) и один раз проверить восстановление.
+
+## 5. Обновление и откат
+
+- **Обновление** — само: push/merge в `main` → Actions пересоберёт, прогонит smoke и
+  перезапустит. Каждый образ дополнительно тегируется sha коммита.
+- **Откат**: на VPS `TAG=<старый sha> docker compose -f docker-compose.prod.yml up -d`.
+  Осторожно с Liquibase: если новая версия успела применить миграции, откатываться лучше
+  на один шаг.
+- **Мониторинг руками**: `ssh -L 8081:localhost:8081 <vps>` → локально
+  `curl localhost:8081/q/health`.

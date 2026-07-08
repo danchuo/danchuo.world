@@ -45,4 +45,43 @@
             <column name="visit_id"/>
         </createIndex>
     </changeSet>
+
+    <!--
+      Хитмапа (PRD §5.11, B2): потайловые клики, cookieless. Сырой IP не хранится — только
+      суточный хэш (как у analytics_event). Координаты — внутри тайла (доля 0..1), не экранные
+      пиксели. Индексы под агрегат (path+occurred_at) и под cap-вклада на чтении
+      (visitor_day_hash). Консолидировано перед 1.0.0: бывший отдельный 0160 — тот же слайс.
+    -->
+    <changeSet id="0090-interaction-event-table" author="danchuo">
+        <createTable tableName="interaction_event">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="occurred_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="path" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tile_id" type="VARCHAR(64)"/>
+            <column name="offset_x_pct" type="DOUBLE PRECISION"/>
+            <column name="offset_y_pct" type="DOUBLE PRECISION"/>
+            <column name="viewport_w" type="INT"/>
+            <column name="visitor_day_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_bot" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="visit_id" type="VARCHAR(64)"/>
+        </createTable>
+
+        <createIndex tableName="interaction_event" indexName="idx_interaction_path_occurred_at">
+            <column name="path"/>
+            <column name="occurred_at"/>
+        </createIndex>
+        <createIndex tableName="interaction_event" indexName="idx_interaction_visitor_day_hash">
+            <column name="visitor_day_hash"/>
+        </createIndex>
+    </changeSet>
 </databaseChangeLog>

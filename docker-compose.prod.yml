@@ -1,0 +1,112 @@
+# danchuo.world — PRODUCTION stack (PRD §8, M0): caddy + frontend + backend + postgres.
+# Standalone file (NOT an override of the test docker-compose.yml): images come prebuilt
+# from ghcr.io — the VPS never compiles anything (native-image needs 6-8 GB, CI has them).
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Lives in /opt/danchuoworld on the VPS (synced there by the deploy workflow) next to a
+# hand-managed .env holding every secret — see docs/deploy.md. TAG is set by the workflow
+# to the git sha being deployed; unset (manual runs) it falls back to latest.
+# Rollback = TAG=<old sha> docker compose -f docker-compose.prod.yml up -d
+#
+# Coexistence with the proxemics stack on the same VPS: separate compose project (its own
+# network/volumes/names), and the only host ports we take are 80/443 (caddy) plus loopback
+# 8081/5433 — proxemics already holds loopback 8080/5432.
+
+name: danchuoworld
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: danchuoworld-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: danchuo
+      POSTGRES_USER: danchuo
+      # No default on purpose: compose fails fast if .env doesn't define it.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      # Loopback only (psql/backups from the host); 5433 because proxemics owns 5432.
+      # Docker published ports bypass ufw — never expose bare "5432:5432" on a VPS.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U danchuo -d danchuo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: ghcr.io/danchuo/danchuo.world/backend:${TAG:-latest}
+    container_name: danchuoworld-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DANCHUO_DB_URL: jdbc:postgresql://postgres:5432/danchuo
+      DANCHUO_DB_USER: danchuo
+      DANCHUO_DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+      # Write credentials + analytics salt: mandatory, no fallbacks (PRD §7).
+      DANCHUO_INGEST_TOKEN: ${DANCHUO_INGEST_TOKEN:?set DANCHUO_INGEST_TOKEN in .env}
+      DANCHUO_ANALYTICS_SALT: ${DANCHUO_ANALYTICS_SALT:?set DANCHUO_ANALYTICS_SALT in .env}
+
+      # Data genesis (days before it are empty, PRD §4).
+      DANCHUO_TIME_GENESIS: ${DANCHUO_TIME_GENESIS:?set DANCHUO_TIME_GENESIS in .env}
+
+      # Photo-drop frames live on a named volume so they survive redeploys (B1).
+      DANCHUO_FILM_DIR: /data/film
+
+      # Spotify (M3): optional — absent creds mean the slice reports "not configured".
+      DANCHUO_SPOTIFY_CLIENT_ID: ${DANCHUO_SPOTIFY_CLIENT_ID:-}
+      DANCHUO_SPOTIFY_CLIENT_SECRET: ${DANCHUO_SPOTIFY_CLIENT_SECRET:-}
+      DANCHUO_SPOTIFY_REDIRECT_URI: ${DANCHUO_SPOTIFY_REDIRECT_URI:-https://danchuo.world/api/spotify/callback}
+      DANCHUO_SPOTIFY_TOKEN_KEY: ${DANCHUO_SPOTIFY_TOKEN_KEY:-}
+
+      # Velobike (B4): push ingest works without config; the poller stays off by default
+      # (external API sits behind Qrator — see application.properties).
+      DANCHUO_BIKE_PHONE: ${DANCHUO_BIKE_PHONE:-}
+      DANCHUO_BIKE_TOKEN_KEY: ${DANCHUO_BIKE_TOKEN_KEY:-}
+      DANCHUO_BIKE_POLL_ENABLED: ${DANCHUO_BIKE_POLL_ENABLED:-false}
+    ports:
+      # Loopback only: deploy health gate + owner's ssh tunnel to /q/*. 8081 because
+      # proxemics owns loopback 8080. Public traffic reaches the API via caddy /api/*.
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - filmdata:/data/film
+
+  frontend:
+    image: ghcr.io/danchuo/danchuo.world/frontend:${TAG:-latest}
+    container_name: danchuoworld-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # SSR fetches (active wave tokens/layout) go to the backend over the compose network.
+      API_INTERNAL_URL: http://backend:8080
+      SITE_URL: https://danchuo.world
+    # No published ports: only caddy talks to it, over the compose network.
+
+  caddy:
+    image: caddy:2
+    container_name: danchuoworld-caddy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # Let's Encrypt certs/keys — must survive restarts (rate limits!)
+      - caddy-config:/config
+
+volumes:
+  pgdata:
+  filmdata:
+  caddy-data:
+  caddy-config:

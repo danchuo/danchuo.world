@@ -6,10 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс film (PRD §5.12, §7, §12 M4; DESIGN §7.5): каркас фото-дропов. Таблицы заводятся
-      сейчас (специфицированный шов), наполнение кадрами — B1-админка (нет канала на ~36
-      файлов сразу). Без сида: до B1 таблицы пусты, эндпоинты отдают пусто/404.
-      film_photo.width/height — для justified-композиции на клиенте.
+      Слайс film (PRD §5.12, §7, §12 M4; DESIGN §7.5): фото-дропы. Кадры лежат в хранилище
+      (локальный диск за PhotoStorage, позже S3/R2), URL-ы вариантов (web/thumb) генерятся из
+      ключа "{dropId}/{sortOrder}" — путь в БД не хранится (консолидировано перед 1.0.0:
+      каркасная колонка image_url из M4 и её снос в бывшем 0150 схлопнуты). Без сида: таблицы
+      наполняются загрузкой через /admin. film_photo.width/height — для justified-композиции.
     -->
     <changeSet id="0100-film-drop-table" author="danchuo">
         <createTable tableName="film_drop">
@@ -42,9 +43,6 @@
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="drop_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="image_url" type="VARCHAR(512)">
                 <constraints nullable="false"/>
             </column>
             <column name="width" type="INT"/>

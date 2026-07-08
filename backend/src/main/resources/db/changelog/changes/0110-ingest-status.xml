@@ -13,7 +13,7 @@
       бэклог (B5), здесь только тихий индикатор в UI. Сидим единственную строку (id=1)
       с пустым last_ingest_at (NULL = «приёмов ещё не было», UI покажет пусто).
     -->
-    <changeSet id="0130-ingest-status" author="danchuo">
+    <changeSet id="0110-ingest-status" author="danchuo">
         <createTable tableName="ingest_status">
             <column name="id" type="smallint">
                 <constraints primaryKey="true" nullable="false"/>

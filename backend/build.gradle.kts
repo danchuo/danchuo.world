@@ -37,6 +37,14 @@ dependencies {
 
     implementation("io.quarkus:quarkus-arc")
 
+    // Health endpoints (/q/health/*) for the CI smoke stage and the deploy health gate:
+    // readiness includes the Agroal datasource check, so "ready" = DB is reachable too.
+    implementation("io.quarkus:quarkus-smallrye-health")
+
+    // AWT support for GraalVM native image: the film slice resizes frames via JDK ImageIO
+    // (java.awt), which native-image can't compile without this extension. No-op in JVM mode.
+    implementation("io.quarkus:quarkus-awt")
+
     // Планировщик (@Scheduled) — фоновый поллинг истории поездок Велобайка (слайс bike).
     // Живёт только в слайсе bike; ядро о нём не знает.
     implementation("io.quarkus:quarkus-scheduler")
@@ -53,9 +61,9 @@ dependencies {
 }
 
 group = "world.danchuo"
-// M3: бэк и фронт получили рабочие версии — версии разведены
-// (CLAUDE.md §версионирование). Волна 02 «Obscura» (рестайл темы + слой скинов) — feature → minor бэка.
-version = "0.13.0-SNAPSHOT"
+// M3: бэк и фронт получили рабочие версии — версии разведены (CLAUDE.md §версионирование).
+// 1.0.0 — первый прод-релиз: деплой-конвейер готов, миграции консолидированы начисто.
+version = "1.0.0"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

@@ -7,7 +7,13 @@
 
     <!--
       Слайс social (PRD §5.8, §7, §12 M4): соцссылки + артефакты marquee. Data-driven —
-      новая ссылка/артефакт = строка, без релиза. Иконки/картинки — статика фронта.
+      новая ссылка/артефакт = строка, без релиза. Иконки соцссылок — SVG-спрайты, статика
+      фронта, красятся токеном волны через CSS-маску. Артефакт может быть без картинки
+      (image_url nullable — marquee рисует пиксель-плейсхолдер вместо PNG/GIF).
+
+      Консолидировано перед 1.0.0 (прод стартует с чистой цепочки): сюда свёрнуты бывшие
+      0110 (nullable image_url + артефакты без картинок) и 0190 (SVG-иконки, GitHub-аккаунт,
+      X/Instagram).
     -->
     <changeSet id="0070-social-link-table" author="danchuo">
         <createTable tableName="social_link">
@@ -38,9 +44,7 @@
             <column name="name" type="VARCHAR(128)">
                 <constraints nullable="false"/>
             </column>
-            <column name="image_url" type="VARCHAR(512)">
-                <constraints nullable="false"/>
-            </column>
+            <column name="image_url" type="VARCHAR(512)"/>
             <column name="first_mentioned_on" type="DATE">
                 <constraints nullable="false"/>
             </column>
@@ -56,20 +60,34 @@
         <insert tableName="social_link">
             <column name="platform" value="github"/>
             <column name="name" value="GitHub"/>
-            <column name="url" value="https://github.com/dontyouo"/>
-            <column name="icon" value="/assets/social/github.png"/>
+            <column name="url" value="https://github.com/danchuo"/>
+            <column name="icon" value="/assets/social/github.svg"/>
             <column name="sort_order" valueNumeric="10"/>
         </insert>
         <insert tableName="social_link">
             <column name="platform" value="telegram"/>
             <column name="name" value="Telegram"/>
             <column name="url" value="https://t.me/danchuo"/>
-            <column name="icon" value="/assets/social/telegram.png"/>
+            <column name="icon" value="/assets/social/telegram.svg"/>
             <column name="sort_order" valueNumeric="20"/>
+        </insert>
+        <insert tableName="social_link">
+            <column name="platform" value="x"/>
+            <column name="name" value="X"/>
+            <column name="url" value="https://x.com/danchuo"/>
+            <column name="icon" value="/assets/social/x.svg"/>
+            <column name="sort_order" valueNumeric="30"/>
+        </insert>
+        <insert tableName="social_link">
+            <column name="platform" value="instagram"/>
+            <column name="name" value="Instagram"/>
+            <column name="url" value="https://instagram.com/danchuo_"/>
+            <column name="icon" value="/assets/social/instagram.svg"/>
+            <column name="sort_order" valueNumeric="40"/>
         </insert>
     </changeSet>
 
-    <!-- Сид артефактов marquee (картинки — статика фронта; дата первого упоминания — в поповере). -->
+    <!-- Сид артефактов marquee (дата первого упоминания — в поповере; без картинки — плейсхолдер). -->
     <changeSet id="0070-artifact-seed" author="danchuo">
         <insert tableName="artifact">
             <column name="name" value="Камера"/>
@@ -82,6 +100,21 @@
             <column name="image_url" value="/assets/artifacts/racket.png"/>
             <column name="first_mentioned_on" valueDate="2026-02-20"/>
             <column name="sort_order" valueNumeric="20"/>
+        </insert>
+        <insert tableName="artifact">
+            <column name="name" value="Очки"/>
+            <column name="first_mentioned_on" valueDate="2026-03-10"/>
+            <column name="sort_order" valueNumeric="30"/>
+        </insert>
+        <insert tableName="artifact">
+            <column name="name" value="Футболка 1"/>
+            <column name="first_mentioned_on" valueDate="2026-03-25"/>
+            <column name="sort_order" valueNumeric="40"/>
+        </insert>
+        <insert tableName="artifact">
+            <column name="name" value="Футболка 2"/>
+            <column name="first_mentioned_on" valueDate="2026-04-05"/>
+            <column name="sort_order" valueNumeric="50"/>
         </insert>
     </changeSet>
 </databaseChangeLog>

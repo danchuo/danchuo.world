@@ -1,0 +1,269 @@
+name: Deploy
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+#  Pipeline: every merge/push to main ships to production in three gated stages.
+#
+#   ┌──────────────────────┐     ┌──────────────────────┐     ┌──────────────────┐
+#   │ 1. build-backend     │ ──> │ 2. smoke-test        │ ──> │ 3. deploy        │
+#   │    (native → ghcr)   │     │ run THE images:      │     │ ssh → pull,      │
+#   │    build-frontend    │     │ health + REAL photo  │     │ restart, health  │
+#   │    (next → ghcr)     │     │ upload through AWT   │     │                  │
+#   └──────────────────────┘     └──────────────────────┘     └──────────────────┘
+#
+#  • The native compile runs HERE because the VPS is too small for it (needs 6-8 GB).
+#  • Tests are deliberately NOT run here — pr-build.yml gates them on the PR.
+#  • The smoke stage exists because "native image built" ≠ "native image runs": GraalVM
+#    strips code it can't reach statically, and those failures only surface at runtime.
+#    The riskiest path in this app is java.awt/ImageIO (film slice, quarkus-awt), so the
+#    smoke uploads a real zip through the full resize pipeline — not just a health ping.
+# ══════════════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [ main ]
+
+# Serialize deploys: a second push waits for the running deploy instead of racing it.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+
+  # ── Stage 1a: compile the native backend image and push it to the registry ────────────
+  build-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # native-image wants ~6 GB heap and the standard runner has ~8 GB RAM total.
+      # The swap is a safety net so heap + Gradle + dockerd can't trip the OOM killer.
+      - name: Add swap for the native build
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The gha cache keeps the Gradle-dependency layer warm between runs; the native
+      # compile itself always reruns (its layer depends on src/).
+      # The sha tag is the rollback handle (docs/deploy.md §4).
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.native
+          push: true
+          build-args: |
+            NATIVE_IMAGE_XMX=6g
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+  # ── Stage 1b: build the Next.js frontend image ────────────────────────────────────────
+  build-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build args are baked at build time (Next rewrites + prerendered robots/sitemap/OG):
+      # API_PROXY_TARGET is the SSR-side fallback proxy target inside the compose network;
+      # browser /api/* traffic is routed by Caddy straight to the backend.
+      - uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          build-args: |
+            API_PROXY_TARGET=http://backend:8080
+            SITE_URL=https://danchuo.world
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ── Stage 2: run the freshly built images and exercise the real request paths ─────────
+  smoke-test:
+    needs: [ build-backend, build-frontend ]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start Postgres and the backend image under test
+        run: |
+          docker network create smoke
+
+          docker run -d --name pg --network smoke \
+            -e POSTGRES_USER=danchuo -e POSTGRES_PASSWORD=smoke -e POSTGRES_DB=danchuo \
+            postgres:17-alpine
+
+          docker run -d --name app --network smoke -p 8080:8080 \
+            -e DANCHUO_DB_URL=jdbc:postgresql://pg:5432/danchuo \
+            -e DANCHUO_DB_USER=danchuo \
+            -e DANCHUO_DB_PASSWORD=smoke \
+            -e DANCHUO_INGEST_TOKEN=smoke-token \
+            -e DANCHUO_ANALYTICS_SALT=smoke-salt \
+            -e DANCHUO_FILM_DIR=/tmp/film \
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      # Readiness includes the Agroal datasource check → "ready" = Liquibase ran + DB is up.
+      - name: Wait until the backend is ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/q/health/ready > /dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          echo "::error::smoke: backend never became ready"; docker logs app; exit 1
+
+      # THE native-image test that a health ping can't give: a real photo-drop upload runs
+      # zip → ImageIO decode → AWT resize → JPEG encode → disk → DB, i.e. every JNI library
+      # quarkus-awt bundled. If GraalVM stripped or mispacked any of it, this fails here —
+      # not in production.
+      - name: Upload a photo drop through the full imaging pipeline
+        run: |
+          # 1×1 PNG, base64 — deterministic test frames without extra tooling on the runner.
+          echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" \
+            | base64 -d > frame1.png
+          cp frame1.png frame2.png
+          zip -q drop.zip frame1.png frame2.png
+
+          RESULT=$(curl -fsS -X POST http://localhost:8080/api/ingest/drops \
+            -H "Authorization: Bearer smoke-token" \
+            -F "zip=@drop.zip;type=application/zip" \
+            -F "title=smoke drop" \
+            -F "date=$(date -u +%F)") \
+            || { echo "::error::smoke: drop upload failed"; docker logs app; exit 1; }
+          echo "$RESULT" | jq -e '.processed == 2 and .skipped == 0' > /dev/null \
+            || { echo "::error::smoke: expected 2 processed frames, got: $RESULT"; docker logs app; exit 1; }
+
+      - name: Assert public read API serves the drop and its media
+        run: |
+          DROPS=$(curl -fsS http://localhost:8080/api/drops)
+          echo "$DROPS" | jq -e '.[0].photoCount == 2 and .[0].coverPhotoUrl != null' > /dev/null \
+            || { echo "::error::smoke: /api/drops mismatch: $DROPS"; docker logs app; exit 1; }
+
+          # The resized JPEG must actually come back from storage (media serving path).
+          COVER=$(echo "$DROPS" | jq -r '.[0].coverPhotoUrl')
+          curl -fsS "http://localhost:8080$COVER" -o cover.jpg
+          [ -s cover.jpg ] || { echo "::error::smoke: cover image is empty"; exit 1; }
+
+          # Public day read: assert SHAPE, not just 200 — Response-wrapped DTOs that miss
+          # reflection registration serialize as {} in native (caught live once already).
+          DAY=$(curl -fsS "http://localhost:8080/api/days/$(date -u +%F)")
+          echo "$DAY" | jq -e '.date != null and (.discipline | type == "array")' > /dev/null \
+            || { echo "::error::smoke: /api/days serialized wrong (native reflection?): $DAY"; docker logs app; exit 1; }
+
+          # Same shape guard for the unconfigured Spotify slice (must be a non-empty object).
+          NOW=$(curl -fsS http://localhost:8080/api/spotify/now-playing)
+          echo "$NOW" | jq -e 'length > 0' > /dev/null \
+            || { echo "::error::smoke: /api/spotify/now-playing serialized wrong: $NOW"; docker logs app; exit 1; }
+
+      - name: Run the frontend image against the smoke backend
+        run: |
+          docker run -d --name web --network smoke -p 3000:3000 \
+            -e API_INTERNAL_URL=http://app:8080 \
+            -e SITE_URL=https://danchuo.world \
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+          ok=""
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/ -o page.html 2>/dev/null; then ok=1; break; fi
+            sleep 2
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::smoke: frontend never answered"; docker logs web; exit 1
+          fi
+          grep -qi "danchuo" page.html \
+            || { echo "::error::smoke: frontend page looks empty"; docker logs web; exit 1; }
+
+          echo "smoke OK — native backend serves ingest+read+media, frontend SSRs against it"
+
+  # ── Stage 3: roll the VPS onto the new images ─────────────────────────────────────────
+  deploy:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep the compose file and Caddyfile on the VPS in sync with the repo, so an edge
+      # config change deploys itself and nobody edits the server copies by hand.
+      - name: Sync compose + Caddyfile to the VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.prod.yml,Caddyfile"
+          target: /opt/danchuoworld
+
+      - name: Pull new images and restart
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/danchuoworld
+            export TAG=${{ github.sha }}
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+
+            # Backend health via its loopback port (8081; 8080 belongs to proxemics).
+            # Green = Liquibase ran against the prod DB and the datasource is live.
+            ok=""
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:8081/q/health > /dev/null 2>&1; then ok=1; break; fi
+              sleep 2
+            done
+            if [ -z "$ok" ]; then
+              echo "::error::backend did not become healthy within 60s — recent logs:"
+              docker logs --tail 100 danchuoworld-backend
+              exit 1
+            fi
+
+            # End-to-end through Caddy: soft check — on the very first deploy DNS/ACME may
+            # still be settling, and that shouldn't mark an otherwise healthy roll as failed.
+            curl -fsS --max-time 15 https://danchuo.world > /dev/null \
+              && echo "site answers over HTTPS" \
+              || echo "::warning::https://danchuo.world not reachable yet (DNS/certificate still settling?)"
+
+            # Drop superseded images so old deploys don't fill the disk (dangling only —
+            # never touches the proxemics stack's tagged images).
+            docker image prune -f
+            echo "deployed $TAG"

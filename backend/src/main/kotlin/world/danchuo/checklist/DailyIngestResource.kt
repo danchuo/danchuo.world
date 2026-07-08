@@ -7,6 +7,8 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import org.eclipse.microprofile.config.inject.ConfigProperty
+import world.danchuo.core.config.MskTime
 import java.time.LocalDate
 
 /**
@@ -14,11 +16,15 @@ import java.time.LocalDate
  * имя дня + прогресс дисциплины + вкус монстра. За токеном (фильтр ловит `api/ingest`).
  *
  * Идемпотентно (upsert по дате/паре date+item): правка задним числом повторным POST
- * не плодит дубли. Логика — в [DailyIngestService].
+ * не плодит дубли. Дата ограничена окном ручного ввода [сегодня − N, сегодня] по MSK
+ * (`danchuo.checklist.ingest-window-days`): будущее и глубокое прошлое ⇒ 400 — защита
+ * от опечатки в дате на телефоне. Логика — в [DailyIngestService].
  */
 @Path("/api/ingest/daily")
 class DailyIngestResource(
     private val dailyIngestService: DailyIngestService,
+    private val mskTime: MskTime,
+    @param:ConfigProperty(name = "danchuo.checklist.ingest-window-days") private val windowDays: Long,
 ) {
 
     data class DailyIngestRequest(
@@ -40,6 +46,14 @@ class DailyIngestResource(
                 .type(MediaType.APPLICATION_JSON)
                 .entity(mapOf("error" to "missing_field", "field" to "date"))
                 .build()
+
+        val today = mskTime.today()
+        if (date.isAfter(today) || date.isBefore(today.minusDays(windowDays))) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(mapOf("error" to "date_out_of_window", "windowDays" to windowDays))
+                .build()
+        }
 
         dailyIngestService.ingest(
             date = date,

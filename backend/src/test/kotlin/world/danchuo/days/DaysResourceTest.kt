@@ -9,15 +9,23 @@ import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.notNullValue
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * `GET /api/days*` (PRD §5.4/§5.6, §12 M2): публичное чтение, агрегат дня и сводки
  * календаря, пустые дни как валидная проекция, генезис-гард, формат дат.
+ *
+ * Даты — относительные к «сегодня» MSK: ingest/daily принимает только окно
+ * [сегодня − 31, сегодня] (§5.6). Смещения не пересекаются с DailyIngestResourceTest
+ * (он занимает −1…−3 и −31) — тест-классы делят одну БД в прогоне.
  */
 @QuarkusTest
 class DaysResourceTest {
 
     private val token = "dev-ingest-token-change-me"
+
+    private val today: LocalDate = LocalDate.now(ZoneId.of("Europe/Moscow"))
 
     /** Залить день через публичные ingest-швы (как делает телефон), чтобы было что читать. */
     private fun seedDay(date: String, title: String, steps: Int, flavorKey: String) {
@@ -31,11 +39,12 @@ class DaysResourceTest {
 
     @Test
     fun `day read is public and aggregates stats, discipline and monster`() {
-        seedDay("2026-07-01", "хороший день", 8200, "mango-loco")
+        val date = today.minusDays(6)
+        seedDay("$date", "хороший день", 8200, "mango-loco")
 
-        given().get("/api/days/2026-07-01") // без токена — чтение публично
+        given().get("/api/days/$date") // без токена — чтение публично
             .then().statusCode(200)
-            .body("date", equalTo("2026-07-01"))
+            .body("date", equalTo("$date"))
             .body("title", equalTo("хороший день"))
             .body("hasData", equalTo(true))
             .body("health.steps", equalTo(8200))
@@ -49,7 +58,7 @@ class DaysResourceTest {
 
     @Test
     fun `missing day is a well-formed empty projection, not an error`() {
-        given().get("/api/days/2026-09-09")
+        given().get("/api/days/${today.plusDays(30)}")
             .then().statusCode(200)
             .body("hasData", equalTo(false))
             .body("title", nullValue())
@@ -62,15 +71,17 @@ class DaysResourceTest {
 
     @Test
     fun `range returns a contiguous list of summaries with monster accent`() {
-        seedDay("2026-07-10", "забег", 9000, "mango-loco")
+        val seeded = today.minusDays(10)
+        val empty = today.minusDays(12)
+        seedDay("$seeded", "забег", 9000, "mango-loco")
 
-        given().get("/api/days?from=2026-07-08&to=2026-07-12")
+        given().get("/api/days?from=$empty&to=${today.minusDays(8)}")
             .then().statusCode(200)
             .body("size()", equalTo(5)) // непрерывная сетка [from, to] включительно
-            .body("find { it.date == '2026-07-10' }.hasData", equalTo(true))
-            .body("find { it.date == '2026-07-10' }.monster.accentColor", notNullValue())
-            .body("find { it.date == '2026-07-10' }.disciplineDone", greaterThan(0))
-            .body("find { it.date == '2026-07-08' }.hasData", equalTo(false))
+            .body("find { it.date == '$seeded' }.hasData", equalTo(true))
+            .body("find { it.date == '$seeded' }.monster.accentColor", notNullValue())
+            .body("find { it.date == '$seeded' }.disciplineDone", greaterThan(0))
+            .body("find { it.date == '$empty' }.hasData", equalTo(false))
     }
 
     @Test

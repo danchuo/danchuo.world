@@ -4,12 +4,14 @@
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 COPY . .
-# gradle.properties пинит org.gradle.java.home на Windows-путь разработчика —
-# перебиваем на JDK 25 контейнера (как делает CI). Тесты пропускаем (нужен Docker-in-Docker).
-# sed убирает возможные CRLF из gradlew (репо чекаутится на Windows) — иначе dash
+# gradle.properties пинит org.gradle.java.home / installations.paths на Windows-пути
+# разработчика — вырезаем их, чтобы Gradle в контейнере взял свой JAVA_HOME без
+# предупреждений о несуществующих каталогах. Тесты пропускаем (нужен Docker-in-Docker).
+# sed по gradlew убирает возможные CRLF (репо чекаутится на Windows) — иначе dash
 # в Linux не прочитает shebang и упадёт с «./gradlew: not found».
 RUN sed -i 's/\r$//' ./gradlew && chmod +x ./gradlew && \
-    ./gradlew build -x test --no-daemon -Dorg.gradle.java.home="$JAVA_HOME"
+    sed -i '/^org\.gradle\.java\./d' gradle.properties && \
+    ./gradlew build -x test --no-daemon
 
 # ── Рантайм: тонкий JRE, только собранный fast-jar ──
 FROM eclipse-temurin:25-jre AS run

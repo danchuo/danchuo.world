@@ -20,7 +20,7 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 }
 
 describe("TodayTile", () => {
-  it("рендерит дату, имя дня, статы, дисциплину дробями и монстра", () => {
+  it("рендерит дату, имя дня, статы, карту-тропу дисциплины и монстра", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
@@ -29,10 +29,14 @@ describe("TodayTile", () => {
     expect(screen.getByText(/7 ч 17 мин/)).toBeInTheDocument();
     expect(screen.getByText("Mango Loco")).toBeInTheDocument();
 
-    // закрытый пункт помечен data-done, незакрытый — нет
-    expect(screen.getByTestId("discipline-reading")).toHaveAttribute("data-done", "true");
-    expect(screen.getByTestId("discipline-reading")).toHaveTextContent("2/2");
-    expect(screen.getByTestId("discipline-stretch")).toHaveAttribute("data-done", "false");
+    // дисциплина — карта-тропа (QuestMap): чтение закрыто на обеих остановках, растяжка нет
+    expect(screen.getByTestId("quest-map")).toBeInTheDocument();
+    expect(screen.getByTestId("quest-stop-reading-1")).toHaveAttribute("data-done", "true");
+    expect(screen.getByTestId("quest-stop-reading-2")).toHaveAttribute("data-done", "true");
+    expect(screen.getByTestId("quest-stop-stretch-1")).toHaveAttribute("data-done", "false");
+    // выбран вкус ⇒ детур монстра закрыт
+    expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "true");
+    expect(screen.getByTestId("quest-total")).toHaveTextContent("2/7");
   });
 
   it("пустой день: null → «нет данных», монстр «не пил», имя не рендерится", () => {

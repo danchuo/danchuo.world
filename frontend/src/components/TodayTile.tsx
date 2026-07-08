@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
-import { formatFraction, formatSleep, formatSteps, isDisciplineDone } from "@/lib/format";
+import { formatSleep, formatSteps } from "@/lib/format";
 import { relativeDayRu } from "@/lib/relativeDay";
+import { QuestMap } from "./QuestMap";
 import { TileShell, type TileState } from "./TileShell";
 
 interface TodayTileProps {
@@ -78,23 +79,8 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
             )}
           </div>
 
-          <ul className="flex flex-col gap-1">
-            {day.discipline.map((item) => {
-              const done = isDisciplineDone(item.count, item.target);
-              return (
-                <li
-                  key={item.key}
-                  data-testid={`discipline-${item.key}`}
-                  data-done={done}
-                  className="flex justify-between"
-                  style={{ ...mono, color: done ? "var(--success)" : "var(--text-secondary)" }}
-                >
-                  <span>{item.label}</span>
-                  <span>{formatFraction(item.count, item.target)}</span>
-                </li>
-              );
-            })}
-          </ul>
+          {/* Дисциплина — карта-тропа дня (QuestMap, §5.6): остановки вместо списка дробей. */}
+          <QuestMap items={day.discipline} monsterDone={day.monster != null} />
 
           <div className="mt-auto flex items-center gap-3">
             {day.monster ? (

@@ -7,12 +7,18 @@ import io.restassured.http.ContentType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import world.danchuo.days.DayRecordRepository
 import java.time.LocalDate
+import java.time.ZoneId
 
-/** ingest/daily (PRD §5.6, §12 M1): имя дня, прогресс пунктов, монстр как производная вкуса. */
+/**
+ * ingest/daily (PRD §5.6, §12 M1): имя дня, прогресс пунктов, монстр как производная вкуса.
+ * Даты — относительные к «сегодня» MSK: эндпоинт принимает только окно
+ * [сегодня − N, сегодня] (danchuo.checklist.ingest-window-days), фикс-даты бы протухли.
+ */
 @QuarkusTest
 class DailyIngestResourceTest {
 
@@ -27,6 +33,8 @@ class DailyIngestResourceTest {
 
     private val token = "dev-ingest-token-change-me"
 
+    private val today: LocalDate = LocalDate.now(ZoneId.of("Europe/Moscow"))
+
     private fun countFor(date: LocalDate, itemKey: String): Int? =
         QuarkusTransaction.requiringNew().call {
             val item = checklistItems.findByKey(itemKey)!!
@@ -36,14 +44,14 @@ class DailyIngestResourceTest {
     @Test
     fun `without token is 401`() {
         given().contentType(ContentType.JSON)
-            .body("""{"date":"2026-06-13"}""")
+            .body("""{"date":"$today"}""")
             .post("/api/ingest/daily")
             .then().statusCode(401)
     }
 
     @Test
     fun `stores title, discipline progress and derives monster from flavor`() {
-        val date = LocalDate.of(2026, 6, 14)
+        val date = today.minusDays(1)
         val body = """
             {"date":"$date","title":"первый забег",
              "items":{"stretch":1,"reading":2,"podcasts":1},
@@ -70,7 +78,7 @@ class DailyIngestResourceTest {
 
     @Test
     fun `progress is clamped to target`() {
-        val date = LocalDate.of(2026, 6, 15)
+        val date = today.minusDays(2)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","items":{"reading":9}}""")
             .post("/api/ingest/daily")
@@ -81,7 +89,7 @@ class DailyIngestResourceTest {
 
     @Test
     fun `no flavor means not drunk - monster item is zero`() {
-        val date = LocalDate.of(2026, 6, 16)
+        val date = today.minusDays(3)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","items":{"stretch":1}}""")
             .post("/api/ingest/daily")
@@ -96,7 +104,7 @@ class DailyIngestResourceTest {
     @Test
     fun `unknown checklist item key is 422`() {
         given().auth().oauth2(token).contentType(ContentType.JSON)
-            .body("""{"date":"2026-06-17","items":{"nope":1}}""")
+            .body("""{"date":"$today","items":{"nope":1}}""")
             .post("/api/ingest/daily")
             .then().statusCode(422)
     }
@@ -104,8 +112,34 @@ class DailyIngestResourceTest {
     @Test
     fun `unknown monster flavor key is 422`() {
         given().auth().oauth2(token).contentType(ContentType.JSON)
-            .body("""{"date":"2026-06-17","monsterFlavorKey":"nope"}""")
+            .body("""{"date":"$today","monsterFlavorKey":"nope"}""")
             .post("/api/ingest/daily")
             .then().statusCode(422)
+    }
+
+    @Test
+    fun `future date is rejected - 400 date_out_of_window`() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"${today.plusDays(1)}","items":{"stretch":1}}""")
+            .post("/api/ingest/daily")
+            .then().statusCode(400)
+            .body("error", equalTo("date_out_of_window"))
+    }
+
+    @Test
+    fun `date older than the window is rejected - 400 date_out_of_window`() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"${today.minusDays(32)}","items":{"stretch":1}}""")
+            .post("/api/ingest/daily")
+            .then().statusCode(400)
+            .body("error", equalTo("date_out_of_window"))
+    }
+
+    @Test
+    fun `window boundary - today minus 31 is accepted`() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"${today.minusDays(31)}","items":{"stretch":1}}""")
+            .post("/api/ingest/daily")
+            .then().statusCode(200)
     }
 }

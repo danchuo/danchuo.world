@@ -136,3 +136,82 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ── Карта-тропа дисциплины (QuestMap, PRD §5.6; DESIGN §4.1) ─────────────────────────
+   Структура общая для всех волн: вся палитра — токены, скин волны перекрашивает карту
+   через :root/[data-wave] без правок разметки. */
+.quest-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.quest-seg path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.5 6; /* пунктир-стежки тропы */
+}
+.quest-chevron {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.quest-seg--done { stroke: var(--success); }
+.quest-seg--broken { stroke: var(--danger); }
+.quest-seg--pending { stroke: var(--text-tertiary); opacity: 0.45; }
+
+.quest-stop circle { stroke-width: 2; }
+.quest-stop--done circle {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.quest-stop--done { color: var(--bg-surface); } /* иконка белым по акценту */
+.quest-stop--pending circle {
+  fill: var(--bg-surface);
+  stroke: var(--border);
+}
+.quest-stop--pending { color: var(--text-tertiary); }
+.quest-stop--missed circle {
+  fill: var(--bg-surface);
+  stroke: var(--danger);
+  stroke-dasharray: 3 3;
+}
+.quest-stop--missed { color: var(--text-tertiary); }
+
+.quest-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--text-secondary);
+  text-anchor: middle;
+}
+.quest-total {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--text-secondary);
+  text-anchor: end;
+}
+.quest-flag { color: var(--accent); }
+
+/* Perfect day: весь маршрут закрыт — тропа зажигается тёплым акцентом (§2.3: сдержанно). */
+.quest-map--perfect .quest-seg--done { stroke: var(--accent-warm); opacity: 1; }
+.quest-map--perfect .quest-stop--done circle {
+  filter: drop-shadow(0 0 4px var(--accent-warm));
+}
+.quest-map--perfect .quest-total { fill: var(--accent-warm); }
+
+/* Декор-слои карты, включаемые СКИНОМ волны (по умолчанию скрыты): облака-подставки
+   остановок, солнце/луна краёв маршрута «утро → ночь», дроби прогресса под подписями.
+   Разметка одна на все волны — какой декор жив, решает wave-NN.css (согласованность волн). */
+.quest-cloud,
+.quest-sky,
+.quest-frac {
+  display: none;
+}
+.quest-frac {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--text-tertiary);
+  text-anchor: middle;
+}

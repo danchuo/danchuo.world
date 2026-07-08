@@ -138,3 +138,59 @@
   font-family: var(--font-display) !important;
   font-size: 22px !important;
 }
+
+/* ── Карта-тропа дисциплины в небе Obscura (QuestMap; структура — common.css) ──────────
+   Геометрия и логика те же, что в волне 01 — меняется только «кожа»: остановки встают
+   на пиксель-облака, флажки уступают солнцу и луне (утро → ночь), под подписями
+   появляются дроби прогресса, сделанное светится аркадным оранжевым кольцом. */
+:root[data-wave="wave-02"] .quest-flag {
+  display: none;
+}
+:root[data-wave="wave-02"] .quest-cloud,
+:root[data-wave="wave-02"] .quest-sky,
+:root[data-wave="wave-02"] .quest-frac {
+  display: inline;
+}
+
+/* облака-подставки: белое тело + сине-тонированная нижняя грань (в тон плывущим облакам фона) */
+:root[data-wave="wave-02"] .quest-cloud__body {
+  color: #f4faff;
+}
+:root[data-wave="wave-02"] .quest-cloud__shade {
+  color: #cbe1f6;
+}
+
+/* небо маршрута: пиксель-солнце утром, луна со звёздами ночью */
+:root[data-wave="wave-02"] .quest-sun,
+:root[data-wave="wave-02"] .quest-star {
+  color: #f2b93b;
+}
+:root[data-wave="wave-02"] .quest-moon {
+  color: #ecd28e;
+}
+
+/* сделанная остановка — «выбор в аркаде»: светлое кольцо + оранжевое свечение (токен волны) */
+:root[data-wave="wave-02"] .quest-stop--done circle {
+  stroke: color-mix(in srgb, var(--accent) 40%, #ffffff);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+/* ещё не пройденное — пунктирное пиксель-кольцо (как контуры в макете аркады) */
+:root[data-wave="wave-02"] .quest-stop--pending circle {
+  stroke-dasharray: 2.5 3;
+}
+
+/* тропа — квадратные пиксель-стежки вместо круглых точек волны 01 */
+:root[data-wave="wave-02"] .quest-seg path {
+  stroke-dasharray: 2.5 3.5;
+  stroke-linecap: butt;
+}
+
+/* подписи — моно-капс аркадного табло; итог дня — сигнальный оранжевый */
+:root[data-wave="wave-02"] .quest-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9px;
+}
+:root[data-wave="wave-02"] .quest-total {
+  fill: var(--accent);
+}

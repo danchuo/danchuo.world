@@ -25,14 +25,16 @@ ARG NATIVE_IMAGE_XMX=4g
 #    read a \r-terminated shebang otherwise.
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle/ gradle/
+# gradle.properties pins Windows dev JDK paths (org.gradle.java.home + installations.paths) —
+# strip them so Gradle inside the container uses its own JAVA_HOME without missing-dir warnings.
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && \
-    ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" dependencies > /dev/null 2>&1 || true
+    sed -i '/^org\.gradle\.java\./d' gradle.properties && \
+    ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
 
 # 2) Compile to a native executable.
 #    - quarkus.native.enabled=true        : switch the package type to native
 #    - quarkus.package.jar.enabled=false  : the plugin refuses to emit native AND jar in one run
 #    - quarkus.native.container-build=false : we're already inside the builder image
-#    - org.gradle.java.home=$JAVA_HOME    : gradle.properties pins a Windows dev path — override
 #    Tests are skipped: no Docker daemon (Dev Services) inside `docker build`.
 COPY src/ src/
 RUN ./gradlew --no-daemon build -x test \
@@ -40,7 +42,6 @@ RUN ./gradlew --no-daemon build -x test \
     -Dquarkus.package.jar.enabled=false \
     -Dquarkus.native.container-build=false \
     -Dquarkus.native.native-image-xmx=${NATIVE_IMAGE_XMX} \
-    -Dorg.gradle.java.home="$JAVA_HOME" \
     -Dorg.gradle.java.installations.auto-download=false
 
 # The film slice uses java.awt (ImageIO resize): with quarkus-awt the native build emits JNI

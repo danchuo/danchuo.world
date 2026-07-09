@@ -1,34 +1,6 @@
-/* Admin skin — deliberately wave-agnostic (owner's service screen, not part of the public
- * visual system). Plain black-on-white, no wave tokens, no pixel decor. Implemented by
- * re-declaring the same custom properties the components consume: `.admin-root` shadows the
- * wave tokens injected at `:root`, so whatever wave is active (or picked via cookie), the
- * admin pages always render the same monochrome design. */
-.admin-root {
-  min-height: 100dvh;
-  background: #ffffff;
-  color: #111111;
-  font-family: var(--font-inter), system-ui, sans-serif;
-
-  --bg-page: #ffffff;
-  --bg-surface: #ffffff;
-  --bg-surface-2: #ffffff;
-  --bg-surface-muted: #f2f2f2;
-  --bg-base: #ffffff; /* text on accent buttons */
-  --text-primary: #111111;
-  --text-secondary: #494949;
-  --text-tertiary: #6f6f6f;
-  --border: #dcdcdc;
-  --border-pixel: #111111;
-  --accent: #111111;
-  --accent-warm: #111111;
-  --danger: #111111;
-  --success: #111111;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
-  --font-display: var(--font-jetbrains), ui-monospace, monospace;
-}
+/* Admin styles. The admin follows waves like the public board: tokens/data-wave come from
+ * the root layout (SSR) and swap live via the WaveSwitcher in the admin header — no local
+ * token shadowing here (the old fixed monochrome skin is gone). */
 
 /* Neutral bordered panel — the admin counterpart of the board's wave-skinned tile. */
 .admin-panel {

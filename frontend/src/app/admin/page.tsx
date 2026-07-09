@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { WaveSwitcher } from "@/components/WaveSwitcher";
 import { HeatmapSection } from "./HeatmapSection";
 import {
   AdminApiError,
@@ -53,7 +54,7 @@ function describe(e: unknown): string {
  * Админка (B1+B2, PRD §5.11–5.12, §9 п.8) — один скроллящийся экран под общим bearer-токеном
  * ingest: сверху фото-дропы (zip ≈36 кадров с названием/датой, клик по кадру — обложка,
  * удаление), ниже — секция хитмапы кликов [HeatmapSection]. Токен хранится в sessionStorage.
- * Дизайн — фиксированный чёрно-белый (admin.css), волнам не следует. Не SSR/SEO.
+ * Дизайн следует волнам (токены из корневого layout, свитчер в шапке). Не SSR/SEO.
  */
 export default function AdminPage() {
   const [token, setToken] = useState("");
@@ -173,22 +174,21 @@ export default function AdminPage() {
   }
 
   if (!authed) {
+    // Deliberately bare login: just the token field and a single button, dead-centered.
     return (
-      <main className="mx-auto min-h-screen max-w-md p-6">
-        <h1 className="mb-4" style={{ fontSize: 22, color: "var(--text-primary)" }}>admin</h1>
-        <form onSubmit={onLogin} className="flex flex-col gap-3">
-          <label htmlFor="admin-token" style={mono}>токен записи (Authorization Bearer)</label>
+      <main className="flex min-h-screen items-center justify-center p-6">
+        <form onSubmit={onLogin} className="flex w-full max-w-xs flex-col gap-3">
           <input
             id="admin-token"
             type="password"
+            aria-label="токен записи (Authorization Bearer)"
             value={token}
             onChange={(e) => setToken(e.target.value)}
             style={fieldStyle}
             autoComplete="off"
-            placeholder="DANCHUO_INGEST_TOKEN"
           />
           <button type="submit" disabled={busy || !token} style={btnStyle}>
-            {busy ? "проверка…" : "войти"}
+            {busy ? "проверка…" : "сыграть"}
           </button>
           {error && <p style={{ ...mono, color: "var(--accent)" }}>{error}</p>}
         </form>
@@ -198,8 +198,10 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl p-6">
-      <header className="mb-6 flex items-baseline justify-between">
-        <h1 style={{ fontSize: 22, color: "var(--text-primary)" }}>admin</h1>
+      {/* No page heading by design — the wave switcher and logout are the whole header. */}
+      <header className="mb-6 flex flex-wrap items-center justify-end gap-4">
+        {/* Same wave switcher tile as the board — the admin follows waves too. */}
+        <WaveSwitcher style={{ width: 190 }} />
         <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
           выйти
         </button>

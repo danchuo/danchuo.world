@@ -155,9 +155,9 @@ body {
 }
 
 /* Угловые заклёпки (§2.4) — подпись-деталь ТОЛЬКО на фокусной плитке «Сегодня»:
-   4 акцентных пикселя у углов, кратны 4px-сетке (8px @ 12px от края), внутри
-   ступенчатого угла (clip-path родителя их не срезает). Приглушённые и прочие
-   заполненные плитки остаются без узла — это и есть иерархия (фокус читается). */
+   4 акцентных пикселя у углов, кратны 4px-сетке (8px @ 8px от края — вплотную к
+   ступенчатому углу, но clip-path родителя их не срезает; дальше от подписи тайла).
+   Приглушённые и прочие заполненные плитки остаются без узла — это и есть иерархия. */
 .pixel-tile--rivets::before {
   content: "";
   position: absolute;
@@ -169,10 +169,10 @@ body {
     linear-gradient(var(--accent), var(--accent));
   background-repeat: no-repeat;
   background-size: calc(var(--px) * 2) calc(var(--px) * 2);
-  background-position: calc(var(--px) * 3) calc(var(--px) * 3),
-    right calc(var(--px) * 3) top calc(var(--px) * 3),
-    left calc(var(--px) * 3) bottom calc(var(--px) * 3),
-    right calc(var(--px) * 3) bottom calc(var(--px) * 3);
+  background-position: calc(var(--px) * 2) calc(var(--px) * 2),
+    right calc(var(--px) * 2) top calc(var(--px) * 2),
+    left calc(var(--px) * 2) bottom calc(var(--px) * 2),
+    right calc(var(--px) * 2) bottom calc(var(--px) * 2);
 }
 @media (hover: hover) {
   .pixel-tile:hover {

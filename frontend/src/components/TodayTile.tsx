@@ -55,19 +55,34 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
       className={["pixel-tile--rivets", className].filter(Boolean).join(" ")}
     >
       {day && (
-        <div className="flex h-full flex-col gap-3">
+        <div className="flex h-full flex-col gap-3" style={{ containerType: "inline-size" }}>
+          {/* Date and day name share one line 50/50 at the same size; without a name the
+              date keeps that size on its own. The size is fit to the tile via container
+              units: the longest date ("28 сентября 2026 год", 20 mono chars ≈ 12em) must
+              fill its half without ever wrapping (nowrap), so 4cqw ≈ 48cqw of text + slack.
+              Name uses --font-display (wave 01 maps it to mono, wave 02 to the pixel face),
+              hugs the right edge of its half and may wrap — that's fine. */}
           <div
-            data-testid="today-date"
-            style={{ ...mono, fontSize: "clamp(28px, 4vw, 40px)", lineHeight: 1.2 }}
+            className="flex items-baseline"
+            style={{ fontSize: "min(4cqw, 40px)", lineHeight: 1.2 }}
           >
-            {longDateRu(day.date)}
-          </div>
-
-          {day.title && (
-            <div data-testid="today-title" style={{ ...mono, color: "var(--accent)", fontSize: 20 }}>
-              {day.title}
+            <div
+              data-testid="today-date"
+              style={mono}
+              className={day.title ? "w-1/2 whitespace-nowrap" : "whitespace-nowrap"}
+            >
+              {longDateRu(day.date)}
             </div>
-          )}
+            {day.title && (
+              <div
+                data-testid="today-title"
+                className="w-1/2 text-right"
+                style={{ fontFamily: "var(--font-display)", color: "var(--accent)" }}
+              >
+                {day.title}
+              </div>
+            )}
+          </div>
 
           <div style={{ ...mono, color: "var(--text-secondary)" }} className="flex flex-wrap gap-x-4">
             <span>шаги: {formatSteps(day.health.steps)}</span>

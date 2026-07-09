@@ -20,26 +20,26 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 }
 
 describe("TodayTile", () => {
-  it("рендерит дату, имя дня, статы, карту-тропу дисциплины и монстра", () => {
+  it("рендерит дату, имя дня, статы и карту-тропу дисциплины (монстр — только детур карты)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
     expect(screen.getByTestId("today-title")).toHaveTextContent("первый забег");
     expect(screen.getByText(/8.421/)).toBeInTheDocument(); // шаги сгруппированы
     expect(screen.getByText(/7 ч 17 мин/)).toBeInTheDocument();
-    expect(screen.getByText("Mango Loco")).toBeInTheDocument();
 
     // дисциплина — карта-тропа (QuestMap): чтение закрыто на обеих остановках, растяжка нет
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.getByTestId("quest-stop-reading-1")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-reading-2")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-stretch-1")).toHaveAttribute("data-done", "false");
-    // выбран вкус ⇒ детур монстра закрыт
+    // выбран вкус ⇒ детур монстра закрыт; отдельного блока монстра внизу плитки нет
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "true");
+    expect(screen.queryByText("Mango Loco")).not.toBeInTheDocument();
     expect(screen.getByTestId("quest-total")).toHaveTextContent("2/7");
   });
 
-  it("пустой день: null → «нет данных», монстр «не пил», имя не рендерится", () => {
+  it("пустой день: null → «нет данных», детур монстра не закрыт, пометки «не пил» нет", () => {
     const empty = dayFixture({
       title: null,
       hasData: false,
@@ -51,7 +51,8 @@ describe("TodayTile", () => {
 
     expect(screen.queryByTestId("today-title")).not.toBeInTheDocument();
     expect(screen.getByText(/шаги: нет данных/)).toBeInTheDocument();
-    expect(screen.getByTestId("monster-none")).toBeInTheDocument();
+    expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "false");
+    expect(screen.queryByTestId("monster-none")).not.toBeInTheDocument();
   });
 
   it("реальный 0 показывается как 0, а не «нет данных» (null ≠ 0)", () => {

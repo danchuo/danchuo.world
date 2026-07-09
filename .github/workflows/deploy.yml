@@ -63,7 +63,7 @@ jobs:
 
       # The gha cache keeps the Gradle-dependency layer warm between runs; the native
       # compile itself always reruns (its layer depends on src/).
-      # The sha tag is the rollback handle (docs/deploy.md §4).
+      # The sha tag is the rollback handle (docs/deploy.md §5).
       - uses: docker/build-push-action@v6
         with:
           context: backend
@@ -267,3 +267,40 @@ jobs:
             # never touches the proxemics stack's tagged images).
             docker image prune -f
             echo "deployed $TAG"
+
+  # ── Stage 4: record the rollout as a GitHub Release ────────────────────────────────────
+  # One lightweight release per successful production rollout. The payload is the pair of
+  # GHCR image links pinned to the commit sha — that sha tag is the rollback handle
+  # (docs/deploy.md §5). Sources are not attached: GitHub links the source archive to the
+  # tag automatically, and the images already pin the exact commit.
+  release:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create the rollout release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BACK_VER=$(sed -n 's/^version = "\(.*\)"/\1/p' backend/build.gradle.kts | head -1)
+          FRONT_VER=$(node -p "require('./frontend/package.json').version")
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TAG="prod-${{ github.run_number }}"
+
+          {
+            echo "Rolled \`${{ github.sha }}\` to production — https://danchuo.world"
+            echo
+            echo "**Versions:** backend \`$BACK_VER\` · frontend \`$FRONT_VER\`"
+            echo
+            echo "**Images (sha tag = rollback handle, docs/deploy.md §5):**"
+            echo "- \`${{ env.BACKEND_IMAGE }}:${{ github.sha }}\`"
+            echo "- \`${{ env.FRONTEND_IMAGE }}:${{ github.sha }}\`"
+          } > notes.md
+
+          gh release create "$TAG" \
+            --target "${{ github.sha }}" \
+            --title "prod #${{ github.run_number }} — back $BACK_VER / front $FRONT_VER ($SHORT_SHA)" \
+            --notes-file notes.md

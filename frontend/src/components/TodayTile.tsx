@@ -34,8 +34,8 @@ function longDateRu(iso: string): string {
 
 /**
  * Плитка «Сегодня» (T) — доминанта борда (DESIGN §3, §4). Иерархия: дата → имя дня →
- * статы строкой → дисциплина дробями → монстр. Пустой/будущий день — валидный вид:
- * статы «нет данных» (но 0 как 0), дисциплина в каркасе с 0, монстр «не пил».
+ * статы строкой → карта-тропа дисциплины (монстр — детур на ней). Пустой/будущий день —
+ * валидный вид: статы «нет данных» (но 0 как 0), карта в каркасе с незакрытыми остановками.
  */
 export function TodayTile({ day, today, state, onRetry, style, className }: TodayTileProps) {
   // Подпись плитки относительна выбранной дате: «сегодня» только когда выбран сегодня.
@@ -79,40 +79,10 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
             )}
           </div>
 
-          {/* Дисциплина — карта-тропа дня (QuestMap, §5.6): остановки вместо списка дробей. */}
+          {/* Дисциплина — карта-тропа дня (QuestMap, §5.6): остановки вместо списка дробей.
+              Monster lives on the map only (detour stop); no separate footer note/can image —
+              flavor-specific art is backlogged to land inside the map, not as its own block. */}
           <QuestMap items={day.discipline} monsterDone={day.monster != null} />
-
-          <div className="mt-auto flex items-center gap-3">
-            {day.monster ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={day.monster.imageUrl}
-                  alt={`Монстр: ${day.monster.name}`}
-                  width={40}
-                  height={40}
-                  style={{ imageRendering: "pixelated" }}
-                />
-                <span style={mono}>{day.monster.name}</span>
-                {day.monster.accentColor && (
-                  <span
-                    data-testid="monster-accent"
-                    aria-hidden
-                    style={{
-                      width: "calc(var(--px) * 2)",
-                      height: "calc(var(--px) * 2)",
-                      background: day.monster.accentColor,
-                      display: "inline-block",
-                    }}
-                  />
-                )}
-              </>
-            ) : (
-              <span data-testid="monster-none" style={{ ...mono, color: "var(--text-tertiary)" }}>
-                монстр: не пил
-              </span>
-            )}
-          </div>
         </div>
       )}
     </TileShell>

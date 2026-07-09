@@ -32,10 +32,12 @@ function withWave(node: ReactNode) {
 }
 
 describe("WaveSwitcher", () => {
-  it("рендерит свотч активной волны", async () => {
+  it("рендерит только свотчи выпущенных волн, без слотов-заглушек", async () => {
     getThemesMock.mockResolvedValue([theme()]);
-    render(withWave(<WaveSwitcher placeholderSlots={2} />));
+    render(withWave(<WaveSwitcher />));
     expect(await screen.findByLabelText("Волна: Волна 01")).toBeInTheDocument();
+    // ровно один элемент на волну — заглушек под будущие волны нет
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
   it("клик по свотчу свопит токены в :root", async () => {

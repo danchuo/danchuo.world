@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useEffect, useRef, type CSSProperties } from "react";
 import type { DaySummary } from "@/lib/api/types";
 import { dayOfMonth, weekdayShortRu } from "@/lib/date";
 import { TileShell, type TileState } from "./TileShell";
@@ -17,7 +19,8 @@ interface WeekStripProps {
 /**
  * Недельная полоса — мобильная замена сетки календаря (<640px, DESIGN §8). Горизонтальный
  * скролл только внутри полосы; ячейки шире (тач-таргет ≥44px): день недели + число +
- * пиксель монстра + маркер имени. Тап = выбор/перефокус.
+ * пиксель монстра + маркер имени. Тап = выбор/перефокус. При загрузке полоса автопрокручена
+ * так, что «сегодня» стоит по центру (окно ±15 дней — иначе открывается на самой старой дате).
  */
 export function WeekStrip({
   days,
@@ -29,9 +32,22 @@ export function WeekStrip({
   className,
   style,
 }: WeekStripProps) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  // Center today's cell once the window data lands: the ±15-day range starts two weeks in
+  // the past, so an unscrolled strip would open on the oldest date and hide today off-screen.
+  // Manual scrollLeft (not scrollIntoView) — it must never move the page's own scroll.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const cell = scroller?.querySelector<HTMLElement>("[data-today]");
+    if (!scroller || !cell) return;
+    scroller.scrollLeft =
+      cell.offsetLeft - scroller.offsetLeft - (scroller.clientWidth - cell.offsetWidth) / 2;
+  }, [days]);
+
   return (
     <TileShell state={state} onRetry={onRetry} ariaLabel="Календарь (полоса)" className={className} style={style}>
-      <div className="flex gap-2 overflow-x-auto" role="grid">
+      <div ref={scrollerRef} className="flex gap-2 overflow-x-auto" role="grid">
         {days.map((d) => {
           const isToday = d.date === today;
           const isSelected = d.date === selected;

@@ -43,6 +43,7 @@ const MOBILE: Tile[] = [
   { label: "Соцсети", slug: "social" },
   { label: "Избранное фото", slug: "hero" },
   { label: "Артефакты", slug: "marquee" },
+  { label: "Переключатель волн", slug: "waveSwitcher" },
   { label: "Свежесть данных", slug: "freshness" },
 ];
 

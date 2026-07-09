@@ -48,11 +48,14 @@ export function FreshnessTile({ style, className }: FreshnessTileProps) {
       className={className}
     >
       {phase === "loaded" && at !== null && (
-        <div className="flex h-full flex-col justify-center" style={mono}>
+        // Single "N назад" line only. The tile is tiny (3×3 tracks): a second caption line
+        // ("последний приём") used to overflow the centered flex container and overlap the
+        // tile label above. The label «свежесть» already carries that meaning; overflow-hidden
+        // is a belt-and-braces guard for extreme values.
+        <div className="flex h-full flex-col justify-center overflow-hidden" style={mono}>
           <span data-testid="freshness-ago" style={{ color: "var(--text-primary)", fontSize: 13 }}>
             {formatAgo(at)}
           </span>
-          <span style={{ color: "var(--text-tertiary)", fontSize: 10 }}>последний приём</span>
         </div>
       )}
     </TileShell>

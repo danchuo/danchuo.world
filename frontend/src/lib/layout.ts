@@ -83,6 +83,7 @@ export const MOBILE_ORDER: TileId[] = [
   "social",
   "hero",
   "marquee",
+  "waveSwitcher",
   "freshness",
 ];
 

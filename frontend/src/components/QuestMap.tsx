@@ -18,7 +18,8 @@ import type { DisciplineItemView } from "@/lib/api/types";
 
 interface QuestMapProps {
   items: DisciplineItemView[];
-  /** Пил ли монстра (ветка-детур); вкус/подпись рендерит родитель. */
+  /** Whether the monster was drunk (detour stop). The map is the only place monster shows
+   *  up on the today tile; flavor-specific art (can, name) is backlogged to land here too. */
   monsterDone: boolean;
 }
 

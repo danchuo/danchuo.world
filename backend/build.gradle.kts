@@ -58,12 +58,16 @@ dependencies {
     testImplementation("io.rest-assured:rest-assured")
     // Десериализация Kotlin-DTO в чистых юнит-тестах (рантайм-модуль quarkus не виден компилятору теста).
     testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    // Stub for Groq's OpenAI-compatible API in llm-slice tests — exercises the real HTTP/JSON
+    // path of GroqLlmClient without spending tokens (same approach as proxemics).
+    testImplementation("org.wiremock:wiremock-standalone:3.13.0")
 }
 
 group = "world.danchuo"
 // M3: бэк и фронт получили рабочие версии — версии разведены (CLAUDE.md §версионирование).
 // 1.1.0 — окно ручного ввода дня (ingest-window) + фикс варнингов docker-сборок.
-version = "1.1.0"
+// 1.2.0 — слайс llm: клиент внешней LLM (Groq, текст + vision) за интерфейсом LlmClient.
+version = "1.2.0"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

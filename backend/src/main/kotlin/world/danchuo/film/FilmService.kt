@@ -150,8 +150,8 @@ class FilmService(
         drops.findById(dropId) ?: return null
         return photos.listByDrop(dropId).map { p ->
             FilmPhotoView(
-                imageUrl = storage.url(p.storageKey, PhotoVariant.WEB),
-                thumbUrl = storage.url(p.storageKey, PhotoVariant.THUMB),
+                imageUrl = mediaUrl(p, PhotoVariant.WEB),
+                thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
                 width = p.width,
                 height = p.height,
             )
@@ -168,8 +168,9 @@ class FilmService(
         return photos.listByDrop(dropId).map { p ->
             AdminPhotoView(
                 id = p.id!!,
-                thumbUrl = storage.url(p.storageKey, PhotoVariant.THUMB),
+                thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
                 isCover = p.id == drop.coverPhotoId,
+                orientation = p.orientationApplied,
             )
         }
     }
@@ -189,7 +190,18 @@ class FilmService(
         val cover = drop.coverPhotoId?.let { photos.findById(it) }
             ?: photos.listByDrop(drop.id!!).firstOrNull()
             ?: return null
-        return storage.url(cover.storageKey, PhotoVariant.THUMB)
+        return mediaUrl(cover, PhotoVariant.THUMB)
+    }
+
+    /**
+     * URL варианта кадра. Кадры кэшируются как неизменяемые (30 дней в [FilmMediaResource]),
+     * но выправление поворота (B9) перезаписывает байты — тогда к URL добавляется версия
+     * `?v=` от [FilmPhoto.rotatedAt], и кэши берут свежий файл.
+     */
+    private fun mediaUrl(p: FilmPhoto, variant: PhotoVariant): String {
+        val base = storage.url(p.storageKey, variant)
+        val version = p.rotatedAt?.epochSecond ?: return base
+        return "$base?v=$version"
     }
 
     private fun isImageEntry(name: String): Boolean {

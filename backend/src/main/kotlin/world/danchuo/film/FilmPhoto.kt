@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.time.Instant
 
 /**
  * Кадр фото-дропа (PRD §5.12, §7). [width]/[height] — размеры web-варианта (после EXIF-поворота)
@@ -31,6 +32,21 @@ class FilmPhoto {
 
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0
+
+    /** Кадр проверен на поворот (LLM или вручную) — повторный прогон его не трогает (B9). */
+    @Column(name = "orientation_checked_at")
+    var orientationCheckedAt: Instant? = null
+
+    /** Итог проверки поворота: `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual` (B9). */
+    @Column(name = "orientation_applied")
+    var orientationApplied: String? = null
+
+    /**
+     * Байты web+thumb реально перезаписаны поворотом; версия для cache-bust `?v=` в URL —
+     * `/api/film-media` кэшируется как неизменяемый (B9).
+     */
+    @Column(name = "rotated_at")
+    var rotatedAt: Instant? = null
 
     /** Стабильный ключ кадра в [PhotoStorage]: `"{dropId}/{sortOrder}"`. */
     val storageKey: String get() = "$dropId/$sortOrder"

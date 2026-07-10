@@ -7,12 +7,15 @@ import {
   AdminApiError,
   deleteDrop,
   getDropPhotosAdmin,
+  getOrientationStatus,
   listDropsAdmin,
+  rotatePhoto,
   setCover,
+  startOrientationCheck,
   uploadDrop,
 } from "@/lib/api/admin";
 import { mediaUrl } from "@/lib/api/media";
-import type { AdminDropView, AdminPhotoView } from "@/lib/api/types";
+import type { AdminDropView, AdminPhotoView, OrientationStatusView } from "@/lib/api/types";
 
 const TOKEN_KEY = "danchuo_admin_token";
 
@@ -62,6 +65,7 @@ export default function AdminPage() {
   const [drops, setDrops] = useState<AdminDropView[]>([]);
   const [selected, setSelected] = useState<AdminDropView | null>(null);
   const [photos, setPhotos] = useState<AdminPhotoView[]>([]);
+  const [orientation, setOrientation] = useState<OrientationStatusView | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -114,14 +118,70 @@ export default function AdminPage() {
     async (drop: AdminDropView) => {
       setSelected(drop);
       setPhotos([]);
+      setOrientation(null);
       try {
         setPhotos(await getDropPhotosAdmin(token, drop.id));
+        setOrientation(await getOrientationStatus(token, drop.id));
       } catch (err) {
         setError(describe(err));
       }
     },
     [token],
   );
+
+  // Поллинг статуса LLM-проверки поворота (B9), пока прогон бежит; по завершении — свежие
+  // кадры (у повёрнутых новые ?v=-URL, кэш не мешает).
+  useEffect(() => {
+    if (!selected || orientation?.state !== "running") return;
+    const dropId = selected.id;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await getOrientationStatus(token, dropId);
+        setOrientation(next);
+        if (next.state !== "running") {
+          setPhotos(await getDropPhotosAdmin(token, dropId));
+        }
+      } catch (err) {
+        setError(describe(err));
+      }
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [token, selected, orientation?.state]);
+
+  async function onCheckOrientation() {
+    if (!selected) return;
+    setError(null);
+    try {
+      setOrientation(await startOrientationCheck(token, selected.id));
+    } catch (err) {
+      setError(describe(err));
+    }
+  }
+
+  /** Ручной поворот кадра на 90° по часовой; ответ — свежий список кадров (новые ?v=-URL). */
+  async function onRotate(photoId: number) {
+    if (!selected) return;
+    setError(null);
+    try {
+      setPhotos(await rotatePhoto(token, selected.id, photoId));
+    } catch (err) {
+      setError(describe(err));
+    }
+  }
+
+  /** Строка статуса проверки поворота под заголовком сетки кадров. */
+  function orientationLabel(s: OrientationStatusView): string {
+    switch (s.state) {
+      case "running":
+        return `проверка… ${s.checked + s.skipped}/${s.total}, повёрнуто ${s.rotated}`;
+      case "done":
+        return `проверено ${s.checked}/${s.total}, повёрнуто ${s.rotated}${s.skipped ? `, пропущено ${s.skipped}` : ""}`;
+      case "failed":
+        return "проверка упала — смотри логи бэка";
+      default:
+        return s.total > 0 ? `проверено кадров: ${s.checked}/${s.total}` : "";
+    }
+  }
 
   async function onUpload(e: FormEvent) {
     e.preventDefault();
@@ -309,13 +369,27 @@ export default function AdminPage() {
           <h2 className="mb-3" style={{ fontSize: 16, color: "var(--text-primary)" }}>
             {selected ? `обложка дропа «${selected.title}»` : "выбери дроп"}
           </h2>
+          {selected && (
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              {/* Запуск/статус LLM-проверки поворота кадров (B9). */}
+              <button
+                type="button"
+                onClick={onCheckOrientation}
+                disabled={orientation?.state === "running"}
+                style={{ ...btnStyle, background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              >
+                {orientation?.state === "running" ? "проверяю поворот…" : "проверить поворот"}
+              </button>
+              {orientation && <span aria-live="polite" style={mono}>{orientationLabel(orientation)}</span>}
+            </div>
+          )}
           {selected && photos.length === 0 && <p style={mono}>в дропе нет кадров</p>}
           {selected && photos.length > 0 && (
             <>
-              <p className="mb-3" style={mono}>кликни кадр, чтобы сделать его обложкой (она показывается в архиве)</p>
+              <p className="mb-3" style={mono}>кликни кадр, чтобы сделать его обложкой (она показывается в архиве); ↻ в углу поворачивает кадр на 90°</p>
               <ul className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))" }}>
                 {photos.map((p) => (
-                  <li key={p.id}>
+                  <li key={p.id} style={{ position: "relative" }}>
                     <button
                       type="button"
                       onClick={() => onSetCover(p.id)}
@@ -336,6 +410,55 @@ export default function AdminPage() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={mediaUrl(p.thumbUrl)} alt="" className="h-full w-full object-cover" />
                     </button>
+                    {/* Ручная стрелка поворота — поверх угла кадра, отдельная от клика-обложки
+                        (stopPropagation не нужен: это соседний элемент, а не вложенный). */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRotate(p.id);
+                      }}
+                      disabled={orientation?.state === "running"}
+                      aria-label="Повернуть кадр на 90° по часовой"
+                      title="повернуть на 90°"
+                      style={{
+                        position: "absolute",
+                        right: 4,
+                        bottom: 4,
+                        width: 28,
+                        height: 28,
+                        display: "grid",
+                        placeItems: "center",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        background: "var(--bg-surface)",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ↻
+                    </button>
+                    {/* LLM не определилась с верхом — кадр ждёт ручной стрелки. */}
+                    {p.orientation === "ambiguous" && (
+                      <span
+                        title="LLM не определилась с верхом — проверь кадр"
+                        style={{
+                          position: "absolute",
+                          left: 4,
+                          top: 4,
+                          padding: "1px 6px",
+                          borderRadius: "var(--radius-sm)",
+                          background: "var(--accent)",
+                          color: "var(--bg-base)",
+                          fontSize: 12,
+                          fontFamily: "var(--font-mono)",
+                        }}
+                      >
+                        ?
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

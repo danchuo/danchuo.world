@@ -26,6 +26,25 @@ data class ProcessedImage(
 )
 
 /**
+ * Поворот кадра при выправлении ориентации (B9, PRD §9 п.13): применяется к уже сохранённым
+ * web/thumb-вариантам, когда vision-LLM (или владелец вручную) решил, что кадр лежит на боку
+ * или вверх ногами. Градусы — по часовой стрелке; [code] хранится в `film_photo.orientation_applied`.
+ */
+enum class FrameRotation(val cwDegrees: Int, val code: String) {
+    CW90(90, "cw90"),
+    R180(180, "r180"),
+    CCW90(270, "ccw90"),
+    ;
+
+    /** Меняются ли местами стороны кадра (для swap width/height в БД). */
+    val swapsDimensions: Boolean get() = this != R180
+
+    companion object {
+        fun fromCode(code: String?): FrameRotation? = entries.firstOrNull { it.code == code }
+    }
+}
+
+/**
  * Обработка кадров фото-дропа на загрузке (B1, PRD §5.12). Из оригинала телефонного JPEG делает
  * два даунскейл-варианта (web для модалки/борда, thumb для сетки/обложки) и отдаёт их размеры
  * для justified-композиции (§7.5). Применяет EXIF-ориентацию (телефоны пишут поворот тегом, а не
@@ -47,6 +66,35 @@ class FilmImaging(
         return ProcessedImage(toJpeg(web), toJpeg(thumb), web.width, web.height)
     }
 
+    /**
+     * Повернуть JPEG-кадр на [rotation] (B9): декод → аффинный поворот → перекодирование с тем же
+     * качеством, что и при загрузке. `null`, если байты не декодируются. Одна лишняя
+     * JPEG-перекодировка на даунскейленных вариантах визуально незаметна; оригиналы не храним,
+     * так что вертеть больше нечего.
+     */
+    fun rotate(bytes: ByteArray, rotation: FrameRotation): ByteArray? {
+        val src = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
+        return toJpeg(rotateCw(src, rotation.cwDegrees))
+    }
+
+    /** Поворот по часовой стрелке на 90/180/270 градусов. */
+    private fun rotateCw(source: BufferedImage, cwDegrees: Int): BufferedImage {
+        val img = toIntRgb(source) // see applyOrientation: byte-packed src breaks AffineTransformOp
+        val w = img.width
+        val h = img.height
+        val swapped = cwDegrees != 180
+        val (dw, dh) = if (swapped) h to w else w to h
+        val t = AffineTransform()
+        when (cwDegrees) {
+            90 -> { t.translate(h.toDouble(), 0.0); t.rotate(Math.PI / 2) }
+            180 -> { t.translate(w.toDouble(), h.toDouble()); t.rotate(Math.PI) }
+            270 -> { t.translate(0.0, w.toDouble()); t.rotate(3 * Math.PI / 2) }
+        }
+        val dest = BufferedImage(dw, dh, BufferedImage.TYPE_INT_RGB)
+        AffineTransformOp(t, AffineTransformOp.TYPE_BILINEAR).filter(img, dest)
+        return dest
+    }
+
     /** EXIF-ориентация (1..8); 1/отсутствует ⇒ нормальная. Ошибки чтения метаданных глотаем. */
     private fun readOrientation(bytes: ByteArray): Int = runCatching {
         ImageMetadataReader.readMetadata(ByteArrayInputStream(bytes))
@@ -55,8 +103,11 @@ class FilmImaging(
     }.getOrDefault(1)
 
     /** Применить EXIF-поворот/отражение; для боковых ориентаций (5–8) меняем местами стороны. */
-    private fun applyOrientation(img: BufferedImage, orientation: Int): BufferedImage {
-        if (orientation <= 1) return img
+    private fun applyOrientation(source: BufferedImage, orientation: Int): BufferedImage {
+        if (orientation <= 1) return source
+        // AffineTransformOp does not accept byte-packed sources (TYPE_3BYTE_BGR from the JPEG
+        // reader) with an INT_RGB destination — normalize first or it throws ImagingOpException.
+        val img = toIntRgb(source)
         val w = img.width
         val h = img.height
         val swapped = orientation in 5..8
@@ -75,6 +126,16 @@ class FilmImaging(
         val op = AffineTransformOp(t, AffineTransformOp.TYPE_BILINEAR)
         op.filter(img, dest)
         return dest
+    }
+
+    /** Перегнать в TYPE_INT_RGB (no-op, если уже) — совместимый со всеми нашими операциями формат. */
+    private fun toIntRgb(img: BufferedImage): BufferedImage {
+        if (img.type == BufferedImage.TYPE_INT_RGB) return img
+        val out = BufferedImage(img.width, img.height, BufferedImage.TYPE_INT_RGB)
+        val g = out.createGraphics()
+        g.drawImage(img, 0, 0, null)
+        g.dispose()
+        return out
     }
 
     /** Даунскейл по большей стороне до `maxPx` (без апскейла) в TYPE_INT_RGB — готов к JPEG. */

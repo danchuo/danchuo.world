@@ -10,6 +10,7 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.jboss.resteasy.reactive.RestForm
 import org.jboss.resteasy.reactive.multipart.FileUpload
 import java.time.LocalDate
@@ -25,10 +26,15 @@ import java.time.format.DateTimeParseException
  * - `GET /api/ingest/drops/{id}/photos` — кадры с id + thumb для выбора обложки.
  * - `PUT /api/ingest/drops/{id}/cover` — пометить кадр обложкой.
  * - `DELETE /api/ingest/drops/{id}` — удалить дроп (кадры + файлы).
+ * - `POST /api/ingest/drops/{id}/orientation` — запустить LLM-проверку поворота кадров (B9).
+ * - `GET /api/ingest/drops/{id}/orientation` — статус проверки (поллинг из админки).
+ * - `POST /api/ingest/drops/{id}/photos/{photoId}/rotate` — ручной поворот кадра (override).
  */
 @Path("/api/ingest/drops")
 class FilmAdminResource(
     private val film: FilmService,
+    private val orientation: FilmOrientationService,
+    @param:ConfigProperty(name = "danchuo.film.orientation.auto-check") private val autoCheck: Boolean,
 ) {
 
     @POST
@@ -51,7 +57,49 @@ class FilmAdminResource(
         }
 
         val result = film.upload(zip.uploadedFile(), cleanTitle, droppedOn)
+        // B9: свежезалитый дроп сразу уходит на фоновую проверку поворота (аплоад не ждёт).
+        if (autoCheck) orientation.start(result.drop.id)
         return Response.status(Response.Status.CREATED).entity(result).build()
+    }
+
+    // ── Проверка поворота (B9) ──
+
+    @POST
+    @Path("/{id}/orientation")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun startOrientation(@PathParam("id") id: Long): Response {
+        val status = orientation.start(id) ?: return notFound(id)
+        return Response.status(Response.Status.ACCEPTED).entity(status).build()
+    }
+
+    @GET
+    @Path("/{id}/orientation")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun orientationStatus(@PathParam("id") id: Long): Response {
+        val status = orientation.status(id) ?: return notFound(id)
+        return Response.ok(status).build()
+    }
+
+    /** Ручной поворот кадра; в ответ — обновлённый список кадров (свежие thumb-URL с `?v=`). */
+    @POST
+    @Path("/{id}/photos/{photoId}/rotate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    fun rotatePhoto(
+        @PathParam("id") id: Long,
+        @PathParam("photoId") photoId: Long,
+        body: RotateRequest,
+    ): Response {
+        val rotation = FrameRotation.fromCode(body.rotation)
+            ?: return badRequest("invalid_rotation")
+        return try {
+            if (!orientation.rotateManually(id, photoId, rotation)) return notFound(id)
+            Response.ok(film.adminPhotos(id)).build()
+        } catch (e: IllegalStateException) {
+            Response.status(Response.Status.CONFLICT).entity(mapOf("error" to (e.message ?: "conflict"))).build()
+        } catch (e: IllegalArgumentException) {
+            badRequest(e.message ?: "bad_request")
+        }
     }
 
     @GET
@@ -93,3 +141,6 @@ class FilmAdminResource(
 
 /** Тело `PUT /cover`: id кадра, который станет обложкой. */
 data class CoverRequest(val photoId: Long = 0)
+
+/** Тело `POST /rotate` (B9): код поворота — `cw90` / `ccw90` / `r180`. */
+data class RotateRequest(val rotation: String? = null)

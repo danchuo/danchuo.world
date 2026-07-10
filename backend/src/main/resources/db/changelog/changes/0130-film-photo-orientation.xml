@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      B9 (PRD §5.12, §9 п.13): LLM-валидация поворота кадров фото-дропов. Плёночные сканы
+      приходят все горизонтальными (EXIF-ориентации нет) — вертикальные/перевёрнутые кадры
+      выправляются vision-LLM (слайс llm) или вручную из админки.
+        - orientation_checked_at — кадр проверен (LLM или вручную); повторный прогон его не трогает.
+        - orientation_applied — итог проверки: none / cw90 / ccw90 / r180 / ambiguous / manual.
+        - rotated_at — байты web+thumb реально перезаписаны поворотом; версия для cache-bust
+          (?v= в URL), т.к. /api/film-media кэшируется как неизменяемый.
+    -->
+    <changeSet id="0130-film-photo-orientation" author="danchuo">
+        <addColumn tableName="film_photo">
+            <column name="orientation_checked_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="orientation_applied" type="VARCHAR(16)"/>
+            <column name="rotated_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

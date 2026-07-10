@@ -1,5 +1,6 @@
 package world.danchuo.film
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import io.quarkus.runtime.annotations.RegisterForReflection
 
 /**
@@ -48,7 +49,25 @@ data class AdminDropView(
 data class AdminPhotoView(
     val id: Long,
     val thumbUrl: String,
+    // Runtime Jackson has no Kotlin module (test-only dep) and strips the "is" prefix from
+    // boolean getters — pin the wire name to what the frontend type expects.
+    @get:JsonProperty("isCover")
     val isCover: Boolean,
+    /** Итог проверки поворота (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`, `null` — не проверялся. */
+    val orientation: String?,
+)
+
+/** Статус проверки поворота дропа (B9): поллится админкой, пока `state == "running"`. */
+@RegisterForReflection
+data class OrientationStatusView(
+    /** `idle` (не запускалась) / `running` / `done` / `failed`. */
+    val state: String,
+    /** Сколько кадров было непроверенных на старте прогона (или всего кадров при `idle`). */
+    val total: Int,
+    val checked: Int,
+    val rotated: Int,
+    /** Пропущено (LLM молчала/битые байты) — останутся непроверенными до следующего прогона. */
+    val skipped: Int,
 )
 
 /** Итог загрузки zip: созданный дроп + сколько кадров обработано/пропущено (HEIC/битые). */

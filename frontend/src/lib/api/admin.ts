@@ -1,4 +1,4 @@
-import type { AdminDropView, AdminPhotoView, HeatmapView, UploadResultView } from "./types";
+import type { AdminDropView, AdminPhotoView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /**
  * Админ-клиент фото-дропов (B1, PRD §5.12, §9 п.8) — `/api/ingest/drops*` за статическим bearer
@@ -81,6 +81,42 @@ export async function setCover(token: string, dropId: number, photoId: number): 
   });
   if (!res.ok) return parseError(res);
   return (await res.json()) as AdminDropView;
+}
+
+/**
+ * Запустить LLM-проверку поворота кадров дропа (B9). Возвращает стартовый статус; дальше
+ * прогресс поллится через {@link getOrientationStatus}. Идемпотентно (бегущий прогон не дублируется).
+ */
+export async function startOrientationCheck(token: string, dropId: number): Promise<OrientationStatusView> {
+  const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/orientation`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as OrientationStatusView;
+}
+
+/** Статус проверки поворота дропа (B9). */
+export async function getOrientationStatus(token: string, dropId: number): Promise<OrientationStatusView> {
+  const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/orientation`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as OrientationStatusView;
+}
+
+/**
+ * Ручной поворот кадра на 90° по часовой (B9, override ошибки LLM). В ответ — обновлённый
+ * список кадров дропа (свежие thumb-URL с `?v=` cache-bust).
+ */
+export async function rotatePhoto(token: string, dropId: number, photoId: number): Promise<AdminPhotoView[]> {
+  const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/photos/${photoId}/rotate`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ rotation: "cw90" }),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminPhotoView[];
 }
 
 /** Удалить дроп (кадры + файлы). */

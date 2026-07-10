@@ -184,6 +184,19 @@ export interface AdminPhotoView {
   id: number;
   thumbUrl: string;
   isCover: boolean;
+  /** Итог проверки поворота (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`; `null` — не проверялся. */
+  orientation: string | null;
+}
+
+/** Статус LLM-проверки поворота кадров дропа (B9) — поллится, пока `state === "running"`. */
+export interface OrientationStatusView {
+  /** `idle` (не запускалась) / `running` / `done` / `failed`. */
+  state: string;
+  total: number;
+  checked: number;
+  rotated: number;
+  /** Пропущено (LLM молчала) — останутся непроверенными до следующего прогона. */
+  skipped: number;
 }
 
 /** Итог загрузки zip: дроп + сколько кадров обработано/пропущено. */

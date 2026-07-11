@@ -1,4 +1,4 @@
-import type { AdminDropView, AdminPhotoView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
+import type { AdminDropView, AdminPhotoView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /**
  * Админ-клиент фото-дропов (B1, PRD §5.12, §9 п.8) — `/api/ingest/drops*` за статическим bearer
@@ -119,6 +119,19 @@ export async function rotatePhoto(token: string, dropId: number, photoId: number
   return (await res.json()) as AdminPhotoView[];
 }
 
+/**
+ * Удалить один кадр дропа (неудачный) — `DELETE …/photos/{photoId}`. Возврата нет (перезалей
+ * дроп, если что); в ответ — свежий список кадров (обложка переназначается, если удалили её).
+ */
+export async function deletePhoto(token: string, dropId: number, photoId: number): Promise<AdminPhotoView[]> {
+  const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/photos/${photoId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminPhotoView[];
+}
+
 /** Удалить дроп (кадры + файлы). */
 export async function deleteDrop(token: string, dropId: number): Promise<void> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}`, {
@@ -126,6 +139,22 @@ export async function deleteDrop(token: string, dropId: number): Promise<void> {
     headers: authHeaders(token),
   });
   if (!res.ok) return parseError(res);
+}
+
+/**
+ * Импорт истории поездок Велобайка (B4, PRD §5.13) — `POST /api/ingest/bike/rides` за тем же bearer.
+ * `rides` — сырой массив `content[]`, собранный букмарклетом внутри залогиненной PWA `pwa.velobike.ru`
+ * (серверный поллер упирается в Qrator, §13 — поэтому доставка идёт из авторизованного браузера).
+ * Идемпотентно по id аренды: повтор не плодит дубли.
+ */
+export async function importBikeRides(token: string, rides: unknown[]): Promise<BikeImportResultView> {
+  const res = await fetch(`${BASE}/api/ingest/bike/rides`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(rides),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as BikeImportResultView;
 }
 
 /**

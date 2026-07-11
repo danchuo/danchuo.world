@@ -26,6 +26,7 @@ import java.time.format.DateTimeParseException
  * - `GET /api/ingest/drops/{id}/photos` — кадры с id + thumb для выбора обложки.
  * - `PUT /api/ingest/drops/{id}/cover` — пометить кадр обложкой.
  * - `DELETE /api/ingest/drops/{id}` — удалить дроп (кадры + файлы).
+ * - `DELETE /api/ingest/drops/{id}/photos/{photoId}` — удалить один кадр (неудачный).
  * - `POST /api/ingest/drops/{id}/orientation` — запустить LLM-проверку поворота кадров (B9).
  * - `GET /api/ingest/drops/{id}/orientation` — статус проверки (поллинг из админки).
  * - `POST /api/ingest/drops/{id}/photos/{photoId}/rotate` — ручной поворот кадра (override).
@@ -122,6 +123,22 @@ class FilmAdminResource(
         return try {
             val view = film.setCover(id, body.photoId) ?: return notFound(id)
             Response.ok(view).build()
+        } catch (e: IllegalArgumentException) {
+            badRequest(e.message ?: "bad_request")
+        }
+    }
+
+    /** Удалить один кадр дропа (override владельца — неудачный кадр). Ответ — свежий список кадров. */
+    @DELETE
+    @Path("/{id}/photos/{photoId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun deletePhoto(@PathParam("id") id: Long, @PathParam("photoId") photoId: Long): Response {
+        if (orientation.isRunning(id)) {
+            return Response.status(Response.Status.CONFLICT).entity(mapOf("error" to "orientation_running")).build()
+        }
+        return try {
+            val photos = film.deletePhoto(id, photoId) ?: return notFound(id)
+            Response.ok(photos).build()
         } catch (e: IllegalArgumentException) {
             badRequest(e.message ?: "bad_request")
         }

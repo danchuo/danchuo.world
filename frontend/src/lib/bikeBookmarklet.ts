@@ -1,0 +1,56 @@
+/**
+ * Букмарклет-сборщик поездок Велобайка (B4, PRD §5.13, §13).
+ *
+ * Серверный поллер упирается в Qrator (антибот режет датацентр-IP VPS), поэтому основной канал
+ * доставки — из **уже авторизованного браузера владельца**: сниппет крутится на origin
+ * `pwa.velobike.ru`, где сессия прошла Qrator и логин. Он листает всю историю (`rents/client`,
+ * `size=50` постранично до `last`), собирает сырой `content[]` и кладёт JSON в буфер — дальше
+ * владелец вставляет его в `/admin → поездки велобайк` (POST на наш ingest идёт с того же origin,
+ * токен записи не покидает danchuo.world; см. `importBikeRides`).
+ *
+ * Авторизация PWA (снято живьём с прода): access-токен Велобайка лежит **в IndexedDB** — БД
+ * `keyval-store`, стор `keyval`, ключ `vb-access-token` (JWT-строка, `iss=client-oauth`). В
+ * web-storage токена нет, сессионной куки API не принимает (без `Authorization` — 401). Поэтому
+ * сниппет читает `vb-access-token` из IndexedDB и шлёт `Authorization: Bearer <jwt>`.
+ *
+ * Буфер: под кликом-букмарклетом (жест пользователя) `navigator.clipboard.writeText` кладёт JSON
+ * целиком. В **консольном** пути жеста нет и клипборд может обрезать/отказать — поэтому сниппет
+ * всегда дублирует полный JSON в `window.__vbRides` и подсказывает `copy(__vbRides)` (надёжный
+ * DevTools-хелпер без обрезки). Отчёт «собрано X из Y» (Y — `totalElements`) сразу показывает,
+ * все ли поездки утянулись.
+ *
+ * BODY используется дважды: как тело `javascript:`-букмарклета и как сниппет для консоли DevTools
+ * (запасной путь, если строгий CSP на pwa.velobike.ru не даёт запустить букмарклет).
+ */
+
+const BODY = [
+  "(async()=>{try{",
+  // Достаём одно значение из IndexedDB keyval-store (idb-keyval): БД 'keyval-store', стор 'keyval'.
+  "function g(k){return new Promise((res,rej)=>{const r=indexedDB.open('keyval-store');",
+  "r.onsuccess=()=>{const db=r.result,st=db.objectStoreNames.contains('keyval')?'keyval':db.objectStoreNames[0],",
+  "q=db.transaction(st,'readonly').objectStore(st).get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)};",
+  "r.onerror=()=>rej(r.error)})}",
+  "let t=await g('vb-access-token');",
+  "if(t&&typeof t!=='string')t=(JSON.stringify(t).match(/eyJ[\\w-]+\\.[\\w-]+\\.[\\w-]+/)||[])[0];",
+  "if(!t){alert('Не нашёл токен Велобайка (vb-access-token). Залогинься на pwa.velobike.ru и повтори.');return}",
+  "const H={'App-version':'4.4.30',source:'pwa-client',lang:'ru',Accept:'application/json',Authorization:'Bearer '+t};",
+  "const a=[];let total=null;",
+  "for(let p=0;p<200;p++){",
+  "const r=await fetch('/api/rent/rents/client?size=50&page='+p+'&statuses=TECH_DONE,DONE',{headers:H});",
+  "if(!r.ok){alert('Велобайк вернул '+r.status+'. Залогинься на pwa.velobike.ru и повтори.');return}",
+  "const j=await r.json();if(total==null)total=j.totalElements;",
+  "const c=j.content||[];a.push(...c);if(!c.length||j.last)break}",
+  "if(!a.length){alert('Поездок не найдено.');return}",
+  "const x=JSON.stringify(a);window.__vbRides=x;",
+  "let ok=false;try{await navigator.clipboard.writeText(x);ok=true}catch(e){}",
+  "const msg='Собрано '+a.length+' из '+total+' поездок.';",
+  "console.log(msg+(ok?' Уже в буфере.':' Скопируй так:  copy(__vbRides)'));",
+  "alert(msg+(ok?' Скопировано — вставь в admin.':' Буфер не дался: в консоли набери  copy(__vbRides)  и вставь в admin.'))",
+  "}catch(e){alert('Ошибка: '+e.message)}})();",
+].join("");
+
+/** Готовый `javascript:`-URL: создать закладку и вставить это в поле адреса. */
+export const BIKE_BOOKMARKLET = `javascript:${BODY}`;
+
+/** Тот же код без префикса — вставить в консоль DevTools на pwa.velobike.ru (если CSP душит букмарклет). */
+export const BIKE_CONSOLE_SNIPPET = BODY;

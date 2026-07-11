@@ -27,13 +27,23 @@ const DAY_MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /**
- * Day-name font size that always fits one line in its half of the header. Worst-case
- * glyph advance is mono's 0.6em (wave 01 maps --font-display to mono; other display
- * faces are narrower), and the half is ~50cqw, so a len-char name fits 48cqw when
- * size = 48 / (0.6 * len) = 80/len cqw. Names ≤20 chars keep the shared 4cqw size.
+ * Day-name font size that always fits one line in its 3/5 of the header. Worst-case glyph
+ * advance is mono's 0.6em (wave 01 maps --font-display to mono; other display faces are
+ * narrower), and the name's share is ~60cqw, so a len-char name fits ~58cqw when
+ * size = 58 / (0.6 * len) ≈ 96/len cqw. Short names keep the shared 4cqw cap. The name owning
+ * 3/5 (was 1/2) is what keeps long names from shrinking to a suspicious-looking size.
  */
 function titleFontSize(title: string): string {
-  return `min(4cqw, 40px, ${(80 / title.length).toFixed(2)}cqw)`;
+  return `min(4cqw, 40px, ${(96 / title.length).toFixed(2)}cqw)`;
+}
+
+/**
+ * Date font size fit to its 2/5 of the header (~40cqw). Same mono 0.6em worst case, fill ~38cqw:
+ * size = 38 / (0.6 * len) ≈ 63/len cqw. Short dates keep the shared 4cqw cap. Only applied when a
+ * day name shares the line (narrow box); a nameless date keeps the base size on the full width.
+ */
+function dateFontSize(text: string): string {
+  return `min(4cqw, 40px, ${(63 / text.length).toFixed(2)}cqw)`;
 }
 
 /** Длинная дата RU в mono (DESIGN §4): «3 июля 2026 год» — год словом, без «г.». */
@@ -66,30 +76,29 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
     >
       {day && (
         <div className="flex h-full flex-col gap-3" style={{ containerType: "inline-size" }}>
-          {/* Date and day name share one line 50/50 at the same size; without a name the
-              date keeps that size on its own. The size is fit to the tile via container
-              units: the longest date ("28 сентября 2026 год", 20 mono chars ≈ 12em) must
-              fill its half without ever wrapping (nowrap), so 4cqw ≈ 48cqw of text + slack.
-              Name uses --font-display (wave 01 maps it to mono, wave 02 to the pixel face)
-              and hugs the right edge of its half. The header must stay EXACTLY one line:
-              a wrapped name steals height from the quest map below, which letterboxes
-              (shrinks whole and gains side gaps) — so long names shrink their font
-              (titleFontSize) instead of wrapping. */}
+          {/* Date and day name share one line, split 2/5 (date) — 3/5 (name): the name gets the
+              larger share so long day names render at a confident size instead of shrinking to a
+              suspiciously tiny one (was 50/50). Each side fits its own box via container units and
+              never wraps (nowrap): the date shrinks to fit its 2/5 (dateFontSize), the name to fit
+              its 3/5 (titleFontSize). Without a name the date keeps the base size on the full width.
+              Name uses --font-display (wave 01 maps it to mono, wave 02 to the pixel face) and hugs
+              the right edge of its share. The header must stay EXACTLY one line: a wrapped name
+              steals height from the quest map below, which letterboxes (shrinks whole + side gaps). */}
           <div
             className="flex items-baseline"
             style={{ fontSize: "min(4cqw, 40px)", lineHeight: 1.2 }}
           >
             <div
               data-testid="today-date"
-              style={mono}
-              className={day.title ? "w-1/2 whitespace-nowrap" : "whitespace-nowrap"}
+              style={day.title ? { ...mono, fontSize: dateFontSize(longDateRu(day.date)) } : mono}
+              className={day.title ? "w-2/5 whitespace-nowrap" : "whitespace-nowrap"}
             >
               {longDateRu(day.date)}
             </div>
             {day.title && (
               <div
                 data-testid="today-title"
-                className="w-1/2 whitespace-nowrap text-right"
+                className="w-3/5 whitespace-nowrap text-right"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--accent)",

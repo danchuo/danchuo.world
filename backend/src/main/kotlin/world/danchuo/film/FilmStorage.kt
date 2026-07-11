@@ -34,6 +34,9 @@ interface PhotoStorage {
 
     /** Удалить все кадры дропа целиком (рекурсивно по префиксу `{dropId}/`). */
     fun deleteDrop(dropId: Long)
+
+    /** Удалить один кадр (оба варианта) по его ключу `"{dropId}/{seq}"`. */
+    fun delete(key: String)
 }
 
 /**
@@ -64,9 +67,16 @@ class LocalDiskPhotoStorage(
         "/api/film-media/$key/${variant.name.lowercase()}"
 
     override fun deleteDrop(dropId: Long) {
-        val dir = resolve(dropId.toString())
+        deleteTree(resolve(dropId.toString()))
+    }
+
+    override fun delete(key: String) {
+        deleteTree(resolve(key))
+    }
+
+    /** Рекурсивное удаление каталога снизу вверх (файлы → каталоги); нет каталога — no-op. */
+    private fun deleteTree(dir: Path) {
         if (!dir.exists()) return
-        // Рекурсивное удаление снизу вверх (файлы → каталоги).
         Files.walk(dir).use { stream ->
             stream.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists)
         }

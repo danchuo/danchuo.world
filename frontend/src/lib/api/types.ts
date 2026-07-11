@@ -232,6 +232,12 @@ export interface RideView {
   finishAddress: string | null;
 }
 
+/** Итог ручного импорта поездок (`POST /api/ingest/bike/rides`): сколько создано/обновлено. */
+export interface BikeImportResultView {
+  created: number;
+  updated: number;
+}
+
 /** Агрегат истории поездок (`GET /api/rides/stats`). Нулевой — пока поездок нет. */
 export interface RideStatsView {
   totalRides: number;

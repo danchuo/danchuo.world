@@ -122,6 +122,34 @@ class FilmService(
         return adminDropView(drop)
     }
 
+    /**
+     * Удалить один кадр дропа (B1): строку из БД + файлы из хранилища. В ответ — обновлённый
+     * список кадров (для перерисовки сетки). `null` — дроп не найден; [IllegalArgumentException]
+     * — кадр не из этого дропа (400). Оригиналы не хранятся, возврата нет — при промахе владелец
+     * перезаливает дроп целиком. sortOrder оставшихся кадров не пересчитываем (дырки безвредны:
+     * порядок и ключи хранилища стабильны). Если удалили обложку — назначаем первый оставшийся.
+     */
+    @Transactional
+    fun deletePhoto(dropId: Long, photoId: Long): List<AdminPhotoView>? {
+        val drop = drops.findById(dropId) ?: return null
+        val photo = photos.findById(photoId)
+        require(photo != null && photo.dropId == dropId) { "photo_not_in_drop" }
+        val key = photo.storageKey
+        photos.delete(photo)
+        val remaining = photos.listByDrop(dropId)
+        if (drop.coverPhotoId == photoId) drop.coverPhotoId = remaining.firstOrNull()?.id
+        drop.photoCount = remaining.size
+        storage.delete(key)
+        return remaining.map { p ->
+            AdminPhotoView(
+                id = p.id!!,
+                thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
+                isCover = p.id == drop.coverPhotoId,
+                orientation = p.orientationApplied,
+            )
+        }
+    }
+
     /** Удалить дроп: кадры из БД, строку дропа, файлы из хранилища. `false` — дропа нет. */
     @Transactional
     fun delete(dropId: Long): Boolean {

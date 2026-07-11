@@ -14,6 +14,10 @@ class RideRepository : PanacheRepository<Ride> {
 
     fun listOrderedDesc(): List<Ride> = listAll(Sort.by("startTime", Sort.Direction.Descending))
 
+    /** Последние `limit` поездок (новые сверху) — для публичной ленты; хранятся все. */
+    fun listRecent(limit: Int): List<Ride> =
+        findAll(Sort.by("startTime", Sort.Direction.Descending)).page(0, limit).list()
+
     /** Самый большой `external_id` среди сохранённых — граница инкрементального поллинга. */
     fun maxExternalId(): Long? =
         find("ORDER BY externalId DESC").firstResult()?.externalId

@@ -37,6 +37,46 @@ const btnStyle: CSSProperties = {
   fontSize: 14,
   cursor: "pointer",
 };
+/* Cover-pick thumbnail button; the isCover outline stays inline. */
+const coverBtnStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+  aspectRatio: "1 / 1",
+  padding: 0,
+  cursor: "pointer",
+  background: "none",
+  borderRadius: "var(--radius-sm)",
+  overflow: "hidden",
+};
+/* Manual-rotate button pinned to the frame corner (B9). */
+const rotateBtnStyle: CSSProperties = {
+  position: "absolute",
+  right: 4,
+  bottom: 4,
+  width: 28,
+  height: 28,
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--bg-surface)",
+  color: "var(--text-primary)",
+  cursor: "pointer",
+  fontSize: 14,
+  lineHeight: 1,
+};
+/* "?" badge on frames the LLM could not orient (B9). */
+const ambiguousBadgeStyle: CSSProperties = {
+  position: "absolute",
+  left: 4,
+  top: 4,
+  padding: "1px 6px",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--accent)",
+  color: "var(--bg-base)",
+  fontSize: 12,
+  fontFamily: "var(--font-mono)",
+};
 
 /** Сегодняшняя дата в формате input[type=date] (`yyyy-MM-dd`), локальная. */
 function todayIso(): string {
@@ -51,6 +91,20 @@ function describe(e: unknown): string {
       ? "неверный токен"
       : `ошибка ${e.status}${e.errorCode ? ` (${e.errorCode})` : ""}`
     : "сеть недоступна";
+}
+
+/** Строка статуса проверки поворота под заголовком сетки кадров. Чистая — на уровне модуля. */
+function orientationLabel(s: OrientationStatusView): string {
+  switch (s.state) {
+    case "running":
+      return `проверка… ${s.checked + s.skipped}/${s.total}, повёрнуто ${s.rotated}`;
+    case "done":
+      return `проверено ${s.checked}/${s.total}, повёрнуто ${s.rotated}${s.skipped ? `, пропущено ${s.skipped}` : ""}`;
+    case "failed":
+      return "проверка упала — смотри логи бэка";
+    default:
+      return s.total > 0 ? `проверено кадров: ${s.checked}/${s.total}` : "";
+  }
 }
 
 /**
@@ -166,20 +220,6 @@ export default function AdminPage() {
       setPhotos(await rotatePhoto(token, selected.id, photoId));
     } catch (err) {
       setError(describe(err));
-    }
-  }
-
-  /** Строка статуса проверки поворота под заголовком сетки кадров. */
-  function orientationLabel(s: OrientationStatusView): string {
-    switch (s.state) {
-      case "running":
-        return `проверка… ${s.checked + s.skipped}/${s.total}, повёрнуто ${s.rotated}`;
-      case "done":
-        return `проверено ${s.checked}/${s.total}, повёрнуто ${s.rotated}${s.skipped ? `, пропущено ${s.skipped}` : ""}`;
-      case "failed":
-        return "проверка упала — смотри логи бэка";
-      default:
-        return s.total > 0 ? `проверено кадров: ${s.checked}/${s.total}` : "";
     }
   }
 
@@ -396,14 +436,7 @@ export default function AdminPage() {
                       aria-label={p.isCover ? "Текущая обложка" : "Сделать обложкой"}
                       aria-pressed={p.isCover}
                       style={{
-                        display: "block",
-                        width: "100%",
-                        aspectRatio: "1 / 1",
-                        padding: 0,
-                        cursor: "pointer",
-                        background: "none",
-                        borderRadius: "var(--radius-sm)",
-                        overflow: "hidden",
+                        ...coverBtnStyle,
                         outline: p.isCover ? "3px solid var(--accent)" : "1px solid var(--border)",
                       }}
                     >
@@ -421,22 +454,7 @@ export default function AdminPage() {
                       disabled={orientation?.state === "running"}
                       aria-label="Повернуть кадр на 90° по часовой"
                       title="повернуть на 90°"
-                      style={{
-                        position: "absolute",
-                        right: 4,
-                        bottom: 4,
-                        width: 28,
-                        height: 28,
-                        display: "grid",
-                        placeItems: "center",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                        background: "var(--bg-surface)",
-                        color: "var(--text-primary)",
-                        cursor: "pointer",
-                        fontSize: 14,
-                        lineHeight: 1,
-                      }}
+                      style={rotateBtnStyle}
                     >
                       ↻
                     </button>
@@ -444,17 +462,7 @@ export default function AdminPage() {
                     {p.orientation === "ambiguous" && (
                       <span
                         title="LLM не определилась с верхом — проверь кадр"
-                        style={{
-                          position: "absolute",
-                          left: 4,
-                          top: 4,
-                          padding: "1px 6px",
-                          borderRadius: "var(--radius-sm)",
-                          background: "var(--accent)",
-                          color: "var(--bg-base)",
-                          fontSize: 12,
-                          fontFamily: "var(--font-mono)",
-                        }}
+                        style={ambiguousBadgeStyle}
                       >
                         ?
                       </span>

@@ -1,9 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { readCache, writeCache } from "@/lib/api/cache";
 
 type Phase = "loading" | "error" | "loaded";
+
+interface TileState<T> {
+  phase: Phase;
+  data: T | null;
+  stale: boolean;
+}
+
+type TileAction<T> =
+  | { type: "seeded"; data: T } // cached copy shown while revalidating
+  | { type: "loading" }
+  | { type: "resolved"; data: T }
+  | { type: "failed"; hasCopy: boolean }; // keep the shown copy instead of flipping to error
+
+function tileReducer<T>(state: TileState<T>, action: TileAction<T>): TileState<T> {
+  switch (action.type) {
+    case "seeded":
+      return { phase: "loaded", data: action.data, stale: true };
+    case "loading":
+      return { ...state, phase: "loading" };
+    case "resolved":
+      return { phase: "loaded", data: action.data, stale: false };
+    case "failed":
+      return { ...state, phase: action.hasCopy ? "loaded" : "error" };
+  }
+}
 
 /**
  * Общий шов загрузки данных тайла (DESIGN §7 — независимые per-tile состояния, без общего
@@ -24,9 +49,8 @@ export function useTileData<T>(
   stale: boolean;
   retry: () => void;
 } {
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [data, setData] = useState<T | null>(null);
-  const [stale, setStale] = useState(false);
+  // Phase/data/stale always change together — one reducer transition instead of three setStates.
+  const [state, dispatch] = useReducer(tileReducer<T>, { phase: "loading", data: null, stale: false });
   const [nonce, setNonce] = useState(0);
 
   // fetcher приходит как стрелка из рендера тайла — оборачиваем в стабильный колбэк по nonce,
@@ -39,31 +63,23 @@ export function useTileData<T>(
     // Сидируем из кэша синхронно в эффекте (клиент-only — без рассинхрона гидрации): копия
     // видна мгновенно, без вспышки лоадера, пока ревалидируем по сети.
     const cached = cacheKey ? readCache<T>(cacheKey) : null;
-    if (cached !== null) {
-      setData(cached);
-      setStale(true);
-      setPhase("loaded");
-    } else {
-      setPhase("loading");
-    }
+    if (cached !== null) dispatch({ type: "seeded", data: cached });
+    else dispatch({ type: "loading" });
 
     run(ctrl.signal)
       .then((d) => {
         if (ctrl.signal.aborted) return;
-        setData(d);
-        setStale(false);
-        setPhase("loaded");
+        dispatch({ type: "resolved", data: d });
         if (cacheKey) writeCache(cacheKey, d);
       })
       .catch(() => {
         if (ctrl.signal.aborted) return;
         // Есть копия (своя или из кэша) — оставляем её показанной, а не обнуляем в ошибку.
-        if (cached !== null) setPhase("loaded");
-        else setPhase("error");
+        dispatch({ type: "failed", hasCopy: cached !== null });
       });
     return () => ctrl.abort();
   }, [run, cacheKey]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
-  return { phase, data, stale, retry };
+  return { ...state, retry };
 }

@@ -21,7 +21,7 @@ interface PhotoDropModalProps {
  */
 export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDropModalProps) {
   const { phase, data } = useTileData<FilmPhotoView[]>(
-    useCallback((signal) => getDrop(dropId, { signal }), []), // dropId стабилен на время жизни модалки
+    useCallback((signal) => getDrop(dropId, { signal }), [dropId]),
   );
   const photos = data ?? [];
   const panelRef = useRef<HTMLDivElement>(null);
@@ -95,10 +95,10 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
         {phase === "loaded" && photos.length > 0 && (
           // Плотная masonry: CSS-колонки пакуют кадры разной ориентации без фиксированной сетки.
           <div style={{ columnGap: 6, columns: "3 160px" }}>
-            {photos.map((p, i) => (
+            {photos.map((p) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                key={`${p.imageUrl}-${i}`}
+                key={p.imageUrl}
                 src={mediaUrl(p.imageUrl)}
                 alt=""
                 width={p.width ?? undefined}

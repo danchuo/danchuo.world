@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { getThemes } from "@/lib/api/client";
 import type { ThemeView } from "@/lib/api/types";
 import { readWaveCookie } from "@/lib/waveCookie";
@@ -25,7 +25,8 @@ export function WaveSwitcher({ style, className }: WaveSwitcherProps) {
     useCallback((signal) => getThemes({ signal }), []),
     "themes",
   );
-  const themes = data ?? [];
+  // Stable identity: a fresh `[]` fallback each render would retrigger the self-heal effect.
+  const themes = useMemo(() => data ?? [], [data]);
   // Активная волна и своп — из контекста (SSR-дефолт = активная волна владельца). Своп
   // меняет и токены, и раскладку борда разом.
   const { activeKey, applyWave } = useWave();

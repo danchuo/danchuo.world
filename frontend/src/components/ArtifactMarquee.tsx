@@ -81,7 +81,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
               const dup = i >= artifacts.length;
               return (
                 <button
-                  key={`${a.name}-${i}`}
+                  key={`${a.name}-${dup ? "dup" : "main"}`}
                   type="button"
                   aria-hidden={dup || undefined}
                   tabIndex={dup ? -1 : 0}

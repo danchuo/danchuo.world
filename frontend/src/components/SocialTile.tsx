@@ -11,6 +11,20 @@ interface SocialTileProps {
   className?: string;
 }
 
+/* Static part of the sprite-icon mask; the per-link mask image stays inline. */
+const iconMask = {
+  width: 18,
+  height: 18,
+  flexShrink: 0,
+  background: "var(--text-primary)",
+  WebkitMaskRepeat: "no-repeat",
+  maskRepeat: "no-repeat",
+  WebkitMaskSize: "contain",
+  maskSize: "contain",
+  WebkitMaskPosition: "center",
+  maskPosition: "center",
+} satisfies CSSProperties;
+
 /**
  * Плитка «Соцсети» (L) — PRD §5.8, DESIGN §3. Спрайт-иконка + название, всё гиперссылкой.
  * Ссылок больше, чем влезает в ряд → бесконечная бегущая строка (как marquee артефактов §7.2):
@@ -46,7 +60,7 @@ export function SocialTile({ style, className }: SocialTileProps) {
               const dup = i >= links.length;
               return (
                 <a
-                  key={`${l.platform}-${i}`}
+                  key={`${l.platform}-${dup ? "dup" : "main"}`}
                   href={l.url}
                   target="_blank"
                   rel="noreferrer"
@@ -58,20 +72,7 @@ export function SocialTile({ style, className }: SocialTileProps) {
                   {l.icon ? (
                     <span
                       aria-hidden
-                      style={{
-                        width: 18,
-                        height: 18,
-                        flexShrink: 0,
-                        background: "var(--text-primary)",
-                        WebkitMaskImage: `url(${l.icon})`,
-                        maskImage: `url(${l.icon})`,
-                        WebkitMaskRepeat: "no-repeat",
-                        maskRepeat: "no-repeat",
-                        WebkitMaskSize: "contain",
-                        maskSize: "contain",
-                        WebkitMaskPosition: "center",
-                        maskPosition: "center",
-                      }}
+                      style={{ ...iconMask, WebkitMaskImage: `url(${l.icon})`, maskImage: `url(${l.icon})` }}
                     />
                   ) : (
                     <span

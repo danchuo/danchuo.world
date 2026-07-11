@@ -38,8 +38,8 @@ export function ProjectsTile({ style, className }: ProjectsTileProps) {
     >
       {phase === "loaded" && !isEmpty && (
         <ul className="flex h-full flex-col gap-2 overflow-y-auto">
-          {projects.map((p, i) => (
-            <li key={`${p.title}-${i}`} className="flex items-center gap-2">
+          {projects.map((p) => (
+            <li key={p.title} className="flex items-center gap-2">
               {p.iconUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

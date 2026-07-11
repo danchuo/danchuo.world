@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { getDrop, getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
@@ -25,6 +25,13 @@ interface Cell {
 }
 
 const GAP = 6;
+/* TileShell horizontal padding (p-4 on both sides) — added back around the mosaic width. */
+const CARD_PAD_X = 32;
+/* Don't shrink the card below this: the label and caption row need room to breathe. */
+const MIN_CARD_W = 200;
+
+/* useLayoutEffect warns during SSR of client components — fall back to useEffect there. */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
@@ -125,73 +132,108 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
   // 5 случайных кадров — пересобираются при новой загрузке (новая ссылка data.photos).
   const sample = useMemo(() => pickRandom(data?.photos ?? [], 5), [data?.photos]);
 
-  // Измеряем область мозаики — justified-раскладка зависит от реальных размеров виджета.
+  // Available width comes from the outer grid-cell wrapper, NOT from the card itself:
+  // the card shrinks to the mosaic below, and measuring it back would loop the observer.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [frameW, setFrameW] = useState(0);
+
+  // Height of the mosaic area (label/caption rows are single-line — it doesn't depend on
+  // the card width, so it stays a stable input for the layout).
   const boxRef = useRef<HTMLButtonElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [boxH, setBoxH] = useState(0);
+
+  // Synchronous measure before paint: the shrunken width is computed in the same frame the
+  // loaded content commits, so cached loads paint the card already hugged (no width flash).
+  useIsomorphicLayoutEffect(() => {
+    if (frameRef.current) setFrameW(frameRef.current.getBoundingClientRect().width);
+    if (boxRef.current) setBoxH(boxRef.current.getBoundingClientRect().height);
+  }, [phase, isEmpty]);
+
+  // ResizeObserver keeps the measurements live afterwards (window resize, wave/layout swap).
   useEffect(() => {
-    const el = boxRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setBox((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === frameRef.current) setFrameW(entry.contentRect.width);
+        if (entry.target === boxRef.current) setBoxH(entry.contentRect.height);
+      }
     });
-    ro.observe(el);
+    if (frameRef.current) ro.observe(frameRef.current);
+    if (boxRef.current) ro.observe(boxRef.current);
     return () => ro.disconnect();
   }, [phase, isEmpty]);
 
-  const mosaic = useMemo(() => buildMosaic(sample, box.w, box.h), [sample, box.w, box.h]);
+  const mosaic = useMemo(
+    () => buildMosaic(sample, Math.max(0, frameW - CARD_PAD_X), boxH),
+    [sample, frameW, boxH],
+  );
+
+  // Shrink-to-content (per-shuffle): when scale <1 leaves side gaps, the card hugs the
+  // widest mosaic row and centers in the cell — label and caption ride along with it.
+  const usedW = mosaic
+    ? Math.max(...mosaic.map((row) => row.reduce((s, c) => s + c.w, 0) + (row.length - 1) * GAP))
+    : 0;
+  const cardW = mosaic && frameW > 0 ? Math.min(frameW, Math.max(usedW + CARD_PAD_X, MIN_CARD_W)) : null;
 
   return (
     <>
-      <TileShell
-        state={isEmpty ? "empty" : phase}
-        emptyText="пока нет дропов"
-        onRetry={retry}
-        label="последний дроп"
-        ariaLabel="Последний фото-дроп"
-        style={style}
-        className={className}
-      >
-        {phase === "loaded" && latest && (
-          <div className="flex h-full flex-col gap-1">
-            <button
-              ref={boxRef}
-              type="button"
-              onClick={() => setOpen(true)}
-              className="flex min-h-0 flex-1 flex-col items-center justify-center"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: GAP }}
-              aria-label={`Открыть дроп «${latest.title}»`}
-            >
-              {mosaic?.map((row, ri) => (
-                <div key={ri} className="flex" style={{ gap: GAP }}>
-                  {row.map((cell, ci) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={`${cell.photo.thumbUrl}-${ri}-${ci}`}
-                      src={mediaUrl(cell.photo.thumbUrl)}
-                      alt=""
-                      style={{
-                        width: cell.w,
-                        height: cell.h,
-                        objectFit: "cover", // бокс точно по пропорции кадра ⇒ без обрезки
-                        borderRadius: "var(--radius-sm)",
-                        display: "block",
-                      }}
-                    />
-                  ))}
-                </div>
-              ))}
-            </button>
+      {/* Measuring wrapper keeps the cell's full footprint; the card inside may be narrower. */}
+      <div ref={frameRef} style={style} className={className}>
+        <TileShell
+          state={isEmpty ? "empty" : phase}
+          emptyText="пока нет дропов"
+          onRetry={retry}
+          label="последний дроп"
+          ariaLabel="Последний фото-дроп"
+          style={
+            cardW !== null
+              ? // Width transition softens the one unavoidable jump (first-ever load, no cache);
+                // the global reduced-motion rule in common.css neutralizes it when asked.
+                { height: "100%", width: cardW, marginInline: "auto", transition: "width 180ms ease" }
+              : { height: "100%" }
+          }
+        >
+          {phase === "loaded" && latest && (
+            <div className="flex h-full flex-col gap-1">
+              <button
+                ref={boxRef}
+                type="button"
+                onClick={() => setOpen(true)}
+                className="flex min-h-0 flex-1 flex-col items-center justify-center"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: GAP }}
+                aria-label={`Открыть дроп «${latest.title}»`}
+              >
+                {mosaic?.map((row, ri) => (
+                  <div key={ri} className="flex" style={{ gap: GAP }}>
+                    {row.map((cell, ci) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`${cell.photo.thumbUrl}-${ri}-${ci}`}
+                        src={mediaUrl(cell.photo.thumbUrl)}
+                        alt=""
+                        style={{
+                          width: cell.w,
+                          height: cell.h,
+                          objectFit: "cover", // бокс точно по пропорции кадра ⇒ без обрезки
+                          borderRadius: "var(--radius-sm)",
+                          display: "block",
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </button>
 
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate" style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                {latest.title}
-              </span>
-              {latest.monthLabel && <span style={monoTertiary}>{latest.monthLabel}</span>}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate" style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                  {latest.title}
+                </span>
+                {latest.monthLabel && <span style={monoTertiary}>{latest.monthLabel}</span>}
+              </div>
             </div>
-          </div>
-        )}
-      </TileShell>
+          )}
+        </TileShell>
+      </div>
 
       {open && latest && (
         <PhotoDropModal

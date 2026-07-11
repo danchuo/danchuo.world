@@ -151,7 +151,7 @@ function Artists({ artists, color }: { artists: ArtistRef[]; color: string }) {
   return (
     <>
       {artists.map((a, i) => (
-        <Fragment key={`${a.url ?? a.name}-${i}`}>
+        <Fragment key={a.url ?? a.name}>
           {i > 0 && ", "}
           {a.url ? (
             <a href={a.url} target="_blank" rel="noreferrer" style={{ color }}>

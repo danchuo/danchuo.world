@@ -26,6 +26,16 @@ const DAY_MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", {
 /** Mono-стиль — статичен, держим вне компонента (не пересобираем на рендер). */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
+/**
+ * Day-name font size that always fits one line in its half of the header. Worst-case
+ * glyph advance is mono's 0.6em (wave 01 maps --font-display to mono; other display
+ * faces are narrower), and the half is ~50cqw, so a len-char name fits 48cqw when
+ * size = 48 / (0.6 * len) = 80/len cqw. Names ≤20 chars keep the shared 4cqw size.
+ */
+function titleFontSize(title: string): string {
+  return `min(4cqw, 40px, ${(80 / title.length).toFixed(2)}cqw)`;
+}
+
 /** Длинная дата RU в mono (DESIGN §4): «3 июля 2026 год» — год словом, без «г.». */
 function longDateRu(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -60,8 +70,11 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
               date keeps that size on its own. The size is fit to the tile via container
               units: the longest date ("28 сентября 2026 год", 20 mono chars ≈ 12em) must
               fill its half without ever wrapping (nowrap), so 4cqw ≈ 48cqw of text + slack.
-              Name uses --font-display (wave 01 maps it to mono, wave 02 to the pixel face),
-              hugs the right edge of its half and may wrap — that's fine. */}
+              Name uses --font-display (wave 01 maps it to mono, wave 02 to the pixel face)
+              and hugs the right edge of its half. The header must stay EXACTLY one line:
+              a wrapped name steals height from the quest map below, which letterboxes
+              (shrinks whole and gains side gaps) — so long names shrink their font
+              (titleFontSize) instead of wrapping. */}
           <div
             className="flex items-baseline"
             style={{ fontSize: "min(4cqw, 40px)", lineHeight: 1.2 }}
@@ -76,8 +89,12 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
             {day.title && (
               <div
                 data-testid="today-title"
-                className="w-1/2 text-right"
-                style={{ fontFamily: "var(--font-display)", color: "var(--accent)" }}
+                className="w-1/2 whitespace-nowrap text-right"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  color: "var(--accent)",
+                  fontSize: titleFontSize(day.title),
+                }}
               >
                 {day.title}
               </div>

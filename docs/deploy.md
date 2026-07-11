@@ -41,6 +41,8 @@ Docker + базовая гигиена уже сделаны для proxemics �
       # Велобайк (опционально; поллер выключен по умолчанию)
       DANCHUO_BIKE_PHONE=...
       DANCHUO_BIKE_TOKEN_KEY=...
+      # LLM / Groq (опционально — без ключа слайс llm тихий no-op, B9 помечает кадры пропущенными)
+      DANCHUO_LLM_API_KEY=...          # тот же ключ Groq, что у proxemics
       ```
 - [ ] **Деплой-ключ для Actions**: отдельная SSH-пара только для этого репо
       (`ssh-keygen -t ed25519 -f deploy_key`), публичный → `~/.ssh/authorized_keys` на VPS,

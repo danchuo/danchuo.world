@@ -68,7 +68,7 @@ group = "world.danchuo"
 // 1.1.0 — окно ручного ввода дня (ingest-window) + фикс варнингов docker-сборок.
 // 1.2.0 — слайс llm: клиент внешней LLM (Groq, текст + vision) за интерфейсом LlmClient.
 // 1.3.0 — B9: LLM-валидация/автоисправление поворота кадров фото-дропов (слайс film).
-version = "1.3.0"
+version = "1.3.1"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

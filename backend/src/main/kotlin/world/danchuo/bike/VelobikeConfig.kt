@@ -61,6 +61,10 @@ interface VelobikeConfig {
     @WithDefault("20")
     fun pollPageSize(): Int
 
+    /** Сколько последних поездок отдаёт публичный `GET /api/rides` (хранятся все, лимит на выдачу). */
+    @WithDefault("67")
+    fun publicLimit(): Int
+
     /** Сконфигурирован ли слайс для серверного поллинга (есть ключ шифрования). */
     fun isConfigured(): Boolean = tokenEncryptionKey().orElse("").isNotBlank()
 }

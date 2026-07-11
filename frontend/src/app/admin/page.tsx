@@ -6,14 +6,17 @@ import { HeatmapSection } from "./HeatmapSection";
 import {
   AdminApiError,
   deleteDrop,
+  deletePhoto,
   getDropPhotosAdmin,
   getOrientationStatus,
+  importBikeRides,
   listDropsAdmin,
   rotatePhoto,
   setCover,
   startOrientationCheck,
   uploadDrop,
 } from "@/lib/api/admin";
+import { BIKE_BOOKMARKLET, BIKE_CONSOLE_SNIPPET } from "@/lib/bikeBookmarklet";
 import { mediaUrl } from "@/lib/api/media";
 import type { AdminDropView, AdminPhotoView, OrientationStatusView } from "@/lib/api/types";
 
@@ -61,6 +64,23 @@ const rotateBtnStyle: CSSProperties = {
   borderRadius: "var(--radius-sm)",
   background: "var(--bg-surface)",
   color: "var(--text-primary)",
+  cursor: "pointer",
+  fontSize: 14,
+  lineHeight: 1,
+};
+/* Per-frame delete button pinned to the top-right corner (opposite the rotate ↻ at bottom-right). */
+const deletePhotoBtnStyle: CSSProperties = {
+  position: "absolute",
+  right: 4,
+  top: 4,
+  width: 28,
+  height: 28,
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--bg-surface)",
+  color: "var(--accent)",
   cursor: "pointer",
   fontSize: 14,
   lineHeight: 1,
@@ -129,6 +149,11 @@ export default function AdminPage() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(todayIso); // ленивый инициализатор: todayIso() не гоняем на каждый рендер
   const [elapsed, setElapsed] = useState(0); // секунды с начала загрузки (честный таймер вместо прогресса)
+
+  // Импорт поездок Велобайка (B4): JSON из букмарклета → ingest.
+  const [bikeJson, setBikeJson] = useState("");
+  const [bikeNotice, setBikeNotice] = useState<string | null>(null);
+  const [bikeCopied, setBikeCopied] = useState(false);
 
   const loadDrops = useCallback(async (t: string) => {
     setError(null);
@@ -223,6 +248,19 @@ export default function AdminPage() {
     }
   }
 
+  /** Удалить один кадр (неудачный). Возврата нет — предупреждаем; в ответ свежий список кадров. */
+  async function onDeletePhoto(photoId: number) {
+    if (!selected) return;
+    if (!confirm("Удалить этот кадр? Вернуть нельзя — если что, перезалей дроп из zip.")) return;
+    setError(null);
+    try {
+      setPhotos(await deletePhoto(token, selected.id, photoId));
+      await loadDrops(token); // счётчик кадров/обложка в списке дропов
+    } catch (err) {
+      setError(describe(err));
+    }
+  }
+
   async function onUpload(e: FormEvent) {
     e.preventDefault();
     if (!file || !title.trim()) return;
@@ -256,6 +294,38 @@ export default function AdminPage() {
       setPhotos((prev) => prev.map((p) => ({ ...p, isCover: p.id === photoId })));
     } catch (err) {
       setError(describe(err));
+    }
+  }
+
+  /** Импорт вставленного JSON поездок. Прощаем и голый массив, и целую страницу `{content:[…]}`. */
+  async function onImportBike(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setBikeNotice(null);
+    try {
+      let parsed: unknown = JSON.parse(bikeJson);
+      if (parsed && !Array.isArray(parsed) && Array.isArray((parsed as { content?: unknown }).content)) {
+        parsed = (parsed as { content: unknown[] }).content;
+      }
+      if (!Array.isArray(parsed)) throw new SyntaxError("ожидался массив поездок");
+      const result = await importBikeRides(token, parsed);
+      setBikeNotice(`импортировано: +${result.created} новых, обновлено ${result.updated}`);
+      setBikeJson("");
+    } catch (err) {
+      setError(err instanceof SyntaxError ? `не JSON: ${err.message}` : describe(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyBookmarklet() {
+    try {
+      await navigator.clipboard.writeText(BIKE_BOOKMARKLET);
+      setBikeCopied(true);
+      window.setTimeout(() => setBikeCopied(false), 2000);
+    } catch {
+      setError("буфер обмена недоступен — скопируй сниппет вручную");
     }
   }
 
@@ -426,7 +496,7 @@ export default function AdminPage() {
           {selected && photos.length === 0 && <p style={mono}>в дропе нет кадров</p>}
           {selected && photos.length > 0 && (
             <>
-              <p className="mb-3" style={mono}>кликни кадр, чтобы сделать его обложкой (она показывается в архиве); ↻ в углу поворачивает кадр на 90°</p>
+              <p className="mb-3" style={mono}>кликни кадр, чтобы сделать его обложкой (она показывается в архиве); ↻ поворачивает кадр на 90°, ✕ удаляет кадр без возврата</p>
               <ul className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))" }}>
                 {photos.map((p) => (
                   <li key={p.id} style={{ position: "relative" }}>
@@ -458,6 +528,20 @@ export default function AdminPage() {
                     >
                       ↻
                     </button>
+                    {/* Удаление одного кадра — верхний-правый угол (напротив ↻), отдельно от клика-обложки. */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeletePhoto(p.id);
+                      }}
+                      disabled={orientation?.state === "running"}
+                      aria-label="Удалить кадр"
+                      title="удалить кадр"
+                      style={deletePhotoBtnStyle}
+                    >
+                      ✕
+                    </button>
                     {/* LLM не определилась с верхом — кадр ждёт ручной стрелки. */}
                     {p.orientation === "ambiguous" && (
                       <span
@@ -474,6 +558,55 @@ export default function AdminPage() {
           )}
         </section>
       </div>
+
+      {/* Импорт поездок Велобайка (B4) — серверный поллер за Qrator, поэтому доставка идёт
+          букмарклетом из залогиненной PWA: он копирует JSON, его вставляют сюда. */}
+      <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+      <section className="admin-panel mb-8 p-4">
+        <h2 className="mb-3" style={{ fontSize: 16, color: "var(--text-primary)" }}>поездки велобайк</h2>
+        <ol className="mb-3 flex flex-col gap-1" style={{ ...mono, paddingLeft: 18, listStyle: "decimal" }}>
+          <li>один раз: создай закладку в браузере телефона, вставь букмарклет в её адрес (кнопка ниже).</li>
+          <li>открой <a href="https://pwa.velobike.ru" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>pwa.velobike.ru</a>, залогинься, запусти закладку — она покажет «собрано X из Y» и скопирует поездки в буфер.</li>
+          <li>вернись сюда, вставь в поле и нажми «импортировать».</li>
+        </ol>
+        <p className="mb-3" style={mono}>если вставилось куце (ошибка «не JSON») — в консоли на pwa.velobike.ru набери <code>copy(__vbRides)</code> и Enter, это скопирует всё без обрезки; затем вставь снова.</p>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={copyBookmarklet}
+            style={{ ...btnStyle, background: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          >
+            {bikeCopied ? "скопировано ✓" : "скопировать букмарклет"}
+          </button>
+          <span style={mono}>если CSP душит закладку — вставь сниппет в консоль DevTools на pwa.velobike.ru:</span>
+        </div>
+        <textarea
+          readOnly
+          aria-label="сниппет для консоли"
+          value={BIKE_CONSOLE_SNIPPET}
+          onFocus={(ev) => ev.currentTarget.select()}
+          rows={2}
+          className="mb-4 w-full"
+          style={{ ...fieldStyle, ...mono, resize: "vertical", whiteSpace: "pre", overflowX: "auto" }}
+        />
+        <form onSubmit={onImportBike} className="flex flex-col gap-3">
+          <textarea
+            aria-label="JSON поездок велобайк"
+            value={bikeJson}
+            onChange={(ev) => setBikeJson(ev.target.value)}
+            placeholder="вставь сюда JSON, скопированный букмарклетом"
+            rows={4}
+            className="w-full"
+            style={{ ...fieldStyle, resize: "vertical" }}
+          />
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={busy || !bikeJson.trim()} style={btnStyle}>
+              {busy ? "импорт…" : "импортировать"}
+            </button>
+            {!busy && bikeNotice && <span style={{ ...mono, color: "var(--text-secondary)" }}>{bikeNotice}</span>}
+          </div>
+        </form>
+      </section>
 
       {/* Хитмапа кликов — ниже дропов, на одном скроллящемся экране (B2). */}
       <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />

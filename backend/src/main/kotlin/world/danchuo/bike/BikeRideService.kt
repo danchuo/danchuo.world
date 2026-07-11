@@ -23,6 +23,7 @@ data class UpsertResult(val created: Int, val updated: Int)
 class BikeRideService(
     private val rides: RideRepository,
     private val clock: Clock,
+    private val config: VelobikeConfig,
 ) {
 
     /**
@@ -50,10 +51,13 @@ class BikeRideService(
         return UpsertResult(created, updated)
     }
 
-    /** Все поездки, новые сверху. Пусто до первого ingest — штатное состояние. */
-    fun publicList(): List<RideView> = rides.listOrderedDesc().map(::toView)
+    /**
+     * Публичная лента: последние [publicLimit] поездок, новые сверху. Хранятся все запушенные —
+     * лимит только на выдачу (тайл/модалка показывают свежие). Пусто до первого ingest — штатно.
+     */
+    fun publicList(): List<RideView> = rides.listRecent(config.publicLimit()).map(::toView)
 
-    /** Агрегат истории для тайла-сводки. */
+    /** Агрегат истории для тайла-сводки — по ВСЕЙ истории (не по видимым [publicLimit]). */
     fun stats(): RideStatsView {
         val all = rides.listOrderedDesc()
         if (all.isEmpty()) return RideStatsView(0, 0, 0, 0, 0, null, null)

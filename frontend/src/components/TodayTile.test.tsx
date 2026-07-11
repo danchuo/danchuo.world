@@ -67,14 +67,15 @@ describe("TodayTile", () => {
 
     const title = screen.getByTestId("today-title");
     expect(title.className).toContain("whitespace-nowrap");
-    // 80/38 cqw ≈ 2.11cqw < общего 4cqw — имя влезает в свою половину одной строкой
-    expect(title.style.fontSize).toBe("min(4cqw, 40px, 2.11cqw)");
+    expect(title.className).toContain("w-3/5"); // имя дня получает 3/5 строки
+    // 96/38 cqw ≈ 2.53cqw < общего 4cqw — имя влезает в свою 3/5 одной строкой
+    expect(title.style.fontSize).toBe("min(4cqw, 40px, 2.53cqw)");
   });
 
   it("короткое имя дня держит общий кегль со строкой даты (мин не срабатывает)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
-    // «первый забег» — 12 символов: 80/12 ≈ 6.67cqw > 4cqw, размер остаётся 4cqw
-    expect(screen.getByTestId("today-title").style.fontSize).toBe("min(4cqw, 40px, 6.67cqw)");
+    // «первый забег» — 12 символов: 96/12 = 8cqw > 4cqw, размер остаётся 4cqw
+    expect(screen.getByTestId("today-title").style.fontSize).toBe("min(4cqw, 40px, 8.00cqw)");
   });
 
   it("подпись плитки относительна выбранной дате (а не всегда «сегодня»)", () => {

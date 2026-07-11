@@ -65,6 +65,9 @@ class FilmOrientationService(
         return job.view()
     }
 
+    /** Бежит ли сейчас прогон по дропу — гейт для мутаций кадров (ручной поворот/удаление). */
+    fun isRunning(dropId: Long): Boolean = jobs[dropId]?.state == "running"
+
     /** Статус проверки дропа: бегущий/последний прогон, а без него — срез по БД. `null` — нет дропа. */
     fun status(dropId: Long): OrientationStatusView? {
         drops.findById(dropId) ?: return null

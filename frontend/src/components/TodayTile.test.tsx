@@ -61,6 +61,22 @@ describe("TodayTile", () => {
     expect(screen.getByText(/шаги: 0$/)).toBeInTheDocument();
   });
 
+  it("длинное имя дня не переносится: кегль ужимается, шапка остаётся одной строкой", () => {
+    const long = "очень длинное имя дня про всё на свете"; // 38 символов, > 20
+    render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
+
+    const title = screen.getByTestId("today-title");
+    expect(title.className).toContain("whitespace-nowrap");
+    // 80/38 cqw ≈ 2.11cqw < общего 4cqw — имя влезает в свою половину одной строкой
+    expect(title.style.fontSize).toBe("min(4cqw, 40px, 2.11cqw)");
+  });
+
+  it("короткое имя дня держит общий кегль со строкой даты (мин не срабатывает)", () => {
+    render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
+    // «первый забег» — 12 символов: 80/12 ≈ 6.67cqw > 4cqw, размер остаётся 4cqw
+    expect(screen.getByTestId("today-title").style.fontSize).toBe("min(4cqw, 40px, 6.67cqw)");
+  });
+
   it("подпись плитки относительна выбранной дате (а не всегда «сегодня»)", () => {
     // Выбран 17-е при сегодня 18-м → «вчера».
     render(<TodayTile day={dayFixture({ date: "2026-06-17" })} today="2026-06-18" state="loaded" />);

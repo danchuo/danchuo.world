@@ -10,6 +10,19 @@ const mono = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-
 /** Дефолтная раскладка борда (волна 01) — на ней рисуем оверлей-хитмапу. */
 const LAYOUT = resolveLayout(null);
 
+/* Static part of a heatmap cell; per-tile gridArea and intensity fill stay inline. */
+const heatCellStyle: CSSProperties = {
+  minHeight: 0,
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--border)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+  padding: 2,
+};
+
 /**
  * Хитмапа кликов (B2, PRD §5.11) — секция внизу /admin (тот же bearer, что дропы; рендерится
  * только после логина). **Потайловая**, не пиксельная: рисуем сам bento борда и заливаем каждый
@@ -94,19 +107,11 @@ export function HeatmapSection({ token }: { token: string }) {
               key={id}
               title={`${id}: ${clicks}`}
               style={{
+                ...heatCellStyle,
                 gridArea: gridArea(span),
-                minHeight: 0,
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border)",
                 // Заливка по интенсивности (прозрачность растёт с долей кликов). В монохромной
                 // админке --accent = чёрный, так что шкала — оттенки серого.
                 background: `color-mix(in srgb, var(--accent) ${Math.round(8 + ratio * 84)}%, transparent)`,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                padding: 2,
               }}
             >
               <span style={{ ...mono, fontSize: 10, color: ratio > 0.5 ? "var(--bg-page)" : "var(--text-secondary)" }}>{id}</span>

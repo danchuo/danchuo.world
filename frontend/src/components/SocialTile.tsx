@@ -26,11 +26,11 @@ const iconMask = {
 } satisfies CSSProperties;
 
 /**
- * Плитка «Соцсети» (L) — PRD §5.8, DESIGN §3. Спрайт-иконка + название, всё гиперссылкой.
- * Ссылок больше, чем влезает в ряд → бесконечная бегущая строка (как marquee артефактов §7.2):
- * дублируем список и едем на -50% (петля бесшовна), пауза на ховер, reduced-motion замирает
- * глобально. Спрайт — статика фронта (`/assets/social/*.svg`), красится токеном `--text-primary`
- * через CSS-маску, поэтому следует за активной волной (ноль хардкод-цветов). Пусто ⇒ тихий empty.
+ * Плитка «Соцсети» (L) — PRD §5.8. Квадратная сетка карточек-ссылок (иконка + название),
+ * вместо прежней бегущей строки: все ссылки видны разом, ничего не мельтешит. Колонок
+ * столько, чтобы сетка была квадратной (2×2 до 4 ссылок, 3×3 до 9, дальше 4×4). Спрайт —
+ * статика фронта (`/assets/social/*.svg`), красится токеном `--text-primary` через CSS-маску,
+ * поэтому следует за активной волной (ноль хардкод-цветов). Пусто ⇒ тихий empty.
  */
 export function SocialTile({ style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
@@ -39,8 +39,7 @@ export function SocialTile({ style, className }: SocialTileProps) {
   );
   const links = data ?? [];
   const isEmpty = phase === "loaded" && links.length === 0;
-  // Темп по числу ссылок, не быстрее 24с — читаемо, не мельтешит.
-  const duration = `${Math.max(24, links.length * 7)}s`;
+  const cols = links.length <= 4 ? 2 : links.length <= 9 ? 3 : 4;
 
   return (
     <TileShell
@@ -53,45 +52,53 @@ export function SocialTile({ style, className }: SocialTileProps) {
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
-        <div className="relative flex h-full items-center overflow-hidden">
-          <div className="artifact-track" style={{ "--artifact-duration": duration } as CSSProperties}>
-            {/* Дублируем список дважды — петля -50% бесшовна. Второй проход aria-hidden. */}
-            {[...links, ...links].map((l, i) => {
-              const dup = i >= links.length;
-              return (
-                <a
-                  key={`${l.platform}-${dup ? "dup" : "main"}`}
-                  href={l.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-hidden={dup || undefined}
-                  tabIndex={dup ? -1 : 0}
-                  className="mx-4 inline-flex items-center gap-2 align-middle"
-                  style={{ color: "var(--text-primary)", fontSize: 13 }}
-                >
-                  {l.icon ? (
-                    <span
-                      aria-hidden
-                      style={{ ...iconMask, WebkitMaskImage: `url(${l.icon})`, maskImage: `url(${l.icon})` }}
-                    />
-                  ) : (
-                    <span
-                      aria-hidden
-                      style={{
-                        width: 18,
-                        height: 18,
-                        flexShrink: 0,
-                        background: "var(--bg-surface-muted)",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    />
-                  )}
-                  <span className="whitespace-nowrap">{l.name}</span>
-                </a>
-              );
-            })}
-          </div>
-        </div>
+        <ul
+          // social-grid: a container query in common.css hides the text labels when the tile
+          // is too narrow for them — the grid degrades to recognizable icons only.
+          className="social-grid grid h-full"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gridAutoRows: "minmax(0, 1fr)",
+            gap: 10,
+          }}
+        >
+          {links.map((l) => (
+            <li key={l.platform} className="min-h-0 min-w-0">
+              <a
+                href={l.url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={l.name}
+                className="flex h-full w-full flex-col items-center justify-center gap-2"
+                style={{
+                  color: "var(--text-primary)",
+                  fontSize: 12,
+                  background: "var(--bg-surface-muted)",
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                {l.icon ? (
+                  <span
+                    aria-hidden
+                    style={{ ...iconMask, WebkitMaskImage: `url(${l.icon})`, maskImage: `url(${l.icon})` }}
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 18,
+                      height: 18,
+                      flexShrink: 0,
+                      background: "var(--bg-surface)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  />
+                )}
+                <span className="social-label max-w-full truncate px-1">{l.name}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       )}
     </TileShell>
   );

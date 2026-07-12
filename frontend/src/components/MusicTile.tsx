@@ -240,11 +240,12 @@ function NowPlaying({ track, source }: { track: TrackView; source: SourceRef | n
 /**
  * Плитка музыки (M) — живой слой Spotify (PRD §M3, DESIGN §7). Тянет данные сама
  * (независимо от выбранного дня) с собственными per-tile состояниями: now-playing
- * опрашивается на интервале (под TTL кэша бэка). Если трек играет — показываем его;
+ * опрашивается на интервале (под TTL кэша бэка); в скрытой вкладке опрос стоит,
+ * при возврате на вкладку — немедленное обновление. Если трек играет — показываем его;
  * иначе — список недавних. Пусто («ничего не играет» / интеграция не подключена) —
  * тихое empty, без спец-ветки.
  */
-export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, pollMs = 25_000 }: MusicTileProps) {
+export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, pollMs = 20_000 }: MusicTileProps) {
   const [state, setState] = useState<TileState>("loading");
   const [now, setNow] = useState<NowPlayingView | null>(null);
   const [recent, setRecent] = useState<RecentTrackView[]>([]);
@@ -297,10 +298,33 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   useEffect(() => {
     const ctrl = new AbortController();
     loadAll(ctrl.signal).catch(() => {});
-    const id = window.setInterval(() => pollNow(ctrl.signal), pollMs);
+    // Poll only while the tab is visible (PRD §5.5): a background tab burns requests for
+    // nobody. On return the tile refreshes immediately, so a forgotten tab never shows a
+    // stale track longer than one poll tick.
+    let id: number | null = null;
+    const start = () => {
+      if (id === null) id = window.setInterval(() => pollNow(ctrl.signal), pollMs);
+    };
+    const stop = () => {
+      if (id !== null) {
+        window.clearInterval(id);
+        id = null;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        stop();
+      } else {
+        pollNow(ctrl.signal);
+        start();
+      }
+    };
+    if (document.visibilityState !== "hidden") start();
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       ctrl.abort();
-      window.clearInterval(id);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [loadAll, pollNow, pollMs]);
 

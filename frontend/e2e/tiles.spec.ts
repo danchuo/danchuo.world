@@ -23,11 +23,11 @@ const DESKTOP: Tile[] = [
   { label: "Проекты", slug: "projects" },
   { label: "Соцсети", slug: "social" },
   { label: "Артефакты", slug: "marquee" },
-  { label: "Избранное фото", slug: "hero" },
   { label: "Фото-дропы", slug: "photoDrops" },
   { label: "Последний фото-дроп", slug: "latestDrop" },
   { label: "Свежесть данных", slug: "freshness" },
   { label: "Переключатель волн", slug: "waveSwitcher" },
+  { label: "danchuo.world", slug: "identity" },
 ];
 
 /** Мобайл: стек MOBILE_ORDER (календарь — недельной полосой). */
@@ -41,7 +41,6 @@ const MOBILE: Tile[] = [
   { label: "Фото-дропы", slug: "photoDrops" },
   { label: "Проекты", slug: "projects" },
   { label: "Соцсети", slug: "social" },
-  { label: "Избранное фото", slug: "hero" },
   { label: "Артефакты", slug: "marquee" },
   { label: "Переключатель волн", slug: "waveSwitcher" },
   { label: "Свежесть данных", slug: "freshness" },

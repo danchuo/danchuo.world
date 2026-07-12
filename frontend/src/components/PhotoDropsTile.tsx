@@ -4,6 +4,7 @@ import { useCallback, useState, type CSSProperties } from "react";
 import { getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmDropView } from "@/lib/api/types";
+import type { TileOrientation } from "@/lib/layout";
 import { PhotoDropModal } from "./PhotoDropModal";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
@@ -11,6 +12,11 @@ import { useTileData } from "./useTileData";
 interface PhotoDropsTileProps {
   style?: CSSProperties;
   className?: string;
+  /**
+   * Content flow (DESIGN §10.1): "horizontal" — a strip of cover cards with titles below
+   * (readable, no truncation to nothing); "vertical" (default) — the compact list of rows.
+   */
+  orientation?: TileOrientation;
 }
 
 /**
@@ -19,7 +25,7 @@ interface PhotoDropsTileProps {
  * отдельной страницы нет. Крупно последний дроп показывает отдельный [LatestDropTile]. До первой
  * загрузки через /admin дропов нет ⇒ тихий empty «пока нет дропов».
  */
-export function PhotoDropsTile({ style, className }: PhotoDropsTileProps) {
+export function PhotoDropsTile({ style, className, orientation = "vertical" }: PhotoDropsTileProps) {
   const { phase, data, retry } = useTileData<FilmDropView[]>(
     useCallback((signal) => getDrops({ signal }), []),
     "drops",
@@ -27,6 +33,7 @@ export function PhotoDropsTile({ style, className }: PhotoDropsTileProps) {
   const drops = data ?? [];
   const isEmpty = phase === "loaded" && drops.length === 0;
   const [openDrop, setOpenDrop] = useState<FilmDropView | null>(null);
+  const horizontal = orientation === "horizontal";
 
   return (
     <>
@@ -39,7 +46,60 @@ export function PhotoDropsTile({ style, className }: PhotoDropsTileProps) {
         style={style}
         className={className}
       >
-        {phase === "loaded" && !isEmpty && (
+        {phase === "loaded" && !isEmpty && (horizontal ? (
+          // Horizontal strip: big cover cards with the title underneath. Extra drops scroll
+          // sideways; no visible scrollbar — the cut-off card at the edge is the affordance.
+          <ul
+            className="flex h-full items-stretch gap-3 overflow-x-auto overflow-y-hidden"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {drops.map((d) => (
+              <li key={d.id} className="flex h-full min-w-0 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenDrop(d)}
+                  className="flex h-full min-h-0 flex-col gap-1 text-left"
+                  // Card width tuned so a sliver of the next card peeks out at the tile edge —
+                  // the visible cut-off is the affordance that the strip scrolls sideways.
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, width: 84 }}
+                  aria-label={`Открыть дроп «${d.title}»`}
+                >
+                  {d.coverPhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={mediaUrl(d.coverPhotoUrl)}
+                      alt=""
+                      className="min-h-0 w-full flex-1"
+                      style={{ objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+                    />
+                  ) : (
+                    <span aria-hidden className="min-h-0 w-full flex-1" style={{ background: "var(--bg-surface-muted)", borderRadius: "var(--radius-sm)" }} />
+                  )}
+                  <span
+                    className="w-full"
+                    style={{
+                      fontSize: 12,
+                      lineHeight: "15px",
+                      color: "var(--text-secondary)",
+                      // Two-line clamp: readable titles are the whole point of the horizontal
+                      // strip — a one-line ellipsis ate half of every title.
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                    title={d.title}
+                  >
+                    {d.title}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, lineHeight: "12px", color: "var(--text-tertiary)" }}>
+                    {d.monthLabel ?? ""}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
           <ul className="flex h-full flex-col gap-1.5 overflow-y-auto">
             {drops.map((d) => (
               <li key={d.id} className="min-w-0">
@@ -69,7 +129,7 @@ export function PhotoDropsTile({ style, className }: PhotoDropsTileProps) {
               </li>
             ))}
           </ul>
-        )}
+        ))}
       </TileShell>
 
       {openDrop && (

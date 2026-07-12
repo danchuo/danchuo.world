@@ -54,20 +54,31 @@ export const BENTO_ROWS = 28;
  * через `v → 2v−1` (см. шапку файла): между каждой парой соседей — пустой трек-прослойка.
  */
 export const TILE_LAYOUT: Record<TileId, TileSpan> = {
-  identity: { col: 2, row: 13, colSpan: 6, rowSpan: 3 },
+  // Brand signature plate crowns the right column — the only place the site name shows on
+  // the board (it used to sit buried underneath stats, i.e. effectively invisible).
+  identity: { col: 31, row: 1, colSpan: 9, rowSpan: 3 },
   latestDrop: { col: 1, row: 1, colSpan: 10, rowSpan: 11 },
-  waveSwitcher: { col: 32, row: 1, colSpan: 4, rowSpan: 3 },
-  freshness: { col: 37, row: 1, colSpan: 3, rowSpan: 3 },
-  music: { col: 22, row: 1, colSpan: 8, rowSpan: 4 },
-  photoDrops: { col: 10, row: 13, colSpan: 3, rowSpan: 9 },
-  stats: { col: 1, row: 13, colSpan: 8, rowSpan: 4 },
-  today: { col: 14, row: 6, colSpan: 16, rowSpan: 16 },
-  calendar: { col: 31, row: 5, colSpan: 9, rowSpan: 11 },
-  projects: { col: 31, row: 17, colSpan: 9, rowSpan: 5 },
-  ride: { col: 1, row: 18, colSpan: 8, rowSpan: 7 },
-  hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5 },
-  social: { col: 14, row: 23, colSpan: 7, rowSpan: 3 },
-  marquee: { col: 23, row: 23, colSpan: 15, rowSpan: 5 },
+  waveSwitcher: { col: 31, row: 5, colSpan: 3, rowSpan: 3 },
+  freshness: { col: 36, row: 5, colSpan: 4, rowSpan: 3 },
+  music: { col: 13, row: 1, colSpan: 8, rowSpan: 6 },
+  // Horizontal drops strip in the top band, flush with today's right edge: covers + readable
+  // titles instead of the old narrow vertical column (titles used to truncate to nothing).
+  // Two full cards + a chunk of the third — the cut-off card is the scroll affordance.
+  photoDrops: { col: 23, row: 1, colSpan: 7, rowSpan: 6, orientation: "horizontal" },
+  stats: { col: 1, row: 13, colSpan: 7, rowSpan: 6 },
+  today: { col: 14, row: 8, colSpan: 16, rowSpan: 16 },
+  calendar: { col: 31, row: 9, colSpan: 9, rowSpan: 11 },
+  // Narrow vertical projects column left of today (the slot the drops column used to hold);
+  // 4 tracks wide (~the wave-switcher width) so titles and quarter ranges stay readable.
+  projects: { col: 9, row: 13, colSpan: 4, rowSpan: 11 },
+  ride: { col: 1, row: 20, colSpan: 7, rowSpan: 9 },
+  // Hero is retired from the board for now (owner's call); the slot went to the layout above.
+  hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5, hidden: true },
+  // Compact icon-only social square, tucked into the corner one gutter below the calendar
+  // and one gutter right of today.
+  social: { col: 31, row: 21, colSpan: 3, rowSpan: 4 },
+  // The artifacts marquee footer ends flush with today's right edge.
+  marquee: { col: 9, row: 25, colSpan: 21, rowSpan: 4 },
 };
 
 /** Порядок одноколоночного стека на мобиле (<640px, DESIGN §8). */

@@ -269,7 +269,7 @@ function BoardTile({
     case "hero":
       return <HeroTile style={style} className={className} />;
     case "photoDrops":
-      return <PhotoDropsTile style={style} className={className} />;
+      return <PhotoDropsTile orientation={orientation} style={style} className={className} />;
     case "latestDrop":
       return <LatestDropTile style={style} className={className} />;
     case "freshness":

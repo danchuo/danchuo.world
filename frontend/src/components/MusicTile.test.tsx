@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NowPlayingView, RecentTrackView, TrackView } from "@/lib/api/types";
 import { MusicTile } from "./MusicTile";
@@ -117,6 +117,33 @@ describe("MusicTile", () => {
     render(<MusicTile />);
 
     expect(await screen.findByTestId("recent-track")).toHaveTextContent("Ghosts 'n' Stuff");
+  });
+
+  it("уход вкладки в фон не дёргает опрос, возврат — обновляет немедленно", async () => {
+    getNowPlayingMock.mockResolvedValue(nowView());
+    getRecentMock.mockResolvedValue([]);
+
+    const setVisibility = (value: DocumentVisibilityState) => {
+      Object.defineProperty(document, "visibilityState", { value, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+
+    try {
+      render(<MusicTile />);
+      expect(await screen.findByTestId("now-playing")).toBeInTheDocument();
+      const baseline = getNowPlayingMock.mock.calls.length;
+
+      // Скрытие вкладки само по себе запрос не шлёт (поллинг останавливается).
+      await act(async () => setVisibility("hidden"));
+      expect(getNowPlayingMock.mock.calls.length).toBe(baseline);
+
+      // Возврат на вкладку — немедленный опрос now-playing (PRD §5.5).
+      await act(async () => setVisibility("visible"));
+      expect(getNowPlayingMock.mock.calls.length).toBe(baseline + 1);
+    } finally {
+      // Возвращаем прототипный геттер jsdom, чтобы не протечь в соседние тесты.
+      delete (document as unknown as Record<string, unknown>).visibilityState;
+    }
   });
 
   it("сбой загрузки → состояние ошибки", async () => {

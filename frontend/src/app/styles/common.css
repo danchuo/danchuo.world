@@ -215,3 +215,14 @@ body {
   fill: var(--text-tertiary);
   text-anchor: middle;
 }
+
+/* Social grid degrades to icon-only cards when the tile is too narrow for text labels
+   (icons of the major platforms are self-explanatory; names stay in aria-labels). */
+.social-grid {
+  container-type: inline-size;
+}
+@container (max-width: 200px) {
+  .social-grid .social-label {
+    display: none;
+  }
+}

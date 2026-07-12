@@ -31,8 +31,9 @@ class AnalyticsSummaryResource(
 
     /**
      * Хитмапа по странице за период (даты MSK, включительно). `from`/`to` опциональны:
-     * по умолчанию — **последние 7 дней** до сегодня (за бóльшим окном — прямой запрос к БД);
-     * `path` по умолчанию — главная (`/`). Сами параметры в API остаются (forward-compat).
+     * по умолчанию — **последние 7 дней**, окно [сегодня − 6, сегодня] включительно
+     * (за бóльшим окном — прямой запрос к БД); `path` по умолчанию — главная (`/`).
+     * Сами параметры в API остаются (forward-compat).
      */
     @GET
     @Path("/heatmap")
@@ -43,7 +44,7 @@ class AnalyticsSummaryResource(
     ): HeatmapView {
         val today = mskTime.today()
         val toDate = to?.takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) } ?: today
-        val fromDate = from?.takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) } ?: today.minusDays(7)
+        val fromDate = from?.takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it) } ?: today.minusDays(6)
         return interactions.heatmap(path, fromDate, toDate)
     }
 }

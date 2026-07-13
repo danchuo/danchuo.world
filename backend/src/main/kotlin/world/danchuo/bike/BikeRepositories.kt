@@ -5,6 +5,7 @@ import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
 import java.time.Instant
+import java.time.LocalDate
 
 /** Доступ к поездкам — новые сверху (по времени старта). Идемпотентность — по [Ride.externalId]. */
 @ApplicationScoped
@@ -14,9 +15,12 @@ class RideRepository : PanacheRepository<Ride> {
 
     fun listOrderedDesc(): List<Ride> = listAll(Sort.by("startTime", Sort.Direction.Descending))
 
-    /** Последние `limit` поездок (новые сверху) — для публичной ленты; хранятся все. */
-    fun listRecent(limit: Int): List<Ride> =
-        findAll(Sort.by("startTime", Sort.Direction.Descending)).page(0, limit).list()
+    /** Поездки начиная с даты [from] включительно (новые сверху) — публичная лента текущего года. */
+    fun listFrom(from: LocalDate): List<Ride> =
+        find("rideDate >= ?1", Sort.by("startTime", Sort.Direction.Descending), from).list()
+
+    /** Самая свежая поездка (по времени старта) — фолбэк, когда в текущем году поездок ещё нет. */
+    fun latest(): Ride? = findAll(Sort.by("startTime", Sort.Direction.Descending)).firstResult()
 
     /** Самый большой `external_id` среди сохранённых — граница инкрементального поллинга. */
     fun maxExternalId(): Long? =

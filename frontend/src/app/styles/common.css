@@ -226,3 +226,20 @@ body {
     display: none;
   }
 }
+
+/* Blur-up загрузка кадров модалки-галереи (PhotoDropModal, DESIGN §7.5): размытый thumb виден
+   сразу и остаётся НЕПРОЗРАЧНОЙ подложкой, полный кадр проступает поверх него по onLoad.
+   Важно: thumb НЕ гасим во время кросс-фейда — иначе на середине перехода сквозь оба полу-
+   прозрачных слоя мелькает фон-подложка тайла (был «розовый проскок»). reduced-motion гасит
+   переходы глобально выше — кадр появляется сразу. */
+.blur-up-thumb {
+  filter: blur(12px);
+  transform: scale(1.06);
+}
+.blur-up-full {
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+.blur-up-full[data-loaded="true"] {
+  opacity: 1;
+}

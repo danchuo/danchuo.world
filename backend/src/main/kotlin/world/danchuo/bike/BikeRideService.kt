@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Итог приёма пачки поездок: сколько новых добавлено и сколько обновлено (для логов поллера/ingest). */
@@ -23,7 +24,6 @@ data class UpsertResult(val created: Int, val updated: Int)
 class BikeRideService(
     private val rides: RideRepository,
     private val clock: Clock,
-    private val config: VelobikeConfig,
 ) {
 
     /**
@@ -52,12 +52,19 @@ class BikeRideService(
     }
 
     /**
-     * Публичная лента: последние [publicLimit] поездок, новые сверху. Хранятся все запушенные —
-     * лимит только на выдачу (тайл/модалка показывают свежие). Пусто до первого ingest — штатно.
+     * Публичная лента: поездки **текущего календарного года** (MSK), новые сверху. Велосезон
+     * жмётся к лету, поэтому осью выдачи выбран год, а не число последних. Если в этом году ещё
+     * ни одной поездки (зима/начало года) — показываем **одну** самую свежую (последняя прошлого
+     * сезона), чтобы тайл не пустовал. Хранятся все запушенные; пусто до первого ingest — штатно.
      */
-    fun publicList(): List<RideView> = rides.listRecent(config.publicLimit()).map(::toView)
+    fun publicList(): List<RideView> {
+        val startOfYear = LocalDate.now(clock).withDayOfYear(1)
+        val thisYear = rides.listFrom(startOfYear)
+        val chosen = thisYear.ifEmpty { listOfNotNull(rides.latest()) }
+        return chosen.map(::toView)
+    }
 
-    /** Агрегат истории для тайла-сводки — по ВСЕЙ истории (не по видимым [publicLimit]). */
+    /** Агрегат истории для тайла-сводки — по ВСЕЙ истории (не только по видимому текущему году). */
     fun stats(): RideStatsView {
         val all = rides.listOrderedDesc()
         if (all.isEmpty()) return RideStatsView(0, 0, 0, 0, 0, null, null)

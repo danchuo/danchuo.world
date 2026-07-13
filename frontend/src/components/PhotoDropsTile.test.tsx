@@ -1,10 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PhotoDropsTile } from "./PhotoDropsTile";
 
-vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn() }));
-import { getDrops } from "@/lib/api/client";
+vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn(), getDrop: vi.fn() }));
+import { getDrop, getDrops } from "@/lib/api/client";
 const getDropsMock = vi.mocked(getDrops);
+const getDropMock = vi.mocked(getDrop);
+
+const TWO_DROPS = [
+  { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
+  { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: "/api/film-media/1/0/thumb" },
+];
 
 afterEach(() => vi.clearAllMocks());
 
@@ -39,5 +45,32 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(await screen.findByText("Июльская плёнка")).toBeInTheDocument();
     expect(screen.getByText("июль 2026")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Открыть дроп «Июньская плёнка»" })).toBeInTheDocument();
+  });
+
+  it("живой скролл: вертикальное колесо мыши листает полку вбок", async () => {
+    getDropsMock.mockResolvedValue(TWO_DROPS);
+    const { container } = render(<PhotoDropsTile orientation="horizontal" />);
+    await screen.findByText("Июльская плёнка");
+
+    const shelf = container.querySelector("ul")!;
+    // jsdom не считает раскладку — подставляем переполнение, чтобы полке было куда листаться.
+    Object.defineProperty(shelf, "scrollWidth", { configurable: true, value: 500 });
+    Object.defineProperty(shelf, "clientWidth", { configurable: true, value: 100 });
+
+    expect(shelf.scrollLeft).toBe(0);
+    fireEvent.wheel(shelf, { deltaY: 40, deltaX: 0 });
+    expect(shelf.scrollLeft).toBe(40);
+  });
+
+  it("клик по дропу открывает его на весь экран (drag-перехвата больше нет)", async () => {
+    // Регрессионный якорь: перетаскивание мышью раньше глотало клик и ломало открытие дропа.
+    // Драга нет — клик по карточке полки обязан открывать модалку (грузит кадры).
+    getDropsMock.mockResolvedValue(TWO_DROPS);
+    getDropMock.mockResolvedValue([]);
+    render(<PhotoDropsTile orientation="horizontal" />);
+    await screen.findByText("Июньская плёнка");
+
+    fireEvent.click(screen.getByRole("button", { name: "Открыть дроп «Июньская плёнка»" }));
+    expect(getDropMock).toHaveBeenCalledWith(1, expect.anything());
   });
 });

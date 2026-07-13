@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmDropView } from "@/lib/api/types";
@@ -34,6 +34,30 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
   const isEmpty = phase === "loaded" && drops.length === 0;
   const [openDrop, setOpenDrop] = useState<FilmDropView | null>(null);
   const horizontal = orientation === "horizontal";
+  const shelfRef = useRef<HTMLUListElement>(null);
+
+  // Живой скролл горизонтальной полки без видимого ползунка (DESIGN §7.5): вертикальное колесо
+  // мыши листает полку вбок. Перетаскивания мышью НЕТ намеренно — оно перехватывало клик и
+  // мешало открывать дроп на весь экран; листаем только колесом (и родным touch/трекпадом).
+  // На краях колесо отдаётся странице (не запираем прокрутку).
+  useEffect(() => {
+    const el = shelfRef.current;
+    if (!el || !horizontal) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // родной горизонтальный (трекпад)
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      const atStart = el.scrollLeft <= 0;
+      const atEnd = el.scrollLeft >= max - 1;
+      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return; // край → страница скроллит
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [horizontal, phase, drops.length]);
 
   return (
     <>
@@ -50,6 +74,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
           // Horizontal strip: big cover cards with the title underneath. Extra drops scroll
           // sideways; no visible scrollbar — the cut-off card at the edge is the affordance.
           <ul
+            ref={shelfRef}
             className="flex h-full items-stretch gap-3 overflow-x-auto overflow-y-hidden"
             style={{ scrollbarWidth: "none" }}
           >

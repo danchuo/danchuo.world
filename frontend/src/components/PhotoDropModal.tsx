@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { getDrop } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmPhotoView } from "@/lib/api/types";
@@ -18,6 +18,12 @@ interface PhotoDropModalProps {
  * вкладка). Затемнённый фон, закрытие по `×`/`Esc`/клику по фону, фокус-трап, вертикальный
  * скролл (≈36 кадров длиннее экрана). Композиция — плотная masonry по реальным размерам кадров
  * (CSS-колонки; точный justified-алгоритм — дизайн-TODO). До B1 кадров нет — пустое состояние.
+ *
+ * Загрузка кадров — **blur-up**: сразу виден крошечный `thumbUrl` (размытый, он лёгкий и обычно
+ * уже в кэше борда), полноразмерный `imageUrl` грузится `loading="lazy"` (только видимое) и по
+ * `onLoad` резко «наводится на резкость» поверх размытого. Размытый thumb остаётся непрозрачной
+ * подложкой (не гаснет) — так во время проявления полного кадра сквозь него не мелькает фон
+ * тайла. Никакой «доливки по чуть-чуть»: кадр не появляется из пустоты (см. [BlurUpPhoto]).
  */
 export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDropModalProps) {
   const { phase, data } = useTileData<FilmPhotoView[]>(
@@ -96,16 +102,7 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
           // Плотная masonry: CSS-колонки пакуют кадры разной ориентации без фиксированной сетки.
           <div style={{ columnGap: 6, columns: "3 160px" }}>
             {photos.map((p) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={p.imageUrl}
-                src={mediaUrl(p.imageUrl)}
-                alt=""
-                width={p.width ?? undefined}
-                height={p.height ?? undefined}
-                className="mb-1.5 w-full"
-                style={{ breakInside: "avoid", borderRadius: "var(--radius-sm)" }}
-              />
+              <BlurUpPhoto key={p.imageUrl} photo={p} />
             ))}
           </div>
         )}
@@ -119,3 +116,51 @@ const monoTertiary = {
   fontSize: 12,
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
+
+/**
+ * Один кадр с blur-up-загрузкой: размытый `thumbUrl` виден сразу, полноразмерный `imageUrl`
+ * грузится лениво и по готовности проступает поверх (кросс-фейд, thumb гаснет). `aspect-ratio`
+ * из реальных `width/height` держит место кадра до загрузки — колонки не «прыгают». Если
+ * размеров нет, обёртка просто обнимает контент. Уважает `prefers-reduced-motion` (без анимации
+ * переходов — кадр появляется сразу по готовности).
+ */
+function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
+  const [loaded, setLoaded] = useState(false);
+  const ratio = photo.width && photo.height ? `${photo.width} / ${photo.height}` : undefined;
+
+  return (
+    <div
+      className="mb-1.5"
+      style={{
+        position: "relative",
+        breakInside: "avoid",
+        borderRadius: "var(--radius-sm)",
+        overflow: "hidden",
+        background: "var(--bg-surface-muted)",
+        aspectRatio: ratio,
+      }}
+    >
+      {/* Размытое превью — непрозрачная подложка: держит цвет/композицию всё время, пока
+          проявляется полный кадр (не гасим, иначе в кросс-фейде мелькнёт фон тайла). */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={mediaUrl(photo.thumbUrl)}
+        alt=""
+        aria-hidden
+        className="blur-up-thumb w-full"
+        style={{ display: "block" }}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={mediaUrl(photo.imageUrl)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        className="blur-up-full"
+        data-loaded={loaded}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+      />
+    </div>
+  );
+}

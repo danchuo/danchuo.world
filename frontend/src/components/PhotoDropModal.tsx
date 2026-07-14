@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { getDrop } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmPhotoView } from "@/lib/api/types";
+import { Icon } from "./Icon";
 import { useTileData } from "./useTileData";
 
 interface PhotoDropModalProps {
@@ -87,9 +88,9 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
             className="tap-target"
             onClick={onClose}
             aria-label="Закрыть"
-            style={{ ...monoTertiary, fontSize: 20, cursor: "pointer", background: "none", border: "none" }}
+            style={{ ...monoTertiary, cursor: "pointer", background: "none", border: "none", display: "inline-flex" }}
           >
-            ×
+            <Icon name="close" size={18} />
           </button>
         </div>
 

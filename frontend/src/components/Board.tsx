@@ -40,6 +40,8 @@ interface BoardData {
   selectDay: (date: string) => void;
   retryDay: () => void;
   retryRange: () => void;
+  /** Active wave key (fallback = wave-01 skin) — lets the today tile pick its quest sprite set. */
+  wave: string;
 }
 
 /**
@@ -51,7 +53,7 @@ interface BoardData {
 export function Board() {
   // Раскладка активной волны (мерж волны с дефолтом, DESIGN §3, §10). Своп волны
   // переключателем меняет её вживую — борд перерисовывается в новой сетке без перезагрузки.
-  const { layout } = useWave();
+  const { layout, activeKey } = useWave();
   const today = useMemo(() => mskToday(), []);
   const { from, to } = useMemo(() => windowAround(today, RADIUS), [today]);
 
@@ -129,6 +131,8 @@ export function Board() {
     selectDay: setSelected,
     retryDay: () => loadDay(selected),
     retryRange: loadRange,
+    // null (деградированный SSR) ⇒ фолбэк-скин волны 01, поэтому и её спрайт-набор.
+    wave: activeKey ?? "wave-01",
   };
 
   return (
@@ -216,6 +220,7 @@ function BoardTile({
           today={data.today}
           state={data.dayStatus}
           onRetry={data.retryDay}
+          wave={data.wave}
           style={style}
           className={className}
         />

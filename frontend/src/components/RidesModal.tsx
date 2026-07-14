@@ -4,6 +4,7 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import type { RideView } from "@/lib/api/types";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { formatDuration, formatKm } from "@/lib/rideFormat";
+import { Icon } from "./Icon";
 
 interface RidesModalProps {
   rides: RideView[];
@@ -69,9 +70,9 @@ export function RidesModal({ rides, today, onClose }: RidesModalProps) {
             className="tap-target"
             onClick={onClose}
             aria-label="Закрыть"
-            style={{ ...monoTertiary, fontSize: 20, cursor: "pointer", background: "none", border: "none" }}
+            style={{ ...monoTertiary, cursor: "pointer", background: "none", border: "none", display: "inline-flex" }}
           >
-            ×
+            <Icon name="close" size={18} />
           </button>
         </div>
 

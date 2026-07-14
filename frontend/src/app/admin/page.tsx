@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { WaveSwitcher } from "@/components/WaveSwitcher";
+import { Icon } from "@/components/Icon";
 import { HeatmapSection } from "./HeatmapSection";
 import {
   AdminApiError,
@@ -464,9 +465,9 @@ export default function AdminPage() {
                     type="button"
                     onClick={() => onDelete(d)}
                     aria-label={`Удалить ${d.title}`}
-                    style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}
+                    style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)", display: "inline-flex" }}
                   >
-                    ✕
+                    <Icon name="close" size={15} />
                   </button>
                 </li>
               ))}
@@ -526,7 +527,7 @@ export default function AdminPage() {
                       title="повернуть на 90°"
                       style={rotateBtnStyle}
                     >
-                      ↻
+                      <Icon name="rotate" size={15} />
                     </button>
                     {/* Удаление одного кадра — верхний-правый угол (напротив ↻), отдельно от клика-обложки. */}
                     <button
@@ -540,15 +541,15 @@ export default function AdminPage() {
                       title="удалить кадр"
                       style={deletePhotoBtnStyle}
                     >
-                      ✕
+                      <Icon name="close" size={15} />
                     </button>
                     {/* LLM не определилась с верхом — кадр ждёт ручной стрелки. */}
                     {p.orientation === "ambiguous" && (
                       <span
                         title="LLM не определилась с верхом — проверь кадр"
-                        style={ambiguousBadgeStyle}
+                        style={{ ...ambiguousBadgeStyle, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
                       >
-                        ?
+                        <Icon name="help" size={12} />
                       </span>
                     )}
                   </li>

@@ -35,16 +35,17 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-total")).toHaveTextContent("0/7");
   });
 
-  it("остановка done по счётчику ≥ occurrence; пропущенная (день ушёл дальше) — missed", () => {
-    // чтение закрыто целиком (обе остановки), растяжка нет → растяжка «пропущена»
+  it("остановка done по счётчику ≥ occurrence; иначе pending (два состояния, без missed)", () => {
+    // чтение закрыто целиком (обе остановки), растяжка нет → растяжка «не сделано» = pending
     render(<QuestMap items={[item("reading", 2, 2), item("stretch", 0, 1)]} monsterDone={false} />);
 
     expect(screen.getByTestId("quest-stop-reading-1")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-reading-2")).toHaveAttribute("data-done", "true");
     const stretch = screen.getByTestId("quest-stop-stretch-1");
     expect(stretch).toHaveAttribute("data-done", "false");
-    expect(stretch.getAttribute("class")).toContain("quest-stop--missed");
-    // до дневника день ещё не дошёл — pending, не missed
+    // «пропущено» (missed) больше не выделяем — всё несделанное = pending
+    expect(stretch.getAttribute("class")).toContain("quest-stop--pending");
+    expect(stretch.getAttribute("class")).not.toContain("quest-stop--missed");
     expect(screen.getByTestId("quest-stop-journal-1").getAttribute("class")).toContain(
       "quest-stop--pending",
     );

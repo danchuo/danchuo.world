@@ -11,6 +11,8 @@ interface TodayTileProps {
   today: string;
   state: TileState;
   onRetry?: () => void;
+  /** Active wave key — forwarded to [QuestMap] so waves with a sprite set swap glyphs (DESIGN §12). */
+  wave?: string | null;
   style?: CSSProperties;
   className?: string;
 }
@@ -57,7 +59,7 @@ function longDateRu(iso: string): string {
  * статы строкой → карта-тропа дисциплины (монстр — детур на ней). Пустой/будущий день —
  * валидный вид: статы «нет данных» (но 0 как 0), карта в каркасе с незакрытыми остановками.
  */
-export function TodayTile({ day, today, state, onRetry, style, className }: TodayTileProps) {
+export function TodayTile({ day, today, state, onRetry, wave, style, className }: TodayTileProps) {
   // Подпись плитки относительна выбранной дате: «сегодня» только когда выбран сегодня.
   const label = day ? relativeDayRu(day.date, today) : "сегодня";
   // Выбран день соседнего месяца → фон плитки чуть меняется (§4), как и ячейка в календаре.
@@ -123,7 +125,7 @@ export function TodayTile({ day, today, state, onRetry, style, className }: Toda
           {/* Дисциплина — карта-тропа дня (QuestMap, §5.6): остановки вместо списка дробей.
               Monster lives on the map only (detour stop); no separate footer note/can image —
               flavor-specific art is backlogged to land inside the map, not as its own block. */}
-          <QuestMap items={day.discipline} monsterDone={day.monster != null} />
+          <QuestMap items={day.discipline} monsterDone={day.monster != null} wave={wave} />
         </div>
       )}
     </TileShell>

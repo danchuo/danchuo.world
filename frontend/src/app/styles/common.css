@@ -194,6 +194,26 @@ body {
 }
 .quest-flag { color: var(--accent); }
 
+/* Sprite-режим (волны с растровым набором, DESIGN §12), подача D «крем + кольцо»: диск НЕ
+   заливается акцентом (цветной спрайт утонул бы) — заливка всегда кремовая, а состояние несут
+   ПОЖИРНЕЕ КОЛЬЦО + стрелки. done — коралловое кольцо, pending — тихий тёплый пунктир,
+   missed — danger-пунктир. Спрайты pending/missed слегка гаснут, чтобы закрытые читались ярче. */
+.quest-map--sprites .quest-stop circle { fill: var(--bg-surface); stroke-width: 2; }
+.quest-map--sprites .quest-stop--done circle { stroke: var(--accent); }
+.quest-map--sprites .quest-stop--pending circle {
+  stroke: color-mix(in srgb, var(--text-tertiary) 45%, transparent);
+  stroke-dasharray: 4 4;
+}
+.quest-map--sprites .quest-stop--pending image { opacity: 0.6; }
+
+/* Стрелка сегмента в sprite-режиме — жирный ЗАЛИТЫЙ наконечник под пиксельный стиль набора
+   (не тонкий штрих). Два состояния: done (зелёная) / не сделано (серая). Вектор вращается чисто. */
+.quest-chevron--bold { stroke: none; }
+.quest-map--sprites .quest-seg--done .quest-chevron--bold { fill: var(--success); }
+.quest-map--sprites .quest-seg--pending .quest-chevron--bold {
+  fill: color-mix(in srgb, var(--text-tertiary) 50%, transparent);
+}
+
 /* Perfect day: весь маршрут закрыт — тропа зажигается тёплым акцентом (§2.3: сдержанно). */
 .quest-map--perfect .quest-seg--done { stroke: var(--accent-warm); opacity: 1; }
 .quest-map--perfect .quest-stop--done circle {

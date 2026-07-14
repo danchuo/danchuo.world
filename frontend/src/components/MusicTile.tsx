@@ -14,6 +14,7 @@ import { readCache, writeCache } from "@/lib/api/cache";
 import { getNowPlaying, getRecent } from "@/lib/api/client";
 import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, SourceRef, TrackView } from "@/lib/api/types";
 import { TileShell, type TileState } from "./TileShell";
+import { Icon } from "./Icon";
 
 interface MusicTileProps {
   style?: CSSProperties;
@@ -200,7 +201,13 @@ function Source({ source }: { source: SourceRef }) {
   return (
     <Marquee style={sourceStyle}>
       <a href={source.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
-        {source.name ? `${label}: ${source.name}` : `${label} ↗`}
+        {source.name ? (
+          `${label}: ${source.name}`
+        ) : (
+          <>
+            {label} <Icon name="external" size={11} />
+          </>
+        )}
       </a>
     </Marquee>
   );

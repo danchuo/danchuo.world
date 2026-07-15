@@ -263,3 +263,9 @@ body {
 .blur-up-full[data-loaded="true"] {
   opacity: 1;
 }
+
+/* Пиксельные пины мини-карты Велобайк (RideMap, DESIGN §7.6/§12): спрайт нарисован в маленькой
+   сетке и масштабируется — pixelated держит чёткие пиксели вместо мыла интерполяции. */
+.ride-pin-icon {
+  image-rendering: pixelated;
+}

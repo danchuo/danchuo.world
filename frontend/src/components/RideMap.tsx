@@ -8,23 +8,49 @@ interface RideMapProps {
   startLon: number;
   finishLat: number;
   finishLon: number;
+  /** Активная волна — выбирает набор пиксельных пинов (см. RIDE_PINS); нет пинов ⇒ кружки. */
+  wave?: string | null;
   className?: string;
 }
 
 /**
  * Мини-карта поездки Велобайк (PRD §9 B4, DESIGN §7.6). Геоданных только две точки — старт и
- * финиш (трека маршрута API не отдаёт), поэтому рисуем 2 кружка (старт зелёный, финиш красный)
- * и **пунктирную прямую** между ними — честно «по прямой», не пройденный путь.
+ * финиш (трека маршрута API не отдаёт), поэтому рисуем два маркера и **пунктирную дугу** между
+ * ними — честно «связь A→B», не пройденный путь.
+ *
+ * Маркеры зависят от волны: у волн из RIDE_PINS (напр. wave-01) — пиксельные пины-спрайты
+ * (старт = велосипед, финиш = клетчатый флаг, DESIGN §12), извлечённые под скин; иначе — базовый
+ * фолбэк из двух circleMarker (старт зелёный, финиш красный). Пин якорится острым кончиком в
+ * точку (iconAnchor снизу-по-центру).
  *
  * Базовая карта — CARTO Voyager (мягкий минимал, бесплатные тайлы; атрибуция OSM/CARTO).
- * Leaflet грузится динамически в эффекте (SSR-safe, только в браузере); circleMarker вместо
- * дефолтных пинов — у тех известная проблема с путями иконок в бандлере. Карта намеренно
- * статична (без перетаскивания/зума колесом) — это виджет, а не интерактивный атлас.
+ * Leaflet грузится динамически в эффекте (SSR-safe, только в браузере). Карта намеренно статична
+ * (без перетаскивания/зума колесом) — это виджет, а не интерактивный атлас.
  *
  * Линия старт→финиш — **пологая пунктирная дуга** (квадратичная Безье), а не прямая: живее
  * читается и честно остаётся «связью A→B», не выдавая себя за пройденный маршрут (трека нет).
  */
 const ARC_COLOR = "#c2603f";
+
+/**
+ * Пиксельные пины по волнам (DESIGN §12). На мини-карте пин крошечный (~34px), поэтому спрайты
+ * нарочно **упрощены под размер** (optical sizing): сплошная капля + один жирный белый глиф
+ * (старт = колесо-нод к велосипеду, финиш = клетчатый флаг), без внутреннего кружка и тонких
+ * деталей — детальные версии (`*-detailed.png`) лежат рядом под будущую крупную карту. Размеры —
+ * под аспект авторской сетки 15×19 (кончик капли — снизу-по-центру). `ride-pin-icon` в
+ * `common.css` даёт `image-rendering: pixelated` (чёткие пиксели при масштабе).
+ */
+interface PinSpec {
+  url: string;
+  w: number;
+  h: number;
+}
+const RIDE_PINS: Record<string, { start: PinSpec; finish: PinSpec }> = {
+  "wave-01": {
+    start: { url: "/assets/waves/wave-01/decor/pin-start.png", w: 27, h: 34 },
+    finish: { url: "/assets/waves/wave-01/decor/pin-finish.png", w: 27, h: 34 },
+  },
+};
 
 /** Точки квадратичной кривой Безье от s к f с контрольной точкой, отведённой перпендикуляром. */
 function arcPoints(s: [number, number], f: [number, number]): [number, number][] {
@@ -45,7 +71,7 @@ function arcPoints(s: [number, number], f: [number, number]): [number, number][]
   return pts;
 }
 
-export function RideMap({ startLat, startLon, finishLat, finishLon, className }: RideMapProps) {
+export function RideMap({ startLat, startLon, finishLat, finishLon, wave, className }: RideMapProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,11 +109,31 @@ export function RideMap({ startLat, startLon, finishLat, finishLon, className }:
         opacity: 0.9,
       }).addTo(map);
 
-      L.circleMarker(start, { radius: 5, color: "#2f9e44", fillColor: "#2f9e44", fillOpacity: 1, weight: 2 }).addTo(map);
-      L.circleMarker(finish, { radius: 5, color: "#e03131", fillColor: "#e03131", fillOpacity: 1, weight: 2 }).addTo(map);
+      const pins = wave ? RIDE_PINS[wave] : undefined;
+      if (pins) {
+        // Пиксельные пины: якорь — острый кончик (снизу-по-центру), голова возвышается над точкой.
+        const pinMarker = (p: [number, number], spec: PinSpec) =>
+          L.marker(p, {
+            icon: L.icon({
+              iconUrl: spec.url,
+              iconSize: [spec.w, spec.h],
+              iconAnchor: [spec.w / 2, spec.h],
+              className: "ride-pin-icon",
+            }),
+            interactive: false,
+            keyboard: false,
+          }).addTo(map);
+        pinMarker(start, pins.start);
+        pinMarker(finish, pins.finish);
+      } else {
+        L.circleMarker(start, { radius: 5, color: "#2f9e44", fillColor: "#2f9e44", fillOpacity: 1, weight: 2 }).addTo(map);
+        L.circleMarker(finish, { radius: 5, color: "#e03131", fillColor: "#e03131", fillOpacity: 1, weight: 2 }).addTo(map);
+      }
 
       const bounds = L.latLngBounds([start, finish]).pad(0.35);
-      map.fitBounds(bounds);
+      // Пиксельные пины «висят» головой над точкой — добавляем пиксельный отступ сверху, чтобы
+      // головы не срезались верхней кромкой тайла (кончики внизу малы — снизу отступ минимальный).
+      map.fitBounds(bounds, pins ? { paddingTopLeft: L.point(6, 36), paddingBottomRight: L.point(6, 8) } : undefined);
       // Контейнер мог измениться в размере после маунта (грид) — пересчитываем тайлы.
       setTimeout(() => map && map.invalidateSize(), 0);
     });
@@ -96,7 +142,7 @@ export function RideMap({ startLat, startLon, finishLat, finishLon, className }:
       cancelled = true;
       if (map) map.remove();
     };
-  }, [startLat, startLon, finishLat, finishLon]);
+  }, [startLat, startLon, finishLat, finishLon, wave]);
 
   // isolation:isolate — собственный stacking context: внутренние z-index Leaflet (панель тайлов
   // ~200, overlay-пунктир ~400, маркеры ~600) иначе «протекают» до корня и рисуются ПОВЕРХ

@@ -266,7 +266,7 @@ function BoardTile({
     case "projects":
       return <ProjectsTile style={style} className={className} />;
     case "ride":
-      return <RideTile style={style} className={className} />;
+      return <RideTile wave={data.wave} style={style} className={className} />;
     case "social":
       return <SocialTile style={style} className={className} />;
     case "marquee":

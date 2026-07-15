@@ -12,6 +12,8 @@ import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
 interface RideTileProps {
+  /** Активная волна — пробрасывается в мини-карту для выбора пиксельных пинов (DESIGN §12). */
+  wave?: string | null;
   style?: CSSProperties;
   className?: string;
 }
@@ -25,7 +27,7 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
  * поездок (тот же контур, что у фото-дропов). Пусто до первого ingest — тихий empty (§7).
  * Ноль хардкод-цветов (токены волны).
  */
-export function RideTile({ style, className }: RideTileProps) {
+export function RideTile({ wave, style, className }: RideTileProps) {
   const { phase, data, retry } = useTileData<RideView[]>(
     useCallback((signal) => getRides({ signal }), []),
     "rides",
@@ -62,6 +64,7 @@ export function RideTile({ style, className }: RideTileProps) {
                 startLon={latest.startLon!}
                 finishLat={latest.finishLat!}
                 finishLon={latest.finishLon!}
+                wave={wave}
               />
             </div>
           )}

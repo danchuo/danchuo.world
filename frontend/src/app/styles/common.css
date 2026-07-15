@@ -263,3 +263,28 @@ body {
 .blur-up-full[data-loaded="true"] {
   opacity: 1;
 }
+
+/* Пиксельные пины мини-карты Велобайк (RideMap, DESIGN §7.6/§12): спрайт нарисован в маленькой
+   сетке и масштабируется — pixelated держит чёткие пиксели вместо мыла интерполяции. */
+.ride-pin-icon {
+  image-rendering: pixelated;
+}
+
+/* Тултип адреса на пине большой карты (RideMap interactivePins, DESIGN §7.6) — под токены волны,
+   а не дефолтный белый Leaflet. Две класс-селектора перебивают базовый .leaflet-tooltip. */
+.leaflet-tooltip.ride-pin-tooltip {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-muted, rgba(33, 26, 22, 0.14));
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 3px 7px;
+  max-width: 220px;
+  white-space: normal;
+  box-shadow: 0 3px 10px rgba(33, 26, 22, 0.18);
+}
+.leaflet-tooltip.ride-pin-tooltip.leaflet-tooltip-top::before {
+  border-top-color: var(--bg-surface);
+}

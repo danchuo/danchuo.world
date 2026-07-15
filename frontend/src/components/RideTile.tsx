@@ -12,6 +12,8 @@ import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
 interface RideTileProps {
+  /** Активная волна — пробрасывается в мини-карту для выбора пиксельных пинов (DESIGN §12). */
+  wave?: string | null;
   style?: CSSProperties;
   className?: string;
 }
@@ -25,7 +27,7 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
  * поездок (тот же контур, что у фото-дропов). Пусто до первого ingest — тихий empty (§7).
  * Ноль хардкод-цветов (токены волны).
  */
-export function RideTile({ style, className }: RideTileProps) {
+export function RideTile({ wave, style, className }: RideTileProps) {
   const { phase, data, retry } = useTileData<RideView[]>(
     useCallback((signal) => getRides({ signal }), []),
     "rides",
@@ -56,14 +58,34 @@ export function RideTile({ style, className }: RideTileProps) {
       {phase === "loaded" && !isEmpty && latest && (
         <div className="flex h-full flex-col gap-2">
           {hasCoords && (
-            <div style={{ flex: "1 1 42%", minHeight: 80, overflow: "hidden", borderRadius: "var(--radius-sm)" }}>
+            // Клик по карте открывает модалку поездок (карта статична и pointer-events:none —
+            // клики доходят до кнопки). Тот же вход, что и «предыдущие».
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              aria-label="Открыть карту поездок"
+              className="tap-target"
+              style={{
+                flex: "1 1 42%",
+                minHeight: 80,
+                overflow: "hidden",
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                padding: 0,
+                background: "none",
+                cursor: "pointer",
+                display: "block",
+                width: "100%",
+              }}
+            >
               <RideMap
                 startLat={latest.startLat!}
                 startLon={latest.startLon!}
                 finishLat={latest.finishLat!}
                 finishLon={latest.finishLon!}
+                wave={wave}
               />
-            </div>
+            </button>
           )}
 
           <div className="flex flex-col gap-1">
@@ -92,11 +114,6 @@ export function RideTile({ style, className }: RideTileProps) {
               )}
             </div>
 
-            {(latest.startAddress || latest.finishAddress) && (
-              <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: 11 }}>
-                {(latest.startAddress ?? "?") + " → " + (latest.finishAddress ?? "?")}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -105,7 +122,7 @@ export function RideTile({ style, className }: RideTileProps) {
       {/* Модалка — сиблинг TileShell (не внутри): у .pixel-tile clip-path/тень создают
           containing block, и fixed-оверлей внутри тайла обрезался бы им вместо вьюпорта.
           Тот же приём, что у фото-дропов (§7.5) — окно сверху на весь экран. */}
-      {modalOpen && <RidesModal rides={rides} today={today} onClose={() => setModalOpen(false)} />}
+      {modalOpen && <RidesModal rides={rides} today={today} wave={wave} onClose={() => setModalOpen(false)} />}
     </>
   );
 }

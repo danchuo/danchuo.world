@@ -31,4 +31,11 @@ describe("bikeBookmarklet", () => {
     expect(BIKE_CONSOLE_SNIPPET).toContain("copy(__vbRides)");
     expect(BIKE_CONSOLE_SNIPPET).toContain("total=j.totalElements");
   });
+
+  it("обогащает адреса через getPopulatedRent/{id} и подставляет их в поездку", () => {
+    // Список адрес не отдаёт — тянем детальный getPopulatedRent и мержим адреса станций.
+    expect(BIKE_CONSOLE_SNIPPET).toContain("/api/rent/v2/rents/getPopulatedRent/");
+    expect(BIKE_CONSOLE_SNIPPET).toContain("it.startParkingAddress=pj.startParkingAddress");
+    expect(BIKE_CONSOLE_SNIPPET).toContain("it.finishParkingAddress=pj.finishParkingAddress");
+  });
 });

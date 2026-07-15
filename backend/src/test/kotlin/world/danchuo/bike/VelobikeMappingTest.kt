@@ -77,6 +77,9 @@ class VelobikeMappingTest {
         assertEquals(10, rides.size)
         assertTrue(rides.all { it.distanceMeters >= 0 && it.durationSeconds >= 0 })
         assertTrue(rides.all { it.finishTime.isAfter(it.startTime) || it.finishTime == it.startTime })
+        // Стоимость (`cost` копейки) маппится у всех и включает платные поездки (не только 0).
+        assertTrue(rides.all { (it.costKopecks ?: -1) >= 0 })
+        assertTrue(rides.any { (it.costKopecks ?: 0) > 0 })
     }
 
     @Test

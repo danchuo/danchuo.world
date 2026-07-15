@@ -35,6 +35,15 @@ class BikeIngestResource(
     @Path("/rides")
     fun ingestRides(rides: List<RentItem>): UpsertResult = service.upsert(rides)
 
+    /**
+     * Push-канал: массив записей истории покупок (`content[]` из `purchases/history`) → идемпотентный
+     * upsert покупок тарифов. Записи `RENTAL` отсеивает сам сервис — можно слать всё как есть.
+     * Нужны для атрибуции бесплатных поездок «в рамках тарифа за N ₽».
+     */
+    @POST
+    @Path("/tariffs")
+    fun ingestTariffs(purchases: List<PurchaseItem>): UpsertResult = service.upsertTariffs(purchases)
+
     /** Серверный поллинг: запросить SMS-код на телефон владельца (из конфига). */
     @POST
     @Path("/authorize/code")

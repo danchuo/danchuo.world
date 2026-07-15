@@ -34,6 +34,7 @@ const base = (over: Partial<RideView>): RideView => ({
   durationSeconds: 2640,
   calories: 168,
   costKopecks: 5243,
+  coveredByTariffKopecks: null,
   vehicleType: null,
   tariffName: null,
   startLat: 55.7,
@@ -93,6 +94,16 @@ describe("RidesModal — карта выбранной поездки", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
     // 5243 копейки → «52 ₽»; строка метрик содержит и ккал, и стоимость.
     expect(screen.getAllByText(/168 ккал · 52 ₽/).length).toBeGreaterThan(0);
+  });
+
+  it("бесплатная поездка под тарифом — «в рамках тарифа за N ₽» вместо «бесплатно»", () => {
+    const covered: RideView[] = [
+      base({ id: 20, costKopecks: 0, coveredByTariffKopecks: 90000 }), // 900 ₽ покрывающий тариф
+      base({ id: 21, costKopecks: 0, coveredByTariffKopecks: null }), // покупки не нашлось → бесплатно
+    ];
+    render(<RidesModal rides={covered} today="2026-07-13" onClose={() => {}} />);
+    expect(screen.getAllByText(/в рамках тарифа за 900 ₽/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/· бесплатно/).length).toBeGreaterThan(0);
   });
 
   it("Esc и кнопка закрытия зовут onClose", () => {

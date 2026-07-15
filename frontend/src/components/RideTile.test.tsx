@@ -27,6 +27,7 @@ const base = (over: Partial<RideView>): RideView => ({
   durationSeconds: 2640,
   calories: 168,
   costKopecks: 5243,
+  coveredByTariffKopecks: null,
   vehicleType: null,
   tariffName: null,
   startLat: 55.7,

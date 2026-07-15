@@ -158,6 +158,22 @@ export async function importBikeRides(token: string, rides: unknown[]): Promise<
 }
 
 /**
+ * Импорт истории покупок тарифов Велобайка (B4, PRD §5.13) — `POST /api/ingest/bike/tariffs`.
+ * `purchases` — записи `purchaseType === "TARIFF"` из `purchases/history`, собранные тем же
+ * букмарклетом. Нужны, чтобы бесплатные поездки показать как «в рамках тарифа за N ₽». Записи
+ * `RENTAL` бэк отсеивает сам. Идемпотентно по id платежа.
+ */
+export async function importBikeTariffs(token: string, purchases: unknown[]): Promise<BikeImportResultView> {
+  const res = await fetch(`${BASE}/api/ingest/bike/tariffs`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(purchases),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as BikeImportResultView;
+}
+
+/**
  * Хитмапа кликов по тайлам борда (B2) — `GET /api/ingest/analytics/heatmap`, за тем же bearer.
  * `from`/`to` — даты MSK (ISO `yyyy-MM-dd`); пусто ⇒ серверный дефолт (последние 30 дней).
  */

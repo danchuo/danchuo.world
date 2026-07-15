@@ -1,0 +1,54 @@
+{
+  "totalElements": 42,
+  "totalPages": 5,
+  "number": 0,
+  "last": false,
+  "content": [
+    {
+      "idPurchase": 2757353,
+      "purchaseType": "RENTAL",
+      "idRent": "9158082",
+      "status": "PAID_FOR",
+      "cost": 5243,
+      "orderItems": [
+        { "id": "9158082", "type": "rental", "name": "Аренда велосипеда 0 ч. 7 м.", "cost": 5243 }
+      ],
+      "createDate": 1783955974713,
+      "rentDuration": 460
+    },
+    {
+      "idPurchase": 2757350,
+      "purchaseType": "TARIFF",
+      "idTariff": 2785,
+      "status": "PAID_FOR",
+      "cost": 4000,
+      "orderItems": [
+        { "id": "2785", "type": "tariff", "name": "Доступ Поминутный", "cost": 4000 }
+      ],
+      "createDate": 1783955969793
+    },
+    {
+      "idPurchase": 2716277,
+      "purchaseType": "RENTAL",
+      "idRent": "9114555",
+      "status": "PAID_FOR",
+      "cost": 0,
+      "orderItems": [
+        { "id": "9114555", "type": "rental", "name": "Аренда велосипеда 0 ч. 43 м.", "cost": 0 }
+      ],
+      "createDate": 1783767498494,
+      "rentDuration": 2623
+    },
+    {
+      "idPurchase": 2715716,
+      "purchaseType": "TARIFF",
+      "idTariff": 2793,
+      "status": "PAID_FOR",
+      "cost": 39900,
+      "orderItems": [
+        { "id": "2793", "type": "tariff", "name": "Доступ Пакет 60 минут", "cost": 39900 }
+      ],
+      "createDate": 1783766206685
+    }
+  ]
+}

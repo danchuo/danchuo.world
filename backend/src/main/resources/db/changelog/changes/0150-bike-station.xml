@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс bike (PRD §9 B4): кэш координат станций по адресу — чтобы рисовать пины поездки по
+      станции (надёжный адрес → геокод), а не по сырому GPS велосипеда (заброс в Шереметьево).
+
+      - bike_station: адрес → координаты, идемпотентно по address ⇒ UNIQUE. found помечает уже
+        пробованные адреса без матча (не ретраим). Заполняет фоновый StationGeocoder.
+    -->
+    <changeSet id="0150-bike-station-table" author="danchuo">
+        <createTable tableName="bike_station">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="address" type="VARCHAR(512)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_bike_station_address"/>
+            </column>
+            <column name="lat" type="DOUBLE PRECISION"/>
+            <column name="lon" type="DOUBLE PRECISION"/>
+            <column name="found" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="geocoded_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

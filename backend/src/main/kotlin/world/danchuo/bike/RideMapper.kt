@@ -35,3 +35,50 @@ object RideMapper {
         item.finishParkingAddress?.let { ride.finishAddress = it }
     }
 }
+
+/**
+ * Чистый маппинг записи истории покупок ([PurchaseItem]) в [BikeTariff] — без БД/времени, под
+ * юнит-тест на реальной фикстуре. Храним только **покупки тарифов** (`purchaseType == TARIFF`):
+ * записи `RENTAL` — это списания за поездки, они у нас уже есть в истории поездок.
+ *
+ * `cost` — копейки (как у поездок); минуты пакета вытягиваем из названия («…60 минут» → 60), это
+ * best-effort и для отображения не требуется (там нужна только цена покупки).
+ */
+object TariffMapper {
+
+    /** Годна к хранению только покупка тарифа с временем покупки (иначе её нельзя привязать по оси времени). */
+    fun isTariffPurchase(item: PurchaseItem): Boolean =
+        item.purchaseType.equals("TARIFF", ignoreCase = true) && item.createDate != null
+
+    /** Перенести поля [item] в [tariff] (вызывающий уже проверил [isTariffPurchase]). */
+    fun applyTo(tariff: BikeTariff, item: PurchaseItem) {
+        val orderItem = item.orderItems.firstOrNull { it.type.equals("tariff", ignoreCase = true) }
+            ?: item.orderItems.firstOrNull()
+        tariff.externalId = item.idPurchase.toString()
+        tariff.purchasedAt = Instant.ofEpochMilli(item.createDate!!)
+        tariff.priceKopecks = item.cost ?: orderItem?.cost ?: 0
+        tariff.name = orderItem?.name
+        tariff.minutes = orderItem?.name?.let(::parseMinutes)
+    }
+
+    /** «Доступ Пакет 60 минут» → 60; «Доступ Поминутный» → null. Диагностика/будущее. */
+    private fun parseMinutes(name: String): Int? =
+        Regex("""(\d+)\s*мин""").find(name)?.groupValues?.get(1)?.toIntOrNull()
+}
+
+/**
+ * Привязка бесплатной поездки к тарифу, «покрывающему» её (PRD §9 B4). Чистая логика (без БД),
+ * чтобы покрываться юнит-тестом. `cost = 0` — поездка едет не «бесплатно», а в рамках ранее
+ * купленного пакета минут; берём **ближайшую предшествующую** покупку по времени
+ * (`purchasedAt <= rideStart`) и её цену. Платная поездка (`cost != 0`), либо покупок раньше не
+ * было, либо цена покупки нулевая ⇒ `null` (фронт покажет обычную стоимость/«бесплатно»).
+ */
+object TariffAttribution {
+
+    /** [purchases] — покупки тарифов, отсортированные по времени убыванием (первая подходящая = ближайшая). */
+    fun coveringKopecks(costKopecks: Int?, rideStart: Instant, purchases: List<BikeTariff>): Int? {
+        if (costKopecks != 0) return null
+        val covering = purchases.firstOrNull { !it.purchasedAt.isAfter(rideStart) } ?: return null
+        return covering.priceKopecks.takeIf { it > 0 }
+    }
+}

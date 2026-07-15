@@ -17,6 +17,8 @@ data class RideView(
     val distanceMeters: Int,
     val durationSeconds: Int,
     val calories: Int?,
+    /** Стоимость поездки в копейках (`cost` API; null — нет данных). Формат — на фронте. */
+    val costKopecks: Int?,
     val vehicleType: String?,
     val tariffName: String?,
     val startLat: Double?,

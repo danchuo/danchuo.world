@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatKm } from "./rideFormat";
+import { formatCost, formatDuration, formatKm } from "./rideFormat";
 
 describe("formatKm", () => {
   it("ниже километра — в метрах", () => {
@@ -20,5 +20,16 @@ describe("formatDuration", () => {
   it("от часа — часы и минуты", () => {
     expect(formatDuration(16586)).toBe("4 ч 36 мин");
     expect(formatDuration(3600)).toBe("1 ч");
+  });
+});
+
+describe("formatCost", () => {
+  it("копейки → рубли с округлением", () => {
+    expect(formatCost(5243)).toBe("52 ₽");
+    expect(formatCost(96621)).toBe("966 ₽");
+  });
+  it("ноль и меньше — бесплатно", () => {
+    expect(formatCost(0)).toBe("бесплатно");
+    expect(formatCost(-10)).toBe("бесплатно");
   });
 });

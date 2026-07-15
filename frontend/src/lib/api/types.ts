@@ -222,6 +222,8 @@ export interface RideView {
   distanceMeters: number;
   durationSeconds: number;
   calories: number | null;
+  /** Стоимость поездки в копейках (null — нет данных). Формат — `formatCost`. */
+  costKopecks: number | null;
   vehicleType: string | null;
   tariffName: string | null;
   startLat: number | null;

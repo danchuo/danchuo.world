@@ -17,3 +17,9 @@ export function formatDuration(seconds: number): string {
   const m = totalMin % 60;
   return m === 0 ? `${h} ч` : `${h} ч ${m} мин`;
 }
+
+/** Стоимость: копейки → рубли, округление до целого («52 ₽»); 0/меньше — «бесплатно». */
+export function formatCost(kopecks: number): string {
+  if (kopecks <= 0) return "бесплатно";
+  return `${Math.round(kopecks / 100)} ₽`;
+}

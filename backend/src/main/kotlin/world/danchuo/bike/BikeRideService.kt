@@ -87,6 +87,7 @@ class BikeRideService(
         distanceMeters = r.distanceMeters,
         durationSeconds = r.durationSeconds,
         calories = r.calories,
+        costKopecks = r.costKopecks,
         vehicleType = r.vehicleType,
         tariffName = r.tariffName,
         startLat = r.startLat,

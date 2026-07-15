@@ -8,6 +8,14 @@
  * владелец вставляет его в `/admin → поездки велобайк` (POST на наш ingest идёт с того же origin,
  * токен записи не покидает danchuo.world; см. `importBikeRides`).
  *
+ * Обогащение адресами: списочный `rents/client` отдаёт координаты и внешний id парковки, но
+ * **не адрес станции** — его несёт только детальный `GET /api/rent/v2/rents/getPopulatedRent/{id}`
+ * (поля `startParkingAddress`/`finishParkingAddress`, напр. «ст. м. Молодёжная (выход № 2)»).
+ * Поэтому после сбора списка сниппет по каждой поездке дёргает `getPopulatedRent` (пачками по 5,
+ * с прогрессом) и подставляет адреса в элемент перед отправкой. Поля совпадают с `RentItem` —
+ * маппер бэка (`RideMapper`) читает их как есть, менять его не нужно. Сбой детали не роняет
+ * импорт: адрес просто остаётся пустым, поездка уходит без него.
+ *
  * Авторизация PWA (снято живьём с прода): access-токен Велобайка лежит **в IndexedDB** — БД
  * `keyval-store`, стор `keyval`, ключ `vb-access-token` (JWT-строка, `iss=client-oauth`). В
  * web-storage токена нет, сессионной куки API не принимает (без `Authorization` — 401). Поэтому
@@ -33,7 +41,7 @@ const BODY = [
   "let t=await g('vb-access-token');",
   "if(t&&typeof t!=='string')t=(JSON.stringify(t).match(/eyJ[\\w-]+\\.[\\w-]+\\.[\\w-]+/)||[])[0];",
   "if(!t){alert('Не нашёл токен Велобайка (vb-access-token). Залогинься на pwa.velobike.ru и повтори.');return}",
-  "const H={'App-version':'4.4.30',source:'pwa-client',lang:'ru',Accept:'application/json',Authorization:'Bearer '+t};",
+  "const H={'App-version':'4.5.7',source:'pwa-client',lang:'ru',Accept:'application/json',Authorization:'Bearer '+t};",
   "const a=[];let total=null;",
   "for(let p=0;p<200;p++){",
   "const r=await fetch('/api/rent/rents/client?size=50&page='+p+'&statuses=TECH_DONE,DONE',{headers:H});",
@@ -41,9 +49,18 @@ const BODY = [
   "const j=await r.json();if(total==null)total=j.totalElements;",
   "const c=j.content||[];a.push(...c);if(!c.length||j.last)break}",
   "if(!a.length){alert('Поездок не найдено.');return}",
+  // Обогащение адресами станций: список их не отдаёт, тянем из детального getPopulatedRent/{id}
+  // (пачками по 5, чтобы не долбить API). Сбой одной детали не роняет импорт — адрес пустой.
+  "const POP='/api/rent/v2/rents/getPopulatedRent/';let en=0;",
+  "async function pop(it){try{const rr=await fetch(POP+it.id,{headers:H});",
+  "if(rr.ok){const pj=await rr.json();",
+  "if(pj.startParkingAddress)it.startParkingAddress=pj.startParkingAddress;",
+  "if(pj.finishParkingAddress)it.finishParkingAddress=pj.finishParkingAddress}}catch(e){}en++}",
+  "for(let i=0;i<a.length;i+=5){await Promise.all(a.slice(i,i+5).map(pop));",
+  "console.log('адреса: '+en+' из '+a.length)}",
   "const x=JSON.stringify(a);window.__vbRides=x;",
   "let ok=false;try{await navigator.clipboard.writeText(x);ok=true}catch(e){}",
-  "const msg='Собрано '+a.length+' из '+total+' поездок.';",
+  "const msg='Собрано '+a.length+' из '+total+' поездок (адреса: '+en+').';",
   "console.log(msg+(ok?' Уже в буфере.':' Скопируй так:  copy(__vbRides)'));",
   "alert(msg+(ok?' Скопировано — вставь в admin.':' Буфер не дался: в консоли набери  copy(__vbRides)  и вставь в admin.'))",
   "}catch(e){alert('Ошибка: '+e.message)}})();",

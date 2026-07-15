@@ -38,4 +38,10 @@ describe("bikeBookmarklet", () => {
     expect(BIKE_CONSOLE_SNIPPET).toContain("it.startParkingAddress=pj.startParkingAddress");
     expect(BIKE_CONSOLE_SNIPPET).toContain("it.finishParkingAddress=pj.finishParkingAddress");
   });
+
+  it("тем же заходом собирает покупки тарифов (только TARIFF) и шлёт {rides, tariffs}", () => {
+    expect(BIKE_CONSOLE_SNIPPET).toContain("/api/purchases/history");
+    expect(BIKE_CONSOLE_SNIPPET).toContain("x.purchaseType==='TARIFF'");
+    expect(BIKE_CONSOLE_SNIPPET).toContain("JSON.stringify({rides:a,tariffs:pt})");
+  });
 });

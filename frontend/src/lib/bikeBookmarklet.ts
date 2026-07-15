@@ -16,16 +16,23 @@
  * маппер бэка (`RideMapper`) читает их как есть, менять его не нужно. Сбой детали не роняет
  * импорт: адрес просто остаётся пустым, поездка уходит без него.
  *
+ * Покупки тарифов: часть поездок стоит `cost = 0` — это не «бесплатно», а «в рамках уже купленного
+ * тарифа на N минут». Чтобы показать «в рамках тарифа за N ₽», тем же одним заходом сниппет листает
+ * `purchases/history` и оставляет только записи `purchaseType === 'TARIFF'` (покупки; `RENTAL` —
+ * списания за поездки, уже есть в поездках). Буфер отдаёт **объект** `{rides, tariffs}` — админка
+ * (`importBikeRides`/`importBikeTariffs`) шлёт две части на разные ingest-ручки. Старый голый массив
+ * поездок админка тоже принимает (обратная совместимость).
+ *
  * Авторизация PWA (снято живьём с прода): access-токен Велобайка лежит **в IndexedDB** — БД
  * `keyval-store`, стор `keyval`, ключ `vb-access-token` (JWT-строка, `iss=client-oauth`). В
  * web-storage токена нет, сессионной куки API не принимает (без `Authorization` — 401). Поэтому
  * сниппет читает `vb-access-token` из IndexedDB и шлёт `Authorization: Bearer <jwt>`.
  *
  * Буфер: под кликом-букмарклетом (жест пользователя) `navigator.clipboard.writeText` кладёт JSON
- * целиком. В **консольном** пути жеста нет и клипборд может обрезать/отказать — поэтому сниппет
- * всегда дублирует полный JSON в `window.__vbRides` и подсказывает `copy(__vbRides)` (надёжный
- * DevTools-хелпер без обрезки). Отчёт «собрано X из Y» (Y — `totalElements`) сразу показывает,
- * все ли поездки утянулись.
+ * `{rides, tariffs}` целиком. В **консольном** пути жеста нет и клипборд может обрезать/отказать —
+ * поэтому сниппет всегда дублирует полный JSON в `window.__vbRides` и подсказывает `copy(__vbRides)`
+ * (надёжный DevTools-хелпер без обрезки). Отчёт «собрано X из Y поездок (адреса: …, тарифов: …)»
+ * сразу показывает, всё ли утянулось.
  *
  * BODY используется дважды: как тело `javascript:`-букмарклета и как сниппет для консоли DevTools
  * (запасной путь, если строгий CSP на pwa.velobike.ru не даёт запустить букмарклет).
@@ -58,9 +65,17 @@ const BODY = [
   "if(pj.finishParkingAddress)it.finishParkingAddress=pj.finishParkingAddress}}catch(e){}en++}",
   "for(let i=0;i<a.length;i+=5){await Promise.all(a.slice(i,i+5).map(pop));",
   "console.log('адреса: '+en+' из '+a.length)}",
-  "const x=JSON.stringify(a);window.__vbRides=x;",
+  // Покупки тарифов (страница purchase-history): нужны, чтобы бесплатные поездки (cost=0) показать
+  // как «в рамках тарифа за N ₽». История смешивает TARIFF (покупка) и RENTAL (списание за поездку) —
+  // берём только TARIFF, остальное у нас уже есть в поездках. Тем же одним заходом, без лишних кнопок.
+  "const pt=[];for(let p=0;p<200;p++){",
+  "const pr=await fetch('/api/purchases/history?size=50&page='+p,{headers:H});",
+  "if(!pr.ok)break;const pj=await pr.json();const pc=pj.content||[];",
+  "pt.push(...pc.filter(x=>x&&x.purchaseType==='TARIFF'));",
+  "if(!pc.length||pj.last)break}",
+  "const x=JSON.stringify({rides:a,tariffs:pt});window.__vbRides=x;",
   "let ok=false;try{await navigator.clipboard.writeText(x);ok=true}catch(e){}",
-  "const msg='Собрано '+a.length+' из '+total+' поездок (адреса: '+en+').';",
+  "const msg='Собрано '+a.length+' из '+total+' поездок (адреса: '+en+', тарифов: '+pt.length+').';",
   "console.log(msg+(ok?' Уже в буфере.':' Скопируй так:  copy(__vbRides)'));",
   "alert(msg+(ok?' Скопировано — вставь в admin.':' Буфер не дался: в консоли набери  copy(__vbRides)  и вставь в admin.'))",
   "}catch(e){alert('Ошибка: '+e.message)}})();",

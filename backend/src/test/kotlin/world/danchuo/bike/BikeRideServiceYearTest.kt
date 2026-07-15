@@ -25,7 +25,17 @@ class BikeRideServiceYearTest {
         override fun latest(): Ride? = all.maxByOrNull { it.startTime }
     }
 
-    private fun ride(id: Long, date: String): Ride = Ride().apply {
+    /** Покупки тарифов в памяти — новые сверху (как реальный [BikeTariffRepository.listOrderedDesc]). */
+    private class FakeTariffRepo(private val all: List<BikeTariff>) : BikeTariffRepository() {
+        override fun listOrderedDesc(): List<BikeTariff> = all.sortedByDescending { it.purchasedAt }
+    }
+
+    /** Кэш координат станций в памяти — адрес → координаты (как [BikeStationRepository.foundCoords]). */
+    private class FakeStationRepo(private val coords: Map<String, Pair<Double, Double>>) : BikeStationRepository() {
+        override fun foundCoords(): Map<String, Pair<Double, Double>> = coords
+    }
+
+    private fun ride(id: Long, date: String, cost: Int? = null): Ride = Ride().apply {
         this.id = id
         externalId = id
         rideDate = LocalDate.parse(date)
@@ -33,13 +43,25 @@ class BikeRideServiceYearTest {
         finishTime = startTime.plusSeconds(600)
         distanceMeters = 1000
         durationSeconds = 600
+        costKopecks = cost
         createdAt = startTime
         updatedAt = startTime
     }
 
-    private fun serviceAt(today: String, rides: List<Ride>): BikeRideService {
+    private fun tariff(date: String, kopecks: Int): BikeTariff = BikeTariff().apply {
+        externalId = "t-$date"
+        purchasedAt = Instant.parse("${date}T09:00:00Z")
+        priceKopecks = kopecks
+    }
+
+    private fun serviceAt(
+        today: String,
+        rides: List<Ride>,
+        tariffs: List<BikeTariff> = emptyList(),
+        stationCoords: Map<String, Pair<Double, Double>> = emptyMap(),
+    ): BikeRideService {
         val clock = Clock.fixed(Instant.parse("${today}T12:00:00Z"), msk)
-        return BikeRideService(FakeRideRepo(rides), clock)
+        return BikeRideService(FakeRideRepo(rides), FakeTariffRepo(tariffs), FakeStationRepo(stationCoords), clock)
     }
 
     @Test
@@ -80,5 +102,43 @@ class BikeRideServiceYearTest {
     fun `поездок нет вовсе — пустая лента`() {
         val service = serviceAt(today = "2026-07-01", rides = emptyList())
         assertEquals(0, service.publicList().size)
+    }
+
+    @Test
+    fun `точка рисуется по станции (по адресу), сырой GPS — фолбэк без станции`() {
+        val ride = ride(1, "2026-07-05").apply {
+            startAddress = "метро Кунцевская"
+            startLat = 55.95; startLon = 37.42 // «улетевший» GPS (Шереметьево) — должен быть перекрыт
+            finishAddress = "ст. м. Молодёжная (выход № 2)" // станции в кэше нет ⇒ остаётся GPS
+            finishLat = 55.74; finishLon = 37.42
+        }
+        val service = serviceAt(
+            today = "2026-07-10",
+            rides = listOf(ride),
+            stationCoords = mapOf("метро Кунцевская" to (55.7305 to 37.4460)), // настоящая станция
+        )
+
+        val out = service.publicList().single()
+
+        assertEquals(55.7305, out.startLat) // взято со станции, не с GPS-заброса
+        assertEquals(37.4460, out.startLon)
+        assertEquals(55.74, out.finishLat) // финиш-станции в кэше нет ⇒ фолбэк на GPS
+    }
+
+    @Test
+    fun `бесплатная поездка в проекции несёт цену покрывающего тарифа, платная — нет`() {
+        val service = serviceAt(
+            today = "2026-07-10",
+            rides = listOf(
+                ride(1, "2026-07-05", cost = 0), // бесплатная — под пакетом, купленным 07-01
+                ride(2, "2026-07-06", cost = 5243), // платная — тариф не подтягивается
+            ),
+            tariffs = listOf(tariff("2026-07-01", 39900)),
+        )
+
+        val out = service.publicList().associateBy { it.rideDate }
+
+        assertEquals(39900, out["2026-07-05"]!!.coveredByTariffKopecks)
+        assertEquals(null, out["2026-07-06"]!!.coveredByTariffKopecks)
     }
 }

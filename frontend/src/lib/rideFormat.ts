@@ -18,8 +18,30 @@ export function formatDuration(seconds: number): string {
   return m === 0 ? `${h} ч` : `${h} ч ${m} мин`;
 }
 
+/** Копейки → рубли строкой («52 ₽»), округление до целого. Неположительное — пусто. */
+function rubles(kopecks: number): string {
+  return `${Math.round(kopecks / 100)} ₽`;
+}
+
 /** Стоимость: копейки → рубли, округление до целого («52 ₽»); 0/меньше — «бесплатно». */
 export function formatCost(kopecks: number): string {
   if (kopecks <= 0) return "бесплатно";
-  return `${Math.round(kopecks / 100)} ₽`;
+  return rubles(kopecks);
+}
+
+/**
+ * Стоимость поездки для истории (модалка). Платная — «52 ₽». Бесплатная (`cost === 0`) едет в
+ * рамках ранее купленного тарифа: если бэк нашёл покрывающую покупку — «в рамках тарифа за N ₽»
+ * (её цена), иначе честное «бесплатно». `null` (нет данных о стоимости) ⇒ пустая строка.
+ */
+export function formatRideCost(
+  costKopecks: number | null,
+  coveredByTariffKopecks?: number | null,
+): string {
+  if (costKopecks == null) return "";
+  if (costKopecks > 0) return rubles(costKopecks);
+  if (coveredByTariffKopecks != null && coveredByTariffKopecks > 0) {
+    return `в рамках тарифа за ${rubles(coveredByTariffKopecks)}`;
+  }
+  return "бесплатно";
 }

@@ -19,6 +19,12 @@ data class RideView(
     val calories: Int?,
     /** Стоимость поездки в копейках (`cost` API; null — нет данных). Формат — на фронте. */
     val costKopecks: Int?,
+    /**
+     * Для бесплатной поездки (`costKopecks == 0`) — цена (копейки) ближайшего предшествующего
+     * купленного тарифа, «покрывающего» её. Позволяет фронту показать «в рамках тарифа за N ₽»
+     * вместо «бесплатно». null, если поездка платная или подходящей покупки в истории нет.
+     */
+    val coveredByTariffKopecks: Int?,
     val vehicleType: String?,
     val tariffName: String?,
     val startLat: Double?,

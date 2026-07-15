@@ -222,8 +222,14 @@ export interface RideView {
   distanceMeters: number;
   durationSeconds: number;
   calories: number | null;
-  /** Стоимость поездки в копейках (null — нет данных). Формат — `formatCost`. */
+  /** Стоимость поездки в копейках (null — нет данных). Формат — `formatRideCost`. */
   costKopecks: number | null;
+  /**
+   * Для бесплатной поездки (`costKopecks === 0`) — цена ближайшего предшествующего купленного
+   * тарифа (копейки), «покрывающего» её: показываем «в рамках тарифа за N ₽» вместо «бесплатно».
+   * null — поездка платная либо подходящей покупки в истории нет.
+   */
+  coveredByTariffKopecks: number | null;
   vehicleType: string | null;
   tariffName: string | null;
   startLat: number | null;

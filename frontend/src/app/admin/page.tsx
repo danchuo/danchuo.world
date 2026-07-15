@@ -11,6 +11,7 @@ import {
   getDropPhotosAdmin,
   getOrientationStatus,
   importBikeRides,
+  importBikeTariffs,
   listDropsAdmin,
   rotatePhoto,
   setCover,
@@ -298,20 +299,38 @@ export default function AdminPage() {
     }
   }
 
-  /** Импорт вставленного JSON поездок. Прощаем и голый массив, и целую страницу `{content:[…]}`. */
+  /**
+   * Импорт вставленного JSON. Букмарклет отдаёт объект `{rides, tariffs}` (поездки + покупки
+   * тарифов одним заходом) — шлём обе части на свои ingest-ручки. Обратная совместимость: голый
+   * массив или целую страницу `{content:[…]}` принимаем как поездки без тарифов.
+   */
   async function onImportBike(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     setBikeNotice(null);
     try {
-      let parsed: unknown = JSON.parse(bikeJson);
-      if (parsed && !Array.isArray(parsed) && Array.isArray((parsed as { content?: unknown }).content)) {
-        parsed = (parsed as { content: unknown[] }).content;
+      const parsed: unknown = JSON.parse(bikeJson);
+      const obj = parsed as { rides?: unknown; tariffs?: unknown; content?: unknown };
+      let rides: unknown;
+      let tariffs: unknown[] = [];
+      if (parsed && !Array.isArray(parsed) && Array.isArray(obj.rides)) {
+        rides = obj.rides; // новый формат букмарклета {rides, tariffs}
+        if (Array.isArray(obj.tariffs)) tariffs = obj.tariffs;
+      } else if (parsed && !Array.isArray(parsed) && Array.isArray(obj.content)) {
+        rides = obj.content; // вставлена целая страница rents/client
+      } else {
+        rides = parsed; // голый массив поездок
       }
-      if (!Array.isArray(parsed)) throw new SyntaxError("ожидался массив поездок");
-      const result = await importBikeRides(token, parsed);
-      setBikeNotice(`импортировано: +${result.created} новых, обновлено ${result.updated}`);
+      if (!Array.isArray(rides)) throw new SyntaxError("ожидался массив поездок");
+
+      const ridesResult = await importBikeRides(token, rides);
+      let notice = `поездки: +${ridesResult.created} новых, обновлено ${ridesResult.updated}`;
+      if (tariffs.length > 0) {
+        const tariffsResult = await importBikeTariffs(token, tariffs);
+        notice += `; тарифы: +${tariffsResult.created} новых, обновлено ${tariffsResult.updated}`;
+      }
+      setBikeNotice(notice);
       setBikeJson("");
     } catch (err) {
       setError(err instanceof SyntaxError ? `не JSON: ${err.message}` : describe(err));
@@ -567,7 +586,7 @@ export default function AdminPage() {
         <h2 className="mb-3" style={{ fontSize: 16, color: "var(--text-primary)" }}>поездки велобайк</h2>
         <ol className="mb-3 flex flex-col gap-1" style={{ ...mono, paddingLeft: 18, listStyle: "decimal" }}>
           <li>один раз: создай закладку в браузере телефона, вставь букмарклет в её адрес (кнопка ниже).</li>
-          <li>открой <a href="https://pwa.velobike.ru" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>pwa.velobike.ru</a>, залогинься, запусти закладку — она покажет «собрано X из Y» и скопирует поездки в буфер.</li>
+          <li>открой <a href="https://pwa.velobike.ru" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>pwa.velobike.ru</a>, залогинься, запусти закладку — она за один заход соберёт поездки (с адресами) и покупки тарифов, покажет «собрано X из Y» и скопирует всё в буфер.</li>
           <li>вернись сюда, вставь в поле и нажми «импортировать».</li>
         </ol>
         <p className="mb-3" style={mono}>если вставилось куце (ошибка «не JSON») — в консоли на pwa.velobike.ru набери <code>copy(__vbRides)</code> и Enter, это скопирует всё без обрезки; затем вставь снова.</p>

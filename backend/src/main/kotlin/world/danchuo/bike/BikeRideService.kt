@@ -23,6 +23,8 @@ data class UpsertResult(val created: Int, val updated: Int)
 @ApplicationScoped
 class BikeRideService(
     private val rides: RideRepository,
+    private val tariffs: BikeTariffRepository,
+    private val stations: BikeStationRepository,
     private val clock: Clock,
 ) {
 
@@ -52,6 +54,32 @@ class BikeRideService(
     }
 
     /**
+     * Идемпотентно записать покупки тарифов (страница `purchases/history`). Из смешанной истории
+     * берём только `TARIFF` (см. [TariffMapper.isTariffPurchase]) — `RENTAL` это списания за
+     * поездки, уже есть в истории поездок. Идемпотентность — по id платежа. Нужны для атрибуции
+     * бесплатных поездок «в рамках тарифа за N ₽» ([TariffAttribution]).
+     */
+    @Transactional
+    fun upsertTariffs(items: List<PurchaseItem>): UpsertResult {
+        var created = 0
+        var updated = 0
+        for (item in items) {
+            if (!TariffMapper.isTariffPurchase(item)) continue
+            val existing = tariffs.byExternalId(item.idPurchase.toString())
+            val tariff = existing ?: BikeTariff().apply { createdAt = Instant.now(clock) }
+            TariffMapper.applyTo(tariff, item)
+            tariff.updatedAt = Instant.now(clock)
+            if (existing == null) {
+                tariffs.persist(tariff)
+                created++
+            } else {
+                updated++
+            }
+        }
+        return UpsertResult(created, updated)
+    }
+
+    /**
      * Публичная лента: поездки **текущего календарного года** (MSK), новые сверху. Велосезон
      * жмётся к лету, поэтому осью выдачи выбран год, а не число последних. Если в этом году ещё
      * ни одной поездки (зима/начало года) — показываем **одну** самую свежую (последняя прошлого
@@ -61,8 +89,13 @@ class BikeRideService(
         val startOfYear = LocalDate.now(clock).withDayOfYear(1)
         val thisYear = rides.listFrom(startOfYear)
         val chosen = thisYear.ifEmpty { listOfNotNull(rides.latest()) }
-        return chosen.map(::toView)
+        // Покупки тарифов (новые сверху) — для атрибуции бесплатных поездок «в рамках тарифа за N ₽».
+        val purchases = tariffs.listOrderedDesc()
+        // Координаты станций по адресу — рисуем пины по станции вместо сырого GPS (заброс в Шереметьево).
+        val stationCoords = stations.foundCoords()
+        return chosen.map { toView(it, purchases, stationCoords) }
     }
+
 
     /** Агрегат истории для тайла-сводки — по ВСЕЙ истории (не только по видимому текущему году). */
     fun stats(): RideStatsView {
@@ -79,24 +112,34 @@ class BikeRideService(
         )
     }
 
-    private fun toView(r: Ride) = RideView(
-        id = r.id!!,
-        rideDate = r.rideDate.toString(),
-        startTime = ISO.format(r.startTime),
-        finishTime = ISO.format(r.finishTime),
-        distanceMeters = r.distanceMeters,
-        durationSeconds = r.durationSeconds,
-        calories = r.calories,
-        costKopecks = r.costKopecks,
-        vehicleType = r.vehicleType,
-        tariffName = r.tariffName,
-        startLat = r.startLat,
-        startLon = r.startLon,
-        finishLat = r.finishLat,
-        finishLon = r.finishLon,
-        startAddress = r.startAddress,
-        finishAddress = r.finishAddress,
-    )
+    private fun toView(
+        r: Ride,
+        purchases: List<BikeTariff>,
+        stationCoords: Map<String, Pair<Double, Double>>,
+    ): RideView {
+        // Точка станции (по адресу) надёжнее сырого GPS велосипеда — предпочитаем её, GPS = фолбэк.
+        val start = r.startAddress?.let { stationCoords[it] }
+        val finish = r.finishAddress?.let { stationCoords[it] }
+        return RideView(
+            id = r.id!!,
+            rideDate = r.rideDate.toString(),
+            startTime = ISO.format(r.startTime),
+            finishTime = ISO.format(r.finishTime),
+            distanceMeters = r.distanceMeters,
+            durationSeconds = r.durationSeconds,
+            calories = r.calories,
+            costKopecks = r.costKopecks,
+            coveredByTariffKopecks = TariffAttribution.coveringKopecks(r.costKopecks, r.startTime, purchases),
+            vehicleType = r.vehicleType,
+            tariffName = r.tariffName,
+            startLat = start?.first ?: r.startLat,
+            startLon = start?.second ?: r.startLon,
+            finishLat = finish?.first ?: r.finishLat,
+            finishLon = finish?.second ?: r.finishLon,
+            startAddress = r.startAddress,
+            finishAddress = r.finishAddress,
+        )
+    }
 
     private companion object {
         val ISO: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT

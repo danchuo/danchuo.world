@@ -61,6 +61,27 @@ interface VelobikeConfig {
     @WithDefault("20")
     fun pollPageSize(): Int
 
+    /**
+     * Геокодер станций (PRD §5.13). Методы объявлены, чтобы SmallRye-валидация `@ConfigMapping`
+     * приняла свойства `danchuo.bike.geocode.*` под префиксом (как [pollInterval]); реальное чтение —
+     * через `@ConfigProperty`/`@Scheduled`-плейсхолдер в [StationGeocoder].
+     */
+    fun geocode(): Geocode
+
+    interface Geocode {
+        /** Включён ли фоновый геокодер (в `%test` выключен). */
+        @WithDefault("true")
+        fun enabled(): Boolean
+
+        /** Интервал тика (формат Quarkus `every`) — читается плейсхолдером в [StationGeocoder]. */
+        @WithDefault("5s")
+        fun interval(): String
+
+        /** `User-Agent` для Nominatim (usage policy требует идентификацию приложения). */
+        @WithDefault("danchuo.world/1.0 (https://danchuo.world)")
+        fun userAgent(): String
+    }
+
     /** Сконфигурирован ли слайс для серверного поллинга (есть ключ шифрования). */
     fun isConfigured(): Boolean = tokenEncryptionKey().orElse("").isNotBlank()
 }

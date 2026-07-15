@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RideView } from "@/lib/api/types";
 import { relativeDayRu } from "@/lib/relativeDay";
-import { formatCost, formatDuration, formatKm } from "@/lib/rideFormat";
+import { formatDuration, formatKm, formatRideCost } from "@/lib/rideFormat";
 import { Icon } from "./Icon";
 import { RideMap } from "./RideMap";
 
@@ -160,7 +160,9 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                       <div style={{ ...mono, color: "var(--text-secondary)", fontSize: 12 }}>
                         {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
                         {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
-                        {r.costKopecks != null ? ` · ${formatCost(r.costKopecks)}` : ""}
+                        {r.costKopecks != null
+                          ? ` · ${formatRideCost(r.costKopecks, r.coveredByTariffKopecks)}`
+                          : ""}
                       </div>
                       {(r.startAddress || r.finishAddress) && (
                         <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: 11 }}>

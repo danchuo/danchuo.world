@@ -49,6 +49,40 @@ data class GeoPosition(
 )
 
 /**
+ * Страница истории покупок: `GET /api/purchases/history?size=&page=` (Spring Data Page). Смешивает
+ * записи двух видов по [PurchaseItem.purchaseType]: `TARIFF` (покупка тарифа — нужна нам для
+ * атрибуции бесплатных поездок) и `RENTAL` (списание за конкретную поездку — это у нас уже есть).
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class PurchasePage(
+    val content: List<PurchaseItem> = emptyList(),
+    val totalElements: Int = 0,
+    val number: Int = 0,
+    val last: Boolean = true,
+)
+
+/**
+ * Одна запись истории покупок. `cost` — копейки (напр. `39900` = 399 ₽ за «Пакет 60 минут»);
+ * `createDate` — epoch millis момента покупки. Название/минуты берём из [orderItems].
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class PurchaseItem(
+    val idPurchase: Long,
+    val purchaseType: String? = null,
+    val cost: Int? = null,
+    val createDate: Long? = null,
+    val orderItems: List<PurchaseOrderItem> = emptyList(),
+)
+
+/** Позиция покупки: `type` = `tariff`/`rental`, `name` — человекочитаемое («Доступ Пакет 60 минут»). */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class PurchaseOrderItem(
+    val type: String? = null,
+    val name: String? = null,
+    val cost: Int? = null,
+)
+
+/**
  * Ответ `POST /api/api-auth/client-authenticate` (тело `{user: телефон, password: код из SMS}`).
  * `access_token` — JWT на 24ч; `refresh_token` — JWT на ~6 мес (хранится шифрованно); supabase-
  * токен слайсу не нужен (отдельный бэкенд).

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс bike (PRD §9 B4): история ПОКУПОК тарифов Велобайка — рядом с поездками, чтобы
+      честно показывать «в рамках тарифа за N ₽» вместо «бесплатно» на поездках с cost=0.
+
+      - bike_tariff: покупки, идемпотентны по external_id (id платежа Велобайка) ⇒ UNIQUE;
+        индекс по purchased_at — по нему цепляем к бесплатной поездке ближайшую предшествующую
+        покупку (ось времени, MSK-канон вычисляется на маппинге).
+    -->
+    <changeSet id="0140-bike-tariff-table" author="danchuo">
+        <createTable tableName="bike_tariff">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="external_id" type="VARCHAR(128)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_bike_tariff_external_id"/>
+            </column>
+            <column name="purchased_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price_kopecks" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="minutes" type="INT"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="bike_tariff" indexName="idx_bike_tariff_purchased_at">
+            <column name="purchased_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

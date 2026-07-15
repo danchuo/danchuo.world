@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCost, formatDuration, formatKm } from "./rideFormat";
+import { formatCost, formatDuration, formatKm, formatRideCost } from "./rideFormat";
 
 describe("formatKm", () => {
   it("ниже километра — в метрах", () => {
@@ -31,5 +31,24 @@ describe("formatCost", () => {
   it("ноль и меньше — бесплатно", () => {
     expect(formatCost(0)).toBe("бесплатно");
     expect(formatCost(-10)).toBe("бесплатно");
+  });
+});
+
+describe("formatRideCost", () => {
+  it("платная поездка — рубли (тариф игнорируется)", () => {
+    expect(formatRideCost(5243)).toBe("52 ₽");
+    expect(formatRideCost(5243, 90000)).toBe("52 ₽");
+  });
+  it("бесплатная с покрывающим тарифом — «в рамках тарифа за N ₽»", () => {
+    expect(formatRideCost(0, 90000)).toBe("в рамках тарифа за 900 ₽");
+  });
+  it("бесплатная без покрывающего тарифа — «бесплатно»", () => {
+    expect(formatRideCost(0)).toBe("бесплатно");
+    expect(formatRideCost(0, null)).toBe("бесплатно");
+    expect(formatRideCost(0, 0)).toBe("бесплатно");
+  });
+  it("нет данных о стоимости — пусто", () => {
+    expect(formatRideCost(null)).toBe("");
+    expect(formatRideCost(null, 90000)).toBe("");
   });
 });

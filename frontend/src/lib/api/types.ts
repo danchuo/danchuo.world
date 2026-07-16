@@ -246,6 +246,20 @@ export interface BikeImportResultView {
   updated: number;
 }
 
+/**
+ * Сводка за текущий календарный месяц (`GET /api/rides/month-summary`) — шапка модалки поездок.
+ * `spentKopecks` — реально уплаченные за месяц деньги (платные поездки + покупки тарифов-пакетов
+ * этого месяца, каждая один раз), поэтому бесплатные поездки «в рамках тарифа» не задваивают сумму.
+ * `rides === 0` — в этом месяце поездок нет (строку не рисуем).
+ */
+export interface RideMonthSummaryView {
+  /** Месяц сводки `YYYY-MM` (MSK). */
+  month: string;
+  rides: number;
+  durationSeconds: number;
+  spentKopecks: number;
+}
+
 /** Агрегат истории поездок (`GET /api/rides/stats`). Нулевой — пока поездок нет. */
 export interface RideStatsView {
   totalRides: number;

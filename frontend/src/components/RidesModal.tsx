@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { RideView } from "@/lib/api/types";
+import { getRideMonthSummary } from "@/lib/api/client";
+import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
 import { relativeDayRu } from "@/lib/relativeDay";
-import { formatDuration, formatKm, formatRideCost } from "@/lib/rideFormat";
+import { formatDuration, formatKm, formatRideCost, pluralRu, rublesWhole } from "@/lib/rideFormat";
 import { Icon } from "./Icon";
 import { RideMap } from "./RideMap";
 
@@ -32,11 +33,25 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [selectedId, setSelectedId] = useState<number | null>(rides[0]?.id ?? null);
+  const [summary, setSummary] = useState<RideMonthSummaryView | null>(null);
 
   const selected = useMemo(
     () => rides.find((r) => r.id === selectedId) ?? rides[0],
     [rides, selectedId],
   );
+
+  // Сводка за текущий месяц (шапка под картой) — тянем лениво при открытии модалки; сбой
+  // глотаем (строка второстепенна, без неё модалка живёт списком). Деньги считает бэк с учётом
+  // дедупликации покупок тарифов — на фронте это не восстановить (см. `RideMonthSummaryView`).
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getRideMonthSummary({ signal: ctrl.signal }).then(setSummary).catch(() => {});
+    return () => ctrl.abort();
+  }, []);
+
+  const showSummary = summary != null && summary.rides > 0;
+  const summaryMinutes = summary ? Math.round(summary.durationSeconds / 60) : 0;
+  const summaryRubles = summary ? rublesWhole(summary.spentKopecks) : 0;
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -101,7 +116,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                 координат ⇒ тёплая заглушка вместо карты (виджет всё равно живёт списком). */}
             <div
               className="shrink-0"
-              style={{ height: 220, borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 12 }}
+              style={{ height: 220, borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }}
             >
               {hasCoords(selected) ? (
                 <RideMap
@@ -124,6 +139,20 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                 </div>
               )}
             </div>
+
+            {/* Сводка за текущий месяц — тихая однострочная подпись под картой (не скроллится со
+                списком). Ненавязчиво: без плашки/рамки, приглушённый моно; числа чуть ярче единиц.
+                Нет поездок в этом месяце ⇒ строки нет вовсе. */}
+            {showSummary && (
+              <div className="shrink-0 flex flex-wrap items-baseline" style={summaryRow} aria-label="Сводка за текущий месяц">
+                <span style={summaryCaption}>в этом месяце</span>
+                <SummaryStat value={summary.rides} unit={pluralRu(summary.rides, ["поездка", "поездки", "поездок"])} />
+                <span style={summaryDot}>·</span>
+                <SummaryStat value={summaryMinutes} unit={pluralRu(summaryMinutes, ["минута", "минуты", "минут"])} />
+                <span style={summaryDot}>·</span>
+                <SummaryStat value={summaryRubles} unit={pluralRu(summaryRubles, ["рубль", "рубля", "рублей"])} />
+              </div>
+            )}
 
             {/* Прокручиваемый список: строка = кнопка выбора, выделенная подсвечена. */}
             <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto" role="listbox" aria-label="Выбор поездки">
@@ -181,9 +210,41 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
   );
 }
 
+/** Один показатель сводки месяца в строку: число (чуть ярче) + просклонённая единица (приглушённо). */
+function SummaryStat({ value, unit }: { value: number; unit: string }) {
+  return (
+    <span style={{ ...mono, fontSize: 12 }}>
+      <span style={{ color: "var(--text-primary)" }}>{value}</span>
+      <span style={{ color: "var(--text-tertiary)" }}> {unit}</span>
+    </span>
+  );
+}
+
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
+  fontSize: 12,
+  color: "var(--text-tertiary)",
+} satisfies CSSProperties;
+
+// Сводка месяца — тихая однострочная подпись под картой (ненавязчиво, без плашки/рамки): числа в
+// строку через точку-разделитель, приглушённый моно. Ниже карты с небольшим зазором, не наезжает.
+const summaryRow = {
+  columnGap: 6,
+  rowGap: 2,
+  marginBottom: 12,
+} satisfies CSSProperties;
+
+const summaryCaption = {
+  ...mono,
+  fontSize: 10,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: "var(--text-tertiary)",
+} satisfies CSSProperties;
+
+const summaryDot = {
+  ...mono,
   fontSize: 12,
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;

@@ -30,6 +30,24 @@ export function formatCost(kopecks: number): string {
 }
 
 /**
+ * Русское склонение существительного по числу [n]: `[одна, две, пять]`-форма.
+ * «1 поездка», «2/3/4 поездки», «5..20 поездок». Используется в сводке месяца (модалка).
+ */
+export function pluralRu(n: number, forms: [string, string, string]): string {
+  const abs = Math.abs(n) % 100;
+  const d = abs % 10;
+  if (abs > 10 && abs < 20) return forms[2];
+  if (d === 1) return forms[0];
+  if (d >= 2 && d <= 4) return forms[1];
+  return forms[2];
+}
+
+/** Копейки → целые рубли числом (без знака валюты) — для сводки, где «₽» стоит подписью. */
+export function rublesWhole(kopecks: number): number {
+  return Math.round(kopecks / 100);
+}
+
+/**
  * Стоимость поездки для истории (модалка). Платная — «52 ₽». Бесплатная (`cost === 0`) едет в
  * рамках ранее купленного тарифа: если бэк нашёл покрывающую покупку — «в рамках тарифа за N ₽»
  * (её цена), иначе честное «бесплатно». `null` (нет данных о стоимости) ⇒ пустая строка.

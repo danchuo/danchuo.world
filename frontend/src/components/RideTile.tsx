@@ -105,13 +105,12 @@ export function RideTile({ wave, style, className }: RideTileProps) {
               )}
             </div>
 
-            {/* Цифры в один ряд: дистанция (крупно) · длительность · калории. */}
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5" style={{ ...mono, color: "var(--text-primary)" }}>
+            {/* Цифры на тайле: дистанция (крупно) слева, длительность (чуть меньше) прижата к
+                правому краю — чтобы правая сторона не пустовала. Калории на тайле не показываем —
+                они остаются только в модалке (строки списка). */}
+            <div className="flex items-baseline justify-between gap-x-2" style={{ ...mono, color: "var(--text-primary)" }}>
               <span style={{ fontSize: 22, lineHeight: 1 }}>{formatKm(latest.distanceMeters)}</span>
-              <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{formatDuration(latest.durationSeconds)}</span>
-              {latest.calories != null && latest.calories > 0 && (
-                <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{latest.calories} ккал</span>
-              )}
+              <span style={{ fontSize: 16, color: "var(--text-secondary)" }}>{formatDuration(latest.durationSeconds)}</span>
             </div>
 
           </div>

@@ -35,14 +35,14 @@ class BikeRideServiceYearTest {
         override fun foundCoords(): Map<String, Pair<Double, Double>> = coords
     }
 
-    private fun ride(id: Long, date: String, cost: Int? = null): Ride = Ride().apply {
+    private fun ride(id: Long, date: String, cost: Int? = null, duration: Int = 600): Ride = Ride().apply {
         this.id = id
         externalId = id
         rideDate = LocalDate.parse(date)
         startTime = Instant.parse("${date}T10:00:00Z")
-        finishTime = startTime.plusSeconds(600)
+        finishTime = startTime.plusSeconds(duration.toLong())
         distanceMeters = 1000
-        durationSeconds = 600
+        durationSeconds = duration
         costKopecks = cost
         createdAt = startTime
         updatedAt = startTime
@@ -140,5 +140,76 @@ class BikeRideServiceYearTest {
 
         assertEquals(39900, out["2026-07-05"]!!.coveredByTariffKopecks)
         assertEquals(null, out["2026-07-06"]!!.coveredByTariffKopecks)
+    }
+
+    @Test
+    fun `сводка месяца — только текущий календарный месяц (MSK), поездки и минуты`() {
+        val service = serviceAt(
+            today = "2026-07-16",
+            rides = listOf(
+                ride(1, "2026-06-30", duration = 900), // прошлый месяц — не в счёт
+                ride(2, "2026-07-02", duration = 600), // 10 мин
+                ride(3, "2026-07-14", duration = 1200), // 20 мин
+            ),
+        )
+
+        val s = service.monthSummary()
+
+        assertEquals("2026-07", s.month)
+        assertEquals(2, s.rides)
+        assertEquals(1800L, s.durationSeconds) // 600 + 1200, июньская не учтена
+    }
+
+    @Test
+    fun `деньги месяца не задваиваются — четыре бесплатные поездки под пакетом дают цену пакета один раз`() {
+        val service = serviceAt(
+            today = "2026-07-16",
+            rides = listOf(
+                // Четыре бесплатные поездки «в рамках тарифа за 399 ₽» — деньги берём из покупки, не ×4.
+                ride(1, "2026-07-02", cost = 0),
+                ride(2, "2026-07-03", cost = 0),
+                ride(3, "2026-07-04", cost = 0),
+                ride(4, "2026-07-05", cost = 0),
+                ride(5, "2026-07-10", cost = 4200), // платная поездка — прямое списание, добавляется
+            ),
+            tariffs = listOf(
+                tariff("2026-07-01", 39900), // один купленный пакет 399 ₽ в этом месяце
+                tariff("2026-06-20", 39900), // пакет прошлого месяца — в сумму июля не входит
+            ),
+        )
+
+        val s = service.monthSummary()
+
+        assertEquals(5, s.rides)
+        // 399 ₽ (один июльский пакет) + 42 ₽ (платная поездка) = 44100 коп; НЕ 4×399 и без июньского пакета.
+        assertEquals(44100L, s.spentKopecks)
+    }
+
+    @Test
+    fun `два пакета подряд в этом месяце учтены оба (деньги реальны, а не по атрибуции поездок)`() {
+        val service = serviceAt(
+            today = "2026-07-16",
+            rides = listOf(ride(1, "2026-07-05", cost = 0), ride(2, "2026-07-06", cost = 0)),
+            tariffs = listOf(
+                tariff("2026-07-01", 39900),
+                tariff("2026-07-02", 39900), // второй пакет куплен подряд — обе покупки реальны
+            ),
+        )
+
+        // Атрибуция цепляет обе поездки к ближайшему пакету, но деньги считаем по покупкам: 2×399.
+        assertEquals(79800L, service.monthSummary().spentKopecks)
+    }
+
+    @Test
+    fun `нет поездок в этом месяце — сводка пустая (rides == 0)`() {
+        val service = serviceAt(
+            today = "2026-07-16",
+            rides = listOf(ride(1, "2026-06-10")),
+            tariffs = listOf(tariff("2026-07-01", 39900)),
+        )
+
+        val s = service.monthSummary()
+        assertEquals(0, s.rides)
+        assertEquals(0L, s.durationSeconds)
     }
 }

@@ -12,6 +12,8 @@ interface TileShellProps {
   muted?: boolean;
   /** Пик высоты (плитка «Сегодня», §2.3 — лежит выше остальных). */
   elevated?: boolean;
+  /** Угловые заклёпки-акценты (§2.4) — только на фокусной плитке «Сегодня». */
+  rivets?: boolean;
   /** Тихая мета-подпись плитки (§3): даёт дашбордную структуру; не на лоадере. */
   label?: string;
   style?: CSSProperties;
@@ -33,6 +35,7 @@ export function TileShell({
   onRetry,
   muted = false,
   elevated = false,
+  rivets = false,
   label,
   style,
   className = "",
@@ -55,6 +58,10 @@ export function TileShell({
           aria-hidden
         />
       )}
+
+      {/* Заклёпки-акценты (§2.4) — отдельный элемент поверх поверхности (оба псевдо-слота
+          .pixel-tile заняты силуэтом края). Только на фокусной плитке, не на приглушённой. */}
+      {rivets && !muted && <span className="pixel-rivets" aria-hidden />}
 
       {state !== "loading" && label && <div className="tile-label mb-1">{label}</div>}
 

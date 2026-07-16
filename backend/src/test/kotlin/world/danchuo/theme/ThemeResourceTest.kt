@@ -23,7 +23,7 @@ class ThemeResourceTest {
             .body("key", equalTo("wave-01"))
             .body("active", equalTo(true))
             // токены инжектятся в :root — ключевые роли волны 01 на месте
-            .body("tokens.'bg-page'", equalTo("#faf1eb"))
+            .body("tokens.'bg-page'", equalTo("#fdefe7"))
             .body("tokens.accent", notNullValue())
     }
 

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Край, фон и тень волны 01 (DESIGN §2.1, §2.3, §2.4). Токены живут в БД и инжектятся в
+      :root поверх фолбэка frontend/src/app/styles/waves/wave-01.css — значит одной правки CSS
+      мало, иначе прод возьмёт старые значения из сида и разъедется с кодом.
+
+      UPDATE поверх применённого 0080-theme-seed-wave01, а не правка самого сида: чейнджсет
+      0080 уже посчитан на проде, его checksum трогать нельзя (то же правило, по которому
+      когда-то ехал AA-фикс text-tertiary — см. врез в 0080). `||` мержит только эти ключи,
+      остальной токен-набор волны 01 не трогается.
+
+      Что меняется (референс края волны 01, DESIGN §2.4):
+        bg-page       #faf1eb → #fdefe7 — персик светлее и теплее; точка-сетка фона снята
+                      в CSS (не токен), воздух между плитками теперь молчит под пиксель-краем.
+        border-tile   НОВЫЙ — цвет тонкой глиняной линии, обводящей ступенчатый силуэт плитки
+                      целиком. Раньше край рисовался крепким ink-кантом border-pixel; тот
+                      остаётся и держит кольцо ВЫБОРА (день календаря/недельной полосы,
+                      активный свотч волн) — это другой контур.
+        tile-line     НОВЫЙ — толщина линии края.
+        pixel-corners 2 ступени по 4px (срез 8px) → 2 ступени по 5px (срез 10px): лесенка
+                      крупнее и «прямее».
+        drop-2/3/4    нейтрально-тёмная тень строго вниз → тёплая коричневая со смещением
+                      вправо-вниз: у персика правый край плитки «оторван» от фона тёплой
+                      тенью, а не серым ореолом снизу. NB: тень теперь реально видна — край
+                      перестал резать её clip-path'ом (клип уехал на псевдо-слои, тень
+                      осталась на неклипнутом .pixel-tile; латентный баг прежней рамки).
+
+      Волна 02 «Obscura» намеренно не трогается: её карты рисуют край сами (border+radius),
+      эти токены ей не нужны (см. врез «Как волна выбирает край» в wave-01.css).
+    -->
+    <changeSet id="0160-wave-01-edge-tokens" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET tokens = tokens || $J${
+  "bg-page": "#fdefe7",
+  "border-tile": "#cc9f8c",
+  "tile-line": "1.5px",
+  "pixel-corners": "polygon(0 10px, 5px 10px, 5px 5px, 10px 5px, 10px 0, calc(100% - 10px) 0, calc(100% - 10px) 5px, calc(100% - 5px) 5px, calc(100% - 5px) 10px, 100% 10px, 100% calc(100% - 10px), calc(100% - 5px) calc(100% - 10px), calc(100% - 5px) calc(100% - 5px), calc(100% - 10px) calc(100% - 5px), calc(100% - 10px) 100%, 10px 100%, 10px calc(100% - 5px), 5px calc(100% - 5px), 5px calc(100% - 10px), 0 calc(100% - 10px))",
+  "drop-2": "drop-shadow(2px 2px 1px rgba(83, 49, 27, 0.1)) drop-shadow(5px 7px 10px rgba(83, 49, 27, 0.2))",
+  "drop-3": "drop-shadow(2px 3px 1px rgba(83, 49, 27, 0.12)) drop-shadow(8px 12px 16px rgba(83, 49, 27, 0.24))",
+  "drop-4": "drop-shadow(3px 4px 2px rgba(83, 49, 27, 0.14)) drop-shadow(12px 17px 24px rgba(83, 49, 27, 0.26))"
+}$J$::jsonb
+WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'border-tile' - 'tile-line') || $J${
+  "bg-page": "#faf1eb",
+  "pixel-corners": "polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px))",
+  "drop-2": "drop-shadow(0 1px 1px rgba(33, 26, 22, 0.06)) drop-shadow(0 7px 11px rgba(33, 26, 22, 0.1))",
+  "drop-3": "drop-shadow(0 2px 1px rgba(33, 26, 22, 0.08)) drop-shadow(0 12px 18px rgba(33, 26, 22, 0.14))",
+  "drop-4": "drop-shadow(0 3px 2px rgba(33, 26, 22, 0.1)) drop-shadow(0 18px 26px rgba(33, 26, 22, 0.18))"
+}$J$::jsonb
+WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

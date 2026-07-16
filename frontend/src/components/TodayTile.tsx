@@ -70,11 +70,12 @@ export function TodayTile({ day, today, state, onRetry, wave, style, className }
       state={state}
       onRetry={onRetry}
       elevated
+      rivets
       label={label}
       ariaLabel="Сегодня"
       style={tileStyle}
-      // Заклёпки (§2.4) — только на фокусной плитке; кант приходит из .pixel-tile.
-      className={["pixel-tile--rivets", className].filter(Boolean).join(" ")}
+      // Заклёпки (§2.4) — только на фокусной плитке (проп rivets); кант из .pixel-tile.
+      className={className}
     >
       {day && (
         <div className="flex h-full flex-col gap-3" style={{ containerType: "inline-size" }}>

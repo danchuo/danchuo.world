@@ -75,9 +75,20 @@ body {
    Сдвиг/длительность — из inline CSS-переменных. Reduced-motion гасит её ниже. */
 .marquee-inner {
   white-space: nowrap;
+  /* Шринк-врап под содержимое: ширина = ширине текста, поэтому виджет музыки может
+     мерить натуральную ширину строки (scrollWidth) и сжиматься к ней по горизонтали.
+     Не влезло — контент шире обёртки (overflow-hidden), едет бегущей строкой. */
+  width: max-content;
 }
 .marquee-inner.is-scrolling {
   animation: marquee-scroll var(--marquee-duration, 6s) linear infinite alternate;
+}
+
+/* Строка, которую мерит виджет музыки по натуральной ширине (не marquee — например альбом
+   с усечением-многоточием): жмётся к тексту, но не шире контейнера (тогда усекается). */
+.fit-measure {
+  width: max-content;
+  max-width: 100%;
 }
 @keyframes marquee-scroll {
   from {

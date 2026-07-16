@@ -114,6 +114,11 @@
 :root[data-wave="wave-02"] .pixel-tile::after {
   display: none;
 }
+/* Лоадер-шиммер: волна 01 клипает его ступенчатым силуэтом; у облачных (круглых) карт
+   ступенчатый полигон ни к чему — сбрасываем клип (край держит border-radius самой карты). */
+:root[data-wave="wave-02"] .pixel-shimmer {
+  clip-path: none;
+}
 :root[data-wave="wave-02"] .pixel-tile[data-elevated="true"] {
   box-shadow: 0 2px 4px rgba(15, 34, 52, 0.05), 0 14px 30px rgba(15, 34, 52, 0.1),
     0 30px 60px rgba(15, 34, 52, 0.09);

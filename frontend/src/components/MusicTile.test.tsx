@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NowPlayingView, RecentTrackView, TrackView } from "@/lib/api/types";
-import { MusicTile } from "./MusicTile";
+import { MusicTile, collapseConsecutiveRecent } from "./MusicTile";
 
 // Музыка тянет данные сама — мокаем JSON-клиент.
 vi.mock("@/lib/api/client", () => ({
@@ -30,8 +30,61 @@ function nowView(over: Partial<NowPlayingView> = {}): NowPlayingView {
   return { isPlaying: true, progressMs: 0, track: track(), source: null, ...over };
 }
 
+function recentOf(over: Partial<TrackView>, playedAt: string): RecentTrackView {
+  return { track: track(over), playedAt };
+}
+
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe("collapseConsecutiveRecent", () => {
+  it("схлопывает одинаковые треки, идущие подряд (по url)", () => {
+    const list = [
+      recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:03:00Z"),
+      recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:02:00Z"),
+      recentOf({ title: "B", url: "u:b" }, "2026-06-18T10:01:00Z"),
+    ];
+    expect(collapseConsecutiveRecent(list).map((r) => r.track.url)).toEqual(["u:a", "u:b"]);
+  });
+
+  it("не трогает одинаковые треки, разделённые другим (через один)", () => {
+    const list = [
+      recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:03:00Z"),
+      recentOf({ title: "B", url: "u:b" }, "2026-06-18T10:02:00Z"),
+      recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:01:00Z"),
+    ];
+    expect(collapseConsecutiveRecent(list).map((r) => r.track.url)).toEqual(["u:a", "u:b", "u:a"]);
+  });
+
+  it("схлопывает длинные серии, сохраняя первый элемент серии", () => {
+    const list = [
+      recentOf({ title: "A", url: "u:a" }, "t6"),
+      recentOf({ title: "A", url: "u:a" }, "t5"),
+      recentOf({ title: "A", url: "u:a" }, "t4"),
+      recentOf({ title: "B", url: "u:b" }, "t3"),
+      recentOf({ title: "B", url: "u:b" }, "t2"),
+      recentOf({ title: "A", url: "u:a" }, "t1"),
+    ];
+    const out = collapseConsecutiveRecent(list);
+    expect(out.map((r) => r.track.url)).toEqual(["u:a", "u:b", "u:a"]);
+    // Сохраняем первый (самый свежий) элемент серии.
+    expect(out[0].playedAt).toBe("t6");
+  });
+
+  it("различает треки по названию+артистам, когда url отсутствует", () => {
+    const list = [
+      recentOf({ title: "Same", url: null, artists: [{ name: "X", url: null }] }, "t3"),
+      recentOf({ title: "Same", url: null, artists: [{ name: "Y", url: null }] }, "t2"),
+      recentOf({ title: "Same", url: null, artists: [{ name: "Y", url: null }] }, "t1"),
+    ];
+    // Первые два — разные артисты ⇒ остаются; последние два одинаковы ⇒ схлопнулись.
+    expect(collapseConsecutiveRecent(list).map((r) => r.track.artists[0]?.name)).toEqual(["X", "Y"]);
+  });
+
+  it("пустой список остаётся пустым", () => {
+    expect(collapseConsecutiveRecent([])).toEqual([]);
+  });
 });
 
 describe("MusicTile", () => {
@@ -105,6 +158,20 @@ describe("MusicTile", () => {
 
     expect(await screen.findByText("ничего не играет")).toBeInTheDocument();
     expect(screen.queryByTestId("now-playing")).not.toBeInTheDocument();
+  });
+
+  it("подряд идущие одинаковые недавние треки не дублируются", async () => {
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue([
+      { track: track({ title: "Strobe", url: "u:s" }), playedAt: "2026-06-18T10:03:00Z" },
+      { track: track({ title: "Strobe", url: "u:s" }), playedAt: "2026-06-18T10:02:00Z" },
+      { track: track({ title: "Ghosts", url: "u:g" }), playedAt: "2026-06-18T10:01:00Z" },
+    ]);
+
+    render(<MusicTile />);
+
+    await waitFor(() => expect(screen.getAllByTestId("recent-track")).toHaveLength(2));
+    expect(screen.getByText("Ghosts")).toBeInTheDocument();
   });
 
   it("без now-playing, но с недавними — показывает список недавних", async () => {

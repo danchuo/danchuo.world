@@ -4,6 +4,8 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -27,6 +29,42 @@ interface MusicTileProps {
 
 /** Сколько недавних показывать в простое (когда нет играющего трека). */
 const RECENT_WHEN_IDLE = 5;
+
+/* Геометрия сжатия-к-контенту (см. [useIsomorphicLayoutEffect] в компоненте). */
+const COVER = 44; // сторона обложки now-playing
+const COVER_GAP = 12; // gap-3 между обложкой и текстом
+const CARD_PAD_X = 32; // горизонтальные поля TileShell (p-4 с обеих сторон)
+/* Не сжимаем уже этого: строке-шапке («сейчас играет» + «Spotify») нужен воздух. */
+const MIN_CARD_W = 190;
+/* Ширина карточки, пока контент не измерен (загрузка/пусто). Компактная и центрированная, а не
+   во всю ячейку — иначе на быстром F5 SSR-плитка мигает широкой персиковой полосой до появления
+   виджета. `min(100%, …)` держится и в пре-гидрационном SSR-кадре (без замера). */
+const LOADING_W = 340;
+
+/* useLayoutEffect ругается при SSR клиентских компонентов — на сервере падаем на useEffect. */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/** Идентичность недавнего трека для схлопывания: url, а без него — название + имена артистов. */
+function recentKey(t: TrackView): string {
+  return t.url ?? `${t.title} | ${t.artists.map((a) => a.name).join(", ")}`;
+}
+
+/**
+ * Схлопывает **подряд** идущие одинаковые треки в один ряд (повтор трека, сыгранный сразу
+ * после себя же), сохраняя первый — самый свежий — элемент серии (§5.5). Повторы «через один»
+ * не трогаем: это отдельные прослушивания. Чистая функция — под юнит-тест.
+ */
+export function collapseConsecutiveRecent(recent: RecentTrackView[]): RecentTrackView[] {
+  const out: RecentTrackView[] = [];
+  let prevKey: string | null = null;
+  for (const r of recent) {
+    const key = recentKey(r.track);
+    if (key === prevKey) continue;
+    out.push(r);
+    prevKey = key;
+  }
+  return out;
+}
 
 /** Снимок музыки для кэш-копии (stale-while-revalidate, как у тайлов на [useTileData]). */
 interface MusicSnapshot {
@@ -234,7 +272,7 @@ function NowPlaying({ track, source }: { track: TrackView; source: SourceRef | n
           </Marquee>
         )}
         {track.album && (
-          <div className="truncate">
+          <div className="truncate fit-measure">
             <Album album={track.album} />
           </div>
         )}
@@ -341,25 +379,85 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   }, [loadAll]);
 
   const playing = now?.track ?? null;
+  // Подряд идущие одинаковые недавние треки схлопываем в один ряд (§5.5).
+  const collapsedRecent = useMemo(() => collapseConsecutiveRecent(recent), [recent]);
   // Играет трек ⇒ недавние не показываем (плитка маленькая, чтобы ничего не наезжало).
-  const showRecent = !playing && recent.length > 0;
+  const showRecent = !playing && collapsedRecent.length > 0;
   const isEmpty = !playing && !showRecent;
 
   // Прячем недавние, что не влезают по высоте (§7.1). Сигнатура состава — чтобы подгонка
   // перезапускалась при смене треков, а не только их числа.
-  const recentRef = useFitOverflow(recent.map((r) => r.track.url ?? r.track.title).join("|"));
+  const recentSig = collapsedRecent.map((r) => r.track.url ?? r.track.title).join("|");
+  const recentRef = useFitOverflow(recentSig);
+
+  // Сжатие-к-контенту по горизонтали (как «последний дроп»): узкое описание трека ⇒ карточка
+  // жмётся к тексту и центрируется в ячейке; широкое — держит полную ширину. Натуральную ширину
+  // берём по строкам текста (`.marquee-inner`/`.fit-measure` — шринк-врап, их `scrollWidth`
+  // равен ширине текста независимо от текущей ширины карточки) плюс обложка now-playing. Внешнюю
+  // ширину ячейки меряем на обёртке (не на самой карточке — иначе замер зациклит наблюдатель).
+  const frameRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [frameW, setFrameW] = useState(0);
+  const [naturalW, setNaturalW] = useState(0);
+
+  const measure = useCallback(() => {
+    const frame = frameRef.current;
+    if (frame) setFrameW(frame.getBoundingClientRect().width);
+    const c = contentRef.current;
+    if (!c) {
+      setNaturalW(0);
+      return;
+    }
+    let max = 0;
+    c.querySelectorAll<HTMLElement>(".marquee-inner, .fit-measure").forEach((el) => {
+      if (el.scrollWidth > max) max = el.scrollWidth;
+    });
+    setNaturalW(max > 0 ? max + (playing ? COVER + COVER_GAP : 0) : 0);
+  }, [playing]);
+
+  // Синхронный замер до отрисовки: сжатая ширина считается в том же кадре, когда коммитится
+  // загруженный контент, поэтому кэш-загрузка красится уже сжатой (без скачка ширины). Сигнатура
+  // состава перезапускает замер при смене трека/списка. В jsdom геометрия нулевая ⇒ cardW=null.
+  const contentSig = playing ? `np:${playing.url ?? playing.title}` : `re:${recentSig}`;
+  useIsomorphicLayoutEffect(() => {
+    measure();
+  }, [measure, state, isEmpty, contentSig]);
+
+  // ResizeObserver держит замер живым: внешняя ширина ячейки (ресайз окна, смена волны) И размер
+  // контента — так карточка **пере**сжимается сама, когда трек обновился в фоне (поллинг) и стал
+  // шире/уже. Петли нет: натуральная ширина берётся с `max-content`-строк и не зависит от ширины
+  // карточки, поэтому вызванный сжатием ресайз контента даёт то же значение (React гасит no-op).
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    const ro = new ResizeObserver(() => measure());
+    if (frameRef.current) ro.observe(frameRef.current);
+    if (contentRef.current) ro.observe(contentRef.current);
+    return () => ro.disconnect();
+  }, [measure, state, isEmpty]);
+
+  // Жмёмся к контенту, но не уже MIN_CARD_W и не шире ячейки; центрируемся в остатке. Пока контент
+  // не измерен — компактная дефолт-ширина (не во всю ячейку), чтобы не мигала персиковая полоса.
+  const shrinkW =
+    naturalW > 0 && frameW > 0
+      ? Math.min(frameW, Math.max(Math.ceil(naturalW) + CARD_PAD_X, MIN_CARD_W))
+      : null;
+  const cardWidth: CSSProperties["width"] =
+    shrinkW ?? (frameW > 0 ? Math.min(frameW, LOADING_W) : `min(100%, ${LOADING_W}px)`);
 
   return (
-    <TileShell
-      state={state === "loaded" && isEmpty ? "empty" : state}
-      emptyText="ничего не играет"
-      onRetry={retry}
-      ariaLabel="Музыка"
-      style={style}
-      className={className}
-    >
+    // Обёртка держит полный след ячейки; карточка внутри может быть у́же и центрируется.
+    <div ref={frameRef} style={style} className={className}>
+      <TileShell
+        state={state === "loaded" && isEmpty ? "empty" : state}
+        emptyText="ничего не играет"
+        onRetry={retry}
+        ariaLabel="Музыка"
+        // Плавный перегон ширины на всех переходах (загрузка → трек → смена трека); reduced-motion
+        // гасит его глобально в common.css. Ширина задана всегда — нет скачка auto→px.
+        style={{ height: "100%", width: cardWidth, marginInline: "auto", transition: "width 180ms ease" }}
+      >
       {state === "loaded" && !isEmpty && (
-        <div className="flex h-full flex-col gap-1 overflow-hidden">
+        <div ref={contentRef} className="flex h-full flex-col gap-1 overflow-hidden">
           {/* Статус слева, атрибуция Spotify справа в той же строке — освобождает
               вертикаль под список недавних (плитка низкая). */}
           <div
@@ -378,7 +476,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
             // в useFitOverflow корректен и лишние треки реально прячутся (не наезжают).
             <div className="relative min-h-0 flex-1">
               <ul ref={recentRef} className="absolute inset-0 flex flex-col gap-0.5 overflow-hidden">
-                {recent.map((r, i) => (
+                {collapsedRecent.map((r, i) => (
                 <li
                   key={`${r.track.url ?? r.track.title}-${r.playedAt ?? i}`}
                   data-testid="recent-track"
@@ -408,6 +506,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
           )}
         </div>
       )}
-    </TileShell>
+      </TileShell>
+    </div>
   );
 }

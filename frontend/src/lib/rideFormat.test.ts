@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCost, formatDuration, formatKm, formatRideCost } from "./rideFormat";
+import { formatCost, formatDuration, formatKm, formatRideCost, pluralRu, rublesWhole } from "./rideFormat";
 
 describe("formatKm", () => {
   it("ниже километра — в метрах", () => {
@@ -50,5 +50,36 @@ describe("formatRideCost", () => {
   it("нет данных о стоимости — пусто", () => {
     expect(formatRideCost(null)).toBe("");
     expect(formatRideCost(null, 90000)).toBe("");
+  });
+});
+
+describe("pluralRu", () => {
+  const rides: [string, string, string] = ["поездка", "поездки", "поездок"];
+  it("одна — форма [0]", () => {
+    expect(pluralRu(1, rides)).toBe("поездка");
+    expect(pluralRu(21, rides)).toBe("поездка");
+  });
+  it("две-четыре — форма [1]", () => {
+    expect(pluralRu(2, rides)).toBe("поездки");
+    expect(pluralRu(3, rides)).toBe("поездки");
+    expect(pluralRu(24, rides)).toBe("поездки");
+  });
+  it("пять и больше — форма [2]", () => {
+    expect(pluralRu(0, rides)).toBe("поездок");
+    expect(pluralRu(5, rides)).toBe("поездок");
+    expect(pluralRu(20, rides)).toBe("поездок");
+  });
+  it("11..14 — всегда форма [2] (особый случай)", () => {
+    expect(pluralRu(11, rides)).toBe("поездок");
+    expect(pluralRu(12, rides)).toBe("поездок");
+    expect(pluralRu(14, rides)).toBe("поездок");
+  });
+});
+
+describe("rublesWhole", () => {
+  it("копейки → целые рубли с округлением", () => {
+    expect(rublesWhole(39900)).toBe(399);
+    expect(rublesWhole(44100)).toBe(441);
+    expect(rublesWhole(0)).toBe(0);
   });
 });

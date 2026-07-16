@@ -8,6 +8,7 @@ import type {
   NowPlayingView,
   ProjectView,
   RecentTrackView,
+  RideMonthSummaryView,
   RideStatsView,
   RideView,
   SocialLinkView,
@@ -104,6 +105,11 @@ export function getRides(init?: RequestInit): Promise<RideView[]> {
 /** Агрегат истории поездок (`GET /api/rides/stats`). */
 export function getRideStats(init?: RequestInit): Promise<RideStatsView> {
   return getJson<RideStatsView>(`/api/rides/stats`, init);
+}
+
+/** Сводка за текущий календарный месяц (`GET /api/rides/month-summary`) — шапка модалки поездок. */
+export function getRideMonthSummary(init?: RequestInit): Promise<RideMonthSummaryView> {
+  return getJson<RideMonthSummaryView>(`/api/rides/month-summary`, init);
 }
 
 /**

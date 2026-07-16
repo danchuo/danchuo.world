@@ -97,6 +97,32 @@ class BikeRideService(
     }
 
 
+    /**
+     * Сводка за текущий календарный месяц (MSK) для шапки модалки поездок. Считает число поездок и
+     * суммарные минуты по поездкам этого месяца, а деньги — как **реально уплаченные за месяц**:
+     * платные поездки (`cost > 0`) плюс покупки тарифов ([BikeTariff]), сделанные в этом месяце, —
+     * каждая покупка учтена один раз (ground truth), поэтому бесплатные поездки «в рамках тарифа»
+     * не задваивают сумму (см. [RideMonthSummaryView]). Нет поездок в месяце ⇒ `rides == 0`.
+     */
+    fun monthSummary(): RideMonthSummaryView {
+        val zone = clock.zone
+        val monthStart = LocalDate.now(clock).withDayOfMonth(1)
+        val nextMonthStart = monthStart.plusMonths(1)
+        val monthRides = rides.listFrom(monthStart).filter { it.rideDate.isBefore(nextMonthStart) }
+        // Деньги = прямые списания за платные поездки + покупки тарифов-пакетов этого месяца (по одной
+        // за реальную запись о покупке — так 4 бесплатные поездки под одним пакетом не дают 4×399).
+        val paidKopecks = monthRides.sumOf { (it.costKopecks ?: 0).coerceAtLeast(0).toLong() }
+        val tariffKopecks = tariffs.listOrderedDesc()
+            .filter { it.purchasedAt.atZone(zone).toLocalDate().let { d -> !d.isBefore(monthStart) && d.isBefore(nextMonthStart) } }
+            .sumOf { it.priceKopecks.toLong() }
+        return RideMonthSummaryView(
+            month = monthStart.toString().substring(0, 7),
+            rides = monthRides.size,
+            durationSeconds = monthRides.sumOf { it.durationSeconds.toLong() },
+            spentKopecks = paidKopecks + tariffKopecks,
+        )
+    }
+
     /** Агрегат истории для тайла-сводки — по ВСЕЙ истории (не только по видимому текущему году). */
     fun stats(): RideStatsView {
         val all = rides.listOrderedDesc()

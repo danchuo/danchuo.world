@@ -61,4 +61,13 @@ describe("RideTile — входы в модалку поездок", () => {
     fireEvent.click(prev);
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
   });
+
+  it("на тайле — дистанция и время, без калорий (ккал живут только в модалке)", async () => {
+    getRidesMock.mockResolvedValue([base({ id: 10, distanceMeters: 6900, durationSeconds: 2640, calories: 168 })]);
+    render(<RideTile />);
+
+    expect(await screen.findByText("6.9 км")).toBeInTheDocument();
+    expect(screen.getByText("44 мин")).toBeInTheDocument();
+    expect(screen.queryByText(/ккал/)).toBeNull();
+  });
 });

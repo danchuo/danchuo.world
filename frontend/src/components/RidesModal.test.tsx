@@ -1,6 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RideView } from "@/lib/api/types";
+import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
+
+// Сводку месяца модалка тянет с бэка (`getRideMonthSummary`) — мокаем клиент. По умолчанию
+// «пусто» (rides 0 ⇒ строки нет); отдельные тесты переопределяют resolved-значение.
+const getRideMonthSummary = vi.fn<() => Promise<RideMonthSummaryView>>(() =>
+  Promise.resolve({ month: "2026-07", rides: 0, durationSeconds: 0, spentKopecks: 0 }),
+);
+vi.mock("@/lib/api/client", () => ({
+  getRideMonthSummary: () => getRideMonthSummary(),
+}));
 
 // RideMap тянет Leaflet динамически (client-only, не работает в jsdom) — мок-заглушка отдаёт
 // координаты выбранной поездки в data-атрибутах, чтобы проверять, ЧТО уходит на карту.
@@ -115,5 +124,40 @@ describe("RidesModal — карта выбранной поездки", () => {
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("RidesModal — сводка за текущий месяц", () => {
+  it("рисует строку под картой: поездки, минуты, рубли (с корректным склонением)", async () => {
+    getRideMonthSummary.mockResolvedValueOnce({
+      month: "2026-07",
+      rides: 4, // 4 → «поездки»
+      durationSeconds: 3660, // 61 мин → «минута» (61 % 10 === 1)
+      spentKopecks: 39900, // 399 ₽ → «рублей» (399 % 10 === 9)
+    });
+    render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
+
+    const strip = await screen.findByLabelText("Сводка за текущий месяц");
+    expect(within(strip).getByText("в этом месяце")).toBeInTheDocument();
+    expect(within(strip).getByText("4")).toBeInTheDocument();
+    expect(within(strip).getByText("поездки")).toBeInTheDocument();
+    expect(within(strip).getByText("61")).toBeInTheDocument();
+    expect(within(strip).getByText("минута")).toBeInTheDocument();
+    expect(within(strip).getByText("399")).toBeInTheDocument();
+    expect(within(strip).getByText("рублей")).toBeInTheDocument();
+  });
+
+  it("нет поездок в этом месяце (rides 0) — строка не рисуется", async () => {
+    getRideMonthSummary.mockResolvedValueOnce({
+      month: "2026-07",
+      rides: 0,
+      durationSeconds: 0,
+      spentKopecks: 0,
+    });
+    render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
+
+    // Дать промису сводки разрешиться, затем убедиться, что строки-сводки нет.
+    await Promise.resolve();
+    expect(screen.queryByLabelText("Сводка за текущий месяц")).toBeNull();
   });
 });

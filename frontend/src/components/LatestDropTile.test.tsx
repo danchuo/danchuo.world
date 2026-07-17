@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LatestDropTile } from "./LatestDropTile";
+import { buildMosaic, LatestDropTile } from "./LatestDropTile";
+import type { FilmPhotoView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn(), getDrop: vi.fn() }));
 import { getDrop, getDrops } from "@/lib/api/client";
@@ -8,6 +9,33 @@ const getDropsMock = vi.mocked(getDrops);
 const getDropMock = vi.mocked(getDrop);
 
 afterEach(() => vi.clearAllMocks());
+
+const landscape = (seq: number): FilmPhotoView => ({
+  imageUrl: `/api/film-media/1/${seq}/web`,
+  thumbUrl: `/api/film-media/1/${seq}/thumb`,
+  width: 120,
+  height: 80,
+});
+
+describe("buildMosaic (justified-раскладка кадров)", () => {
+  it("пять кадров никогда не пакуются в один ряд, даже в широком низком виджете", () => {
+    const photos = [0, 1, 2, 3, 4].map(landscape);
+    // Широкий и низкий контейнер: без капа единственный ряд из 5 выигрывал по score.
+    const mosaic = buildMosaic(photos, 1000, 120);
+    expect(mosaic).not.toBeNull();
+    for (const row of mosaic!) expect(row.length).toBeLessThanOrEqual(4);
+    // Перераскладка, не выбрасывание: все 5 кадров остаются на месте.
+    expect(mosaic!.flat()).toHaveLength(5);
+  });
+
+  it("четыре кадра в один ряд — по-прежнему можно", () => {
+    const photos = [0, 1, 2, 3].map(landscape);
+    const mosaic = buildMosaic(photos, 1000, 120);
+    expect(mosaic).not.toBeNull();
+    expect(mosaic!).toHaveLength(1);
+    expect(mosaic![0]).toHaveLength(4);
+  });
+});
 
 describe("LatestDropTile (крупный последний дроп)", () => {
   it("нет дропов → пустое состояние, кадры не запрашиваются", async () => {

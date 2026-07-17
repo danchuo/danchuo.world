@@ -183,7 +183,12 @@ export function Board() {
         data-testid="bento"
         className="hidden min-[1440px]:grid"
         style={{
-          gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+          // minmax(0, …): bare 1fr means minmax(auto, 1fr) — track width would follow the
+          // items' min-content. Tiles that size themselves in px from a measured cell width
+          // (LatestDropTile/MusicTile shrink-to-content) then feed back into the tracks and
+          // the mosaic oscillates. With a 0 minimum the tracks are pure layout, content can't
+          // push them (rows below are already minmax(0, 1fr) for the same reason).
+          gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))`,
           // Прослойки между тайлами теперь структурные (пустые треки сетки 40×28,
           // см. layout.ts), поэтому CSS-gap минимальный — только чтобы не было касаний.

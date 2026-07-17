@@ -72,6 +72,28 @@ class HealthIngestResourceTest {
     }
 
     @Test
+    fun `zero-minute sleep is stored as no-sleep, phases dropped too`() {
+        val date = LocalDate.of(2026, 6, 13)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","steps":9000,"sleepMinutes":0,
+                    "sleepStages":{"rem":0,"deep":0,"light":0,"awake":7}}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            val day = dayRecordRepository.findByDate(date)!!
+            assertEquals(9000, day.steps) // шаги — обычный ноль-неноль, не тронуты
+            assertNull(day.sleepMinutes)
+            assertNull(day.sleepRemMinutes)
+            assertNull(day.sleepDeepMinutes)
+            assertNull(day.sleepLightMinutes)
+            assertNull(day.sleepAwakeMinutes)
+        }
+    }
+
+    @Test
     fun `date before genesis is rejected`() {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"2025-12-31","steps":100}""")

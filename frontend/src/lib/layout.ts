@@ -19,6 +19,7 @@ export type TileId =
   | "freshness"
   | "music"
   | "stats"
+  | "sleep"
   | "today"
   | "calendar"
   | "projects"
@@ -65,18 +66,23 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // titles instead of the old narrow vertical column (titles used to truncate to nothing).
   // Two full cards + a chunk of the third — the cut-off card is the scroll affordance.
   photoDrops: { col: 23, row: 1, colSpan: 7, rowSpan: 6, orientation: "horizontal" },
-  stats: { col: 1, row: 13, colSpan: 7, rowSpan: 6 },
+  // Stats (activity + sleep lines) sit in the bottom-right corner below the calendar (§7.4).
+  stats: { col: 31, row: 21, colSpan: 9, rowSpan: 8 },
+  // Sleep detail (duration + phase bars) spans the lower-left band all the way to today (one
+  // gutter before col 14), now that projects shrank out of its columns (§7.7).
+  sleep: { col: 1, row: 13, colSpan: 12, rowSpan: 5 },
   today: { col: 14, row: 8, colSpan: 16, rowSpan: 16 },
   calendar: { col: 31, row: 9, colSpan: 9, rowSpan: 11 },
-  // Narrow vertical projects column left of today (the slot the drops column used to hold);
-  // 4 tracks wide (~the wave-switcher width) so titles and quarter ranges stay readable.
-  projects: { col: 9, row: 13, colSpan: 4, rowSpan: 11 },
+  // Projects shrunk to a small block low in its column (formal, to be relocated) so the sleep
+  // tile can widen across the band above; sits above the artifacts marquee (row 25).
+  projects: { col: 9, row: 20, colSpan: 4, rowSpan: 5 },
   ride: { col: 1, row: 20, colSpan: 7, rowSpan: 9 },
   // Hero is retired from the board for now (owner's call); the slot went to the layout above.
   hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5, hidden: true },
-  // Compact icon-only social square, tucked into the corner one gutter below the calendar
-  // and one gutter right of today.
-  social: { col: 31, row: 21, colSpan: 3, rowSpan: 4 },
+  // Social sits in the channel between the latest-drop tile (left, cols 1-10) and today
+  // (right, col 14), below music and above the projects column — a small icon stamp filling
+  // the air that used to gap the left column from today.
+  social: { col: 11, row: 8, colSpan: 3, rowSpan: 4 },
   // The artifacts marquee footer ends flush with today's right edge.
   marquee: { col: 9, row: 25, colSpan: 21, rowSpan: 4 },
 };
@@ -86,6 +92,7 @@ export const MOBILE_ORDER: TileId[] = [
   "today",
   "calendar",
   "stats",
+  "sleep",
   "music",
   "ride",
   "latestDrop",

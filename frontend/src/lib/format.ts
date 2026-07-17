@@ -24,6 +24,29 @@ export function formatSleep(minutes: number | null): string {
   return `${h} ч ${m} мин`;
 }
 
+/** Компактный сон под узкую колонку: `7ч 32м`; `0` → `0м`; `null` → «нет данных». */
+export function formatSleepShort(minutes: number | null): string {
+  if (minutes === null) return NO_DATA;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}м`;
+  if (m === 0) return `${h}ч`;
+  return `${h}ч ${m}м`;
+}
+
+/** Метка оси Y для шагов: `15K`, `7.5K`, `0` (тысячи; дробная часть — один знак). */
+export function formatStepsAxis(steps: number): string {
+  if (steps === 0) return "0";
+  const k = steps / 1000;
+  return Number.isInteger(k) ? `${k}K` : `${k.toFixed(1)}K`;
+}
+
+/** Метка оси Y для сна: `10ч`, `5ч`, `0` (часы, округлённо). */
+export function formatSleepAxis(minutes: number): string {
+  if (minutes === 0) return "0";
+  return `${Math.round(minutes / 60)}ч`;
+}
+
 /** Прогресс пункта дисциплины дробью `2/2` (DESIGN §4). */
 export function formatFraction(count: number, target: number): string {
   return `${count}/${target}`;

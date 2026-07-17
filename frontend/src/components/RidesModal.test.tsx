@@ -115,6 +115,16 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(screen.getAllByText(/· бесплатно/).length).toBeGreaterThan(0);
   });
 
+  it("адрес-заглушка «Москва» (вне станции) показывается как «вне станции»", () => {
+    const outside: RideView[] = [
+      base({ id: 30, startAddress: "Москва", finishAddress: "ст. м. Молодёжная (выход № 2)" }),
+    ];
+    render(<RidesModal rides={outside} today="2026-07-13" onClose={() => {}} />);
+
+    expect(screen.getByText("вне станции → ст. м. Молодёжная (выход № 2)")).toBeInTheDocument();
+    expect(screen.getByTestId("ride-map")).toHaveAttribute("data-start-label", "вне станции");
+  });
+
   it("Esc и кнопка закрытия зовут onClose", () => {
     const onClose = vi.fn();
     render(<RidesModal rides={rides} today="2026-07-13" onClose={onClose} />);

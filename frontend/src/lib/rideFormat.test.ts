@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCost, formatDuration, formatKm, formatRideCost, pluralRu, rublesWhole } from "./rideFormat";
+import { formatCost, formatDuration, formatKm, formatRideCost, formatStationAddress, pluralRu, rublesWhole } from "./rideFormat";
 
 describe("formatKm", () => {
   it("ниже километра — в метрах", () => {
@@ -73,6 +73,24 @@ describe("pluralRu", () => {
     expect(pluralRu(11, rides)).toBe("поездок");
     expect(pluralRu(12, rides)).toBe("поездок");
     expect(pluralRu(14, rides)).toBe("поездок");
+  });
+});
+
+describe("formatStationAddress", () => {
+  it("заглушка «просто город» (велосипед вне станции) — «вне станции»", () => {
+    expect(formatStationAddress("Москва")).toBe("вне станции");
+    expect(formatStationAddress("  Москва  ")).toBe("вне станции");
+    expect(formatStationAddress("Зеленоград")).toBe("вне станции");
+  });
+  it("настоящий адрес проходит как есть", () => {
+    expect(formatStationAddress("ст. м. Молодёжная (выход № 2)")).toBe("ст. м. Молодёжная (выход № 2)");
+    expect(formatStationAddress("ул. Ельнинская, д. 14к1")).toBe("ул. Ельнинская, д. 14к1");
+  });
+  it("лишние пробелы схлопываются (сырьё PWA с двойными пробелами)", () => {
+    expect(formatStationAddress(" ул. Краснобогатырская,  д. 2 стр. 93")).toBe("ул. Краснобогатырская, д. 2 стр. 93");
+  });
+  it("null остаётся null (строки адресов у поездки может не быть)", () => {
+    expect(formatStationAddress(null)).toBeNull();
   });
 });
 

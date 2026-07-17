@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс bike: адреса-заглушки «просто город» («Москва» — велосипед оставлен вне именованной
+      станции) успели геокодироваться в центроид города и перекрывали точный GPS пином на Красной
+      площади. Геокодер такие адреса больше не трогает (StationGeocoder.isCityPlaceholder);
+      уже закэшированные строки сбрасываем в «не найдено» — пин честно падает на GPS-фолбэк.
+      Признак заглушки — одно слово без цифр и запятых (все настоящие адреса многословны).
+    -->
+    <changeSet id="0180-bike-station-placeholder-reset" author="danchuo">
+        <sql>
+            UPDATE bike_station
+            SET found = false, lat = NULL, lon = NULL
+            WHERE btrim(address) ~ '^[^0-9[:space:],]+$'
+        </sql>
+    </changeSet>
+</databaseChangeLog>

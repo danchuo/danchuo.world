@@ -1,7 +1,9 @@
 package world.danchuo.bike
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -30,6 +32,22 @@ class StationGeocoderTest {
             listOf("Шмитовский проезд, 18А стр. 1, Москва", "Шмитовский проезд, 18А, Москва", "Шмитовский проезд, Москва"),
             StationGeocoder.candidates("Шмитовский проезд, д. 18А стр. 1"),
         )
+    }
+
+    @Test
+    fun `адрес-заглушка «просто город» распознаётся (велосипед вне станции)`() {
+        // PWA отдаёт литеральную «Москву», когда велосипед оставлен не на именованной станции —
+        // геокодить такое нельзя: центроид города перекроет точный GPS.
+        assertTrue(StationGeocoder.isCityPlaceholder("Москва"))
+        assertTrue(StationGeocoder.isCityPlaceholder("  Москва  "))
+        assertTrue(StationGeocoder.isCityPlaceholder("Зеленоград"))
+    }
+
+    @Test
+    fun `настоящий адрес станции — не заглушка`() {
+        assertFalse(StationGeocoder.isCityPlaceholder("ст. м. Молодёжная (выход № 2)"))
+        assertFalse(StationGeocoder.isCityPlaceholder("ул. Ельнинская, д. 14к1"))
+        assertFalse(StationGeocoder.isCityPlaceholder(" ул. Краснобогатырская,  д. 2 стр. 93"))
     }
 
     @Test

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { getRideMonthSummary } from "@/lib/api/client";
 import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
 import { relativeDayRu } from "@/lib/relativeDay";
-import { formatDuration, formatKm, formatRideCost, pluralRu, rublesWhole } from "@/lib/rideFormat";
+import { formatDuration, formatKm, formatRideCost, formatStationAddress, pluralRu, rublesWhole } from "@/lib/rideFormat";
 import { Icon } from "./Icon";
 import { RideMap } from "./RideMap";
 
@@ -127,8 +127,8 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                   finishLon={selected.finishLon!}
                   wave={wave}
                   interactivePins
-                  startLabel={selected.startAddress}
-                  finishLabel={selected.finishAddress}
+                  startLabel={formatStationAddress(selected.startAddress)}
+                  finishLabel={formatStationAddress(selected.finishAddress)}
                 />
               ) : (
                 <div
@@ -195,7 +195,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                       </div>
                       {(r.startAddress || r.finishAddress) && (
                         <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: 11 }}>
-                          {(r.startAddress ?? "?") + " → " + (r.finishAddress ?? "?")}
+                          {(formatStationAddress(r.startAddress) ?? "?") + " → " + (formatStationAddress(r.finishAddress) ?? "?")}
                         </div>
                       )}
                     </button>

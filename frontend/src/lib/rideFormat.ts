@@ -48,6 +48,19 @@ export function rublesWhole(kopecks: number): number {
 }
 
 /**
+ * Адрес станции для витрины. PWA Велобайка помечает велосипед, оставленный вне именованной
+ * станции, заглушкой «просто город» («Москва») — показываем честное «вне станции» (признак:
+ * одно слово без цифр и запятых, зеркало бэкового `StationGeocoder.isCityPlaceholder`).
+ * Настоящий адрес проходит как есть, но с схлопнутыми пробелами (сырьё бывает с двойными).
+ */
+export function formatStationAddress(address: string | null): string | null {
+  if (address == null) return null;
+  const clean = address.replace(/\s+/g, " ").trim();
+  const isCityPlaceholder = clean !== "" && !/[\s,\d]/.test(clean);
+  return isCityPlaceholder ? "вне станции" : clean;
+}
+
+/**
  * Стоимость поездки для истории (модалка). Платная — «52 ₽». Бесплатная (`cost === 0`) едет в
  * рамках ранее купленного тарифа: если бэк нашёл покрывающую покупку — «в рамках тарифа за N ₽»
  * (её цена), иначе честное «бесплатно». `null` (нет данных о стоимости) ⇒ пустая строка.

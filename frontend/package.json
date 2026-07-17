@@ -1,6 +1,6 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "1.12.3",
+  "version": "1.12.4",
   "private": true,
   "description": "danchuo.world — публичный фронт + админка (B1: фото-дропы; B2: хитмапа кликов — секция в /admin; B4: виджет поездок Велобайк)",
   "scripts": {

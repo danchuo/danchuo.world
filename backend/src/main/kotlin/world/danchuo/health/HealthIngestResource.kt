@@ -19,7 +19,8 @@ import java.time.LocalDate
  * весь день, пропущенный прогон догоняется следующим.
  *
  * Семантика null ≠ 0 (§5.4): отсутствующая метрика остаётся `null` («нет данных»),
- * пришедший 0 — реальный ноль.
+ * пришедший 0 — реальный ноль. Единственное исключение — сон: ночь в 0 минут «сна не было»,
+ * нормализуется в `null` (см. [SleepNormalization]).
  */
 @Path("/api/ingest/health")
 class HealthIngestResource(
@@ -69,14 +70,25 @@ class HealthIngestResource(
         }
 
         val stages = req.sleepStages
+        // Ночь в 0 минут — не реальный ноль, а «сна не было» (шорткат шлёт 0 при пустом HealthKit):
+        // схлопываем длительность и фазы в null, чтобы плитки не показывали «0м» с пустыми фазами.
+        val sleep = SleepNormalization.normalize(
+            SleepInput(
+                minutes = req.sleepMinutes,
+                rem = stages?.rem,
+                deep = stages?.deep,
+                light = stages?.light,
+                awake = stages?.awake,
+            ),
+        )
         dayRecordService.applyHealth(
             date = date,
             steps = req.steps,
-            sleepMinutes = req.sleepMinutes,
-            sleepRem = stages?.rem,
-            sleepDeep = stages?.deep,
-            sleepLight = stages?.light,
-            sleepAwake = stages?.awake,
+            sleepMinutes = sleep.minutes,
+            sleepRem = sleep.rem,
+            sleepDeep = sleep.deep,
+            sleepLight = sleep.light,
+            sleepAwake = sleep.awake,
         )
         workoutRepository.replaceForDate(date, workouts)
 

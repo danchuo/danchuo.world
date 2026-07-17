@@ -55,36 +55,41 @@ export const BENTO_ROWS = 28;
  * через `v → 2v−1` (см. шапку файла): между каждой парой соседей — пустой трек-прослойка.
  */
 export const TILE_LAYOUT: Record<TileId, TileSpan> = {
-  // Brand signature plate crowns the right column — the only place the site name shows on
-  // the board (it used to sit buried underneath stats, i.e. effectively invisible).
-  identity: { col: 31, row: 1, colSpan: 9, rowSpan: 3 },
+  // Brand signature plate retired from the board (owner's call) — kept in the registry hidden.
+  identity: { col: 31, row: 1, colSpan: 9, rowSpan: 3, hidden: true },
   latestDrop: { col: 1, row: 1, colSpan: 10, rowSpan: 11 },
-  waveSwitcher: { col: 31, row: 5, colSpan: 3, rowSpan: 3 },
-  freshness: { col: 36, row: 5, colSpan: 4, rowSpan: 3 },
-  music: { col: 13, row: 1, colSpan: 8, rowSpan: 6 },
+  // Freshness moved to the right of the latest-drop tile, top-aligned with it (top band).
+  freshness: { col: 9, row: 13, colSpan: 3, rowSpan: 3 },
+  // Wave switcher tucked just left of today's top-left corner, top-aligned with today (row 8).
+  waveSwitcher: { col: 9, row: 20, colSpan: 3, rowSpan: 3 },
+  // Spotify moved to the right of the drops strip, into the top-right band the wave/freshness
+  // stack vacated (above the calendar).
+  music: { col: 12, row: 1, colSpan: 8, rowSpan: 6 },
   // Horizontal drops strip in the top band, flush with today's right edge: covers + readable
   // titles instead of the old narrow vertical column (titles used to truncate to nothing).
   // Two full cards + a chunk of the third — the cut-off card is the scroll affordance.
   photoDrops: { col: 23, row: 1, colSpan: 7, rowSpan: 6, orientation: "horizontal" },
-  // Stats (activity + sleep lines) sit in the bottom-right corner below the calendar (§7.4).
-  stats: { col: 31, row: 21, colSpan: 9, rowSpan: 8 },
-  // Sleep detail (duration + phase bars) spans the lower-left band all the way to today (one
-  // gutter before col 14), now that projects shrank out of its columns (§7.7).
-  sleep: { col: 1, row: 13, colSpan: 12, rowSpan: 5 },
-  today: { col: 14, row: 8, colSpan: 16, rowSpan: 16 },
-  calendar: { col: 31, row: 9, colSpan: 9, rowSpan: 11 },
-  // Projects shrunk to a small block low in its column (formal, to be relocated) so the sleep
-  // tile can widen across the band above; sits above the artifacts marquee (row 25).
-  projects: { col: 9, row: 20, colSpan: 4, rowSpan: 5 },
-  ride: { col: 1, row: 20, colSpan: 7, rowSpan: 9 },
+  // Lower-left cluster below the latest-drop tile: projects (narrow, left) + stats (right of it,
+  // one gutter before today). Sleep drops to the very bottom band, right of projects/stats.
+  // Stats and sleep each nudged one track down.
+  stats: { col: 31, row: 1, colSpan: 10, rowSpan: 8 },
+  sleep: { col: 18, row: 24, colSpan: 12, rowSpan: 5 },
+  today: { col: 13, row: 8, colSpan: 15, rowSpan: 15 },
+  // Calendar nudged up one track so its top lines up with today (row 8).
+  calendar: { col: 29, row: 10, colSpan: 9, rowSpan: 11 },
+  // Projects — narrow vertical column at the bottom-right edge, below the calendar. rowSpan 7
+  // ends exactly on the grid's last row (row-end 29): 9 would spill 2 implicit rows past it.
+  projects: { col: 34, row: 22, colSpan: 4, rowSpan: 7 },
+  // Ride swapped with stats to the bottom-right, hugging the right wall below the calendar.
+  ride: { col: 1, row: 13, colSpan: 7, rowSpan: 10 },
   // Hero is retired from the board for now (owner's call); the slot went to the layout above.
   hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5, hidden: true },
-  // Social sits in the channel between the latest-drop tile (left, cols 1-10) and today
-  // (right, col 14), below music and above the projects column — a small icon stamp filling
-  // the air that used to gap the left column from today.
-  social: { col: 11, row: 8, colSpan: 3, rowSpan: 4 },
-  // The artifacts marquee footer ends flush with today's right edge.
-  marquee: { col: 9, row: 25, colSpan: 21, rowSpan: 4 },
+  // Social tucked into the window below the calendar and left of the ride tile (cols 31-33,
+  // above the marquee that fills the bottom band).
+  social: { col: 14, row: 24, colSpan: 3, rowSpan: 5 },
+  // The artifacts marquee footer, grown one track upward, slid right to sit one gutter left of
+  // the ride tile (col-end 33 → gutter col 33 → ride at col 34).
+  marquee: { col: 1, row: 24, colSpan: 12, rowSpan: 5 },
 };
 
 /** Порядок одноколоночного стека на мобиле (<640px, DESIGN §8). */

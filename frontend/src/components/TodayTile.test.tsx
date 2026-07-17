@@ -20,13 +20,16 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 }
 
 describe("TodayTile", () => {
-  it("рендерит дату, имя дня, статы и карту-тропу дисциплины (монстр — только детур карты)", () => {
+  it("рендерит дату, имя дня и карту-тропу дисциплины (статы/тренировка переехали, монстр — детур карты)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
     expect(screen.getByTestId("today-title")).toHaveTextContent("первый забег");
-    expect(screen.getByText(/8.421/)).toBeInTheDocument(); // шаги сгруппированы
-    expect(screen.getByText(/7 ч 17 мин/)).toBeInTheDocument();
+    // Шаги, сон и тренировка переехали из «Сегодня» на свои виджеты — здесь их строк больше нет.
+    expect(screen.queryByText(/шаги/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/сон/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/8.421/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
 
     // дисциплина — карта-тропа (QuestMap): чтение закрыто на обеих остановках, растяжка нет
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
@@ -50,15 +53,12 @@ describe("TodayTile", () => {
     render(<TodayTile day={empty} today="2026-06-18" state="loaded" />);
 
     expect(screen.queryByTestId("today-title")).not.toBeInTheDocument();
-    expect(screen.getByText(/шаги: нет данных/)).toBeInTheDocument();
+    // Без тренировки и без статов — только шапка + карта; строки статов в плитке нет.
+    expect(screen.queryByText(/шаги/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "false");
     expect(screen.queryByTestId("monster-none")).not.toBeInTheDocument();
-  });
-
-  it("реальный 0 показывается как 0, а не «нет данных» (null ≠ 0)", () => {
-    const zero = dayFixture({ health: { steps: 0, sleepMinutes: null, sleepStages: null } });
-    render(<TodayTile day={zero} today="2026-06-18" state="loaded" />);
-    expect(screen.getByText(/шаги: 0$/)).toBeInTheDocument();
   });
 
   it("длинное имя дня не переносится: кегль ужимается, шапка остаётся одной строкой", () => {

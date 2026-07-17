@@ -154,7 +154,14 @@ body {
 .quest-map {
   display: block;
   width: 100%;
-  height: auto;
+  /* Fill the vertical space the today tile leaves after the header (flex child that grows).
+     Where the parent has a definite height (desktop bento), flex-grow gives the map that height
+     and its viewBox scales up (preserveAspectRatio meet — centered, never distorted). Where the
+     parent height is auto (mobile stack), flex-grow adds nothing and aspect-ratio supplies the
+     intrinsic height, so the map keeps its natural 400:210 shape. */
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 400 / 210;
 }
 
 .quest-seg path {

@@ -5,6 +5,9 @@
 # Crash-дампы Git Bash на Windows — мусор, не трекаем
 *.stackdump
 
+# Случайный npm/npx-мусор в корне (корневого package.json нет — фронт живёт в frontend/)
+/node_modules/
+
 # Локальные .env с секретами — НЕ коммитим; трекаются только образцы *.env.example
 .env
 .env.*

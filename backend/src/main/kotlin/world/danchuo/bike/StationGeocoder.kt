@@ -50,7 +50,8 @@ class StationGeocoder(
         val address = rides.distinctAddresses().firstOrNull { it !in known } ?: return
 
         val coords = try {
-            geocode(address)
+            // Заглушку «просто город» не геокодим: центроид перекрыл бы точный GPS (см. isCityPlaceholder).
+            if (isCityPlaceholder(address)) null else geocode(address)
         } catch (e: Exception) {
             log.warn("Nominatim geocode failed for '$address' (retry next tick): ${e.message}")
             return
@@ -84,6 +85,16 @@ class StationGeocoder(
     companion object {
         /** Пауза между вариантами одного адреса — держим ~1 запрос/сек к Nominatim. */
         private const val THROTTLE_MS = 1100L
+
+        /**
+         * Адрес-заглушка «просто город» («Москва») — так PWA помечает велосипед, оставленный вне
+         * именованной станции. Геокодить нельзя: Nominatim отдаст центроид города (Красная площадь),
+         * а он в [BikeRideService.toView] перекроет точный GPS. Признак: одно слово без цифр/запятых.
+         */
+        fun isCityPlaceholder(raw: String): Boolean {
+            val trimmed = raw.trim()
+            return trimmed.isNotEmpty() && trimmed.none { it.isWhitespace() || it == ',' || it.isDigit() }
+        }
 
         /**
          * Кандидаты-запросы для адреса, от точного к грубому: убираем уточнение в скобках и маркер

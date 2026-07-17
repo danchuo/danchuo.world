@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { formatAgo, formatFraction, formatSleep, formatSteps, isDisciplineDone, NO_DATA } from "./format";
+import {
+  formatAgo,
+  formatFraction,
+  formatSleep,
+  formatSleepAxis,
+  formatSleepShort,
+  formatSteps,
+  formatStepsAxis,
+  isDisciplineDone,
+  NO_DATA,
+} from "./format";
 
 describe("format (null != 0, PRD 5.4)", () => {
   it("null -> «нет данных», но реальный 0 показывается как 0", () => {
@@ -24,6 +34,22 @@ describe("format (null != 0, PRD 5.4)", () => {
     expect(formatFraction(2, 2)).toBe("2/2");
     expect(isDisciplineDone(2, 2)).toBe(true);
     expect(isDisciplineDone(1, 2)).toBe(false);
+  });
+
+  it("метки оси Y: шаги в K, сон в ч", () => {
+    expect(formatStepsAxis(0)).toBe("0");
+    expect(formatStepsAxis(15000)).toBe("15K");
+    expect(formatStepsAxis(7500)).toBe("7.5K");
+    expect(formatSleepAxis(0)).toBe("0");
+    expect(formatSleepAxis(600)).toBe("10ч");
+    expect(formatSleepAxis(300)).toBe("5ч");
+  });
+
+  it("formatSleepShort — компактные единицы", () => {
+    expect(formatSleepShort(null)).toBe(NO_DATA);
+    expect(formatSleepShort(452)).toBe("7ч 32м");
+    expect(formatSleepShort(120)).toBe("2ч");
+    expect(formatSleepShort(45)).toBe("45м");
   });
 });
 

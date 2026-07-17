@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { readCache, writeCache } from "@/lib/api/cache";
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
-import { mskToday, windowAround } from "@/lib/date";
+import { addDays, mskToday, windowAround } from "@/lib/date";
 import { gridArea, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
@@ -16,6 +16,7 @@ import { PhotoDropsTile } from "./PhotoDropsTile";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { ProjectsTile } from "./ProjectsTile";
 import { RideTile } from "./RideTile";
+import { SleepTile } from "./SleepTile";
 import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
@@ -26,8 +27,15 @@ import { WeekStrip } from "./WeekStrip";
 type Status = "loading" | "error" | "loaded";
 type TileVariant = "grid" | "stack" | "strip";
 
-/** Радиус окна календаря/мини-графика — ±15 дней (PRD §5.3). */
+/** Радиус окна календаря — ±15 дней (PRD §5.3). */
 const RADIUS = 15;
+
+/**
+ * Глубина истории для графиков статов (§7.4): окно календаря ±15 мало под скролл-в-прошлое,
+ * поэтому статы тянут свою выборку [сегодня−(N−1), сегодня]. Ограничена 30 днями — дальше
+ * листать пустоту смысла нет (при WINDOW=10 отлистывается максимум 20 дней назад).
+ */
+const STATS_HISTORY = 30;
 
 /** Данные/хендлеры борда, прокидываемые в каждый тайл. */
 interface BoardData {
@@ -37,9 +45,13 @@ interface BoardData {
   rangeStatus: Status;
   selected: string;
   today: string;
+  /** История дней для спарклайна статов [сегодня−(STATS_HISTORY−1), сегодня] (§7.4). */
+  statsHistory: DaySummary[];
+  statsStatus: Status;
   selectDay: (date: string) => void;
   retryDay: () => void;
   retryRange: () => void;
+  retryStats: () => void;
   /** Active wave key (fallback = wave-01 skin) — lets the today tile pick its quest sprite set. */
   wave: string;
 }
@@ -56,10 +68,13 @@ export function Board() {
   const { layout, activeKey } = useWave();
   const today = useMemo(() => mskToday(), []);
   const { from, to } = useMemo(() => windowAround(today, RADIUS), [today]);
+  const statsFrom = useMemo(() => addDays(today, -(STATS_HISTORY - 1)), [today]);
 
   const [selected, setSelected] = useState(today);
   const [rangeStatus, setRangeStatus] = useState<Status>("loading");
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
+  const [statsStatus, setStatsStatus] = useState<Status>("loading");
+  const [statsHistory, setStatsHistory] = useState<DaySummary[]>([]);
   const [dayStatus, setDayStatus] = useState<Status>("loading");
   const [day, setDay] = useState<DayView | null>(null);
   // Кэш загруженных дней — это накопитель ответов сети, не отображаемое состояние:
@@ -89,6 +104,29 @@ export function Board() {
   }, [from, to]);
 
   useEffect(loadRange, [loadRange]);
+
+  // История статов — своя выборка (шире окна календаря), тот же stale-while-revalidate.
+  const loadStats = useCallback(() => {
+    const key = `days:${statsFrom}:${today}`;
+    const cached = readCache<DaySummary[]>(key);
+    if (cached) {
+      setStatsHistory(cached);
+      setStatsStatus("loaded");
+    } else {
+      setStatsStatus("loading");
+    }
+    getDays(statsFrom, today)
+      .then((rows) => {
+        setStatsHistory(rows);
+        setStatsStatus("loaded");
+        writeCache(key, rows);
+      })
+      .catch(() => {
+        if (!cached) setStatsStatus("error");
+      });
+  }, [statsFrom, today]);
+
+  useEffect(loadStats, [loadStats]);
 
   const loadDay = useCallback((date: string) => {
     const memo = dayCache.current[date];
@@ -128,9 +166,12 @@ export function Board() {
     rangeStatus,
     selected,
     today,
+    statsHistory,
+    statsStatus,
     selectDay: setSelected,
     retryDay: () => loadDay(selected),
     retryRange: loadRange,
+    retryStats: loadStats,
     // null (деградированный SSR) ⇒ фолбэк-скин волны 01, поэтому и её спрайт-набор.
     wave: activeKey ?? "wave-01",
   };
@@ -228,8 +269,19 @@ function BoardTile({
     case "stats":
       return (
         <StatsTile
+          history={data.statsHistory}
+          selected={data.selected}
+          state={data.statsStatus}
+          onRetry={data.retryStats}
+          style={style}
+          className={className}
+        />
+      );
+    case "sleep":
+      return (
+        <SleepTile
           day={data.day}
-          window={data.summaries}
+          today={data.today}
           state={data.dayStatus}
           onRetry={data.retryDay}
           style={style}
@@ -298,6 +350,7 @@ const TILE_NOTES: Record<TileId, string> = {
   freshness: "свежесть данных",
   music: "музыка",
   stats: "статы",
+  sleep: "сон",
   today: "сегодня",
   calendar: "календарь",
   projects: "проекты",

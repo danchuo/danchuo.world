@@ -16,7 +16,8 @@ interface Tile {
 /** Десктоп: полный bento (см. layout.ts TILE_LAYOUT). */
 const DESKTOP: Tile[] = [
   { label: "Сегодня", slug: "today" },
-  { label: "Статы", slug: "stats" },
+  { label: "Статы — активность и сон", slug: "stats" },
+  { label: "Сон", slug: "sleep" },
   { label: "Календарь", slug: "calendar" },
   { label: "Музыка", slug: "music" },
   { label: "Последняя поездка на Велобайке", slug: "ride" },
@@ -34,7 +35,8 @@ const DESKTOP: Tile[] = [
 const MOBILE: Tile[] = [
   { label: "Сегодня", slug: "today" },
   { label: "Календарь (полоса)", slug: "calendar" },
-  { label: "Статы", slug: "stats" },
+  { label: "Статы — активность и сон", slug: "stats" },
+  { label: "Сон", slug: "sleep" },
   { label: "Музыка", slug: "music" },
   { label: "Последняя поездка на Велобайке", slug: "ride" },
   { label: "Последний фото-дроп", slug: "latestDrop" },

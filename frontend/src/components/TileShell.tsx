@@ -51,6 +51,12 @@ export function TileShell({
       className={`relative flex flex-col overflow-hidden p-4 ${tileClass} ${className}`}
       style={style}
     >
+      {/* Нижняя подложка «коробочки» + белая внутренняя рамка верхней карты (§2.4) —
+          отдельные элементы: оба псевдо-слота .pixel-tile заняты верхней карточкой.
+          Скины без объёма (волна 02) гасят их у себя в CSS. */}
+      {!muted && <span className="pixel-slab" aria-hidden />}
+      {!muted && <span className="pixel-lid" aria-hidden />}
+
       {state === "loading" && (
         <div
           data-testid="tile-loading"

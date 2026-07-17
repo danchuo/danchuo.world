@@ -75,6 +75,10 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
         className="pixel-tile my-auto w-full max-w-4xl p-4"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
+            панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
+        <span className="pixel-slab" aria-hidden />
+        <span className="pixel-lid" aria-hidden />
         <div className="mb-3 flex items-center justify-between">
           <div className="flex flex-col">
             <span style={{ fontSize: 16, color: "var(--text-primary)" }}>{title}</span>

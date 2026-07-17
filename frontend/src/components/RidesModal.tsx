@@ -94,6 +94,10 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
         style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
+            панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
+        <span className="pixel-slab" aria-hidden />
+        <span className="pixel-lid" aria-hidden />
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <span style={{ fontSize: 16, color: "var(--text-primary)" }}>поездки</span>
           <button

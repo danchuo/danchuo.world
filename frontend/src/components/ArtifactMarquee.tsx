@@ -120,6 +120,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
               className="pixel-tile absolute left-1/2 top-1/2 z-10 flex flex-col items-center gap-1 p-3"
               style={{ transform: "translate(-50%, -50%)", minWidth: 140 }}
             >
+              {/* Подложка «коробочки» + белая рамка (§2.4) — поповер несёт .pixel-tile сам. */}
+              <span className="pixel-slab" aria-hidden />
+              <span className="pixel-lid" aria-hidden />
               {activeArtifact.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

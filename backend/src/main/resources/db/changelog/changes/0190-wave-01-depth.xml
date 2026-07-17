@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      «Коробочка» волны 01 (DESIGN §2.4, референс владельца 2026-07): объём плитки — две
+      полностью совпадающие карточки одного ступенчатого силуэта, смещённые по вертикали.
+      Верхняя (линия + поверхность) приподнята на tile-depth, из-под неё снизу выглядывает
+      нижняя ПОДЛОЖКА — тёплый персиковый градиент в том же глиняном контуре. Механика —
+      в wave-01.css (псевдо-слои .pixel-tile = верхняя карточка, элемент .pixel-slab =
+      подложка); здесь — токены, как и остальные параметры края (0160). NB: имена токенов
+      в этом комментарии без префикса двойного дефиса — XML запрещает его внутри
+      комментариев (в CSS это var(tile-depth) с префиксом).
+
+      UPDATE поверх применённого 0080-theme-seed-wave01 (checksum сида трогать нельзя);
+      `||` мержит только эти ключи, остальной токен-набор волны 01 не трогается.
+      Вычитание tile-depth-color/tile-depth-light — гигиена для сред, успевших примерить
+      промежуточные итерации этой ветки (на проде ключей нет, `-` там no-op).
+
+        tile-depth   НОВЫЙ — вертикальный сдвиг карточек «коробочки» (высота видимой
+                     части подложки).
+        tile-slab-1/2 НОВЫЕ — градиент заливки подложки (тёплый персик); контур подложки —
+                     та же тёмная глина border-tile по всему периметру.
+        tile-inner / tile-inner-color НОВЫЕ — очень тонкая СВЕТЛАЯ внутренняя рамка верхней
+                     карты (слой .pixel-lid) по всему периметру; снизу глиняной рамки у
+                     верхней карты нет (светлая накрывает её до низа) — нижняя кромка
+                     светлая, стык с подложкой уместен без градиентов. Цвет — тёплый крем,
+                     не #ffffff: чистый белый ярче всего борда и холодный рядом с персиком,
+                     линия «звенела» издалека.
+        border-tile  #cc9f8c из 0160 -> #d58b69: контур обеих карточек насыщеннее.
+        tile-line    1.5px из 0160 -> 2px: линия увереннее, под вес «коробочки».
+        surface-fill низ передней грани теплеет (#fff5ee) — крышка не белый лист.
+
+      Волна 02 «Obscura» намеренно не трогается: её карты рисуют край сами (border+radius),
+      слои волны 01 у неё погашены (см. врез «Как волна выбирает край» в wave-01.css).
+    -->
+    <changeSet id="0190-wave-01-depth-tokens" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'tile-depth-color' - 'tile-depth-light' - 'tile-slab-line') || $J${
+  "tile-depth": "6px",
+  "tile-slab-1": "#efc8b2",
+  "tile-slab-2": "#dfa083",
+  "tile-inner": "1.5px",
+  "tile-inner-color": "#fff3e7",
+  "border-tile": "#d58b69",
+  "tile-line": "2px",
+  "surface-fill": "linear-gradient(180deg, #ffffff 0%, #fffdfb 35%, #fff5ee 100%)"
+}$J$::jsonb
+WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'tile-depth' - 'tile-slab-1' - 'tile-slab-2' - 'tile-inner' - 'tile-inner-color') || $J${
+  "border-tile": "#cc9f8c",
+  "tile-line": "1.5px",
+  "surface-fill": "linear-gradient(180deg, var(--bg-surface), var(--bg-surface-2))"
+}$J$::jsonb
+WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

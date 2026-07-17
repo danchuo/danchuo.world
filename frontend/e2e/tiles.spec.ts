@@ -28,7 +28,6 @@ const DESKTOP: Tile[] = [
   { label: "Последний фото-дроп", slug: "latestDrop" },
   { label: "Свежесть данных", slug: "freshness" },
   { label: "Переключатель волн", slug: "waveSwitcher" },
-  { label: "danchuo.world", slug: "identity" },
 ];
 
 /** Мобайл: стек MOBILE_ORDER (календарь — недельной полосой). */

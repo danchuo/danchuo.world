@@ -59,9 +59,10 @@ class ThemeResourceTest {
 
     @Test
     fun `wave02 carries its own arcade-cabinet layout, distinct from wave01`() {
-        // Волна 02 несёт уникальную раскладку «аркадный автомат» (миграция 0210): marquee —
-        // ВЕРТИКАЛЬНАЯ лента артефактов у левого края на всю высоту (col 1, orientation=vertical),
-        // «Сегодня» — доминанта центральной колонки (col 17). Фронт мержит спаны поверх layout.ts.
+        // Волна 02 несёт уникальную раскладку «аркадный автомат в небе» (миграция 0170 поверх
+        // сида 0080): marquee — ВЕРТИКАЛЬНАЯ лента артефактов у левого края на всю высоту (col 1,
+        // orientation=vertical), «Сегодня» — экран-доминанта центральной колонны (col 16).
+        // Фронт мержит спаны поверх layout.ts.
         given().get("/api/themes")
             .then().statusCode(200)
             .body("key", hasItem("wave-02"))
@@ -69,9 +70,14 @@ class ThemeResourceTest {
             .body("find { it.key == 'wave-02' }.layout.tiles.marquee.col", equalTo(1))
             .body("find { it.key == 'wave-02' }.layout.tiles.marquee.rowSpan", equalTo(28))
             .body("find { it.key == 'wave-02' }.layout.tiles.marquee.orientation", equalTo("vertical"))
-            // «Сегодня» — доминанта центральной колонки
-            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(17))
+            // «Сегодня» — экран-доминанта центральной колонны корпуса автомата
+            .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(16))
             // тайл без ориентации отдаёт null (дефолт тайла на фронте)
             .body("find { it.key == 'wave-02' }.layout.tiles.today.orientation", nullValue())
+            // sleep появился в реестре после сида — 0170 даёт ему свою полосу (не перекрывает social)
+            .body("find { it.key == 'wave-02' }.layout.tiles.sleep.col", equalTo(30))
+            .body("find { it.key == 'wave-02' }.layout.tiles.sleep.rowSpan", equalTo(5))
+            // identity в дефолте волны 01 скрыта — вывеска Obscura возвращается явным hidden: false
+            .body("find { it.key == 'wave-02' }.layout.tiles.identity.hidden", equalTo(false))
     }
 }

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Перекомпоновка борда волны 02 «Obscura» (DESIGN §10.2) — «аркадный автомат в небе»:
+      центральная колонна = корпус автомата (identity-вывеска → today-экран → music-пульт),
+      левая колонна — созерцательная (latestDrop → calendar → stats), правая — сервисная
+      стойка (waveSwitcher+freshness → sleep → photoDrops|ride вертикально → projects+social).
+      UPDATE поверх сида 0080 (тот же приём, что 0160 для края волны 01), сид не трогаем.
+
+      Два вынужденных фикса против старого layout:
+      - sleep появился в реестре ПОСЛЕ сида — падал в дефолт-позицию волны 01 и перекрывал
+        social; теперь у него своя полоса.
+      - identity в дефолте волны 01 теперь hidden: true, и мерж наследовал скрытие — вывеска
+        Obscura (Jersey 10) молча исчезала; явный hidden: false возвращает её. hero остаётся
+        скрытым сознательно (не перечислен — наследует отставку из дефолта).
+    -->
+    <changeSet id="0170-wave-02-layout" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET layout = $J${
+  "tiles": {
+    "marquee":      { "col": 1,  "row": 1,  "colSpan": 3,  "rowSpan": 28, "orientation": "vertical" },
+    "latestDrop":   { "col": 5,  "row": 1,  "colSpan": 10, "rowSpan": 9 },
+    "calendar":     { "col": 5,  "row": 11, "colSpan": 10, "rowSpan": 10 },
+    "stats":        { "col": 5,  "row": 22, "colSpan": 10, "rowSpan": 7 },
+    "identity":     { "col": 16, "row": 1,  "colSpan": 13, "rowSpan": 3,  "hidden": false },
+    "today":        { "col": 16, "row": 5,  "colSpan": 13, "rowSpan": 15 },
+    "music":        { "col": 16, "row": 21, "colSpan": 13, "rowSpan": 8 },
+    "waveSwitcher": { "col": 30, "row": 1,  "colSpan": 5,  "rowSpan": 3 },
+    "freshness":    { "col": 36, "row": 1,  "colSpan": 5,  "rowSpan": 3 },
+    "sleep":        { "col": 30, "row": 5,  "colSpan": 11, "rowSpan": 5 },
+    "photoDrops":   { "col": 30, "row": 11, "colSpan": 5,  "rowSpan": 11, "orientation": "vertical" },
+    "ride":         { "col": 36, "row": 11, "colSpan": 5,  "rowSpan": 11 },
+    "projects":     { "col": 30, "row": 23, "colSpan": 5,  "rowSpan": 6 },
+    "social":       { "col": 36, "row": 23, "colSpan": 5,  "rowSpan": 6 }
+  },
+  "mobileOrder": ["identity", "today", "music", "calendar", "stats", "sleep", "ride", "latestDrop", "photoDrops", "projects", "social", "marquee", "waveSwitcher", "freshness"]
+}$J$::jsonb
+WHERE key = 'wave-02';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

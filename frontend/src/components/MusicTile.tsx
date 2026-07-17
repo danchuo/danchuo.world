@@ -30,6 +30,10 @@ interface MusicTileProps {
 /** Сколько недавних показывать в простое (когда нет играющего трека). */
 const RECENT_WHEN_IDLE = 5;
 
+/** Запас (px) для подгонки списка недавних: строка с низом ближе этого к краю считается
+ *  подрезанной и не показывается (лучше на одну меньше, чем нижнюю обрезанную, §7.1). */
+const FIT_MARGIN = 4;
+
 /* Геометрия сжатия-к-контенту (см. [useIsomorphicLayoutEffect] в компоненте). */
 const COVER = 44; // сторона обложки now-playing
 const COVER_GAP = 12; // gap-3 между обложкой и текстом
@@ -91,10 +95,14 @@ function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
     const apply = () => {
       const kids = Array.from(el.children) as HTMLElement[];
       if (kids.length === 0) return;
-      const limit = el.getBoundingClientRect().top + el.clientHeight + 1;
+      // Требуем, чтобы строка влезала ЦЕЛИКОМ с небольшим запасом: строка, чей низ лишь на
+      // пару пикселей заходит за край, визуально «подрезается» по тексту — лучше показать на
+      // одну меньше, чем нижнюю обрезанную (§7.1). В jsdom всё по нулям ⇒ запас не применяем
+      // (clientHeight==0), иначе бы прятали всё; там ничего не гасим.
+      const ch = el.clientHeight;
+      const limit = el.getBoundingClientRect().top + (ch > 0 ? ch - FIT_MARGIN : 1);
       let overflow = false;
       for (const kid of kids) {
-        // limit==1 (jsdom: всё по нулям) ⇒ всё «влезает», ничего не гасим.
         if (!overflow && kid.getBoundingClientRect().bottom <= limit) {
           kid.style.visibility = "";
         } else {
@@ -252,7 +260,19 @@ function Source({ source }: { source: SourceRef }) {
 }
 
 /** Блок «сейчас играет»: обложка + трек/исполнители/альбом + источник (всё со ссылками). */
-function NowPlaying({ track, source }: { track: TrackView; source: SourceRef | null }) {
+function NowPlaying({
+  track,
+  source,
+  sourceRef,
+  sourceClipped,
+}: {
+  track: TrackView;
+  source: SourceRef | null;
+  /** Ref на плашку источника (плейлист) — им меряем, обрезается ли она нижним краем плитки. */
+  sourceRef: RefObject<HTMLDivElement | null>;
+  /** Плашка обрезается ⇒ прячем её визуально (данные грузятся, место держим): §5.5. */
+  sourceClipped: boolean;
+}) {
   return (
     <div data-testid="now-playing" className="flex min-w-0 items-start gap-3">
       <Cover url={track.albumImageUrl} alt={`Обложка: ${track.album?.name ?? track.title}`} />
@@ -276,7 +296,14 @@ function NowPlaying({ track, source }: { track: TrackView; source: SourceRef | n
             <Album album={track.album} />
           </div>
         )}
-        {source && <Source source={source} />}
+        {/* Плашка источника (плейлист — рисуется, когда трек-сингл без своего альбома). Она всегда
+            в DOM (данные грузятся: задел под расширение виджета), но если нижний край плитки её
+            обрезает — прячем через visibility (место сохраняется, замер не осциллирует). */}
+        {source && (
+          <div ref={sourceRef} style={sourceClipped ? { visibility: "hidden" } : undefined}>
+            <Source source={source} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -397,8 +424,11 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   // ширину ячейки меряем на обёртке (не на самой карточке — иначе замер зациклит наблюдатель).
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  // Плашка источника (плейлист) прячется, если её обрезает нижний край плитки (§5.5).
+  const sourceRef = useRef<HTMLDivElement>(null);
   const [frameW, setFrameW] = useState(0);
   const [naturalW, setNaturalW] = useState(0);
+  const [sourceClipped, setSourceClipped] = useState(false);
 
   const measure = useCallback(() => {
     const frame = frameRef.current;
@@ -406,6 +436,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
     const c = contentRef.current;
     if (!c) {
       setNaturalW(0);
+      setSourceClipped(false);
       return;
     }
     let max = 0;
@@ -413,6 +444,12 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
       if (el.scrollWidth > max) max = el.scrollWidth;
     });
     setNaturalW(max > 0 ? max + (playing ? COVER + COVER_GAP : 0) : 0);
+    // Обрезается ли плашка источника нижним краем контента (клип плитки)? Меряем её низ против
+    // низа overflow-hidden-колонки; в jsdom всё по нулям ⇒ не обрезано (плашка видима в тестах).
+    const src = sourceRef.current;
+    setSourceClipped(
+      src != null && src.getBoundingClientRect().bottom > c.getBoundingClientRect().bottom + 1,
+    );
   }, [playing]);
 
   // Синхронный замер до отрисовки: сжатая ширина считается в том же кадре, когда коммитится
@@ -468,7 +505,14 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
             <span style={{ fontSize: 10 }}>Spotify</span>
           </div>
 
-          {playing && <NowPlaying track={playing} source={now?.source ?? null} />}
+          {playing && (
+            <NowPlaying
+              track={playing}
+              source={now?.source ?? null}
+              sourceRef={sourceRef}
+              sourceClipped={sourceClipped}
+            />
+          )}
 
           {showRecent && (
             // Обёртка с жёсткой высотой (flex-1 + relative), список — absolute inset-0:

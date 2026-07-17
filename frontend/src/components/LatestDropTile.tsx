@@ -25,6 +25,9 @@ interface Cell {
 }
 
 const GAP = 6;
+/* A full 5-photo strip in a single row reads ugly (owner's call) — cap rows at 4 photos.
+   A compliant split always exists (one photo per row at worst), so no re-sampling needed. */
+const MAX_PER_ROW = 4;
 /* TileShell horizontal padding (p-4 on both sides) — added back around the mosaic width. */
 const CARD_PAD_X = 32;
 /* Don't shrink the card below this: the label and caption row need room to breathe. */
@@ -78,14 +81,17 @@ function balancedRows(photos: FilmPhotoView[], rows: number): FilmPhotoView[][] 
  * чтобы естественная высота раскладки была ближе всего к высоте виджета. Каждая ячейка имеет
  * точную пропорцию своего кадра ⇒ **без обрезки и без искажения**; масштаб ≤1 не даёт вылезти
  * за пределы (центрируется остаток). `null` — пока контейнер не измерен.
+ * Ряды длиннее [MAX_PER_ROW] кадров отбрасываются ещё кандидатами (лента из 5 в один ряд
+ * не собирается никогда); вариант «по кадру на ряд» валиден всегда, так что раскладка есть.
  */
-function buildMosaic(photos: FilmPhotoView[], W: number, H: number): Cell[][] | null {
+export function buildMosaic(photos: FilmPhotoView[], W: number, H: number): Cell[][] | null {
   if (W <= 0 || H <= 0 || photos.length === 0) return null;
   let best: { rows: Cell[][]; score: number } | null = null;
 
   for (let r = 1; r <= photos.length; r++) {
     const groups = balancedRows(photos, r);
     if (groups.length !== r) continue;
+    if (groups.some((g) => g.length > MAX_PER_ROW)) continue;
 
     const rowH = groups.map((g) => {
       const sa = g.reduce((s, p) => s + aspectOf(p), 0);

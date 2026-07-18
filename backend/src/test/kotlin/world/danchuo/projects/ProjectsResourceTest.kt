@@ -21,6 +21,18 @@ class ProjectsResourceTest {
             .body("size()", greaterThanOrEqualTo(1))
             .body("title", hasItem("danchuo.world"))
             .body("find { it.title == 'danchuo.world' }.startYear", equalTo(2026))
-            .body("find { it.title == 'danchuo.world' }.startQuarter", equalTo(1))
+            .body("find { it.title == 'danchuo.world' }.startQuarter", equalTo(3))
+            .body("find { it.title == 'danchuo.world' }.endQuarter", equalTo(3))
+    }
+
+    @Test
+    fun `danchuo world (newest start) sorts above proxemics`() {
+        given().get("/api/projects")
+            .then().statusCode(200)
+            .body("size()", greaterThanOrEqualTo(2))
+            .body("[0].title", equalTo("danchuo.world"))
+            .body("[0].iconUrl", equalTo("/assets/projects/danchuo-world-px.png"))
+            .body("find { it.title == 'proxemics' }.endYear", equalTo(2026))
+            .body("find { it.title == 'proxemics' }.endQuarter", equalTo(2))
     }
 }

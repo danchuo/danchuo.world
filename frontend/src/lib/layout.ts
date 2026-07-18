@@ -65,7 +65,7 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   waveSwitcher: { col: 9, row: 20, colSpan: 3, rowSpan: 3 },
   // Spotify moved to the right of the drops strip, into the top-right band the wave/freshness
   // stack vacated (above the calendar).
-  music: { col: 12, row: 1, colSpan: 8, rowSpan: 6 },
+  music: { col: 12, row: 1, colSpan: 8, rowSpan: 5 },
   // Horizontal drops strip in the top band, flush with today's right edge: covers + readable
   // titles instead of the old narrow vertical column (titles used to truncate to nothing).
   // Two full cards + a chunk of the third — the cut-off card is the scroll affordance.
@@ -78,9 +78,9 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   today: { col: 13, row: 8, colSpan: 15, rowSpan: 15 },
   // Calendar nudged up one track so its top lines up with today (row 8).
   calendar: { col: 29, row: 10, colSpan: 9, rowSpan: 11 },
-  // Projects — narrow vertical column at the bottom-right edge, below the calendar. rowSpan 7
-  // ends exactly on the grid's last row (row-end 29): 9 would spill 2 implicit rows past it.
-  projects: { col: 34, row: 22, colSpan: 6, rowSpan: 7 },
+  // Projects — narrow vertical column at the bottom-right edge, below the calendar. rowSpan 6
+  // stops one track short of the grid's last row (row-end 28 of 29) — deliberate breathing room.
+  projects: { col: 34, row: 22, colSpan: 5, rowSpan: 6 },
   // Ride swapped with stats to the bottom-right, hugging the right wall below the calendar.
   ride: { col: 1, row: 13, colSpan: 7, rowSpan: 10 },
   // Hero is retired from the board for now (owner's call); the slot went to the layout above.

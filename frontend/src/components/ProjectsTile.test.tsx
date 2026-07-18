@@ -36,6 +36,40 @@ describe("ProjectsTile", () => {
     expect(screen.getByText("Q1 2026 — наст.")).toBeInTheDocument();
   });
 
+  it("спрайт-планета из /assets/projects/ — слот 28px; пиксель-арт (-px) рендерится pixelated", async () => {
+    getProjectsMock.mockResolvedValue([
+      project({ iconUrl: "/assets/projects/danchuo-world-px.png" }),
+      project({ title: "proxemics", iconUrl: "/assets/projects/proxemics.png" }),
+    ]);
+    const { container } = render(<ProjectsTile />);
+    await screen.findByText("proxemics");
+
+    const [pixel, smooth] = Array.from(container.querySelectorAll("img"));
+    expect(pixel).toHaveAttribute("width", "28");
+    expect(pixel.style.imageRendering).toBe("pixelated");
+    // Smooth sprite is drawn one step bigger: without a chunky pixel outline it
+    // optically reads smaller than pixel art of the same box.
+    expect(smooth).toHaveAttribute("width", "32");
+    expect(smooth.style.imageRendering).toBe("");
+    // Both sit in a uniform 32px icon column so row texts start at the same x.
+    expect(pixel.parentElement?.style.width).toBe("32px");
+    expect(smooth.parentElement?.style.width).toBe("32px");
+  });
+
+  it("orientation=horizontal → лента-ряд (модификатор на списке)", async () => {
+    getProjectsMock.mockResolvedValue([project(), project({ title: "proxemics" })]);
+    const { container } = render(<ProjectsTile orientation="horizontal" />);
+    await screen.findByText("proxemics");
+    expect(container.querySelector(".projects-list--horizontal")).toBeInTheDocument();
+  });
+
+  it("без orientation → вертикальный список (дефолт, как во всех волнах до)", async () => {
+    getProjectsMock.mockResolvedValue([project()]);
+    const { container } = render(<ProjectsTile />);
+    await screen.findByText("danchuo.world");
+    expect(container.querySelector(".projects-list--horizontal")).not.toBeInTheDocument();
+  });
+
   it("пустой список → тихое пустое состояние", async () => {
     getProjectsMock.mockResolvedValue([]);
     render(<ProjectsTile />);

@@ -78,8 +78,11 @@ const RECENT = [
   { track: { title: "Reunion", artists: [{ name: "M83", url: null }], album: null, albumImageUrl: null, url: null, durationMs: null }, playedAt: "2026-06-21T08:10:00Z" },
 ];
 
+// Порядок = порядок API: идущие «по настоящее» сверху, завершённые ниже (PRD §5.7).
+// Спрайты-планетки — реальная статика /assets/projects/ (детерминирована, не стабится).
 const PROJECTS = [
-  { iconUrl: null, title: "danchuo.world", description: null, startYear: 2026, startQuarter: 1, endYear: null, endQuarter: null, url: "https://github.com/dontyouo" },
+  { iconUrl: "/assets/projects/danchuo-world-px.png", title: "danchuo.world", description: null, startYear: 2026, startQuarter: 3, endYear: 2026, endQuarter: 3, url: "https://danchuo.world" },
+  { iconUrl: "/assets/projects/proxemics.png", title: "proxemics", description: null, startYear: 2026, startQuarter: 2, endYear: 2026, endQuarter: 2, url: "https://github.com/danchuo/proxemics" },
 ];
 
 const SOCIAL = [

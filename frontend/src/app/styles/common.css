@@ -259,6 +259,25 @@ body {
 .social-grid {
   container-type: inline-size;
 }
+/* Base look of a social icon: the monochrome SVG sprite tinted with the wave's text token
+   via a CSS mask. SocialTile puts both URLs on the element (--social-mask always,
+   --social-sprite when a colored wave-01 sprite exists); skins pick the rendering. */
+.social-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  background: var(--text-primary);
+  -webkit-mask: var(--social-mask) center / contain no-repeat;
+  mask: var(--social-mask) center / contain no-repeat;
+}
+/* Card plate behind each social link (icon + label). The plate is OPTIONAL — a skin
+   parameter: --social-card-bg falls back to the muted surface; a wave may clear it
+   (wave 01 drops the plate so the colored sprites sit right on the tile surface) or
+   bring it back (wave 02). The card itself stays — it is the touch target and grid cell. */
+.social-card {
+  background: var(--social-card-bg, var(--bg-surface-muted));
+  border-radius: var(--radius-sm);
+}
 @container (max-width: 200px) {
   .social-grid .social-label {
     display: none;

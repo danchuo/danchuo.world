@@ -58,8 +58,9 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // Brand signature plate retired from the board (owner's call) — kept in the registry hidden.
   identity: { col: 31, row: 1, colSpan: 9, rowSpan: 3, hidden: true },
   latestDrop: { col: 1, row: 1, colSpan: 10, rowSpan: 11 },
-  // Freshness moved to the right of the latest-drop tile, top-aligned with it (top band).
-  freshness: { col: 9, row: 13, colSpan: 3, rowSpan: 3 },
+  // Freshness lamp in the bottom band between the marquee and the sleep strip (the slot
+  // the social grid vacated).
+  freshness: { col: 30, row: 24, colSpan: 3, rowSpan: 4 },
   // Wave switcher tucked just left of today's top-left corner, top-aligned with today (row 8).
   waveSwitcher: { col: 9, row: 20, colSpan: 3, rowSpan: 3 },
   // Spotify moved to the right of the drops strip, into the top-right band the wave/freshness
@@ -73,20 +74,20 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // one gutter before today). Sleep drops to the very bottom band, right of projects/stats.
   // Stats and sleep each nudged one track down.
   stats: { col: 31, row: 1, colSpan: 10, rowSpan: 8 },
-  sleep: { col: 18, row: 24, colSpan: 12, rowSpan: 5 },
+  sleep: { col: 17, row: 24, colSpan: 12, rowSpan: 5 },
   today: { col: 13, row: 8, colSpan: 15, rowSpan: 15 },
   // Calendar nudged up one track so its top lines up with today (row 8).
   calendar: { col: 29, row: 10, colSpan: 9, rowSpan: 11 },
   // Projects — narrow vertical column at the bottom-right edge, below the calendar. rowSpan 7
   // ends exactly on the grid's last row (row-end 29): 9 would spill 2 implicit rows past it.
-  projects: { col: 34, row: 22, colSpan: 4, rowSpan: 7 },
+  projects: { col: 34, row: 22, colSpan: 6, rowSpan: 7 },
   // Ride swapped with stats to the bottom-right, hugging the right wall below the calendar.
   ride: { col: 1, row: 13, colSpan: 7, rowSpan: 10 },
   // Hero is retired from the board for now (owner's call); the slot went to the layout above.
   hero: { col: 10, row: 23, colSpan: 3, rowSpan: 5, hidden: true },
-  // Social tucked into the window below the calendar and left of the ride tile (cols 31-33,
-  // above the marquee that fills the bottom band).
-  social: { col: 14, row: 24, colSpan: 3, rowSpan: 5 },
+  // Social stamp-grid in the channel between the ride tile and today, above the wave
+  // switcher — a more visible slot for the wave-01 colored sprites.
+  social: { col: 9, row: 13, colSpan: 3, rowSpan: 5 },
   // The artifacts marquee footer, grown one track upward, slid right to sit one gutter left of
   // the ride tile (col-end 33 → gutter col 33 → ride at col 34).
   marquee: { col: 1, row: 24, colSpan: 12, rowSpan: 5 },

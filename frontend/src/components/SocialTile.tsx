@@ -11,26 +11,25 @@ interface SocialTileProps {
   className?: string;
 }
 
-/* Static part of the sprite-icon mask; the per-link mask image stays inline. */
-const iconMask = {
-  width: 18,
-  height: 18,
-  flexShrink: 0,
-  background: "var(--text-primary)",
-  WebkitMaskRepeat: "no-repeat",
-  maskRepeat: "no-repeat",
-  WebkitMaskSize: "contain",
-  maskSize: "contain",
-  WebkitMaskPosition: "center",
-  maskPosition: "center",
-} satisfies CSSProperties;
+/* Hand-colored pixel sprites for the wave-01 skin (frontend statics). The component only
+   exposes both URLs via CSS vars on `.social-icon`; whether the colored sprite or the
+   token-tinted mask is shown is the skin's call (wave-01.css / wave-02.css). Platforms
+   without a sprite keep the mask on every wave. */
+const WAVE01_SPRITES: Partial<Record<string, string>> = {
+  github: "/assets/social/wave01/github.png",
+  telegram: "/assets/social/wave01/telegram.png",
+  instagram: "/assets/social/wave01/instagram.png",
+  x: "/assets/social/wave01/x.png",
+};
 
 /**
  * Плитка «Соцсети» (L) — PRD §5.8. Квадратная сетка карточек-ссылок (иконка + название),
  * вместо прежней бегущей строки: все ссылки видны разом, ничего не мельтешит. Колонок
  * столько, чтобы сетка была квадратной (2×2 до 4 ссылок, 3×3 до 9, дальше 4×4). Спрайт —
- * статика фронта (`/assets/social/*.svg`), красится токеном `--text-primary` через CSS-маску,
- * поэтому следует за активной волной (ноль хардкод-цветов). Пусто ⇒ тихий empty.
+ * статика фронта (`/assets/social/*.svg`), в базе красится токеном `--text-primary` через
+ * CSS-маску (`.social-icon` в common.css), поэтому следует за активной волной (ноль
+ * хардкод-цветов). Скин волны 01 подменяет маску цветным пиксель-спрайтом
+ * (`.social-icon--sprite`, wave-01.css). Пусто ⇒ тихий empty.
  */
 export function SocialTile({ style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
@@ -69,18 +68,23 @@ export function SocialTile({ style, className }: SocialTileProps) {
                 target="_blank"
                 rel="noreferrer"
                 aria-label={l.name}
-                className="flex h-full w-full flex-col items-center justify-center gap-2"
-                style={{
-                  color: "var(--text-primary)",
-                  fontSize: 12,
-                  background: "var(--bg-surface-muted)",
-                  borderRadius: "var(--radius-sm)",
-                }}
+                // social-card: the plate behind icon+label is a skin parameter (common.css) —
+                // wave 01 clears it so sprites sit right on the tile surface.
+                className="social-card flex h-full w-full flex-col items-center justify-center gap-2"
+                style={{ color: "var(--text-primary)", fontSize: 12 }}
               >
                 {l.icon ? (
                   <span
                     aria-hidden
-                    style={{ ...iconMask, WebkitMaskImage: `url(${l.icon})`, maskImage: `url(${l.icon})` }}
+                    className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}`}
+                    style={
+                      {
+                        "--social-mask": `url(${l.icon})`,
+                        ...(WAVE01_SPRITES[l.platform]
+                          ? { "--social-sprite": `url(${WAVE01_SPRITES[l.platform]})` }
+                          : {}),
+                      } as CSSProperties
+                    }
                   />
                 ) : (
                   <span

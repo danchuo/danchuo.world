@@ -24,25 +24,23 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin", "cyrillic"], weight: ["400",
 // canonical абсолютными (соцсети требуют абсолютный URL картинки).
 const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
 
+// Minimal social preview by owner's request: no description/author meta at all — messengers
+// (Telegram etc.) should show only the domain and the OG image, no extra text lines.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "danchuo.world",
-  description: "Дашборд жизни со статистикой и визитная карточка — «Сегодня», календарь, музыка, проекты.",
   applicationName: "danchuo.world",
-  authors: [{ name: "DANCHUO" }],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: "danchuo.world",
     title: "danchuo.world",
-    description: "Дашборд жизни со статистикой и визитная карточка.",
     url: "/",
     locale: "ru_RU",
   },
   twitter: {
     card: "summary_large_image",
     title: "danchuo.world",
-    description: "Дашборд жизни со статистикой и визитная карточка.",
   },
   robots: { index: true, follow: true },
 };

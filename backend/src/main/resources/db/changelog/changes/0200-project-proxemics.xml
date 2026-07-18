@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Спрайты-«планетки» проектов (DESIGN §12.2): wave-agnostic статика фронта в
+      /assets/projects/. Суффикс "px" в имени файла = настоящий пиксель-арт, фронт
+      рендерит его nearest-neighbor; гладкие спрайты живут без суффикса.
+    -->
+    <changeSet id="0200-project-planet-sprite-px" author="danchuo">
+        <update tableName="project">
+            <column name="icon_url" value="/assets/projects/danchuo-world-px.png"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+    </changeSet>
+
+    <!--
+      Ссылка danchuo.world ведёт на сам сайт, не на GitHub-профиль (замечание владельца).
+    -->
+    <changeSet id="0200-project-danchuo-url" author="danchuo">
+        <update tableName="project">
+            <column name="url" value="https://danchuo.world"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+    </changeSet>
+
+    <!--
+      Диапазон danchuo.world: один квартал Q3 2026, закончен (решение владельца — без
+      «по настоящее»). Совпадающие края фронт схлопнет в «Q3 2026».
+    -->
+    <changeSet id="0200-project-danchuo-q3" author="danchuo">
+        <update tableName="project">
+            <column name="start_quarter" valueNumeric="3"/>
+            <column name="end_year" valueNumeric="2026"/>
+            <column name="end_quarter" valueNumeric="3"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+    </changeSet>
+
+    <!--
+      Второй проект: proxemics (завершён, жил один квартал; равные края диапазона фронт
+      схлопывает в «Q2 2026»). Идёт ниже danchuo.world: завершённые проекты в публичном
+      списке под идущими «по настоящее».
+    -->
+    <changeSet id="0200-project-proxemics-seed" author="danchuo">
+        <insert tableName="project">
+            <column name="title" value="proxemics"/>
+            <column name="icon_url" value="/assets/projects/proxemics.png"/>
+            <column name="start_year" valueNumeric="2026"/>
+            <column name="start_quarter" valueNumeric="2"/>
+            <column name="end_year" valueNumeric="2026"/>
+            <column name="end_quarter" valueNumeric="2"/>
+            <column name="url" value="https://github.com/danchuo/proxemics"/>
+            <column name="sort_order" valueNumeric="20"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

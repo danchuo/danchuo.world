@@ -14,4 +14,9 @@ describe("formatQuarterRange", () => {
   it("без кварталов — только годы", () => {
     expect(formatQuarterRange(2024, null, 2025, null)).toBe("2024 — 2025");
   });
+
+  it("совпадающие края схлопываются в один (проект в один квартал)", () => {
+    expect(formatQuarterRange(2026, 2, 2026, 2)).toBe("Q2 2026");
+    expect(formatQuarterRange(2024, null, 2024, null)).toBe("2024");
+  });
 });

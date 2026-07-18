@@ -10,7 +10,8 @@ function formatEdge(year: number, quarter: number | null): string {
 
 /**
  * Диапазон проекта. Открытый конец (`endYear == null`) → «наст.»; иначе — второй край.
- * Кварталы опциональны независимо для начала и конца.
+ * Кварталы опциональны независимо для начала и конца. Совпадающие края (проект, живший
+ * один квартал/год) схлопываются в единственный край без тире.
  */
 export function formatQuarterRange(
   startYear: number,
@@ -19,6 +20,7 @@ export function formatQuarterRange(
   endQuarter: number | null,
 ): string {
   const start = formatEdge(startYear, startQuarter);
+  if (startYear === endYear && startQuarter === endQuarter) return start;
   const end = endYear === null ? "наст." : formatEdge(endYear, endQuarter);
   return `${start} — ${end}`;
 }

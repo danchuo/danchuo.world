@@ -63,7 +63,7 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
+      className="modal-scale fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
       style={{ background: "rgba(33, 26, 22, 0.55)" }}
       onClick={onClose}
     >
@@ -81,7 +81,7 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
         <span className="pixel-lid" aria-hidden />
         <div className="mb-3 flex items-center justify-between">
           <div className="flex flex-col">
-            <span style={{ fontSize: 16, color: "var(--text-primary)" }}>{title}</span>
+            <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>{title}</span>
             {monthLabel && (
               <span style={{ ...monoTertiary }}>{monthLabel}</span>
             )}
@@ -118,7 +118,7 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
 
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
-  fontSize: 12,
+  fontSize: "var(--fs-modal-meta)",
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
 

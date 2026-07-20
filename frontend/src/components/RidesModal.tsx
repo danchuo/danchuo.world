@@ -81,7 +81,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      className="modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: "rgba(33, 26, 22, 0.55)" }}
       onClick={onClose}
     >
@@ -99,7 +99,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
         <span className="pixel-slab" aria-hidden />
         <span className="pixel-lid" aria-hidden />
         <div className="mb-3 flex shrink-0 items-center justify-between">
-          <span style={{ fontSize: 16, color: "var(--text-primary)" }}>поездки</span>
+          <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>поездки</span>
           <button
             ref={closeRef}
             type="button"
@@ -120,7 +120,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                 координат ⇒ тёплая заглушка вместо карты (виджет всё равно живёт списком). */}
             <div
               className="shrink-0"
-              style={{ height: 220, borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }}
+              style={{ height: "var(--modal-map-h)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }}
             >
               {hasCoords(selected) ? (
                 <RideMap
@@ -183,14 +183,14 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                         <span
                           style={{
                             color: isSel ? "var(--accent)" : "var(--text-primary)",
-                            fontSize: 13,
+                            fontSize: "var(--fs-modal-row)",
                           }}
                         >
                           {relativeDayRu(r.rideDate, today)}
                         </span>
-                        <span style={{ ...mono, color: "var(--text-secondary)", fontSize: 12 }}>{r.rideDate}</span>
+                        <span style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>{r.rideDate}</span>
                       </div>
-                      <div style={{ ...mono, color: "var(--text-secondary)", fontSize: 12 }}>
+                      <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>
                         {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
                         {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
                         {r.costKopecks != null
@@ -198,7 +198,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                           : ""}
                       </div>
                       {(r.startAddress || r.finishAddress) && (
-                        <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: 11 }}>
+                        <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-modal-note)" }}>
                           {(formatStationAddress(r.startAddress) ?? "?") + " → " + (formatStationAddress(r.finishAddress) ?? "?")}
                         </div>
                       )}
@@ -217,7 +217,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
 /** Один показатель сводки месяца в строку: число (чуть ярче) + просклонённая единица (приглушённо). */
 function SummaryStat({ value, unit }: { value: number; unit: string }) {
   return (
-    <span style={{ ...mono, fontSize: 12 }}>
+    <span style={{ ...mono, fontSize: "var(--fs-modal-meta)" }}>
       <span style={{ color: "var(--text-primary)" }}>{value}</span>
       <span style={{ color: "var(--text-tertiary)" }}> {unit}</span>
     </span>
@@ -227,7 +227,7 @@ function SummaryStat({ value, unit }: { value: number; unit: string }) {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
-  fontSize: 12,
+  fontSize: "var(--fs-modal-meta)",
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
 
@@ -241,7 +241,7 @@ const summaryRow = {
 
 const summaryCaption = {
   ...mono,
-  fontSize: 10,
+  fontSize: "var(--fs-modal-small)",
   letterSpacing: "0.04em",
   textTransform: "uppercase",
   color: "var(--text-tertiary)",
@@ -249,6 +249,6 @@ const summaryCaption = {
 
 const summaryDot = {
   ...mono,
-  fontSize: 12,
+  fontSize: "var(--fs-modal-meta)",
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;

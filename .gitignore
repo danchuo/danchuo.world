@@ -15,3 +15,11 @@
 AGENTS.md
 # Velobike API capture (contains session token/PII — never commit)
 *.har
+
+# Черновики владельца в корне репо (превью-скрипты, входные/сгенерированные картинки).
+# Только корень — ассеты фронта в frontend/public/ трекаются как обычно.
+/*.py
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp

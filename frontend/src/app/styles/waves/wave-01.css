@@ -445,7 +445,7 @@ body {
      одобренный им размер спрайта — 28px, то есть 82%. Коридор на смотре был узкий: 18px
      «замылены», 32px «великоваты» — последнее и означало «иконка впритык к краям карточки»,
      что подтверждает именно эту ширину, а не 1920 (там 32px заняли бы лишь две трети). */
-  --social-icon-size: clamp(20px, 82cqw, 88px);
+  --social-icon-size: clamp(20px, calc(13.9px + 41cqw), 88px);
   background: var(--social-sprite) center / contain no-repeat;
   -webkit-mask: none;
   mask: none;

@@ -26,8 +26,8 @@ body {
   /* Хром борда, а НЕ содержимое плитки (DESIGN §8.1): подписи образуют общий ряд по всему
      борду, поэтому масштабируются от ЭКРАНА (vw), а не каждая от своей плитки. С `cqw`
      подпись «свежести» (77px) стала бы вдвое мельче подписи «Сегодня» (530px) — ряд бы
-     развалился. 0.72vw = прежние 11px на опорных 1536. */
-  font-size: clamp(9px, 0.72vw, 18px);
+     развалился. Форма `calc(px + доля)` — демпфер, см. блок «Как читать эти формулы» ниже. */
+  font-size: clamp(9px, calc(5.5px + 0.36vw), 18px);
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -306,21 +306,21 @@ body {
 .social-grid {
   container-type: inline-size;
   container-name: social-grid;
-  gap: clamp(6px, 9cqw, 20px);
+  gap: clamp(6px, calc(3.5px + 4.5cqw), 20px);
 }
 .social-card {
   container-type: inline-size;
   container-name: social-card;
-  gap: clamp(3px, 8cqw, 10px);
+  gap: clamp(3px, calc(3px + 4cqw), 10px);
 }
 .social-label {
-  font-size: clamp(9px, 13cqw, 15px);
+  font-size: clamp(9px, calc(2.2px + 6.5cqw), 15px);
 }
 /* Base look of a social icon: the monochrome SVG sprite tinted with the wave's text token
    via a CSS mask. SocialTile puts both URLs on the element (--social-mask always,
    --social-sprite when a colored wave-01 sprite exists); skins pick the rendering. */
 .social-icon {
-  --social-icon-size: clamp(12px, 38cqw, 36px);
+  --social-icon-size: clamp(12px, calc(6.5px + 19cqw), 36px);
   width: var(--social-icon-size);
   height: var(--social-icon-size);
   flex-shrink: 0;
@@ -352,6 +352,20 @@ body {
    цепляются к ближайшему предку, а вложенные контейнеры (карточка соцсети) начали бы
    ловить чужие запросы. Контейнер не может мерить сам себя, поэтому это ОБЁРТКА.
 
+   ── Как читать эти формулы: `clamp(min, calc(Npx + Kcqw), max)` ──────────────────────
+   Это НЕ чистая доля, а доля с ДЕМПФЕРОМ 50% (решение владельца). Чистая доля растёт
+   линейно с экраном, и на большом мониторе борд раздувается: монитор 1920 смотрят с того
+   же расстояния, что и ноутбук, — он не дальше, он просто больше, а кегль по-хорошему
+   связан с расстоянием до глаз, а не с шириной холста. Линейный рост — классическая
+   болячка дашбордов на широких экранах.
+
+   Форма выведена так: пусть P — утверждённое значение на опоре (1536), K₀ — чистая доля
+   (K₀·W_опоры/100 = P). Тогда `calc(P/2 px + K₀/2 <ед>)`. На опоре сумма даёт ровно P
+   (половина плюс половина), а дальше растёт вдвое медленнее линейного.
+
+   Перенастроить демпфер d: обе половинки пересчитываются как `P·(1−d)` и `K₀·d`. Значения
+   P и K₀ восстанавливаются из таблицы замеров DESIGN §8.1 — там же порядок раскатки.
+
    ⚠️ У «музыки» и «последнего дропа» обёртка стоит СНАРУЖИ карточки (на frameRef): эти
    две плитки сами задают себе ширину от замера контента, и если бы кегль зависел от
    ширины карточки, получилась бы петля «шире → крупнее шрифт → шире». Внешняя ячейка
@@ -361,15 +375,31 @@ body {
   container-name: tile;
 }
 
+/* ── Модалки-оверлеи: шкала от ЭКРАНА, а не от плитки (DESIGN §8.1) ──────────────────
+   Галерея фото-дропа и список поездок — не плитки, а слои во весь экран, поэтому `cqw`
+   тут был бы подлогом: «контейнер» и есть вьюпорт. Ведём от `vw` с той же опорой 1536,
+   чтобы на экране владельца ничего не поехало (16px = 1.04vw, 13 = 0.85, 12 = 0.78,
+   11 = 0.72, 10 = 0.65). Переменные, а не классы: часть значений лежит в style-объектах
+   и во вложенных строках списка, где `em` скомпаундился бы. */
+.modal-scale {
+  --fs-modal-title: clamp(14px, calc(8px + 0.52vw), 26px);
+  --fs-modal-row: clamp(11px, calc(6.5px + 0.425vw), 21px);
+  --fs-modal-meta: clamp(10px, calc(6px + 0.39vw), 19px);
+  --fs-modal-note: clamp(9px, calc(5.5px + 0.36vw), 18px);
+  --fs-modal-small: clamp(8px, calc(5px + 0.325vw), 16px);
+  /* Карта в модалке — тоже доля экрана: фикс 220px на 4K превращался в узкую полоску. */
+  --modal-map-h: clamp(160px, calc(110px + 7.15vw), 420px);
+}
+
 /* Свежесть (опора: внутр. 77px). Базовый кегль плитки задан на самой секции, а контейнер
    лежит ВНУТРИ неё — `cqw` тут разрешаться не на что, поэтому база идёт от экрана (vw),
    как у хрома. Это и по смыслу верно: база работает только для текста пустого/ошибочного
    состояния, содержимое же ниже считается от контейнера. */
 .t-fresh {
-  font-size: clamp(9px, 0.72vw, 18px);
+  font-size: clamp(9px, calc(5.5px + 0.36vw), 18px);
 }
 .t-fresh-ago {
-  font-size: clamp(11px, 16.9cqw, 28px);
+  font-size: clamp(11px, calc(6.5px + 8.45cqw), 28px);
 }
 /* Музыка (опора: ячейка ~298px — обёртка снаружи карточки, см. выше) и последний дроп
    (опора: ячейка 373px). Здесь размеры отдаём ПЕРЕМЕННЫМИ, а не классами: кегли в этих
@@ -378,80 +408,80 @@ body {
    от контейнера независимо от глубины вложения. Заодно не приходится менять API Marquee,
    который принимает style-объект, а не className. */
 .t-music-vars {
-  --fs-music-title: clamp(13px, 5.37cqw, 34px);
-  --fs-music-artists: clamp(10px, 4.03cqw, 26px);
-  --fs-music-meta: clamp(9px, 3.69cqw, 24px);
-  --fs-music-source: clamp(8px, 3.36cqw, 22px);
+  --fs-music-title: clamp(13px, calc(8px + 2.685cqw), 34px);
+  --fs-music-artists: clamp(10px, calc(6px + 2.015cqw), 26px);
+  --fs-music-meta: clamp(9px, calc(5.5px + 1.845cqw), 24px);
+  --fs-music-source: clamp(8px, calc(5px + 1.68cqw), 22px);
 }
 .t-drop-vars {
-  --fs-drop-title: clamp(11px, 3.49cqw, 28px);
-  --fs-drop-meta: clamp(9px, 2.95cqw, 24px);
+  --fs-drop-title: clamp(11px, calc(6.5px + 1.745cqw), 28px);
+  --fs-drop-meta: clamp(9px, calc(5.5px + 1.475cqw), 24px);
 }
 /* Полка дропов (опора: внутр. 228px) */
 .t-drops-title {
-  font-size: clamp(10px, 5.26cqw, 26px);
+  font-size: clamp(10px, calc(6px + 2.63cqw), 26px);
 }
 .t-drops-month {
-  font-size: clamp(8px, 4.39cqw, 22px);
+  font-size: clamp(8px, calc(5px + 2.195cqw), 22px);
 }
 /* Статы (опора: внутр. 341px). SVG здесь БЕЗ viewBox — размеры реальные, поэтому подписи
    осей тоже надо масштабировать (в отличие от карты-тропы «Сегодня», где viewBox уже всё
    тянет сам и второй множитель был бы двойным). */
 .t-stats-value {
-  font-size: clamp(12px, 4.4cqw, 32px);
+  font-size: clamp(12px, calc(7.5px + 2.2cqw), 32px);
 }
 .t-stats-label {
-  font-size: clamp(11px, 4.1cqw, 30px);
+  font-size: clamp(11px, calc(7px + 2.05cqw), 30px);
 }
 .t-stats-tick {
-  font-size: clamp(8px, 2.93cqw, 21px);
+  font-size: clamp(8px, calc(5px + 1.465cqw), 21px);
 }
 .t-stats-avg {
-  font-size: clamp(7px, 2.64cqw, 19px);
+  font-size: clamp(7px, calc(4.5px + 1.32cqw), 19px);
 }
 .t-stats-axis {
-  font-size: clamp(7px, 2.49cqw, 18px);
+  font-size: clamp(7px, calc(4.25px + 1.245cqw), 18px);
 }
 /* Колонка читаутов росла бы вместе с кеглем и обрезала его на 58px фикса — тоже доля. */
 .t-stats-col {
-  width: clamp(44px, 17cqw, 120px);
+  width: clamp(44px, calc(29px + 8.5cqw), 120px);
 }
 /* Сон (опора: внутр. 416px) */
 .t-sleep-value {
-  font-size: clamp(15px, 4.81cqw, 42px);
+  font-size: clamp(15px, calc(10px + 2.405cqw), 42px);
 }
 .t-sleep-note {
-  font-size: clamp(10px, 2.88cqw, 25px);
+  font-size: clamp(10px, calc(6px + 1.44cqw), 25px);
 }
 /* Календарь (опора: внутр. 303px) */
 .t-cal-day {
-  font-size: clamp(10px, 3.96cqw, 26px);
+  font-size: clamp(10px, calc(6px + 1.98cqw), 26px);
 }
 .t-cal-weekday {
-  font-size: clamp(8px, 3.3cqw, 22px);
+  font-size: clamp(8px, calc(5px + 1.65cqw), 22px);
 }
 /* Велобайк (опора: внутр. 228px) */
 .t-ride-km {
-  font-size: clamp(16px, 9.65cqw, 46px);
+  font-size: clamp(16px, calc(11px + 4.825cqw), 46px);
 }
 .t-ride-dur {
-  font-size: clamp(12px, 7.02cqw, 34px);
+  font-size: clamp(12px, calc(8px + 3.51cqw), 34px);
 }
 .t-ride-when {
-  font-size: clamp(10px, 5.26cqw, 26px);
+  font-size: clamp(10px, calc(6px + 2.63cqw), 26px);
 }
 .t-ride-more {
-  font-size: clamp(9px, 4.82cqw, 24px);
+  font-size: clamp(9px, calc(5.5px + 2.41cqw), 24px);
 }
 /* Артефакты (опора: внутр. 416px) */
 .t-artifact-title {
-  font-size: clamp(11px, 3.13cqw, 27px);
+  font-size: clamp(11px, calc(6.5px + 1.565cqw), 27px);
 }
 .t-artifact-date {
-  font-size: clamp(8px, 2.4cqw, 21px);
+  font-size: clamp(8px, calc(5px + 1.2cqw), 21px);
 }
 .t-artifact-pop {
-  font-size: clamp(9px, 2.64cqw, 23px);
+  font-size: clamp(9px, calc(5.5px + 1.32cqw), 23px);
 }
 
 /* ── Плитка проектов: пропорциональный контент (DESIGN §8.1) ─────────────────────────
@@ -460,42 +490,42 @@ body {
    зазоры 8. Отсюда доли ниже — на 1536 они дают ровно прежние числа, дальше растут.
    `projects` — ИМЕНОВАННЫЙ контейнер на обёртке: сам список мерить себя не может. */
 .projects-list {
-  gap: clamp(6px, 5.2cqw, 20px);
+  gap: clamp(6px, calc(4px + 2.6cqw), 20px);
 }
 .projects-list--horizontal {
-  gap: clamp(10px, 10.5cqw, 40px);
+  gap: clamp(10px, calc(8px + 5.25cqw), 40px);
 }
 .project-row {
-  gap: clamp(6px, 5.2cqw, 20px);
+  gap: clamp(6px, calc(4px + 2.6cqw), 20px);
 }
 /* Единая колонка-слот: спрайты разного размера центрируются в ней, поэтому тексты рядов
    начинаются с одного x (сохраняем поведение фиксированной вёрстки). */
 .project-slot {
-  width: clamp(24px, 20.9cqw, 84px);
-  height: clamp(24px, 20.9cqw, 84px);
+  width: clamp(24px, calc(16px + 10.45cqw), 84px);
+  height: clamp(24px, calc(16px + 10.45cqw), 84px);
 }
 /* Пиксель-арт читается крупнее гладкого флэта при равной коробке, поэтому у гладкого доля
    на ступень больше — та же оптическая компенсация, что была в фиксированных 28 vs 32. */
 .project-sprite {
-  width: clamp(21px, 18.3cqw, 74px);
-  height: clamp(21px, 18.3cqw, 74px);
+  width: clamp(21px, calc(14px + 9.15cqw), 74px);
+  height: clamp(21px, calc(14px + 9.15cqw), 74px);
 }
 .project-sprite--smooth {
-  width: clamp(24px, 20.9cqw, 84px);
-  height: clamp(24px, 20.9cqw, 84px);
+  width: clamp(24px, calc(16px + 10.45cqw), 84px);
+  height: clamp(24px, calc(16px + 10.45cqw), 84px);
 }
 /* Сторонние фавиконы — легаси-подача: мельче спрайтов и со скруглением. */
 .project-favicon {
-  width: clamp(15px, 13.1cqw, 52px);
-  height: clamp(15px, 13.1cqw, 52px);
+  width: clamp(15px, calc(10px + 6.55cqw), 52px);
+  height: clamp(15px, calc(10px + 6.55cqw), 52px);
   flex-shrink: 0;
   border-radius: var(--radius-sm);
 }
 .project-title {
-  font-size: clamp(11px, 8.5cqw, 28px);
+  font-size: clamp(11px, calc(6.5px + 4.25cqw), 28px);
 }
 .project-range {
-  font-size: clamp(9px, 7.2cqw, 22px);
+  font-size: clamp(9px, calc(5.5px + 3.6cqw), 22px);
 }
 
 /* Blur-up загрузка кадров модалки-галереи (PhotoDropModal, DESIGN §7.5): размытый thumb виден

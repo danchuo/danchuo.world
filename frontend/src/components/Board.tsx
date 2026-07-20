@@ -341,7 +341,7 @@ function BoardTile({
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":
-      return <WaveSwitcher style={style} className={className} />;
+      return <WaveSwitcher orientation={orientation} style={style} className={className} />;
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
     default:

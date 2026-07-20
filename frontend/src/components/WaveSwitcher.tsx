@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { getThemes } from "@/lib/api/client";
 import type { ThemeView } from "@/lib/api/types";
+import type { TileOrientation } from "@/lib/layout";
 import { readWaveCookie } from "@/lib/waveCookie";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
@@ -11,16 +12,55 @@ import { useWave } from "./WaveProvider";
 interface WaveSwitcherProps {
   style?: CSSProperties;
   className?: string;
+  /**
+   * Направление ряда чипов — задаётся волной через layout (`tiles.waveSwitcher.orientation`),
+   * как у `projects`/`photoDrops`/`marquee`. Дефолт — горизонтальный ряд.
+   */
+  orientation?: TileOrientation;
 }
 
 /**
- * Переключатель волн (W) — PRD §5.9, DESIGN §2.6. Ряд квадратных пиксель-свотчей выпущенных
- * волн (свотч = `bg-page` волны); активная — в пиксель-рамке. Клик меняет отображаемую волну
+ * Токены волны → инлайновые `--chip-*` переменные её чипа (DESIGN §2.6).
+ *
+ * Ключевое: чип рисуется палитрой и краем ТОЙ волны, которую предлагает, а не активной —
+ * поэтому значения берутся из `theme.tokens`, а не из `:root` (там токены борда). Цвета
+ * едут переменными, а не классами: превью новой волны появляется само, стоит ей завестись
+ * в БД, — правок кода не нужно. Недостающий токен падает на токен борда (волна с урезанным
+ * набором не рвёт чип, просто читается менее точно).
+ */
+function chipVars(tokens: Record<string, string>): CSSProperties {
+  const pick = (name: string, fallback: string) => tokens[name] ?? fallback;
+  return {
+    // Цвет страницы волны — самый узнаваемый признак (персик 01 vs небо 02).
+    "--chip-bg": pick("bg-page", "var(--bg-surface-muted)"),
+    // Край: цвет и толщина линии — те же токены, что у настоящей плитки (путь 1 «взять
+    // ступеньку» из вреза в wave-01.css). Волна, рисующая свой край (путь 2), переопределяет
+    // форму чипа у себя в скине по `[data-chip-wave]`.
+    // ⚠️ Силуэт `pixel-corners` сюда НЕ едет: он задан в абсолютных px под большую плитку и
+    // на чипе вырождается в крестик (см. врез у `.wave-chip` в common.css). Ступеньку чипа
+    // рисует CSS в своём масштабе; волна может прислать свою отдельным токеном `chip-corners`.
+    ...(tokens["chip-corners"] ? { "--chip-corners": tokens["chip-corners"] } : {}),
+    "--chip-line": pick("border-tile", "var(--border)"),
+    "--chip-line-w": pick("tile-line", "1.5px"),
+    // Скругление — для волн, рисующих свой край (Obscura правит им форму чипа).
+    "--chip-radius": pick("radius-sm", "6px"),
+    // Единственный сигнальный цвет волны — красит нижний торец «коробочки» чипа.
+    "--chip-accent": pick("accent", "var(--accent)"),
+  } as CSSProperties;
+}
+
+/**
+ * Переключатель волн (W) — PRD §5.9, DESIGN §2.6. Ряд **чипов-мини-плиток**: каждый чип —
+ * крошечная карточка, нарисованная краем и палитрой своей волны (ступенчатый персик у 01,
+ * скруглённая облачная карта у 02) с точкой-акцентом в углу; активный приподнят «коробочкой»,
+ * как настоящая плитка борда. Свотч-квадрат одного цвета показывал волну одним токеном из
+ * полусотни — форма и акцент читаются быстрее цвета. Клик меняет отображаемую волну
  * **клиентским свопом** через [useWave]: токены едут в `:root`, layout — в состояние борда
  * (без перезагрузки) — компоненты не трогаются. Только реально выпущенные волны — без
  * слотов-заглушек под будущие (DESIGN §2.6).
  */
-export function WaveSwitcher({ style, className }: WaveSwitcherProps) {
+export function WaveSwitcher({ style, className, orientation = "horizontal" }: WaveSwitcherProps) {
+  const vertical = orientation === "vertical";
   const { phase, data, retry } = useTileData<ThemeView[]>(
     useCallback((signal) => getThemes({ signal }), []),
     "themes",
@@ -56,27 +96,45 @@ export function WaveSwitcher({ style, className }: WaveSwitcherProps) {
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
-        <div className="flex h-full flex-wrap content-center items-center gap-2">
+        // `tile-frame` обязателен: без своего контейнера `cqw` чипа цепляется за дальнего
+        // предка и размер упирается в потолок clamp (замерено — 48px вместо 28px). Ряд —
+        // безопасный контейнер: ширину ему задаёт плитка, а чипы её не двигают, поэтому
+        // петли «шире → крупнее чип → шире» здесь нет.
+        //
+        // `flex-nowrap` намеренно: браузерный зум УЖИМАЕТ CSS-вьюпорт (110% на 1536 отдаёт
+        // ~1396), ряд сужается, а демпфер §8.1 уменьшает чип вдвое медленнее контейнера —
+        // на каком-то шаге два чипа перестают влезать. С переносом ряд молча вставал в
+        // столбец (жалоба владельца «почему волны встают вертикально на 110%»); теперь
+        // направление задаёт ТОЛЬКО раскладка волны, а чипы в тесноте жмутся (см. flex-shrink
+        // и aspect-ratio у .wave-chip).
+        <div
+          className={`tile-frame flex h-full flex-nowrap content-center items-center gap-1.5 ${
+            vertical ? "flex-col" : "flex-row"
+          }`}
+        >
           {themes.map((t) => {
             const isActive = t.key === activeKey;
             return (
               <button
                 key={t.key}
                 type="button"
-                className="tap-target"
+                className="wave-chip tap-target"
+                // Ключ волны — зацепка для скина: волна со своим краем правит форму СВОЕГО
+                // чипа, лёжа на борде чужой волны (см. wave-02.css).
+                data-chip-wave={t.key}
+                data-active={isActive}
                 aria-pressed={isActive}
                 aria-label={`Волна: ${t.name}`}
                 title={t.name}
                 onClick={() => applyWave(t)}
-                style={{
-                  width: 18,
-                  height: 18,
-                  cursor: "pointer",
-                  background: t.tokens["bg-page"] ?? "var(--bg-surface-muted)",
-                  border: isActive ? "2px solid var(--border-pixel)" : "1px solid var(--border)",
-                  borderRadius: "var(--radius-sm)",
-                }}
-              />
+                style={chipVars(t.tokens)}
+              >
+                {/* Всего два слоя: нижний торец «коробочки» сигнальным цветом волны + сама
+                    карточка. Мини-борд внутри карточки (и белая вложенная карта у волны 02)
+                    пробовались и сняты — «картинка в картинке», замечание владельца. */}
+                <span className="wave-chip__slab" aria-hidden />
+                <span className="wave-chip__face" aria-hidden />
+              </button>
             );
           })}
         </div>

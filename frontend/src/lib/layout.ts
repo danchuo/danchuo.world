@@ -62,7 +62,9 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // the social grid vacated).
   freshness: { col: 30, row: 24, colSpan: 3, rowSpan: 4 },
   // Wave switcher tucked just left of today's top-left corner, top-aligned with today (row 8).
-  waveSwitcher: { col: 9, row: 20, colSpan: 3, rowSpan: 3 },
+  // Grown one track upward (row 20 → 19) to give the wave chips room; the gutter track below
+  // the social grid (which ends at row 17) survives, so the channel still breathes.
+  waveSwitcher: { col: 9, row: 19, colSpan: 3, rowSpan: 4 },
   // Spotify moved to the right of the drops strip, into the top-right band the wave/freshness
   // stack vacated (above the calendar).
   music: { col: 12, row: 1, colSpan: 8, rowSpan: 5 },

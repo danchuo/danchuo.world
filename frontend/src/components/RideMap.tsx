@@ -49,6 +49,13 @@ const ARC_COLOR = "#c2603f";
  * деталей — детальные версии (`*-detailed.png`) лежат рядом под будущую крупную карту. Размеры —
  * под аспект авторской сетки 15×19 (кончик капли — снизу-по-центру). `ride-pin-icon` в
  * `common.css` даёт `image-rendering: pixelated` (чёткие пиксели при масштабе).
+ *
+ * Размер пина НАМЕРЕННО оставлен фиксированным и не переведён на доли (DESIGN §8.1), хотя
+ * остальной борд переведён: эти спрайты нарисованы именно под ~34px и упрощены под него.
+ * Растянуть их вместе с картой — значит показать крупным планом упрощение, ради которого
+ * они и рисовались (нет внутреннего кружка, нет тонких деталей). Крупной карте нужны не
+ * увеличенные эти, а лежащие рядом `*-detailed.png`. Пропорциональность тут решается
+ * подменой ассета, а не масштабом — до тех пор фикс честнее.
  */
 interface PinSpec {
   url: string;
@@ -101,6 +108,7 @@ export function RideMap({
     let cancelled = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let map: any = null;
+    let ro: ResizeObserver | null = null;
 
     import("leaflet").then((L) => {
       if (cancelled || !ref.current) return;
@@ -181,20 +189,35 @@ export function RideMap({
       const bounds = L.latLngBounds([start, finish]).pad(0.35);
       // Пиксельные пины «висят» головой над точкой — добавляем пиксельный отступ сверху, чтобы
       // головы (и тултип над ними в модалке) не срезались верхней кромкой (кончики внизу малы).
-      map.fitBounds(
-        bounds,
-        pins
-          ? { paddingTopLeft: L.point(6, interactive ? 64 : 36), paddingBottomRight: L.point(6, 8) }
-          : interactive
-            ? { paddingTopLeft: L.point(6, 32), paddingBottomRight: L.point(6, 8) }
-            : undefined,
-      );
-      // Контейнер мог измениться в размере после маунта (грид) — пересчитываем тайлы.
-      setTimeout(() => map && map.invalidateSize(), 0);
+      const fitOpts = pins
+        ? { paddingTopLeft: L.point(6, interactive ? 64 : 36), paddingBottomRight: L.point(6, 8) }
+        : interactive
+          ? { paddingTopLeft: L.point(6, 32), paddingBottomRight: L.point(6, 8) }
+          : undefined;
+
+      // Кадрирование пересчитываем на КАЖДОЕ изменение размера контейнера, а не только при
+      // маунте (DESIGN §8.1). Zoom-level Leaflet — это «сколько метров в пикселе»: подобранный
+      // под один размер, он при росте контейнера оставляет тот же масштаб и просто показывает
+      // больше пустой карты вокруг — точки разъезжаются к центру и карта «отдаляется». Ровно
+      // это видно при уменьшении масштаба браузера и на большом мониторе. fitBounds заново
+      // держит одинаковое КАДРИРОВАНИЕ (точки занимают ту же долю карты) на любом размере.
+      // invalidateSize обязателен перед фитом: без него Leaflet считает по устаревшим размерам.
+      const refit = () => {
+        if (!map) return;
+        map.invalidateSize(false);
+        map.fitBounds(bounds, fitOpts);
+      };
+      refit();
+
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(() => refit());
+        ro.observe(el);
+      }
     });
 
     return () => {
       cancelled = true;
+      if (ro) ro.disconnect();
       if (map) map.remove();
     };
   }, [startLat, startLon, finishLat, finishLon, wave, interactive, startLabel, finishLabel]);

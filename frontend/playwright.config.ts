@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 /**
  * Визуальная регрессия пер-тайл (PRD §12 M5) — закрепляет вёрстку плиток (вкл. музыкальную)
- * перед релизом, то, что jsdom-юниты не ловят. Два вьюпорта: desktop (bento 16") и mobile
+ * перед релизом, то, что jsdom-юниты не ловят. Два вьюпорта: desktop (Full HD) и mobile
  * (стек). Эталоны снимаются в Docker (стабильный рендер шрифтов для CI) — см. e2e/README.md
  * и `npm run e2e:docker:update`. Детерминизм данных/времени — в e2e/fixtures.ts.
  *
@@ -24,7 +24,10 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide" },
   },
   projects: [
-    { name: "desktop", use: { viewport: { width: 1512, height: 900 } } },
+    // Full HD — самый ходовой десктоп; эталоны должны представлять типичного посетителя, а не
+    // конкретную машину. NB: это НЕ опора пропорций §8.1 — та считается от 1536 (экран владельца,
+    // где размеры утверждались) и остаётся 1536; здесь только вьюпорт прогона.
+    { name: "desktop", use: { viewport: { width: 1920, height: 1080 } } },
     // hasTouch — не косметика: режим борда и тач-таргеты ≥44px решает `pointer: coarse`
     // (DESIGN §8/§9). Без эмуляции тача мобильный проект отвечал `pointer: fine` и попадал
     // в стек лишь по страховочному порогу ширины, то есть проверял не тот путь.

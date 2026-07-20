@@ -19,10 +19,12 @@ interface CalendarProps {
 /** Заголовки дней недели (понедельник первый, §5). Индексы 5,6 — выходные. */
 const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
 
-/** Мини-сводка дня для ховер-превью (§5): относительное имя + ключевые статы. */
+/**
+ * Мини-сводка дня для ховер-превью (§5): относительное имя + ключевые статы.
+ * Монстра тут нет намеренно — вкусы шлются, но нигде на борде не показываются.
+ */
 function hoverSummary(d: DaySummary, today: string): string {
   const parts = [relativeDayRu(d.date, today), d.title, `шаги ${formatSteps(d.steps)}`, `сон ${formatSleep(d.sleepMinutes)}`];
-  if (d.monster) parts.push(`монстр ${d.monster.name}`);
   return parts.filter(Boolean).join(" · ");
 }
 
@@ -30,8 +32,9 @@ function hoverSummary(d: DaySummary, today: string): string {
  * Календарь (C) — главная навигация (DESIGN §5). Сетка выровнена по дням недели:
  * неделя с понедельника, новая неделя — новой строкой, выходные (сб/вс) подсвечены
  * оттенком, дни соседнего месяца приглушены (относительно месяца «сегодня»). В каждой
- * ячейке — число дня (mono), акцент-пиксель монстра, маркер имени; сегодня в пиксель-
- * рамке, выбранный — обводкой акцента, будущие приглушены. Клик = перефокус «Сегодня».
+ * ячейке — число дня (mono) и маркер имени; сегодня в пиксель-рамке, выбранный — обводкой
+ * акцента, будущие приглушены. Клик = перефокус «Сегодня». Цвет вкуса монстра не рисуется:
+ * вкус читается только текстом в подписи дня (aria-label/title).
  */
 export function Calendar({
   days,
@@ -117,7 +120,6 @@ export function Calendar({
                 data-future={isFuture || undefined}
                 data-other-month={isOtherMonth || undefined}
                 data-weekend={isWeekend || undefined}
-                data-has-monster={d.monster ? true : undefined}
                 data-has-name={d.title ? true : undefined}
                 aria-current={isToday ? "date" : undefined}
                 aria-label={`${dayOfMonth(d.date)}, ${hoverSummary(d, today)}`}
@@ -136,20 +138,6 @@ export function Calendar({
                 }}
               >
                 {dayOfMonth(d.date)}
-
-                {/* Крупный пиксель цвета вкуса в углу (§6) — дублируется в aria-label/title. */}
-                {d.monster?.accentColor && (
-                  <span
-                    data-testid={`monster-pixel-${d.date}`}
-                    aria-hidden
-                    className="absolute right-0 top-0"
-                    style={{
-                      width: "var(--px)",
-                      height: "var(--px)",
-                      background: d.monster.accentColor,
-                    }}
-                  />
-                )}
 
                 {/* Маркер «есть имя» (§5) — мелкая пиксель-точка снизу. */}
                 {d.title && (

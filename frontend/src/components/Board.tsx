@@ -59,8 +59,8 @@ interface BoardData {
 /**
  * Борд danchuo.world (PRD §12 M2). Тянет данные на клиенте с независимыми per-tile
  * состояниями (DESIGN §7 — общего спиннера нет). Раскладка — из data-driven реестра
- * тайлов ([TILE_LAYOUT]): на десктопе (≥1440px) bento 20×14, ниже — одноколоночный стек,
- * на мобиле (<640px) календарь заменяется недельной полосой (DESIGN §8).
+ * тайлов ([TILE_LAYOUT]): на десктопе (мышь/трекпад) bento 40×28, на тач-устройствах —
+ * одноколоночный стек, в нём при <640px календарь заменяется недельной полосой (DESIGN §8).
  */
 export function Board() {
   // Раскладка активной волны (мерж волны с дефолтом, DESIGN §3, §10). Своп волны
@@ -178,10 +178,12 @@ export function Board() {
 
   return (
     <main className="min-h-screen p-4">
-      {/* Десктоп ≥1440px: полный bento 20×14 без скролла (DESIGN §3, §8). */}
+      {/* Десктоп (мышь/трекпад, окно шире страховочного пола): полный bento без скролла
+          (DESIGN §3, §8). Условие режима — в `.board-bento`/`.board-stack` (common.css):
+          решает тип указателя, а не ширина, иначе браузерный зум ронял борд в стек. */}
       <div
         data-testid="bento"
-        className="hidden min-[1440px]:grid"
+        className="board-bento"
         style={{
           // minmax(0, …): bare 1fr means minmax(auto, 1fr) — track width would follow the
           // items' min-content. Tiles that size themselves in px from a measured cell width
@@ -214,8 +216,10 @@ export function Board() {
         })}
       </div>
 
-      {/* <1440px: одноколоночный стек; календарь → недельная полоса на мобиле (<640px). */}
-      <div data-testid="stack" className="flex flex-col gap-4 min-[1440px]:hidden">
+      {/* Тач-устройства (и аварийно — очень узкие окна): одноколоночный стек. Календарь
+          меняется на недельную полосу по ШИРИНЕ (<640px) — здесь это правильный сигнал:
+          вопрос в том, влезает ли сетка на 7 колонок, а не чем по ней тыкают. */}
+      <div data-testid="stack" className="board-stack flex-col gap-4">
         {layout.mobileOrder.map((id) =>
           layout.tiles[id]?.hidden ? null : id === "calendar" ? (
             <div key={id} data-tile-id={id}>

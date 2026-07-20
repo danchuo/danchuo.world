@@ -36,7 +36,7 @@ describe("ProjectsTile", () => {
     expect(screen.getByText("Q1 2026 — наст.")).toBeInTheDocument();
   });
 
-  it("спрайт-планета из /assets/projects/ — слот 28px; пиксель-арт (-px) рендерится pixelated", async () => {
+  it("спрайт-планета из /assets/projects/: пиксель-арт (-px) — pixelated и своя доля, гладкий — на ступень крупнее", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "/assets/projects/danchuo-world-px.png" }),
       project({ title: "proxemics", iconUrl: "/assets/projects/proxemics.png" }),
@@ -44,16 +44,31 @@ describe("ProjectsTile", () => {
     const { container } = render(<ProjectsTile />);
     await screen.findByText("proxemics");
 
+    // Размеры — доли контейнера в CSS (DESIGN §8.1), поэтому в jsdom проверяем выбор класса,
+    // а не вычисленные пиксели: clamp/cqw тут не считаются. Пропорции закреплены e2e-замером.
     const [pixel, smooth] = Array.from(container.querySelectorAll("img"));
-    expect(pixel).toHaveAttribute("width", "28");
+    expect(pixel).toHaveClass("project-sprite");
     expect(pixel.style.imageRendering).toBe("pixelated");
     // Smooth sprite is drawn one step bigger: without a chunky pixel outline it
     // optically reads smaller than pixel art of the same box.
-    expect(smooth).toHaveAttribute("width", "32");
+    expect(smooth).toHaveClass("project-sprite--smooth");
     expect(smooth.style.imageRendering).toBe("");
-    // Both sit in a uniform 32px icon column so row texts start at the same x.
-    expect(pixel.parentElement?.style.width).toBe("32px");
-    expect(smooth.parentElement?.style.width).toBe("32px");
+    // Both sit in one uniform icon column so row texts start at the same x.
+    expect(pixel.parentElement).toHaveClass("project-slot");
+    expect(smooth.parentElement).toHaveClass("project-slot");
+  });
+
+  it("сторонний фавикон — легаси-подача (мельче спрайта, со скруглением)", async () => {
+    getProjectsMock.mockResolvedValue([
+      project({ iconUrl: "https://example.com/favicon.ico" }),
+    ]);
+    const { container } = render(<ProjectsTile />);
+    await screen.findByText("danchuo.world");
+
+    const img = container.querySelector("img");
+    expect(img).toHaveClass("project-favicon");
+    expect(img).not.toHaveClass("project-sprite");
+    expect(img?.parentElement).not.toHaveClass("project-slot");
   });
 
   it("orientation=horizontal → лента-ряд (модификатор на списке)", async () => {

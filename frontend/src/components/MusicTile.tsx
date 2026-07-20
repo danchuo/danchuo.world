@@ -125,17 +125,17 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /** Статичные стили — вне рендера, чтобы не пересобирать на каждый кадр. */
 // Альбом прижат к исполнителям (меньше воздуха), источник отодвинут от альбома (больше).
-const albumStyle = { color: "var(--text-tertiary)", fontSize: 11, marginTop: -2 } satisfies CSSProperties;
-const sourceStyle = { color: "var(--text-tertiary)", fontSize: 11, marginTop: 7 } satisfies CSSProperties;
+const albumStyle = { color: "var(--text-tertiary)", fontSize: "var(--fs-music-meta)", marginTop: -2 } satisfies CSSProperties;
+const sourceStyle = { color: "var(--text-tertiary)", fontSize: "var(--fs-music-meta)", marginTop: 7 } satisfies CSSProperties;
 /**
  * Тело блока now-playing. Высоту НЕ фиксируем (Spotify ушёл в угол шапки, снизу его
  * больше нет) — блок растёт по контенту в освободившуюся вертикаль. Обложка прижата к
  * верху (`items-start` на строке), поэтому при смене трека не «ездит».
  */
-const nowPlayingBody = { ...mono, lineHeight: 1.3 } satisfies CSSProperties;
+const nowPlayingBody = { ...mono, lineHeight: 1.3, fontSize: "var(--fs-music-title)" } satisfies CSSProperties;
 
 /** Исполнители — чуть отодвинуты от названия (между альбомом и ними отступ не нужен). */
-const artistsStyle = { color: "var(--text-secondary)", fontSize: 12, marginTop: 3 } satisfies CSSProperties;
+const artistsStyle = { color: "var(--text-secondary)", fontSize: "var(--fs-music-artists)", marginTop: 3 } satisfies CSSProperties;
 
 /** Человекочитаемая метка источника по типу контекста Spotify. */
 const SOURCE_LABEL: Record<string, string> = {
@@ -483,7 +483,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
 
   return (
     // Обёртка держит полный след ячейки; карточка внутри может быть у́же и центрируется.
-    <div ref={frameRef} style={style} className={className}>
+    <div ref={frameRef} style={style} className={`tile-frame t-music-vars ${className ?? ""}`}>
       <TileShell
         state={state === "loaded" && isEmpty ? "empty" : state}
         emptyText="ничего не играет"
@@ -499,10 +499,10 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
               вертикаль под список недавних (плитка низкая). */}
           <div
             className="flex items-center justify-between"
-            style={{ ...mono, color: "var(--text-tertiary)", fontSize: 12 }}
+            style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-music-artists)" }}
           >
             <span>{playing ? (now?.isPlaying ? "сейчас играет" : "на паузе") : "недавно"}</span>
-            <span style={{ fontSize: 10 }}>Spotify</span>
+            <span style={{ fontSize: "var(--fs-music-source)" }}>Spotify</span>
           </div>
 
           {playing && (
@@ -528,7 +528,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                 >
                   {/* Как и в now-playing: едет бегущей строкой, только если не влезло по
                       ширине (Marquee меряет overflow сам). Влезло — обычная строка. */}
-                  <Marquee style={{ ...mono, color: "var(--text-secondary)", fontSize: 12 }}>
+                  <Marquee style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-music-artists)" }}>
                     {r.track.url ? (
                       <a href={r.track.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>
                         {r.track.title}

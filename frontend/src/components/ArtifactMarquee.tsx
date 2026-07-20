@@ -68,7 +68,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
     >
       {phase === "loaded" && !isEmpty && (
         <div
-          className={`relative flex h-full overflow-hidden ${vertical ? "justify-center" : "items-center"}`}
+          className={`tile-frame relative flex h-full overflow-hidden ${vertical ? "justify-center" : "items-center"}`}
           onMouseLeave={() => setActive(null)}
         >
           <div
@@ -105,7 +105,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                       }}
                     />
                   )}
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-secondary)" }}>
+                  <span className="t-artifact-pop" style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
                     {a.name}
                   </span>
                 </button>
@@ -141,10 +141,10 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                   }}
                 />
               )}
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-primary)" }}>
+              <span className="t-artifact-title" style={{ fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>
                 {activeArtifact.name}
               </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-tertiary)" }}>
+              <span className="t-artifact-date" style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)" }}>
                 {formatFirstMentioned(activeArtifact.firstMentionedOn)}
               </span>
             </div>

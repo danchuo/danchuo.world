@@ -25,6 +25,9 @@ export default defineConfig({
   },
   projects: [
     { name: "desktop", use: { viewport: { width: 1512, height: 900 } } },
-    { name: "mobile", use: { viewport: { width: 375, height: 812 } } },
+    // hasTouch — не косметика: режим борда и тач-таргеты ≥44px решает `pointer: coarse`
+    // (DESIGN §8/§9). Без эмуляции тача мобильный проект отвечал `pointer: fine` и попадал
+    // в стек лишь по страховочному порогу ширины, то есть проверял не тот путь.
+    { name: "mobile", use: { viewport: { width: 375, height: 812 }, hasTouch: true } },
   ],
 });

@@ -31,15 +31,30 @@ describe("Calendar (±15)", () => {
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveTextContent("18");
   });
 
-  it("помечает сегодня (aria-current) и день с монстром (пиксель акцента)", () => {
+  it("помечает сегодня (aria-current) и день с именем", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("aria-current", "date");
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-today", "true");
-    expect(screen.getByTestId("monster-pixel-2026-06-20")).toBeInTheDocument();
     expect(screen.getByTestId("day-2026-06-20")).toHaveAttribute("data-future", "true");
     expect(screen.getByTestId("name-mark-2026-06-18")).toBeInTheDocument();
+  });
+
+  it("монстр не показывается в ячейке: ни пикселя цвета, ни строки в ховер-сводке", () => {
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    const cell = screen.getByTestId("day-2026-06-20");
+    // Ни пикселя-акцента, ни accentColor в инлайновых стилях ячейки и её детей.
+    expect(screen.queryByTestId("monster-pixel-2026-06-20")).not.toBeInTheDocument();
+    expect(cell.outerHTML).not.toContain("#F4A52A");
+    // Ховер-сводка и подпись для скринридера — без вкуса.
+    expect(cell.getAttribute("title")).not.toContain("Mango Loco");
+    expect(cell.getAttribute("title")).not.toContain("монстр");
+    expect(cell.getAttribute("aria-label")).not.toContain("монстр");
+    // Сама сводка при этом жива.
+    expect(cell.getAttribute("title")).toContain("шаги");
   });
 
   it("размечает выходные и дни соседнего месяца", () => {

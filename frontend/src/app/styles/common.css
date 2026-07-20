@@ -23,7 +23,11 @@ body {
    скин волны вправе её переопределить (волна 02 прячет, см. wave-02.css). */
 .tile-label {
   font-family: var(--font-sans);
-  font-size: 11px;
+  /* Хром борда, а НЕ содержимое плитки (DESIGN §8.1): подписи образуют общий ряд по всему
+     борду, поэтому масштабируются от ЭКРАНА (vw), а не каждая от своей плитки. С `cqw`
+     подпись «свежести» (77px) стала бы вдвое мельче подписи «Сегодня» (530px) — ряд бы
+     развалился. 0.72vw = прежние 11px на опорных 1536. */
+  font-size: clamp(9px, 0.72vw, 18px);
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -36,6 +40,38 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ── Выбор режима борда: bento (десктоп) vs стек (мобильный), DESIGN §8 ──────────────
+   Решает ТИП УКАЗАТЕЛЯ, а не ширина. Ширина — плохой сигнал, потому что браузерный зум
+   её меняет: зум не увеличивает картинку, он уменьшает CSS-вьюпорт (110% на окне 1512px
+   отдаёт 1375px). При пороге по ширине один шаг зума ронял весь борд в телефонный стек.
+   Указатель/hover зуму неподвластны: телефон отвечает coarse/none на любом зуме, мышь —
+   fine/hover на любом. Тот же сигнал уже решает тач-таргеты ниже.
+
+   Порога по ширине НЕТ намеренно (решение владельца): десктопный борд остаётся бенто на
+   любом зуме и в любом окне. Промежуточный порог сначала стоял на 1100px как страховка,
+   но давал ровно ту же непредсказуемость, от которой уходили, — просто дальше по шкале
+   (телефонный стек выскакивал на 150%). Крупные сайты так себя не ведут: десктоп остаётся
+   десктопом. Цена решения принята сознательно — мышь в очень узком окне (<900px) получит
+   тесный борд вместо удобного стека; лечиться это должно пропорциональным контентом
+   (DESIGN §8.1), а не подменой раскладки под пользователем.
+
+   Display держим здесь, а не утилитами tailwind: инверсию «стек, ЕСЛИ НЕ указатель-fine»
+   стопкой вариантов не выразить, а правило вне @layer всё равно бьёт утилиты из слоя. */
+.board-bento {
+  display: none;
+}
+.board-stack {
+  display: flex;
+}
+@media (hover: hover) and (pointer: fine) {
+  .board-bento {
+    display: grid;
+  }
+  .board-stack {
+    display: none;
+  }
 }
 
 /* Тач-таргет ≥44px (PRD §5.10) — только на грубом указателе: на десктопе компактные
@@ -254,17 +290,39 @@ body {
   text-anchor: middle;
 }
 
-/* Social grid degrades to icon-only cards when the tile is too narrow for text labels
-   (icons of the major platforms are self-explanatory; names stay in aria-labels). */
+/* ── Плитка соцсетей: пропорциональный контент (DESIGN §8.1) ─────────────────────────
+   Пилот подхода «содержимое — доля своей плитки, а не фикс в пикселях». Было: иконка 18/28px
+   намертво, а карточка тянется за экраном ⇒ на 1512px иконка занимала 85% карточки (тесно),
+   на 3440px — 27% (потерялась). Замерено пробником, ровно та жалоба владельца «на большом
+   экране всё разъедется».
+
+   Три ИМЕНОВАННЫХ контейнера — имена обязательны: без них `cqw` и `@container` цепляются
+   к БЛИЖАЙШЕМУ контейнеру-предку, и запрос про ширину сетки начал бы мерить карточку.
+     tile (общая обёртка .tile-frame выше) — от неё считается зазор между карточками;
+     social-grid — сама сетка: от неё считается «влезают ли подписи»;
+     social-card — карточка: от неё считаются иконка, подпись и внутренний зазор.
+   Размер иконки — ТОКЕН `--social-icon-size`: скин задаёт свою долю, не переписывая правила
+   (волна 01 со своими рисованными спрайтами хочет крупнее, чем одноцветная маска). */
 .social-grid {
   container-type: inline-size;
+  container-name: social-grid;
+  gap: clamp(6px, 9cqw, 20px);
+}
+.social-card {
+  container-type: inline-size;
+  container-name: social-card;
+  gap: clamp(3px, 8cqw, 10px);
+}
+.social-label {
+  font-size: clamp(9px, 13cqw, 15px);
 }
 /* Base look of a social icon: the monochrome SVG sprite tinted with the wave's text token
    via a CSS mask. SocialTile puts both URLs on the element (--social-mask always,
    --social-sprite when a colored wave-01 sprite exists); skins pick the rendering. */
 .social-icon {
-  width: 18px;
-  height: 18px;
+  --social-icon-size: clamp(12px, 38cqw, 36px);
+  width: var(--social-icon-size);
+  height: var(--social-icon-size);
   flex-shrink: 0;
   background: var(--text-primary);
   -webkit-mask: var(--social-mask) center / contain no-repeat;
@@ -278,10 +336,166 @@ body {
   background: var(--social-card-bg, var(--bg-surface-muted));
   border-radius: var(--radius-sm);
 }
-@container (max-width: 200px) {
+@container social-grid (max-width: 200px) {
   .social-grid .social-label {
     display: none;
   }
+}
+
+/* ══════════ Пропорциональное содержимое плиток: общий слой (DESIGN §8.1) ══════════
+   Правило: размеры ВНУТРИ плитки — доля своего контейнера, а не константа в пикселях.
+   Опора всех долей ниже — экран владельца ~1536 CSS-px: на нём каждое значение совпадает
+   с прежним пиксельным, дальше растёт вместе с плиткой. Доли получены ЗАМЕРОМ (пробник
+   по всем плиткам), а не прикидкой — см. врез в §8.1 про перевёрнутый вывод.
+
+   `tile` — общий именованный контейнер. Имя обязательно: без него `cqw`/`@container`
+   цепляются к ближайшему предку, а вложенные контейнеры (карточка соцсети) начали бы
+   ловить чужие запросы. Контейнер не может мерить сам себя, поэтому это ОБЁРТКА.
+
+   ⚠️ У «музыки» и «последнего дропа» обёртка стоит СНАРУЖИ карточки (на frameRef): эти
+   две плитки сами задают себе ширину от замера контента, и если бы кегль зависел от
+   ширины карточки, получилась бы петля «шире → крупнее шрифт → шире». Внешняя ячейка
+   от контента не зависит, поэтому база стабильна. */
+.tile-frame {
+  container-type: inline-size;
+  container-name: tile;
+}
+
+/* Свежесть (опора: внутр. 77px). Базовый кегль плитки задан на самой секции, а контейнер
+   лежит ВНУТРИ неё — `cqw` тут разрешаться не на что, поэтому база идёт от экрана (vw),
+   как у хрома. Это и по смыслу верно: база работает только для текста пустого/ошибочного
+   состояния, содержимое же ниже считается от контейнера. */
+.t-fresh {
+  font-size: clamp(9px, 0.72vw, 18px);
+}
+.t-fresh-ago {
+  font-size: clamp(11px, 16.9cqw, 28px);
+}
+/* Музыка (опора: ячейка ~298px — обёртка снаружи карточки, см. выше) и последний дроп
+   (опора: ячейка 373px). Здесь размеры отдаём ПЕРЕМЕННЫМИ, а не классами: кегли в этих
+   двух плитках вложены друг в друга (например «Spotify» внутри строки статуса), и `em`
+   скомпаундился бы — 0.625em от 0.75em дало бы 7.5px вместо 10px. Переменная считается
+   от контейнера независимо от глубины вложения. Заодно не приходится менять API Marquee,
+   который принимает style-объект, а не className. */
+.t-music-vars {
+  --fs-music-title: clamp(13px, 5.37cqw, 34px);
+  --fs-music-artists: clamp(10px, 4.03cqw, 26px);
+  --fs-music-meta: clamp(9px, 3.69cqw, 24px);
+  --fs-music-source: clamp(8px, 3.36cqw, 22px);
+}
+.t-drop-vars {
+  --fs-drop-title: clamp(11px, 3.49cqw, 28px);
+  --fs-drop-meta: clamp(9px, 2.95cqw, 24px);
+}
+/* Полка дропов (опора: внутр. 228px) */
+.t-drops-title {
+  font-size: clamp(10px, 5.26cqw, 26px);
+}
+.t-drops-month {
+  font-size: clamp(8px, 4.39cqw, 22px);
+}
+/* Статы (опора: внутр. 341px). SVG здесь БЕЗ viewBox — размеры реальные, поэтому подписи
+   осей тоже надо масштабировать (в отличие от карты-тропы «Сегодня», где viewBox уже всё
+   тянет сам и второй множитель был бы двойным). */
+.t-stats-value {
+  font-size: clamp(12px, 4.4cqw, 32px);
+}
+.t-stats-label {
+  font-size: clamp(11px, 4.1cqw, 30px);
+}
+.t-stats-tick {
+  font-size: clamp(8px, 2.93cqw, 21px);
+}
+.t-stats-avg {
+  font-size: clamp(7px, 2.64cqw, 19px);
+}
+.t-stats-axis {
+  font-size: clamp(7px, 2.49cqw, 18px);
+}
+/* Колонка читаутов росла бы вместе с кеглем и обрезала его на 58px фикса — тоже доля. */
+.t-stats-col {
+  width: clamp(44px, 17cqw, 120px);
+}
+/* Сон (опора: внутр. 416px) */
+.t-sleep-value {
+  font-size: clamp(15px, 4.81cqw, 42px);
+}
+.t-sleep-note {
+  font-size: clamp(10px, 2.88cqw, 25px);
+}
+/* Календарь (опора: внутр. 303px) */
+.t-cal-day {
+  font-size: clamp(10px, 3.96cqw, 26px);
+}
+.t-cal-weekday {
+  font-size: clamp(8px, 3.3cqw, 22px);
+}
+/* Велобайк (опора: внутр. 228px) */
+.t-ride-km {
+  font-size: clamp(16px, 9.65cqw, 46px);
+}
+.t-ride-dur {
+  font-size: clamp(12px, 7.02cqw, 34px);
+}
+.t-ride-when {
+  font-size: clamp(10px, 5.26cqw, 26px);
+}
+.t-ride-more {
+  font-size: clamp(9px, 4.82cqw, 24px);
+}
+/* Артефакты (опора: внутр. 416px) */
+.t-artifact-title {
+  font-size: clamp(11px, 3.13cqw, 27px);
+}
+.t-artifact-date {
+  font-size: clamp(8px, 2.4cqw, 21px);
+}
+.t-artifact-pop {
+  font-size: clamp(9px, 2.64cqw, 23px);
+}
+
+/* ── Плитка проектов: пропорциональный контент (DESIGN §8.1) ─────────────────────────
+   Вторая плитка на подходе «доля контейнера вместо пикселя». Опора — экран владельца
+   ~1536 CSS-px, где список 153px: слот 32 / спрайт 28 / название 13 / диапазон 11 /
+   зазоры 8. Отсюда доли ниже — на 1536 они дают ровно прежние числа, дальше растут.
+   `projects` — ИМЕНОВАННЫЙ контейнер на обёртке: сам список мерить себя не может. */
+.projects-list {
+  gap: clamp(6px, 5.2cqw, 20px);
+}
+.projects-list--horizontal {
+  gap: clamp(10px, 10.5cqw, 40px);
+}
+.project-row {
+  gap: clamp(6px, 5.2cqw, 20px);
+}
+/* Единая колонка-слот: спрайты разного размера центрируются в ней, поэтому тексты рядов
+   начинаются с одного x (сохраняем поведение фиксированной вёрстки). */
+.project-slot {
+  width: clamp(24px, 20.9cqw, 84px);
+  height: clamp(24px, 20.9cqw, 84px);
+}
+/* Пиксель-арт читается крупнее гладкого флэта при равной коробке, поэтому у гладкого доля
+   на ступень больше — та же оптическая компенсация, что была в фиксированных 28 vs 32. */
+.project-sprite {
+  width: clamp(21px, 18.3cqw, 74px);
+  height: clamp(21px, 18.3cqw, 74px);
+}
+.project-sprite--smooth {
+  width: clamp(24px, 20.9cqw, 84px);
+  height: clamp(24px, 20.9cqw, 84px);
+}
+/* Сторонние фавиконы — легаси-подача: мельче спрайтов и со скруглением. */
+.project-favicon {
+  width: clamp(15px, 13.1cqw, 52px);
+  height: clamp(15px, 13.1cqw, 52px);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+.project-title {
+  font-size: clamp(11px, 8.5cqw, 28px);
+}
+.project-range {
+  font-size: clamp(9px, 7.2cqw, 22px);
 }
 
 /* Blur-up загрузка кадров модалки-галереи (PhotoDropModal, DESIGN §7.5): размытый thumb виден

@@ -56,7 +56,7 @@ export function RideTile({ wave, style, className }: RideTileProps) {
         className={className}
       >
       {phase === "loaded" && !isEmpty && latest && (
-        <div className="flex h-full flex-col gap-2">
+        <div className="tile-frame flex h-full flex-col gap-2">
           {hasCoords && (
             // Клик по карте открывает модалку поездок (карта статична и pointer-events:none —
             // клики доходят до кнопки). Тот же вход, что и «предыдущие».
@@ -91,14 +91,14 @@ export function RideTile({ wave, style, className }: RideTileProps) {
           <div className="flex flex-col gap-1">
             {/* «Когда» слева, «предыдущие» — по правому краю той же строки. */}
             <div className="flex items-baseline justify-between gap-2">
-              <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>{relativeDayRu(latest.rideDate, today)}</span>
+              <span className="t-ride-when" style={{ color: "var(--text-secondary)" }}>{relativeDayRu(latest.rideDate, today)}</span>
               {rides.length > 1 && (
                 <button
                   type="button"
                   onClick={() => setModalOpen(true)}
-                  className="tap-target shrink-0 cursor-pointer"
                   aria-label="Предыдущие поездки"
-                  style={{ ...mono, color: "var(--accent)", background: "none", border: "none", fontSize: 11 }}
+                  className="tap-target t-ride-more shrink-0 cursor-pointer"
+                  style={{ ...mono, color: "var(--accent)", background: "none", border: "none" }}
                 >
                   предыдущие
                 </button>
@@ -109,8 +109,8 @@ export function RideTile({ wave, style, className }: RideTileProps) {
                 правому краю — чтобы правая сторона не пустовала. Калории на тайле не показываем —
                 они остаются только в модалке (строки списка). */}
             <div className="flex items-baseline justify-between gap-x-2" style={{ ...mono, color: "var(--text-primary)" }}>
-              <span style={{ fontSize: 22, lineHeight: 1 }}>{formatKm(latest.distanceMeters)}</span>
-              <span style={{ fontSize: 16, color: "var(--text-secondary)" }}>{formatDuration(latest.durationSeconds)}</span>
+              <span className="t-ride-km" style={{ lineHeight: 1 }}>{formatKm(latest.distanceMeters)}</span>
+              <span className="t-ride-dur" style={{ color: "var(--text-secondary)" }}>{formatDuration(latest.durationSeconds)}</span>
             </div>
 
           </div>

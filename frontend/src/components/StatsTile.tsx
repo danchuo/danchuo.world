@@ -83,15 +83,15 @@ function MetricReadout({ m, value, avg }: { m: Metric; value: number | null; avg
     <div className="min-w-0">
       <div className="flex items-center gap-1.5" style={{ color: m.labelColor }}>
         {m.icon}
-        <span className="text-sm font-medium">{m.caption}</span>
+        <span className="t-stats-label font-medium">{m.caption}</span>
       </div>
       <div
-        className={`mt-0.5 truncate text-[15px] leading-tight ${value === null ? "text-center" : ""}`}
+        className={`t-stats-value mt-0.5 truncate leading-tight ${value === null ? "text-center" : ""}`}
         style={{ color: m.valueColor, fontFamily: "var(--font-mono)" }}
       >
         {value === null ? "—" : m.valueLabel(value)}
       </div>
-      <div className="mt-1.5 truncate text-[9px]" style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>
+      <div className="t-stats-avg mt-1.5 truncate" style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>
         AVG {avg === null ? "—" : m.valueLabel(avg)}
       </div>
     </div>
@@ -231,9 +231,9 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
   });
 
   return (
-    <div className="flex h-full min-w-0 gap-2">
+    <div className="tile-frame flex h-full min-w-0 gap-2">
       {/* Левая колонка — читауты по центру своих полос (совпадает со средней линией). */}
-      <div className="flex w-[58px] shrink-0 flex-col">
+      <div className="t-stats-col shrink-0 flex flex-col">
         <div className="flex flex-1 flex-col">
           {metrics.map((m) => (
             <div key={m.key} className="flex flex-1 items-center">
@@ -269,7 +269,7 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
                 ].map((t, ti) => (
                   <g key={ti}>
                     <line x1={PAD_X} x2={plotRight} y1={t.yy} y2={t.yy} stroke="var(--text-tertiary)" strokeWidth={1} opacity={ti === 1 ? 0.12 : 0.22} />
-                    <text x={plotRight + 3} y={t.yy + 3} fontSize={8.5} fill="var(--text-tertiary)" style={{ fontFamily: "var(--font-mono)" }}>
+                    <text x={plotRight + 3} y={t.yy + 3} className="t-stats-axis" fill="var(--text-tertiary)" style={{ fontFamily: "var(--font-mono)" }}>
                       {m.axisLabel(t.v)}
                     </text>
                   </g>
@@ -309,7 +309,7 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
                   key={`d-${d}`}
                   x={i === 0 ? 2 : x(i)}
                   y={plotH + AXIS_H - 3}
-                  fontSize={10}
+                  className="t-stats-tick"
                   textAnchor={i === 0 ? "start" : "middle"}
                   fill={d === selected ? "var(--accent)" : "var(--text-tertiary)"}
                   style={{ fontFamily: "var(--font-mono)" }}

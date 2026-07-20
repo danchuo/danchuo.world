@@ -38,7 +38,7 @@ const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffec
 
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
-  fontSize: 11,
+  fontSize: "var(--fs-drop-meta)",
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
 
@@ -184,7 +184,7 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
   return (
     <>
       {/* Measuring wrapper keeps the cell's full footprint; the card inside may be narrower. */}
-      <div ref={frameRef} style={style} className={className}>
+      <div ref={frameRef} style={style} className={`tile-frame t-drop-vars ${className ?? ""}`}>
         <TileShell
           state={isEmpty ? "empty" : phase}
           emptyText="пока нет дропов"
@@ -231,7 +231,7 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
               </button>
 
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate" style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                <span className="truncate" style={{ fontSize: "var(--fs-drop-title)", color: "var(--text-primary)" }}>
                   {latest.title}
                 </span>
                 {latest.monthLabel && <span style={monoTertiary}>{latest.monthLabel}</span>}

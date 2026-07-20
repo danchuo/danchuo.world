@@ -75,7 +75,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
           // sideways; no visible scrollbar — the cut-off card at the edge is the affordance.
           <ul
             ref={shelfRef}
-            className="flex h-full items-stretch gap-3 overflow-x-auto overflow-y-hidden"
+            className="tile-frame flex h-full items-stretch gap-3 overflow-x-auto overflow-y-hidden"
             style={{ scrollbarWidth: "none" }}
           >
             {drops.map((d) => (
@@ -101,10 +101,9 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
                     <span aria-hidden className="min-h-0 w-full flex-1" style={{ background: "var(--bg-surface-muted)", borderRadius: "var(--radius-sm)" }} />
                   )}
                   <span
-                    className="w-full"
+                    className="t-drops-title w-full"
                     style={{
-                      fontSize: 12,
-                      lineHeight: "15px",
+                      lineHeight: 1.25,
                       color: "var(--text-secondary)",
                       // Two-line clamp: readable titles are the whole point of the horizontal
                       // strip — a one-line ellipsis ate half of every title.
@@ -117,7 +116,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
                   >
                     {d.title}
                   </span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, lineHeight: "12px", color: "var(--text-tertiary)" }}>
+                  <span className="t-drops-month" style={{ fontFamily: "var(--font-mono)", lineHeight: 1.2, color: "var(--text-tertiary)" }}>
                     {d.monthLabel ?? ""}
                   </span>
                 </button>
@@ -125,7 +124,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
             ))}
           </ul>
         ) : (
-          <ul className="flex h-full flex-col gap-1.5 overflow-y-auto">
+          <ul className="tile-frame flex h-full flex-col gap-1.5 overflow-y-auto">
             {drops.map((d) => (
               <li key={d.id} className="min-w-0">
                 <button
@@ -147,7 +146,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
                   ) : (
                     <span aria-hidden style={{ flexShrink: 0, width: 32, height: 32, background: "var(--bg-surface-muted)", borderRadius: "var(--radius-sm)" }} />
                   )}
-                  <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  <span className="t-drops-title min-w-0 flex-1 truncate" style={{ color: "var(--text-secondary)" }}>
                     {d.title}
                   </span>
                 </button>

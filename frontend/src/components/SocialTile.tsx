@@ -51,58 +51,60 @@ export function SocialTile({ style, className }: SocialTileProps) {
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
-        <ul
-          // social-grid: a container query in common.css hides the text labels when the tile
-          // is too narrow for them — the grid degrades to recognizable icons only.
-          className="social-grid grid h-full"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            gridAutoRows: "minmax(0, 1fr)",
-            gap: 10,
-          }}
-        >
-          {links.map((l) => (
-            <li key={l.platform} className="min-h-0 min-w-0">
-              <a
-                href={l.url}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={l.name}
-                // social-card: the plate behind icon+label is a skin parameter (common.css) —
-                // wave 01 clears it so sprites sit right on the tile surface.
-                className="social-card flex h-full w-full flex-col items-center justify-center gap-2"
-                style={{ color: "var(--text-primary)", fontSize: 12 }}
-              >
-                {l.icon ? (
-                  <span
-                    aria-hidden
-                    className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}`}
-                    style={
-                      {
-                        "--social-mask": `url(${l.icon})`,
-                        ...(WAVE01_SPRITES[l.platform]
-                          ? { "--social-sprite": `url(${WAVE01_SPRITES[l.platform]})` }
-                          : {}),
-                      } as CSSProperties
-                    }
-                  />
-                ) : (
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 18,
-                      height: 18,
-                      flexShrink: 0,
-                      background: "var(--bg-surface)",
-                      borderRadius: "var(--radius-sm)",
-                    }}
-                  />
-                )}
-                <span className="social-label max-w-full truncate px-1">{l.name}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
+        // social-frame: именованный контейнер, от которого сетка считает свой зазор. Обёртка
+        // нужна отдельно от сетки: container-query-единицы внутри контейнера считаются от
+        // ПРЕДКА, поэтому сетка не может мерить саму себя (common.css, DESIGN §8.1).
+        <div className="tile-frame h-full">
+          <ul
+            // social-grid: именованный контейнер — запрос в common.css прячет подписи, когда сетка
+            // слишком узка для текста, оставляя узнаваемые иконки. Зазор, иконка и подпись —
+            // доли своих контейнеров, а не пиксельные константы (DESIGN §8.1).
+            className="social-grid grid h-full"
+            style={{
+              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              gridAutoRows: "minmax(0, 1fr)",
+            }}
+          >
+            {links.map((l) => (
+              <li key={l.platform} className="min-h-0 min-w-0">
+                <a
+                  href={l.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={l.name}
+                  // social-card: the plate behind icon+label is a skin parameter (common.css) —
+                  // wave 01 clears it so sprites sit right on the tile surface. Именованный
+                  // контейнер: иконка/подпись/зазор внутри считаются от ширины карточки.
+                  className="social-card flex h-full w-full flex-col items-center justify-center"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {l.icon ? (
+                    <span
+                      aria-hidden
+                      className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}`}
+                      style={
+                        {
+                          "--social-mask": `url(${l.icon})`,
+                          ...(WAVE01_SPRITES[l.platform]
+                            ? { "--social-sprite": `url(${WAVE01_SPRITES[l.platform]})` }
+                            : {}),
+                        } as CSSProperties
+                      }
+                    />
+                  ) : (
+                    // Заглушка платформы без спрайта — той же доли карточки, что и иконка.
+                    <span
+                      aria-hidden
+                      className="social-icon"
+                      style={{ background: "var(--bg-surface)", borderRadius: "var(--radius-sm)", mask: "none", WebkitMask: "none" }}
+                    />
+                  )}
+                  <span className="social-label max-w-full truncate px-1">{l.name}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </TileShell>
   );

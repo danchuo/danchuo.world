@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 import { getProjects } from "@/lib/api/client";
 import type { ProjectView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
@@ -24,12 +24,16 @@ const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 // (DESIGN §12.2): rendered in a bigger unrounded slot, same on every wave. External
 // favicons (any other origin/path) keep the legacy small rounded treatment. The "-px"
 // filename suffix marks true pixel art that must scale with nearest-neighbor: smooth
-// flat sprites (e.g. proxemics) fall apart when pixelated at 28px. Smooth sprites get
-// a one-step bigger slot (32 vs 28): without a chunky pixel outline they optically
-// read smaller than pixel art of the same box.
+// flat sprites (e.g. proxemics) fall apart when pixelated at small sizes. Smooth sprites
+// get a one-step bigger box: without a chunky pixel outline they optically read smaller
+// than pixel art of the same box.
+//
+// Размеры живут в CSS (.project-* в common.css) — доли контейнера, а не пиксели, иначе
+// начинка не растёт вместе с плиткой (DESIGN §8.1). Атрибуты width/height остаются
+// номинальными: они задают браузеру пропорцию 1:1 до загрузки, а показ ведёт CSS.
 const isPlanetSprite = (url: string) => url.startsWith("/assets/projects/");
 const isPixelArt = (url: string) => url.endsWith("-px.png");
-const spriteSize = (url: string) => (isPixelArt(url) ? 28 : 32);
+const SPRITE_NOMINAL = 32;
 
 /**
  * Плитка «Проекты» (P) — PRD §5.7, DESIGN §3. Свёрнутый блок: иконка + название (ссылкой,
@@ -43,6 +47,31 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
   const projects = data ?? [];
   const isEmpty = phase === "loaded" && projects.length === 0;
   const horizontal = orientation === "horizontal";
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Живой скролл без видимого ползунка — контур полки дропов (DESIGN §7.5). Вертикальный
+  // список колесо листает родно, поэтому обработчик нужен только горизонтальной ленте:
+  // вертикальное колесо мыши двигает её вбок (трекпадный горизонтальный жест пропускаем —
+  // он уже родной). На краях колесо отдаётся странице, чтобы не запирать прокрутку.
+  // Перетаскивания мышью нет намеренно: у дропов оно перехватывало клик и ломало открытие.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || !horizontal) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      const atStart = el.scrollLeft <= 0;
+      const atEnd = el.scrollLeft >= max - 1;
+      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [horizontal, phase, projects.length]);
 
   return (
     <TileShell
@@ -55,29 +84,41 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
+        // projects-frame: именованный контейнер, от которого считаются размеры внутри
+        // (список сам себя мерить не может — DESIGN §8.1).
+        <div className="tile-frame h-full">
         <ul
+          ref={listRef}
+          // scrollbarWidth: ползунок скрыт, скролл живой (колесо/трекпад/тач) — как у полки
+          // дропов. Подсказка о продолжении списка — обрезанный краем элемент, не ползунок.
+          style={{ scrollbarWidth: "none" }}
           className={
             horizontal
-              ? "projects-list--horizontal flex h-full flex-row items-center gap-4 overflow-x-auto"
-              : "flex h-full flex-col gap-2 overflow-y-auto"
+              ? "projects-list projects-list--horizontal flex h-full flex-row items-center overflow-x-auto"
+              : "projects-list flex h-full flex-col overflow-y-auto"
           }
         >
           {projects.map((p) => (
             <li
               key={p.title}
-              className={horizontal ? "flex shrink-0 flex-col items-center gap-1" : "flex items-center gap-2"}
+              className={
+                horizontal
+                  ? "project-row flex shrink-0 flex-col items-center"
+                  : "project-row flex items-center"
+              }
             >
               {p.iconUrl ? (
                 isPlanetSprite(p.iconUrl) ? (
-                  // Uniform 32px icon column: sprites of different sizes (28 pixel / 32
-                  // smooth) center inside it, so row texts start at the same x.
-                  <span aria-hidden className="grid shrink-0 place-items-center" style={{ width: 32, height: 32 }}>
+                  // Единая колонка-слот: спрайты разного размера центрируются в ней, поэтому
+                  // тексты рядов начинаются с одного x. Размеры — доли (.project-* в common.css).
+                  <span aria-hidden className="project-slot grid shrink-0 place-items-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.iconUrl}
                       alt=""
-                      width={spriteSize(p.iconUrl)}
-                      height={spriteSize(p.iconUrl)}
+                      width={SPRITE_NOMINAL}
+                      height={SPRITE_NOMINAL}
+                      className={isPixelArt(p.iconUrl) ? "project-sprite" : "project-sprite--smooth"}
                       style={isPixelArt(p.iconUrl) ? { imageRendering: "pixelated" } : undefined}
                     />
                   </span>
@@ -86,15 +127,16 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
                   <img
                     src={p.iconUrl}
                     alt=""
-                    width={20}
-                    height={20}
-                    style={{ flexShrink: 0, borderRadius: "var(--radius-sm)" }}
+                    width={SPRITE_NOMINAL}
+                    height={SPRITE_NOMINAL}
+                    className="project-favicon"
                   />
                 )
               ) : (
                 <span
                   aria-hidden
-                  style={{ width: 20, height: 20, flexShrink: 0, background: "var(--bg-surface-muted)", borderRadius: "var(--radius-sm)" }}
+                  className="project-favicon"
+                  style={{ background: "var(--bg-surface-muted)" }}
                 />
               )}
               <div className={horizontal ? "flex min-w-0 flex-col items-center text-center" : "flex min-w-0 flex-col"}>
@@ -103,23 +145,24 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
                     href={p.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="truncate"
-                    style={{ color: "var(--text-primary)", fontSize: 13 }}
+                    className="project-title truncate"
+                    style={{ color: "var(--text-primary)" }}
                   >
                     {p.title}
                   </a>
                 ) : (
-                  <span className="truncate" style={{ color: "var(--text-primary)", fontSize: 13 }}>
+                  <span className="project-title truncate" style={{ color: "var(--text-primary)" }}>
                     {p.title}
                   </span>
                 )}
-                <span style={{ ...mono, color: "var(--text-tertiary)", fontSize: 11 }}>
+                <span className="project-range" style={{ ...mono, color: "var(--text-tertiary)" }}>
                   {formatQuarterRange(p.startYear, p.startQuarter, p.endYear, p.endQuarter)}
                 </span>
               </div>
             </li>
           ))}
         </ul>
+        </div>
       )}
     </TileShell>
   );

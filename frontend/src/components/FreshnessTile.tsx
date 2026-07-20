@@ -43,17 +43,18 @@ export function FreshnessTile({ style, className }: FreshnessTileProps) {
       onRetry={retry}
       label="свежесть"
       ariaLabel="Свежесть данных"
-      // Плитка крошечная (3 кол.) — гасим базовый кегль, чтобы empty/error-текст влезал.
-      style={{ ...style, fontSize: 11 }}
-      className={className}
+      // Плитка крошечная (3 кол.) — базовый кегль гасим классом (.t-fresh), чтобы
+      // empty/error-текст влезал; сам кегль — доля плитки, не пиксель (DESIGN §8.1).
+      style={style}
+      className={`t-fresh ${className ?? ""}`}
     >
       {phase === "loaded" && at !== null && (
         // Single "N назад" line only. The tile is tiny (3×3 tracks): a second caption line
         // ("последний приём") used to overflow the centered flex container and overlap the
         // tile label above. The label «свежесть» already carries that meaning; overflow-hidden
         // is a belt-and-braces guard for extreme values.
-        <div className="flex h-full flex-col justify-center overflow-hidden" style={mono}>
-          <span data-testid="freshness-ago" style={{ color: "var(--text-primary)", fontSize: 13 }}>
+        <div className="tile-frame flex h-full flex-col justify-center overflow-hidden" style={mono}>
+          <span data-testid="freshness-ago" className="t-fresh-ago" style={{ color: "var(--text-primary)" }}>
             {formatAgo(at)}
           </span>
         </div>

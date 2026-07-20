@@ -78,7 +78,7 @@ export function SleepTile({ day, today, state, onRetry, style, className }: Slee
         </div>
       )}
       {hasData && (
-        <div className="flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
+        <div className="tile-frame flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
           {/* «сон» и день — одной строкой сверху (день сразу за «сон»), чтобы не тратить вертикаль. */}
           <div className="mb-1 flex items-baseline gap-3">
             <span className="tile-label">сон</span>
@@ -90,7 +90,7 @@ export function SleepTile({ day, today, state, onRetry, style, className }: Slee
             <div className="flex w-[128px] shrink-0 flex-col justify-center">
               <div className="flex items-center gap-2">
                 <SleepBigIcon height={26} />
-                <span className="whitespace-nowrap text-xl leading-none" style={{ color: "var(--text-primary)" }}>
+                <span className="t-sleep-value whitespace-nowrap leading-none" style={{ color: "var(--text-primary)" }}>
                   {formatSleepShort(minutes)}
                 </span>
               </div>

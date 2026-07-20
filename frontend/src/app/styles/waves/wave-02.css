@@ -138,8 +138,8 @@
    графитом Obscura): возвращаем базовую одноцветную маску токеном (см. .social-icon
    в common.css — здесь её значения восстановлены поверх спрайт-правила wave-01.css). */
 :root[data-wave="wave-02"] .social-icon--sprite {
-  width: 18px;
-  height: 18px;
+  /* Обратно к базовой доле маски (common.css) — крупный спрайт волны 01 тут не нужен. */
+  --social-icon-size: clamp(12px, 38cqw, 36px);
   background: var(--text-primary);
   -webkit-mask: var(--social-mask) center / contain no-repeat;
   mask: var(--social-mask) center / contain no-repeat;

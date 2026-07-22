@@ -135,15 +135,19 @@ body {
   }
 }
 
-/* Бесконечная бегущая строка артефактов (M, §7.2): дублируем контент и едем на -50%,
-   так петля бесшовна. Пауза на ховер — чтобы можно было навести и открыть поповер.
-   Reduced-motion замирает (правило ниже). Темп задаёт --artifact-duration (по контенту). */
+/* Лента артефактов (M, §7.2). Бежит ТОЛЬКО когда контент не влезает в тайл: тогда его
+   дублируют и едут на -50% (петля бесшовна). Если артефакты влезают (один-два предмета) —
+   ленту не дублируют и не анимируют (`.is-scrolling` не навешивается): иначе один предмет
+   двоился бы, а на отзуме из-под края выглядывала бы «третья» копия. Пауза на ховер — чтобы
+   навести и открыть меню. Reduced-motion замирает (правило ниже). Темп — --artifact-duration. */
 .artifact-track {
   display: inline-flex;
   white-space: nowrap;
+}
+.artifact-track.is-scrolling {
   animation: artifact-scroll var(--artifact-duration, 30s) linear infinite;
 }
-.artifact-track:hover {
+.artifact-track.is-scrolling:hover {
   animation-play-state: paused;
 }
 @keyframes artifact-scroll {
@@ -159,8 +163,12 @@ body {
    петля -50%, но колонкой и по оси Y. Механика (дубль контента, пауза на ховер, reduced-motion)
    общая с горизонтальным треком выше. */
 .artifact-track--vertical {
+  display: flex; /* вместо inline-flex: лента занимает всю ширину узкого тайла… */
+  width: 100%; /* …чтобы maxWidth:100% картинки считался от тайла и она жалась пропорционально */
   flex-direction: column;
   white-space: normal;
+}
+.artifact-track--vertical.is-scrolling {
   animation-name: artifact-scroll-y;
 }
 @keyframes artifact-scroll-y {

@@ -92,10 +92,9 @@ const SOCIAL = [
   { platform: "instagram", name: "Instagram", url: "https://instagram.com/danchuo_", icon: "/assets/social/instagram.svg" },
 ];
 
+// Реальный артефакт — статика фронта /assets/artifacts/ (детерминирована, локальная, не стабится).
 const ARTIFACTS = [
-  { name: "Камера", imageUrl: null, firstMentionedOn: "2026-01-15" },
-  { name: "Ракетка", imageUrl: null, firstMentionedOn: "2026-02-20" },
-  { name: "Очки", imageUrl: null, firstMentionedOn: "2026-03-10" },
+  { name: "Cyber Y2K Sunglasses", imageUrl: "/assets/artifacts/cyber-y2k-sunglasses.png", firstMentionedOn: "2026-07-22" },
 ];
 
 const DROPS = [

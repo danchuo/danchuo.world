@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Artifacts marquee: drop the placeholder seed from 0070 and start the real,
+      curated set. Data-driven (PRD 5.8) - a new artifact is a row, no release.
+      First real item: "cyber y2k sunglasses" (background-removed PNG, frontend static).
+      firstMentionedOn is stored always, shown only in the hover popover (DESIGN 7.2).
+    -->
+    <changeSet id="0210-artifact-clear-dummies" author="danchuo">
+        <delete tableName="artifact"/>
+    </changeSet>
+
+    <changeSet id="0210-artifact-real-seed" author="danchuo">
+        <insert tableName="artifact">
+            <column name="name" value="Cyber Y2K Sunglasses"/>
+            <column name="image_url" value="/assets/artifacts/cyber-y2k-sunglasses.png"/>
+            <column name="first_mentioned_on" valueDate="2026-07-22"/>
+            <column name="sort_order" valueNumeric="10"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

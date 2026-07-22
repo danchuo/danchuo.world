@@ -10,8 +10,10 @@ import org.junit.jupiter.api.Test
 
 /**
  * `GET /api/social-links` и `/api/artifacts` (PRD §5.8, §12 M4): публичное чтение,
- * сиды присутствуют, у артефакта — дата первого упоминания (в UI только в поповере).
- * Артефакт может быть без картинки (`imageUrl == null` — фронт рисует пиксель-плейсхолдер).
+ * сиды присутствуют, у артефакта — дата первого упоминания (в UI только в меню).
+ * Сид артефактов — курируемый набор реальных предметов (миграция 0210 сняла демо-заглушки);
+ * первый настоящий — «Cyber Y2K Sunglasses» с картинкой. `imageUrl` остаётся nullable
+ * (фронт рисует плейсхолдер), это покрыто юнит-тестом `ArtifactMarquee` на фронте.
  */
 @QuarkusTest
 class SocialResourceTest {
@@ -33,13 +35,11 @@ class SocialResourceTest {
     }
 
     @Test
-    fun `artifacts may have no image - imageUrl is null`() {
-        // Сид содержит артефакты без картинки (напр. «Очки», «Футболка 1/2») —
-        // imageUrl приходит null, фронт рисует плейсхолдер вместо img.
+    fun `real seeded artifact carries its image url`() {
+        // Первый настоящий артефакт (миграция 0210, поверх снятого демо-сида 0070).
         given().get("/api/artifacts")
             .then().statusCode(200)
-            .body("findAll { it.imageUrl == null }.size()", greaterThanOrEqualTo(1))
-            // …и при этом у артефакта с картинкой imageUrl на месте (оба случая сосуществуют).
-            .body("find { it.name == 'Камера' }.imageUrl", equalTo("/assets/artifacts/camera.png"))
+            .body("find { it.name == 'Cyber Y2K Sunglasses' }.imageUrl",
+                equalTo("/assets/artifacts/cyber-y2k-sunglasses.png"))
     }
 }

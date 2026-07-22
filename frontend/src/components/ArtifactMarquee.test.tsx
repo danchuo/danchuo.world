@@ -16,26 +16,46 @@ const camera: ArtifactView = {
 };
 
 describe("ArtifactMarquee", () => {
-  it("ховер по артефакту → поповер с названием и датой первого упоминания", async () => {
+  it("клик по артефакту → меню с названием и датой первого упоминания", async () => {
     getArtifactsMock.mockResolvedValue([camera]);
     render(<ArtifactMarquee />);
 
-    // Имя есть и в строке (дублируется x2), поповера ещё нет.
-    const buttons = await screen.findAllByText("Камера");
-    expect(buttons.length).toBeGreaterThan(0);
+    // В jsdom нет ResizeObserver ⇒ лента не едет ⇒ один предмет рендерится один раз (без дубля).
+    const label = await screen.findByText("Камера");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    // Наводим на первый (видимый) артефакт → поповер с датой.
-    fireEvent.mouseEnter(buttons[0].closest("button")!);
+    // Клик по предмету открывает меню с датой (ховер сам меню НЕ открывает).
+    fireEvent.click(label.closest("button")!);
     const dialog = await screen.findByRole("dialog", { name: "Камера" });
     expect(dialog).toHaveTextContent("15 января 2026");
+  });
+
+  it("повторный клик по тому же предмету закрывает меню", async () => {
+    getArtifactsMock.mockResolvedValue([camera]);
+    render(<ArtifactMarquee />);
+
+    const btn = (await screen.findByText("Камера")).closest("button")!;
+    fireEvent.click(btn);
+    expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("один предмет влезает ⇒ лента не анимируется (без класса is-scrolling)", async () => {
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee />);
+
+    await screen.findByText("Камера");
+    expect(container.querySelector(".artifact-track")).not.toHaveClass("is-scrolling");
+    // Не едет ⇒ контент не дублирован: ровно один предмет (одна картинка).
+    expect(container.querySelectorAll("img").length).toBe(1);
   });
 
   it("orientation=vertical → трек-колонка (модификатор на бегущей строке)", async () => {
     getArtifactsMock.mockResolvedValue([camera]);
     const { container } = render(<ArtifactMarquee orientation="vertical" />);
 
-    await screen.findAllByText("Камера");
+    await screen.findByText("Камера");
     expect(container.querySelector(".artifact-track")).toHaveClass("artifact-track--vertical");
   });
 
@@ -43,7 +63,7 @@ describe("ArtifactMarquee", () => {
     getArtifactsMock.mockResolvedValue([camera]);
     const { container } = render(<ArtifactMarquee />);
 
-    await screen.findAllByText("Камера");
+    await screen.findByText("Камера");
     expect(container.querySelector(".artifact-track")).not.toHaveClass("artifact-track--vertical");
   });
 
@@ -59,24 +79,8 @@ describe("ArtifactMarquee", () => {
     ]);
     const { container } = render(<ArtifactMarquee />);
 
-    // Подпись рендерится (дублируется x2 в бесшовной петле).
-    const labels = await screen.findAllByText("Очки");
-    expect(labels.length).toBeGreaterThan(0);
+    expect(await screen.findByText("Очки")).toBeInTheDocument();
     // Картинки нет ⇒ ни одного <img> (рисуем пиксель-плейсхолдер), вёрстка не ломается.
     expect(container.querySelector("img")).toBeNull();
-  });
-
-  it("микс с картинкой и без — у второго img, у первого нет", async () => {
-    getArtifactsMock.mockResolvedValue([
-      { name: "Очки", imageUrl: null, firstMentionedOn: "2026-03-10" },
-      camera,
-    ]);
-    const { container } = render(<ArtifactMarquee />);
-
-    await screen.findAllByText("Камера");
-    // Ровно картинки камеры (×2 за счёт дубля петли), у «Очков» картинки нет.
-    const imgs = container.querySelectorAll("img");
-    expect(imgs.length).toBe(2);
-    imgs.forEach((img) => expect(img.getAttribute("alt")).toBe("Камера"));
   });
 });

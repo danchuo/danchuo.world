@@ -37,6 +37,16 @@ class DaysResourceTest {
             .post("/api/ingest/daily").then().statusCode(200)
     }
 
+    /** «Чистый» день: reading 2/2, stretch 1/1, монстр НЕ пит (для инверсного стрика). */
+    private fun seedCleanDay(date: String) {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","steps":7000,"sleepMinutes":420}""")
+            .post("/api/ingest/health").then().statusCode(200)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","title":"чистый","items":{"reading":2,"stretch":1}}""")
+            .post("/api/ingest/daily").then().statusCode(200)
+    }
+
     @Test
     fun `day read is public and aggregates stats, discipline and monster`() {
         val date = today.minusDays(6)
@@ -57,6 +67,26 @@ class DaysResourceTest {
     }
 
     @Test
+    fun `day read carries per-occurrence discipline streaks and monster clean streak`() {
+        // Три подряд идущих «чистых» дня; до d1 записи нет — там серии обрываются.
+        // Смещения −15…−17 свободны (другие тесты берут −1..−3, −6, −8, −10, −12, −31).
+        val d1 = today.minusDays(17)
+        val d2 = today.minusDays(16)
+        val d3 = today.minusDays(15)
+        for (d in listOf(d1, d2, d3)) seedCleanDay("$d")
+
+        given().get("/api/days/$d3") // прошлый день ⇒ серия считается по сам-день включительно
+            .then().statusCode(200)
+            // reading (target 2 → две остановки): обе серии = 3 (три дня подряд с count ≥1 и ≥2)
+            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[0]", equalTo(3))
+            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[1]", equalTo(3))
+            // stretch (одна остановка): серия = 3
+            .body("discipline.find { it.key == 'stretch' }.occurrenceStreaks[0]", equalTo(3))
+            // монстр не пит все три дня, до d1 записи нет ⇒ инверсный стрик «чисто» = 3
+            .body("monsterCleanStreak", equalTo(3))
+    }
+
+    @Test
     fun `missing day is a well-formed empty projection, not an error`() {
         given().get("/api/days/${today.plusDays(30)}")
             .then().statusCode(200)
@@ -67,6 +97,9 @@ class DaysResourceTest {
             // каркас дисциплины присутствует с прогрессом 0
             .body("discipline.size()", greaterThan(0))
             .body("discipline.find { it.key == 'reading' }.count", equalTo(0))
+            // будущий/пустой день серий не даёт
+            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[0]", equalTo(0))
+            .body("monsterCleanStreak", equalTo(0))
     }
 
     @Test

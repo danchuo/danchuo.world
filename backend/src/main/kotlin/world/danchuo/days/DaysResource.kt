@@ -39,7 +39,8 @@ class DaysResource(
                 .entity(mapOf("error" to "before_genesis", "date" to raw))
                 .build()
         }
-        return Response.ok(aggregator.viewOf(date)).build()
+        // today MSK входит в проекцию (правило стрика «по вчера») и в ключ кэша — см. viewOf.
+        return Response.ok(aggregator.viewOf(date, mskTime.today())).build()
     }
 
     @GET

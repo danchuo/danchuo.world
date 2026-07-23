@@ -3,8 +3,13 @@ import { describe, expect, it } from "vitest";
 import type { DisciplineItemView } from "@/lib/api/types";
 import { QuestMap } from "./QuestMap";
 
-function item(key: string, count: number, target: number): DisciplineItemView {
-  return { key, label: key, icon: null, count, target };
+function item(
+  key: string,
+  count: number,
+  target: number,
+  occurrenceStreaks?: number[],
+): DisciplineItemView {
+  return { key, label: key, icon: null, count, target, occurrenceStreaks };
 }
 
 const ALL_DONE: DisciplineItemView[] = [
@@ -78,5 +83,44 @@ describe("QuestMap", () => {
   it("детур монстра отражает «пил/не пил»", () => {
     render(<QuestMap items={[]} monsterDone={true} />);
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "true");
+  });
+
+  it("огонёк-стрик пункта: показывается от 2, по своей остановке (occurrence)", () => {
+    // подкасты: серия ≥1 семь дней, ≥2 три дня → у остановки 1 огонёк 7, у остановки 2 — 3
+    render(<QuestMap items={[item("podcasts", 2, 2, [7, 3])]} monsterDone={false} />);
+    expect(screen.getByTestId("quest-streak-podcasts-1")).toHaveTextContent("7");
+    expect(screen.getByTestId("quest-streak-podcasts-2")).toHaveTextContent("3");
+    // тултип поясняет С ЧЕМ и сколько дней подряд (нативный SVG <title> = accessible-имя)
+    expect(screen.getByTestId("quest-streak-podcasts-1")).toHaveAttribute(
+      "aria-label",
+      "подкаст: 7 дней подряд",
+    );
+  });
+
+  it("стрик < 2 и без данных о стрике — значок не рисуется (шум на карте)", () => {
+    render(
+      <QuestMap
+        items={[item("stretch", 1, 1, [1]), item("journal", 1, 1)]}
+        monsterDone={false}
+      />,
+    );
+    // серия 1 — прячем
+    expect(screen.queryByTestId("quest-streak-stretch-1")).toBeNull();
+    // occurrenceStreaks нет вовсе (старый ответ/фикстура) — тоже прячем, без падения
+    expect(screen.queryByTestId("quest-streak-journal-1")).toBeNull();
+  });
+
+  it("щит-стрик монстра: «дней чисто» от 2, иначе скрыт", () => {
+    const { rerender } = render(
+      <QuestMap items={[]} monsterDone={false} monsterCleanStreak={12} />,
+    );
+    expect(screen.getByTestId("quest-streak-monster")).toHaveTextContent("12");
+    expect(screen.getByTestId("quest-streak-monster")).toHaveAttribute(
+      "aria-label",
+      "без монстра: 12 дней подряд",
+    );
+
+    rerender(<QuestMap items={[]} monsterDone={false} monsterCleanStreak={1} />);
+    expect(screen.queryByTestId("quest-streak-monster")).toBeNull();
   });
 });

@@ -22,6 +22,8 @@ interface QuestMapProps {
   /** Whether the monster was drunk (detour stop). The map is the only place monster shows
    *  up on the today tile; flavor-specific art (can, name) is backlogged to land here too. */
   monsterDone: boolean;
+  /** Inverse "clean" streak: consecutive days the monster was NOT drunk (§5.6). Shield badge ≥2. */
+  monsterCleanStreak?: number;
   /** Active wave key (Board → TodayTile). Waves in [QUEST_SPRITE_WAVES] swap the hand-drawn
    *  pixel glyphs for generated raster sprites (DESIGN §12); other waves and tests (no wave)
    *  keep the currentColor cells and render unchanged. */
@@ -68,6 +70,12 @@ const SEGMENTS = [
 /** Детур на монстра: от «офиса» (S3) вниз-влево к тупиковому узлу. */
 const MONSTER_XY = [172, 110] as const;
 const MONSTER_SEGMENT = { d: "M226 57 Q200 78 184 98", ax: 203, ay: 78, deg: 136 } as const;
+
+/** Значок стрика показываем от 2: серия в 1 день (или 0) на карте — шум, не достижение. */
+const STREAK_MIN = 2;
+/** Огонёк (прямой стрик пункта) и щит (инверсный «чисто» монстра) — компактные векторы ~12px. */
+const FLAME_D = "M0 -6 C3 -2 3 0 2 2 C1 4 -1 4 -2 2 C-3 0 -2 -2 -1 -3 C-1 -1 1 -2 0 -6 Z";
+const SHIELD_D = "M0 -6 L4 -4 V0 C4 3 2 5 0 6 C-2 5 -4 3 -4 0 V-4 Z";
 
 // Камни-декор вдоль тропы (только волны со спрайт-набором) — «оживляж» пустот, как в референсе.
 // Позиции — в пустых участках viewBox, подальше от остановок/подписей; лёгкий разнобой размера.
@@ -194,7 +202,65 @@ function Sprite({
   );
 }
 
-export function QuestMap({ items, monsterDone, wave }: QuestMapProps) {
+/** Русская форма слова «день» для числа (1 день / 2 дня / 5 дней; 11–14 — «дней»). */
+function pluralDays(n: number): string {
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  if (mod100 >= 11 && mod100 <= 14) return "дней";
+  if (mod10 === 1) return "день";
+  if (mod10 >= 2 && mod10 <= 4) return "дня";
+  return "дней";
+}
+
+/**
+ * Значок стрика над остановкой (§5.6): огонёк = сколько дней подряд пункт ВЫПОЛНЯЕТСЯ, щит =
+ * сколько дней подряд монстр НЕ пьётся. Отсчёт «по вчера» (сегодня не входит, пока не заполнено) —
+ * считает бэк. Рисуем только при value ≥ [STREAK_MIN]; цвет — токен волны (см. common.css).
+ *
+ * [title] — пояснение (accessible-имя значка + текст тултипа). Тултип рисуем **сами** мини-плиткой
+ * в стиле активной волны (тёплая заливка + глиняный кант — токены), а не системным `<title>`:
+ * показывается по ховеру значка (CSS). Ширина подложки считается по длине строки — SVG не умеет
+ * авто-размер; и клампится в границы viewBox, чтобы не выпасть за карту у крайних остановок.
+ */
+function StreakBadge({
+  cx, cy, value, kind, testId, title,
+}: {
+  cx: number; cy: number; value: number; kind: "fire" | "shield"; testId: string; title: string;
+}) {
+  if (value < STREAK_MIN) return null;
+  const tipW = title.length * 4.2 + 12;
+  const tipH = 14;
+  // Горизонтальный сдвиг тултипа, чтобы подложка целиком осталась в пределах viewBox [0,400].
+  const half = tipW / 2;
+  let tipDX = 0;
+  if (cx + half > 396) tipDX = 396 - (cx + half);
+  if (cx - half + tipDX < 4) tipDX = 4 - (cx - half);
+  return (
+    <g
+      className={`quest-streak quest-streak--${kind}`}
+      transform={`translate(${cx} ${cy})`}
+      data-testid={testId}
+      role="img"
+      aria-label={title}
+    >
+      {/* невидимая площадка расширяет зону наведения (иконки мелкие) */}
+      <rect className="quest-streak__hit" x={-6} y={-8} width={20} height={16} fill="transparent" />
+      <path className="quest-streak__glyph" d={kind === "fire" ? FLAME_D : SHIELD_D} aria-hidden />
+      <text className="quest-streak__num" x={6} y={0} aria-hidden>
+        {value}
+      </text>
+      {/* Тултип-мини-плитка волны (появляется по ховеру, см. common.css) */}
+      <g className="quest-tip" transform={`translate(${tipDX} -9)`} aria-hidden>
+        <rect className="quest-tip__box" x={-half} y={-tipH} width={tipW} height={tipH} rx={1.5} />
+        <text className="quest-tip__text" x={0} y={-tipH / 2 - 0.5}>
+          {title}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+export function QuestMap({ items, monsterDone, monsterCleanStreak = 0, wave }: QuestMapProps) {
   // Волна со своим спрайт-набором ⇒ рисуем растровые иконки; иначе — ручные пиксель-клетки.
   const spriteWave = wave && QUEST_SPRITE_WAVES.has(wave) ? wave : null;
   const byKey = new Map(items.map((i) => [i.key, i]));
@@ -287,6 +353,8 @@ export function QuestMap({ items, monsterDone, wave }: QuestMapProps) {
       {/* остановки */}
       {ROUTE.map((s, i) => {
         const [cx, cy] = STOPS_XY[i];
+        // Стрик именно этой остановки (occurrence): у второго вхождения (count≥2) он ≤ первого.
+        const streak = byKey.get(s.key)?.occurrenceStreaks?.[s.occurrence - 1] ?? 0;
         return (
           <g
             key={`${s.key}-${s.occurrence}`}
@@ -312,6 +380,14 @@ export function QuestMap({ items, monsterDone, wave }: QuestMapProps) {
             >
               {fracOf(s.key)}
             </text>
+            <StreakBadge
+              cx={cx + 18}
+              cy={cy - 17}
+              value={streak}
+              kind="fire"
+              testId={`quest-streak-${s.key}-${s.occurrence}`}
+              title={`${s.label}: ${streak} ${pluralDays(streak)} подряд`}
+            />
           </g>
         );
       })}
@@ -340,6 +416,14 @@ export function QuestMap({ items, monsterDone, wave }: QuestMapProps) {
         >
           {monsterDone ? "1/1" : "0/1"}
         </text>
+        <StreakBadge
+          cx={MONSTER_XY[0] + 16}
+          cy={MONSTER_XY[1] - 15}
+          value={monsterCleanStreak}
+          kind="shield"
+          testId="quest-streak-monster"
+          title={`без монстра: ${monsterCleanStreak} ${pluralDays(monsterCleanStreak)} подряд`}
+        />
       </g>
 
       {/* итог дня */}

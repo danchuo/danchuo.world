@@ -121,7 +121,12 @@ export function TodayTile({ day, today, state, onRetry, wave, style, className }
               flavor-specific art is backlogged to land inside the map, not as its own block.
               The map is a flex-1 child (see .quest-map) so it scales up to fill whatever vertical
               space the tile leaves after the header/workout line, no bottom gap. */}
-          <QuestMap items={day.discipline} monsterDone={day.monster != null} wave={wave} />
+          <QuestMap
+            items={day.discipline}
+            monsterDone={day.monster != null}
+            monsterCleanStreak={day.monsterCleanStreak ?? 0}
+            wave={wave}
+          />
         </div>
       )}
     </TileShell>

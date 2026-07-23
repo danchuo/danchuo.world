@@ -1,8 +1,10 @@
 package world.danchuo.days
 
+import io.quarkus.cache.CacheResult
 import jakarta.enterprise.context.ApplicationScoped
 import world.danchuo.checklist.ChecklistEntryRepository
 import world.danchuo.checklist.ChecklistItemRepository
+import world.danchuo.core.config.MskTime
 import world.danchuo.health.WorkoutRepository
 import world.danchuo.monster.MonsterFlavorRepository
 import java.time.LocalDate
@@ -23,27 +25,52 @@ class DayAggregator(
     private val checklistItems: ChecklistItemRepository,
     private val checklistEntries: ChecklistEntryRepository,
     private val monsterFlavors: MonsterFlavorRepository,
+    private val mskTime: MskTime,
 ) {
 
-    /** Полная проекция дня для плитки «Сегодня» / перефокуса; пустой день — валидная проекция. */
-    fun viewOf(date: LocalDate): DayView {
-        val record = days.findByDate(date)
+    /**
+     * Полная проекция дня для плитки «Сегодня» / перефокуса; пустой день — валидная проекция.
+     *
+     * [today] (сегодня MSK) — отдельный параметр, а не `mskTime.today()` внутри: он входит в
+     * КЛЮЧ кэша, поэтому в полночь MSK проекция «сегодня» естественно протухает, а один и тот же
+     * день, просмотренный как «сегодня» и назавтра как «прошлый», не путается (правило стрика
+     * «по вчера» разное). Кэшируем, чтобы скан истории под стрики (см. [DayHistory]) считался
+     * раз на изменение данных; инвалидация — из единой точки записи [DayRecordService].
+     */
+    @CacheResult(cacheName = "day-view")
+    fun viewOf(date: LocalDate, today: LocalDate): DayView {
         val items = checklistItems.listActive()
-        val counts = checklistEntries.listByDate(date).associate { it.itemId to it.count }
+        // Ленивое окно истории для стриков (читается назад батчами до первого разрыва) —
+        // одно на все пункты и монстра дня. Первая страница уже держит записи/отметки самого дня.
+        val history = DayHistory(date, mskTime.genesis, days, checklistEntries)
+        val record = history.record(date)
 
         val discipline = items.map { item ->
+            val itemId = item.id!!
+            // Стрик по КАЖДОЙ остановке пункта: occurrence k (1..target) закрыт днями с count ≥ k.
+            val occurrenceStreaks = (1..item.target).map { k ->
+                StreakCalculator.streak(date, today, mskTime.genesis) { d -> history.count(d, itemId) >= k }
+            }
             DisciplineItemView(
                 key = item.key,
                 label = item.label,
                 icon = item.icon,
-                count = counts[item.id] ?: 0,
+                count = history.count(date, itemId),
                 target = item.target,
+                occurrenceStreaks = occurrenceStreaks,
             )
         }
 
         val monster = record?.monsterFlavorId
             ?.let { monsterFlavors.findById(it) }
             ?.let { MonsterView(it.key, it.name, it.imageUrl, it.accentColor) }
+
+        // Инверсный стрик «чистоты»: день «чист», если запись за него есть И вкус не выбран
+        // (нет записи = «неизвестно» ⇒ разрыв, как и день, когда монстр выпит).
+        val monsterCleanStreak = StreakCalculator.streak(date, today, mskTime.genesis) { d ->
+            val r = history.record(d)
+            r != null && r.monsterFlavorId == null
+        }
 
         return DayView(
             date = date,
@@ -59,6 +86,7 @@ class DayAggregator(
             },
             discipline = discipline,
             monster = monster,
+            monsterCleanStreak = monsterCleanStreak,
         )
     }
 
@@ -105,5 +133,53 @@ class DayAggregator(
         val awake = record.sleepAwakeMinutes
         if (rem == null && deep == null && light == null && awake == null) return null
         return SleepStagesView(rem, deep, light, awake)
+    }
+}
+
+/**
+ * Ленивое окно истории дней для стриков (§5.6). Обход серии уходит назад по одному дню; чтобы не
+ * ходить в БД построчно и не тянуть сразу всю историю, окно читается **батчами** ([PAGE] дней),
+ * расширяясь только когда серия действительно жива и заходит глубже. Одно окно переиспользуется
+ * всеми пунктами и монстром дня. Скан целиком гасит кэш проекции — здесь важна лишь дешёвая типовая
+ * ветка (короткая серия рвётся в первой странице).
+ */
+private class DayHistory(
+    anchor: LocalDate,
+    private val genesis: LocalDate,
+    private val days: DayRecordRepository,
+    private val entries: ChecklistEntryRepository,
+) {
+    private val records = HashMap<LocalDate, DayRecord>()
+    private val counts = HashMap<LocalDate, Map<Long, Int>>()
+
+    // Загруженная область — `[loadedLo, anchor]` включительно; до первого [ensure] пусто.
+    private var loadedLo: LocalDate = anchor.plusDays(1)
+
+    /** Догрузить окно вниз так, чтобы оно накрыло [date] (но не глубже генезиса). */
+    private fun ensure(date: LocalDate) {
+        val target = maxOf(date, genesis)
+        if (!target.isBefore(loadedLo)) return
+        val hi = loadedLo.minusDays(1)
+        val lo = maxOf(genesis, minOf(target, loadedLo.minusDays(PAGE)))
+        days.listByDateRange(lo, hi).forEach { records[it.date] = it }
+        entries.listByDateRange(lo, hi).groupBy { it.date }.forEach { (d, es) ->
+            counts[d] = es.associate { it.itemId to it.count }
+        }
+        loadedLo = lo
+    }
+
+    fun record(date: LocalDate): DayRecord? {
+        ensure(date)
+        return records[date]
+    }
+
+    fun count(date: LocalDate, itemId: Long): Int {
+        ensure(date)
+        return counts[date]?.get(itemId) ?: 0
+    }
+
+    private companion object {
+        /** Размер батча чтения назад (~квартал): почти всегда серия рвётся в первой странице. */
+        const val PAGE = 92L
     }
 }

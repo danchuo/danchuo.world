@@ -276,11 +276,10 @@ body {
   fill: color-mix(in srgb, var(--text-tertiary) 50%, transparent);
 }
 
-/* Perfect day: весь маршрут закрыт — тропа зажигается тёплым акцентом (§2.3: сдержанно). */
-.quest-map--perfect .quest-seg--done { stroke: var(--accent-warm); opacity: 1; }
-.quest-map--perfect .quest-stop--done circle {
-  filter: drop-shadow(0 0 4px var(--accent-warm));
-}
+/* Perfect day (7/7): празднование несёт ИТОГ «N/7» тёплым акцентом. Связи между сделанными
+   шагами остаются ЗЕЛЁНЫМИ (--success) — владелец вернул зелёную стрелку между успешными шагами
+   (perfect больше НЕ перекрашивает done-сегменты в тёплый). Свечение кругов снято ранее. */
+.quest-map--perfect .quest-seg--done { opacity: 1; }
 .quest-map--perfect .quest-total { fill: var(--accent-warm); }
 
 /* Декор-слои карты, включаемые СКИНОМ волны (по умолчанию скрыты): облака-подставки
@@ -296,6 +295,58 @@ body {
   font-size: 9px;
   fill: var(--text-tertiary);
   text-anchor: middle;
+}
+
+/* Значок стрика над остановкой (DESIGN §4.1, PRD §5.6): огонёк = дней ВЫПОЛНЯЕТСЯ подряд, щит =
+   дней монстр НЕ пьётся. В отличие от дробей — виден на ВСЕХ волнах (это достижение, не декор
+   скина). Цвет — токен волны: огонёк акцентом, щит графитом (спокойнее — «держится»). Число несёт
+   светлый кант (paint-order) — читается поверх любой заливки карты. Рисуется от 2 (STREAK_MIN). */
+.quest-streak__glyph { fill: currentColor; }
+.quest-streak__num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 9px;
+  fill: currentColor;
+  text-anchor: start;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--bg-surface);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+}
+.quest-streak--fire { color: var(--accent); }
+/* Щит — спокойнее огонька, но не чёрный: приглушённый графит (был --text-primary, слишком тёмный). */
+.quest-streak--shield { color: var(--text-secondary); }
+/* Свечение — только у огонька (с круга снято выше): тёплый ореол делает пламя «живым». */
+.quest-streak--fire .quest-streak__glyph {
+  filter: drop-shadow(0 0 1.6px color-mix(in srgb, var(--accent) 65%, transparent));
+}
+
+/* Тултип-мини-плитка в стиле активной волны (§4.1): тёплая передняя грань + глиняный кант — те же
+   токены, что у карточек борда (фолбэк на общие --bg-surface/--border, если волна их не задаёт).
+   Скрыт, всплывает по ховеру значка; сам событий не ловит (наведение держит значок). */
+.quest-tip {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.quest-streak:hover .quest-tip,
+.quest-streak:focus-visible .quest-tip {
+  opacity: 1;
+}
+.quest-tip__box {
+  /* Сплошной токен: SVG fill НЕ принимает --surface-fill (это linear-gradient) — был чёрный дефолт. */
+  fill: var(--bg-surface);
+  stroke: var(--border-tile, var(--border));
+  stroke-width: 1;
+  filter: drop-shadow(0 1px 1.5px color-mix(in srgb, #000 22%, transparent));
+}
+.quest-tip__text {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  fill: var(--text-primary);
+  text-anchor: middle;
+  dominant-baseline: central;
 }
 
 /* ── Плитка соцсетей: пропорциональный контент (DESIGN §8.1) ─────────────────────────

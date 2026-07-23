@@ -110,7 +110,7 @@ describe("QuestMap", () => {
     expect(screen.queryByTestId("quest-streak-journal-1")).toBeNull();
   });
 
-  it("щит-стрик монстра: «дней чисто» от 2, иначе скрыт", () => {
+  it("огонёк-стрик монстра: «дней чисто» от 2, иначе скрыт", () => {
     const { rerender } = render(
       <QuestMap items={[]} monsterDone={false} monsterCleanStreak={12} />,
     );

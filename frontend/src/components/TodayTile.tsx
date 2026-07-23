@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
 import { relativeDayRu } from "@/lib/relativeDay";
+import { isWeekend } from "@/lib/weekend";
 import { QuestMap } from "./QuestMap";
+import { WeekendScene, hasWeekendScene } from "./WeekendScene";
 import { TileShell, type TileState } from "./TileShell";
 
 interface TodayTileProps {
@@ -116,17 +118,22 @@ export function TodayTile({ day, today, state, onRetry, wave, style, className }
               their own widgets (stats sparkline + sleep tile), the workout to be re-homed later.
               The header now sits directly above the quest map, which takes all the freed space. */}
 
-          {/* Дисциплина — карта-тропа дня (QuestMap, §5.6): остановки вместо списка дробей.
-              Monster lives on the map only (detour stop); no separate footer note/can image —
-              flavor-specific art is backlogged to land inside the map, not as its own block.
-              The map is a flex-1 child (see .quest-map) so it scales up to fill whatever vertical
-              space the tile leaves after the header/workout line, no bottom gap. */}
-          <QuestMap
-            items={day.discipline}
-            monsterDone={day.monster != null}
-            monsterCleanStreak={day.monsterCleanStreak ?? 0}
-            wave={wave}
-          />
+          {/* Будни — карта-тропа дисциплины (QuestMap, §5.6): остановки со стриками. Выходные —
+              отдых: карта уступает место сцене-горизонту (WeekendScene), т.к. все дела будничные
+              и пустая тропа в субботу читалась бы как провал. Развилка — по дню выбранной даты
+              (isWeekend), и только для волн со сценой (hasWeekendScene); прочие держат карту.
+              Монстр переносится на выходной единственным элементом (угол сцены). Обе ветки —
+              flex-1 дети, растут на всю высоту под шапкой. */}
+          {isWeekend(day.date) && hasWeekendScene(wave) ? (
+            <WeekendScene wave={wave!} monsterDone={day.monster != null} />
+          ) : (
+            <QuestMap
+              items={day.discipline}
+              monsterDone={day.monster != null}
+              monsterCleanStreak={day.monsterCleanStreak ?? 0}
+              wave={wave}
+            />
+          )}
         </div>
       )}
     </TileShell>

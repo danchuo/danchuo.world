@@ -48,8 +48,12 @@ class DayAggregator(
         val discipline = items.map { item ->
             val itemId = item.id!!
             // Стрик по КАЖДОЙ остановке пункта: occurrence k (1..target) закрыт днями с count ≥ k.
+            // Выходные для дисциплины НЕЙТРАЛЬНЫ (все дела будничные): выходной не считается в серию
+            // и не рвёт её — стрик «перешагивает» уик-энд (согласовано с владельцем, §5.6).
             val occurrenceStreaks = (1..item.target).map { k ->
-                StreakCalculator.streak(date, today, mskTime.genesis) { d -> history.count(d, itemId) >= k }
+                StreakCalculator.streak(date, today, mskTime.genesis, isNeutral = ::isWeekend) { d ->
+                    history.count(d, itemId) >= k
+                }
             }
             DisciplineItemView(
                 key = item.key,
@@ -66,7 +70,8 @@ class DayAggregator(
             ?.let { MonsterView(it.key, it.name, it.imageUrl, it.accentColor) }
 
         // Инверсный стрик «чистоты»: день «чист», если запись за него есть И вкус не выбран
-        // (нет записи = «неизвестно» ⇒ разрыв, как и день, когда монстр выпит).
+        // (нет записи = «неизвестно» ⇒ разрыв, как и день, когда монстр выпит). В ОТЛИЧИЕ от
+        // дисциплины монстр считается КАЖДЫЙ день, включая выходные (isNeutral по умолчанию пуст).
         val monsterCleanStreak = StreakCalculator.streak(date, today, mskTime.genesis) { d ->
             val r = history.record(d)
             r != null && r.monsterFlavorId == null
@@ -124,6 +129,10 @@ class DayAggregator(
             }
             .toList()
     }
+
+    /** Выходной MSK (даты оси уже в MSK): суббота/воскресенье — нейтральны для стрика дисциплины. */
+    private fun isWeekend(d: LocalDate): Boolean =
+        d.dayOfWeek == java.time.DayOfWeek.SATURDAY || d.dayOfWeek == java.time.DayOfWeek.SUNDAY
 
     /** Фазы сна записи; `null`, если ни одна не пришла (null ≠ 0, §5.4). */
     private fun stagesOf(record: DayRecord): SleepStagesView? {

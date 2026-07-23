@@ -9,6 +9,7 @@ import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.notNullValue
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -67,23 +68,28 @@ class DaysResourceTest {
     }
 
     @Test
-    fun `day read carries per-occurrence discipline streaks and monster clean streak`() {
-        // Три подряд идущих «чистых» дня; до d1 записи нет — там серии обрываются.
-        // Смещения −15…−17 свободны (другие тесты берут −1..−3, −6, −8, −10, −12, −31).
-        val d1 = today.minusDays(17)
-        val d2 = today.minusDays(16)
-        val d3 = today.minusDays(15)
-        for (d in listOf(d1, d2, d3)) seedCleanDay("$d")
+    fun `discipline streak skips weekends but monster clean streak counts every day`() {
+        // Непрерывный «чистый» блок из 7 дней [−21 … −15]; перед ним (−22) пусто — стена серии.
+        // Дисциплина ВЫХОДНЫЕ ПЕРЕШАГИВАЕТ (не считает), монстр считает КАЖДЫЙ день — вот разница.
+        // Смещения −21…−15 свободны (другие тесты берут −1..−3, −6, −10, −12, −31).
+        val anchor = today.minusDays(15)
+        val blockStart = today.minusDays(21)
+        var d = blockStart
+        while (!d.isAfter(anchor)) { seedCleanDay("$d"); d = d.plusDays(1) }
 
-        given().get("/api/days/$d3") // прошлый день ⇒ серия считается по сам-день включительно
+        // Ожидаемая дисциплина = число БУДНИХ дней блока (выходные для стрика прозрачны).
+        val expectedDiscipline = generateSequence(blockStart) { if (it < anchor) it.plusDays(1) else null }
+            .count { it.dayOfWeek != DayOfWeek.SATURDAY && it.dayOfWeek != DayOfWeek.SUNDAY }
+
+        given().get("/api/days/$anchor") // прошлый день ⇒ серия считается по сам-день включительно
             .then().statusCode(200)
-            // reading (target 2 → две остановки): обе серии = 3 (три дня подряд с count ≥1 и ≥2)
-            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[0]", equalTo(3))
-            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[1]", equalTo(3))
-            // stretch (одна остановка): серия = 3
-            .body("discipline.find { it.key == 'stretch' }.occurrenceStreaks[0]", equalTo(3))
-            // монстр не пит все три дня, до d1 записи нет ⇒ инверсный стрик «чисто» = 3
-            .body("monsterCleanStreak", equalTo(3))
+            // reading (target 2 → две остановки): обе серии = число будних дней блока
+            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[0]", equalTo(expectedDiscipline))
+            .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[1]", equalTo(expectedDiscipline))
+            // stretch (одна остановка): та же будничная серия
+            .body("discipline.find { it.key == 'stretch' }.occurrenceStreaks[0]", equalTo(expectedDiscipline))
+            // монстр не пит все 7 дней, до блока запись пуста ⇒ инверсный стрик «чисто» = 7 (выходные тоже)
+            .body("monsterCleanStreak", equalTo(7))
     }
 
     @Test

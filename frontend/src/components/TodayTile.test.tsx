@@ -90,4 +90,47 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("tile-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("today-date")).not.toBeInTheDocument();
   });
+
+  // --- Выходной: сцена отдыха вместо карты-тропы (§5.6) ---------------------------------------
+
+  it("выходной с волной-сценой: карта уступает место сцене отдыха, чеклист монстра ✓ (не пил)", () => {
+    // 2026-06-21 — воскресенье; монстр не пит ⇒ чеклист-галочка, без стриков.
+    render(
+      <TodayTile
+        day={dayFixture({ date: "2026-06-21", monster: null })}
+        today="2026-06-21"
+        state="loaded"
+        wave="wave-01"
+      />,
+    );
+    expect(screen.getByTestId("weekend-scene")).toBeInTheDocument();
+    expect(screen.queryByTestId("quest-map")).not.toBeInTheDocument();
+    expect(screen.getByTestId("weekend-monster")).toHaveAttribute("data-done", "false");
+    expect(screen.getByTestId("weekend-monster")).toHaveTextContent("монстр — не пил");
+  });
+
+  it("выходной, монстр пил: чеклист монстра словами", () => {
+    // dayFixture по умолчанию ставит вкус mango-loco ⇒ монстр пил.
+    render(
+      <TodayTile day={dayFixture({ date: "2026-06-21" })} today="2026-06-21" state="loaded" wave="wave-01" />,
+    );
+    expect(screen.getByTestId("weekend-monster")).toHaveAttribute("data-done", "true");
+    expect(screen.getByTestId("weekend-monster-mark")).toHaveTextContent(/^пил$/);
+  });
+
+  it("будний день держит карту-тропу даже на волне со сценой", () => {
+    render(
+      <TodayTile day={dayFixture({ date: "2026-06-18" })} today="2026-06-18" state="loaded" wave="wave-01" />,
+    );
+    expect(screen.getByTestId("quest-map")).toBeInTheDocument();
+    expect(screen.queryByTestId("weekend-scene")).not.toBeInTheDocument();
+  });
+
+  it("выходной без волны-сцены: сцены нет, остаётся карта (грациозный фолбэк)", () => {
+    render(
+      <TodayTile day={dayFixture({ date: "2026-06-21" })} today="2026-06-21" state="loaded" wave="wave-02" />,
+    );
+    expect(screen.getByTestId("quest-map")).toBeInTheDocument();
+    expect(screen.queryByTestId("weekend-scene")).not.toBeInTheDocument();
+  });
 });

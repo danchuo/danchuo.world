@@ -20,6 +20,9 @@ class StreakCalculatorTest {
     private fun streak(anchor: LocalDate, qualifying: Set<LocalDate>, gen: LocalDate = genesis) =
         StreakCalculator.streak(anchor, today, gen) { it in qualifying }
 
+    private fun streakN(anchor: LocalDate, qualifying: Set<LocalDate>, neutral: Set<LocalDate>) =
+        StreakCalculator.streak(anchor, today, genesis, isNeutral = { it in neutral }) { it in qualifying }
+
     private fun days(vararg iso: String) = iso.map { LocalDate.parse(it) }.toSet()
 
     @Test
@@ -68,5 +71,44 @@ class StreakCalculatorTest {
     fun `future anchor has no streak`() {
         val q = days("2026-06-22", "2026-06-21")
         assertEquals(0, streak(LocalDate.of(2026, 6, 22), q))
+    }
+
+    // --- Нейтральные дни (§5.6): «не учитывается и не сбивает» ------------------------------
+
+    @Test
+    fun `a neutral day is not counted even when it qualifies`() {
+        // Выполнен ТОЛЬКО 18-й, но он нейтрален ⇒ в серию не входит; 17-й не выполнен ⇒ 0.
+        val q = days("2026-06-18")
+        val n = days("2026-06-18")
+        assertEquals(0, streakN(LocalDate.of(2026, 6, 18), q, n))
+    }
+
+    @Test
+    fun `a neutral non-qualifying day does not break the streak — the walk steps over it`() {
+        // Дыра на 17-м, но 17-е нейтрально ⇒ не рвёт: серия перешагивает к 16-му. 18✓ + 16✓ = 2.
+        val q = days("2026-06-18", "2026-06-16")
+        val n = days("2026-06-17")
+        assertEquals(2, streakN(LocalDate.of(2026, 6, 18), q, n))
+    }
+
+    @Test
+    fun `neutral days are transparent — streak counts qualifying non-neutral days across a gap`() {
+        // 20✓(нейтр,пропуск) 19✓ 18(нейтр,пропуск) 17✓ 16✗ ⇒ считаются только 19 и 17 = 2.
+        val q = days("2026-06-20", "2026-06-19", "2026-06-18", "2026-06-17")
+        val n = days("2026-06-20", "2026-06-18")
+        assertEquals(2, streakN(LocalDate.of(2026, 6, 20), q, n))
+    }
+
+    @Test
+    fun `weekend predicate — Saturday and Sunday are skipped between weekday hits`() {
+        // 2026-06-19 Fri, 20 Sat, 21 Sun, 22 Mon. Пн+Пт выполнены, выходные пусты ⇒ серия 2.
+        val q = days("2026-06-22", "2026-06-19")
+        val isWeekend = { d: LocalDate ->
+            d.dayOfWeek == java.time.DayOfWeek.SATURDAY || d.dayOfWeek == java.time.DayOfWeek.SUNDAY
+        }
+        val result = StreakCalculator.streak(
+            LocalDate.of(2026, 6, 22), LocalDate.of(2026, 6, 22), genesis, isNeutral = isWeekend,
+        ) { it in q }
+        assertEquals(2, result)
     }
 }

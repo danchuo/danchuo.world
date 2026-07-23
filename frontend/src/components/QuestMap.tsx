@@ -73,9 +73,8 @@ const MONSTER_SEGMENT = { d: "M226 57 Q200 78 184 98", ax: 203, ay: 78, deg: 136
 
 /** Значок стрика показываем от 2: серия в 1 день (или 0) на карте — шум, не достижение. */
 const STREAK_MIN = 2;
-/** Огонёк (прямой стрик пункта) и щит (инверсный «чисто» монстра) — компактные векторы ~12px. */
+/** Огонёк стрика — компактный вектор ~12px. Один и тот же и у пунктов, и у монстра (DESIGN §4.1). */
 const FLAME_D = "M0 -6 C3 -2 3 0 2 2 C1 4 -1 4 -2 2 C-3 0 -2 -2 -1 -3 C-1 -1 1 -2 0 -6 Z";
-const SHIELD_D = "M0 -6 L4 -4 V0 C4 3 2 5 0 6 C-2 5 -4 3 -4 0 V-4 Z";
 
 // Камни-декор вдоль тропы (только волны со спрайт-набором) — «оживляж» пустот, как в референсе.
 // Позиции — в пустых участках viewBox, подальше от остановок/подписей; лёгкий разнобой размера.
@@ -213,9 +212,10 @@ function pluralDays(n: number): string {
 }
 
 /**
- * Значок стрика над остановкой (§5.6): огонёк = сколько дней подряд пункт ВЫПОЛНЯЕТСЯ, щит =
- * сколько дней подряд монстр НЕ пьётся. Отсчёт «по вчера» (сегодня не входит, пока не заполнено) —
- * считает бэк. Рисуем только при value ≥ [STREAK_MIN]; цвет — токен волны (см. common.css).
+ * Значок стрика над остановкой (§5.6): огонёк = сколько дней подряд пункт ВЫПОЛНЯЕТСЯ; у монстра —
+ * тот же огонёк, но считает дни, когда монстр НЕ пьётся (полярность в [title]). Отсчёт «по вчера»
+ * (сегодня не входит, пока не заполнено) — считает бэк. Рисуем только при value ≥ [STREAK_MIN];
+ * цвет — токен волны (см. common.css).
  *
  * [title] — пояснение (accessible-имя значка + текст тултипа). Тултип рисуем **сами** мини-плиткой
  * в стиле активной волны (тёплая заливка + глиняный кант — токены), а не системным `<title>`:
@@ -223,9 +223,9 @@ function pluralDays(n: number): string {
  * авто-размер; и клампится в границы viewBox, чтобы не выпасть за карту у крайних остановок.
  */
 function StreakBadge({
-  cx, cy, value, kind, testId, title,
+  cx, cy, value, testId, title,
 }: {
-  cx: number; cy: number; value: number; kind: "fire" | "shield"; testId: string; title: string;
+  cx: number; cy: number; value: number; testId: string; title: string;
 }) {
   if (value < STREAK_MIN) return null;
   const tipW = title.length * 4.2 + 12;
@@ -237,7 +237,7 @@ function StreakBadge({
   if (cx - half + tipDX < 4) tipDX = 4 - (cx - half);
   return (
     <g
-      className={`quest-streak quest-streak--${kind}`}
+      className="quest-streak quest-streak--fire"
       transform={`translate(${cx} ${cy})`}
       data-testid={testId}
       role="img"
@@ -245,7 +245,7 @@ function StreakBadge({
     >
       {/* невидимая площадка расширяет зону наведения (иконки мелкие) */}
       <rect className="quest-streak__hit" x={-6} y={-8} width={20} height={16} fill="transparent" />
-      <path className="quest-streak__glyph" d={kind === "fire" ? FLAME_D : SHIELD_D} aria-hidden />
+      <path className="quest-streak__glyph" d={FLAME_D} aria-hidden />
       <text className="quest-streak__num" x={6} y={0} aria-hidden>
         {value}
       </text>
@@ -384,7 +384,6 @@ export function QuestMap({ items, monsterDone, monsterCleanStreak = 0, wave }: Q
               cx={cx + 18}
               cy={cy - 17}
               value={streak}
-              kind="fire"
               testId={`quest-streak-${s.key}-${s.occurrence}`}
               title={`${s.label}: ${streak} ${pluralDays(streak)} подряд`}
             />
@@ -420,7 +419,6 @@ export function QuestMap({ items, monsterDone, monsterCleanStreak = 0, wave }: Q
           cx={MONSTER_XY[0] + 16}
           cy={MONSTER_XY[1] - 15}
           value={monsterCleanStreak}
-          kind="shield"
           testId="quest-streak-monster"
           title={`без монстра: ${monsterCleanStreak} ${pluralDays(monsterCleanStreak)} подряд`}
         />

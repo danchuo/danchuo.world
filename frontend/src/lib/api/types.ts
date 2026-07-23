@@ -32,6 +32,11 @@ export interface DisciplineItemView {
   icon: string | null;
   count: number;
   target: number;
+  /**
+   * Стрик по каждой остановке пункта (§5.6): индекс `k` = серия дней подряд с `count ≥ k+1`.
+   * Длина = `target`. Опционально: старые кэш-ответы/фикстуры без поля читаются как «нет серии».
+   */
+  occurrenceStreaks?: number[];
 }
 
 export interface MonsterView {
@@ -50,6 +55,11 @@ export interface DayView {
   workouts: WorkoutView[];
   discipline: DisciplineItemView[];
   monster: MonsterView | null;
+  /**
+   * Стрик «чистоты» монстра (§5.6): дней подряд без монстра, отсчёт «по вчера».
+   * Опционально: старые кэш-ответы/фикстуры без поля читаются как «нет серии».
+   */
+  monsterCleanStreak?: number;
 }
 
 export interface MonsterMark {

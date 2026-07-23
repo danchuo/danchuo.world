@@ -16,12 +16,12 @@ export const FIXED_TIME = new Date("2026-06-21T09:00:00Z");
 const TODAY = "2026-06-21";
 
 const DISCIPLINE = [
-  { key: "stretch", label: "Растяжка", icon: null, count: 1, target: 1 },
-  { key: "reading", label: "Чтение", icon: null, count: 1, target: 2 },
-  { key: "podcasts", label: "Английские подкасты", icon: null, count: 2, target: 2 },
-  { key: "diary", label: "Дневник перед сном", icon: null, count: 0, target: 1 },
-  { key: "office", label: "Офис по расписанию", icon: null, count: 1, target: 1 },
-  { key: "monster", label: "Монстр", icon: null, count: 1, target: 1 },
+  { key: "stretch", label: "Растяжка", icon: null, count: 1, target: 1, occurrenceStreaks: [12] },
+  { key: "reading", label: "Чтение", icon: null, count: 1, target: 2, occurrenceStreaks: [5, 3] },
+  { key: "podcasts", label: "Английские подкасты", icon: null, count: 2, target: 2, occurrenceStreaks: [8, 6] },
+  { key: "diary", label: "Дневник перед сном", icon: null, count: 0, target: 1, occurrenceStreaks: [1] },
+  { key: "office", label: "Офис по расписанию", icon: null, count: 1, target: 1, occurrenceStreaks: [4] },
+  { key: "monster", label: "Монстр", icon: null, count: 1, target: 1, occurrenceStreaks: [0] },
 ];
 
 const DAY_VIEW = {
@@ -32,6 +32,8 @@ const DAY_VIEW = {
   workouts: [{ type: "Бег", durationMinutes: 32, activeEnergyKcal: 290, distanceMeters: 5200 }],
   discipline: DISCIPLINE,
   monster: { key: "ultra", name: "Ultra Paradise", imageUrl: null, accentColor: "#6ec1e4" },
+  // Монстр выпит сегодня, но «чисто» держит вчерашнюю серию (правило «сегодня не роняет», §5.6).
+  monsterCleanStreak: 5,
 };
 
 /** Детерминированные сводки для диапазона [from,to] — заполняют сетку календаря без сети. */

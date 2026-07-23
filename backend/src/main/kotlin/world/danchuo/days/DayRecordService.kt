@@ -1,5 +1,6 @@
 package world.danchuo.days
 
+import io.quarkus.cache.CacheInvalidateAll
 import jakarta.enterprise.context.ApplicationScoped
 import world.danchuo.core.config.MskTime
 import java.time.Clock
@@ -22,7 +23,11 @@ class DayRecordService(
     private val ingestStatus: IngestStatusService,
 ) {
 
-    /** Применить статы здоровья дня (PRD §5.4). `null` пишется как «нет данных», 0 — как ноль. */
+    /**
+     * Применить статы здоровья дня (PRD §5.4). `null` пишется как «нет данных», 0 — как ноль.
+     * Сбрасывает кэш проекции дня (`day-view`): любой приём может сдвинуть стрики (§5.6).
+     */
+    @CacheInvalidateAll(cacheName = "day-view")
     fun applyHealth(
         date: LocalDate,
         steps: Int?,
@@ -40,7 +45,12 @@ class DayRecordService(
         day.sleepAwakeMinutes = sleepAwake
     }
 
-    /** Применить ручную мету дня (PRD §5.6): имя дня и вкус монстра (`null` = «не пил»). */
+    /**
+     * Применить ручную мету дня (PRD §5.6): имя дня и вкус монстра (`null` = «не пил»).
+     * Сбрасывает кэш проекции дня (`day-view`): `ingest/daily` всегда проходит здесь, поэтому
+     * инвалидация покрывает и запись отметок дисциплины того же запроса (стрики пересчитаются).
+     */
+    @CacheInvalidateAll(cacheName = "day-view")
     fun applyDailyMeta(
         date: LocalDate,
         title: String?,

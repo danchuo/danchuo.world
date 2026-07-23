@@ -29,6 +29,11 @@ data class DayView(
     val discipline: List<DisciplineItemView>,
     /** Монстр дня (§5.6); `null` = «не пил». */
     val monster: MonsterView?,
+    /**
+     * Стрик «чистоты» монстра (§5.6): сколько дней подряд НЕ пил, отсчёт «по вчера»
+     * (сегодня в серию не входит, пока запись за него не выбрана — см. [StreakCalculator]).
+     */
+    val monsterCleanStreak: Int,
 )
 
 /** Статы Apple Health дня (§5.4). Все nullable — null ≠ 0. */
@@ -70,6 +75,12 @@ data class DisciplineItemView(
     val icon: String?,
     val count: Int,
     val target: Int,
+    /**
+     * Стрик по каждой остановке пункта (§5.6): индекс `k` = серия дней подряд с `count ≥ k+1`,
+     * отсчёт «по вчера» ([StreakCalculator]). Длина = [target]; для `target=2` (подкасты/чтение)
+     * `[0]` — дней с ≥1, `[1]` — дней с ≥2 (второе ≤ первого). Фронт берёт по номеру остановки.
+     */
+    val occurrenceStreaks: List<Int>,
 )
 
 /** Монстр дня для плитки «Сегодня»: банка + акцент (DESIGN §6). */

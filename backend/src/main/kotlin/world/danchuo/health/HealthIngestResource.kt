@@ -163,8 +163,11 @@ class HealthIngestResource(
         )
         workoutRepository.replaceForDate(date, workouts)
 
-        // Отметка идёт только «сделано» и только в пустоту: ручная галочка перекрывает минуты.
-        // Кэш проекции дня уже сброшен applyHealth выше — стрики дисциплины пересчитаются.
+        // Минуты — измерение, отметка — решение, и пишутся они независимо. Измерение идёт
+        // за каждый день с кусками (в т.ч. ниже порога: борд ими отвечает «почему не
+        // засчиталось»), а отметка — только «сделано» и только в пустоту: ручная галочка
+        // перекрывает минуты. Кэш проекции дня уже сброшен applyHealth выше.
+        journalMinutes.forEach { (day, minutes) -> dayRecordService.applyJournalMinutes(day, minutes) }
         val journalDays = journalMinutes
             .filterValues { it >= journalConfig.minMinutes() }
             .keys.sorted()

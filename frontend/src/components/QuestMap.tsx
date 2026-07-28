@@ -325,6 +325,19 @@ export function QuestMap({
     return `${it?.count ?? 0}/${target}`;
   };
 
+  /**
+   * Измеренные минуты пункта — занимают ТУ ЖЕ строку под подписью, что и дробь, и вытесняют её
+   * (§5.6). Третьей строки нет намеренно: подписи и так ужимаются первыми на мелких плитках,
+   * а у бинарного пункта дробь `1/1` не сообщает ничего сверх состояния кольца. Показывается
+   * на ВСЕХ волнах — это данные, а не декор скина (дробь скин вправе гасить, минуты нет).
+   * Только у первой остановки пункта: измерение принадлежит дню, а не конкретному вхождению.
+   */
+  const minutesOf = (key: string, occurrence: number) => {
+    if (occurrence !== 1) return null;
+    const measured = byKey.get(key)?.measuredMinutes;
+    return typeof measured === "number" ? `${measured} мин` : null;
+  };
+
   return (
     <svg
       viewBox="0 0 400 210"
@@ -420,14 +433,25 @@ export function QuestMap({
             <text className="quest-label" x={cx} y={cy + 29}>
               {s.label}
             </text>
-            <text
-              className="quest-frac"
-              x={cx}
-              y={cy + 41}
-              data-testid={`quest-frac-${s.key}-${s.occurrence}`}
-            >
-              {fracOf(s.key)}
-            </text>
+            {minutesOf(s.key, s.occurrence) ? (
+              <text
+                className="quest-minutes"
+                x={cx}
+                y={cy + 41}
+                data-testid={`quest-minutes-${s.key}-${s.occurrence}`}
+              >
+                {minutesOf(s.key, s.occurrence)}
+              </text>
+            ) : (
+              <text
+                className="quest-frac"
+                x={cx}
+                y={cy + 41}
+                data-testid={`quest-frac-${s.key}-${s.occurrence}`}
+              >
+                {fracOf(s.key)}
+              </text>
+            )}
             <StreakBadge
               cx={cx + 18}
               cy={cy - 17}

@@ -34,9 +34,30 @@ export function datesInRange(from: string, to: string): string[] {
   return out;
 }
 
-/** Окно ±[radius] дней вокруг [center] — диапазон календаря (PRD §5.3, ±15). */
-export function windowAround(center: string, radius: number): { from: string; to: string } {
-  return { from: addDays(center, -radius), to: addDays(center, radius) };
+/** Понедельник недели, в которую попадает дата (недели считаем пн→вс). */
+export function startOfWeek(iso: string): string {
+  return addDays(iso, -weekdayMondayIndex(iso));
+}
+
+/**
+ * Окно календаря целыми неделями вокруг [center]: [weeksBefore] прошлых недель + неделя
+ * центра + [weeksAfter] будущих, всегда с понедельника по воскресенье (PRD §5.3).
+ *
+ * Границы режутся по неделям, а не по «±N дней», потому что календарь — сетка недель:
+ * окно ±15 дней начиналось с произвольного дня недели, первый ряд выходил рваным
+ * (полупустая неделя), и «прошлая неделя» на нём читалась наполовину.
+ */
+export function weekWindowAround(
+  center: string,
+  weeksBefore: number,
+  weeksAfter: number,
+): { from: string; to: string } {
+  const monday = startOfWeek(center);
+  return {
+    from: addDays(monday, -7 * weeksBefore),
+    // Конец — воскресенье последней недели: понедельник её начала плюс шесть дней.
+    to: addDays(monday, 7 * weeksAfter + 6),
+  };
 }
 
 /** Число месяца (1..31) для ячейки календаря. */

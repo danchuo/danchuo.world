@@ -46,7 +46,9 @@ export function Calendar({
   style,
   className,
 }: CalendarProps) {
-  // Выравнивание по неделям: пустые ячейки перед первым днём до понедельника.
+  // Выравнивание по неделям: пустые ячейки перед первым днём до понедельника. Борд шлёт
+  // окно целыми неделями (§5.3), так что штатно pad = 0; расчёт остаётся страховкой на
+  // случай произвольного диапазона — сетка не должна разъезжаться от чужой выборки.
   const pad = days.length > 0 ? weekdayMondayIndex(days[0].date) : 0;
   const weeks = Math.max(1, Math.ceil((pad + days.length) / 7));
   const todayMonth = monthOf(today);
@@ -92,21 +94,29 @@ export function Calendar({
             const isFuture = d.date > today;
             const isWeekend = weekdayMondayIndex(d.date) >= 5;
             const isOtherMonth = monthOf(d.date) !== todayMonth;
+            // Дырка в записи: день прошёл, а данных за него нет. У будущего дня их и быть не
+            // может, а сегодня ещё идёт — незаполненность там не пропуск.
+            const isGap = d.date < today && !d.hasData;
 
+            // Пропуск несёт РАМКА, а не заливка: заливка занята вопросом «когда» (соседний
+            // месяц / выходной / будущее), и раньше «прошёл, но пусто» и «ещё не наступил»
+            // красились одинаково — пропуск читался как будущее.
             const border = isToday
               ? "2px solid var(--border-pixel)"
               : isSelected
                 ? "2px solid var(--accent)"
-                : "1px solid var(--border)";
+                : isGap
+                  ? "1px dashed var(--border)"
+                  : "1px solid var(--border)";
 
-            // Приоритет фона: соседний месяц → выходной → есть данные → пусто.
+            // Приоритет фона: соседний месяц → выходной → будущее → обычная поверхность.
             const background = isOtherMonth
               ? "var(--cal-othermonth)"
               : isWeekend
                 ? "var(--cal-weekend)"
-                : d.hasData
-                  ? "var(--bg-surface)"
-                  : "var(--bg-surface-muted)";
+                : isFuture
+                  ? "var(--bg-surface-muted)"
+                  : "var(--bg-surface)";
 
             return (
               <button
@@ -117,6 +127,7 @@ export function Calendar({
                 data-today={isToday || undefined}
                 data-selected={isSelected || undefined}
                 data-future={isFuture || undefined}
+                data-gap={isGap || undefined}
                 data-other-month={isOtherMonth || undefined}
                 data-weekend={isWeekend || undefined}
                 data-has-name={d.title ? true : undefined}

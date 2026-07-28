@@ -8,7 +8,7 @@
  * понедельник»; дальше соседней недели — числом.
  */
 
-import { addDays, mskToday, weekdayMondayIndex } from "./date";
+import { mskToday, startOfWeek } from "./date";
 
 /** Формы дня недели (по индексу `getUTCDay`: 0=вс): эта неделя / прошлая / следующая. */
 const WEEKDAY: { bare: string; past: string; future: string }[] = [
@@ -27,14 +27,9 @@ function dayDiff(date: string, today: string): number {
   return Math.round(ms / 86_400_000);
 }
 
-/** Понедельник недели, в которую попадает дата (ISO). */
-function mondayOf(iso: string): string {
-  return addDays(iso, -weekdayMondayIndex(iso));
-}
-
 /** Разница в календарных неделях (пн–вс): 0 — та же неделя, −1 — прошлая, +1 — следующая. */
 function weekDiff(date: string, today: string): number {
-  return Math.round(dayDiff(mondayOf(date), mondayOf(today)) / 7);
+  return Math.round(dayDiff(startOfWeek(date), startOfWeek(today)) / 7);
 }
 
 /** Склонение «день/дня/дней» по числу. */

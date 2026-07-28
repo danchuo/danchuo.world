@@ -20,10 +20,14 @@ function buildWindow(today: string = TODAY): DaySummary[] {
     sleepMinutes: null,
     disciplineDone: 0,
     disciplineTotal: 5,
+    // Растяжка сделана по чётным числам — материал для линзы.
+    disciplineCounts: { stretch: Number(date.slice(8)) % 2 === 0 ? 1 : 0, reading: 2 },
     monster:
       date === "2026-06-20" ? { key: "mango-loco", name: "Mango Loco", accentColor: "#F4A52A" } : null,
   }));
 }
+
+const STRETCH_LENS = { key: "stretch", occurrence: 1, label: "растяжка" };
 
 describe("Calendar (окно целыми неделями)", () => {
   it("рисует непрерывную сетку из 4 целых недель = 28 ячеек с числами дней", () => {
@@ -107,6 +111,122 @@ describe("Calendar (окно целыми неделями)", () => {
     );
     await userEvent.click(screen.getByTestId("day-2026-06-21"));
     expect(onSelect).toHaveBeenCalledWith("2026-06-21");
+  });
+
+  it("без линзы ячейки не размечены её ответом (календарь прежний)", () => {
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    expect(screen.getByTestId("day-2026-06-16")).not.toHaveAttribute("data-lens");
+    expect(screen.getByText("календарь")).toBeInTheDocument();
+  });
+
+  it("линза размечает дни: совпал / не совпал / нет ответа", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={STRETCH_LENS}
+      />,
+    );
+    // прошедший день с данными, растяжка была
+    expect(screen.getByTestId("day-2026-06-16")).toHaveAttribute("data-lens", "yes");
+    // прошедший день с данными, растяжки не было
+    expect(screen.getByTestId("day-2026-06-17")).toHaveAttribute("data-lens", "no");
+    // дырка в записи и будущий день ответа не дают — «не сделал» им не приписываем
+    expect(screen.getByTestId(`day-${GAP}`)).toHaveAttribute("data-lens", "unknown");
+    expect(screen.getByTestId("day-2026-06-20")).toHaveAttribute("data-lens", "unknown");
+  });
+
+  it("совпавший день несёт рамку-отметку, заливка ячейки при этом не трогается", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={STRETCH_LENS}
+      />,
+    );
+    expect(screen.getByTestId("lens-frame-2026-06-16")).toBeInTheDocument();
+    // не совпал / нет ответа — рамки нет
+    expect(screen.queryByTestId("lens-frame-2026-06-17")).toBeNull();
+    expect(screen.queryByTestId(`lens-frame-${GAP}`)).toBeNull();
+    // заливка выходного осталась своей: линза её не подменяет (вопрос «когда» неприкосновенен)
+    const weekend = screen.getByTestId("day-2026-06-13");
+    expect(weekend.getAttribute("style")).toContain("var(--cal-weekend)");
+    expect(weekend.getAttribute("style")).not.toContain("color-mix");
+  });
+
+  it("линза не отбирает у ячейки её собственные состояния (пропуск/выходной/сегодня)", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={STRETCH_LENS}
+      />,
+    );
+    expect(screen.getByTestId(`day-${GAP}`)).toHaveAttribute("data-gap", "true");
+    expect(screen.getByTestId("day-2026-06-13")).toHaveAttribute("data-weekend", "true");
+    expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-today", "true");
+  });
+
+  it("ответ линзы едет в ховер-сводку и подпись для скринридера", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={STRETCH_LENS}
+      />,
+    );
+    expect(screen.getByTestId("day-2026-06-16").getAttribute("title")).toContain("растяжка: сделано");
+    expect(screen.getByTestId("day-2026-06-17").getAttribute("aria-label")).toContain(
+      "растяжка: не сделано",
+    );
+    // дню без данных линза ничего не приписывает
+    expect(screen.getByTestId(`day-${GAP}`).getAttribute("title")).not.toContain("растяжка");
+  });
+
+  it("ярлык плитки называет линзу и даёт снять её крестиком", async () => {
+    const onLensChange = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={STRETCH_LENS}
+        onLensChange={onLensChange}
+      />,
+    );
+    expect(screen.getByTestId("calendar-lens-label")).toHaveTextContent("растяжка");
+    await userEvent.click(screen.getByTestId("calendar-lens-reset"));
+    expect(onLensChange).toHaveBeenCalledWith(null);
+  });
+
+  it("ярлык линзы монстра разворачивает полярность: «не пил монстр», а не «монстр»", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={{ key: "monster", occurrence: 1, label: "монстр" }}
+      />,
+    );
+    expect(screen.getByTestId("calendar-lens-label")).toHaveTextContent("календарь — не пил монстр");
   });
 
   it("в состоянии error показывает тихий ретрай", async () => {

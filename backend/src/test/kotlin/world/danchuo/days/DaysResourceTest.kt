@@ -124,6 +124,23 @@ class DaysResourceTest {
     }
 
     @Test
+    fun `range summaries carry per-item counts for the calendar lens`() {
+        // Линза календаря (§5.3): клик по остановке карты подсвечивает дни, где пункт закрыт.
+        // Сводка обязана нести СЧЁТЧИК по каждому активному пункту — порог остановки это
+        // `count >= occurrence`, а не «пункт выполнен целиком».
+        val seeded = today.minusDays(9)
+        seedDay("$seeded", "линза", 5000, "mango-loco")
+
+        given().get("/api/days?from=$seeded&to=$seeded")
+            .then().statusCode(200)
+            // seedDay заливает reading=2, stretch=1 (см. выше)
+            .body("[0].disciplineCounts.reading", equalTo(2))
+            .body("[0].disciplineCounts.stretch", equalTo(1))
+            // Активный пункт без отметок присутствует нулём: «не сделал» отличимо от «нет пункта».
+            .body("[0].disciplineCounts.journal", equalTo(0))
+    }
+
+    @Test
     fun `date before genesis is 404`() {
         given().get("/api/days/2025-12-31")
             .then().statusCode(404)

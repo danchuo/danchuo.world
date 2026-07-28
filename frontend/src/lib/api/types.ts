@@ -308,5 +308,11 @@ export interface DaySummary {
   sleepMinutes: number | null;
   disciplineDone: number;
   disciplineTotal: number;
+  /**
+   * Счётчик по каждому активному пункту (`ключ` → `count`), включая нули — линза календаря
+   * (§5.3): остановка карты закрывается порогом `count ≥ occurrence`, а свёртки `disciplineDone`
+   * для этого мало. Опционально: ответы старого кэша поля не несут (читается как «нет ответа»).
+   */
+  disciplineCounts?: Record<string, number>;
   monster: MonsterMark | null;
 }

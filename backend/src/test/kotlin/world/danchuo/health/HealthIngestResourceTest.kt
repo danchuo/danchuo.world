@@ -8,10 +8,15 @@ import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import world.danchuo.checklist.ChecklistEntryRepository
+import world.danchuo.checklist.ChecklistItemRepository
 import world.danchuo.days.DayRecordRepository
 import java.time.LocalDate
 
-/** ingest/health (PRD §5.4, §12 M1): bearer-защита, идемпотентность, null ≠ 0, генезис-гард. */
+/**
+ * ingest/health (PRD §5.4, §5.6, §12 M1): bearer-защита, идемпотентность, null ≠ 0, генезис-гард.
+ * Плюс производный пункт «дневник» — он ставится минутами «осознанности», а не галочкой.
+ */
 @QuarkusTest
 class HealthIngestResourceTest {
 
@@ -20,6 +25,12 @@ class HealthIngestResourceTest {
 
     @Inject
     lateinit var workoutRepository: WorkoutRepository
+
+    @Inject
+    lateinit var checklistItemRepository: ChecklistItemRepository
+
+    @Inject
+    lateinit var checklistEntryRepository: ChecklistEntryRepository
 
     private val token = "dev-ingest-token-change-me"
 
@@ -211,6 +222,79 @@ class HealthIngestResourceTest {
             .post("/api/ingest/health")
             .then().statusCode(400)
             .body("field", org.hamcrest.Matchers.equalTo("sleepSegments[0].start"))
+    }
+
+    @Test
+    fun `evening mindful minutes over the threshold tick the journal item`() {
+        val date = LocalDate.of(2026, 6, 20)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","steps":4000,"mindfulSegments":[
+                    {"start":"2026-06-20T23:50:00+03:00","end":"2026-06-21T00:12:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+            .body("journalDays", org.hamcrest.Matchers.hasItem(date.toString()))
+
+        // Вечер прошит через полночь: 22 минуты принадлежат 20-му, а не 21-му (PRD §5.6).
+        assertEquals(1, journalCount(date))
+        assertNull(journalCount(date.plusDays(1)))
+    }
+
+    @Test
+    fun `mindful minutes below the threshold leave the journal undecided`() {
+        val date = LocalDate.of(2026, 6, 22)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","mindfulSegments":[
+                    {"start":"2026-06-22T21:00:00+03:00","end":"2026-06-22T21:08:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        // Не 0, а «нет отметки»: восемь минут не отличить от «открыл и закрыл», а ноль
+        // занял бы слот и заблокировал более поздний прогон того же вечера.
+        assertNull(journalCount(date))
+    }
+
+    @Test
+    fun `a manual tick wins over mindful minutes`() {
+        // Окно ручного ввода — [сегодня − 31, сегодня], поэтому дата считается от «сейчас».
+        val date = LocalDate.now(java.time.ZoneId.of("Europe/Moscow")).minusDays(2)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","items":{"journal":0}}""")
+            .post("/api/ingest/daily")
+            .then().statusCode(200)
+
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","mindfulSegments":[
+                    {"start":"${date}T21:00:00+03:00","end":"${date}T21:40:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+            // Минуты честно посчитаны и видны в ответе, но отметку они не трогают
+            .body("journalDays", org.hamcrest.Matchers.empty<String>())
+
+        assertEquals(0, journalCount(date))
+    }
+
+    @Test
+    fun `unparseable mindful timestamp is rejected loudly`() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"2026-06-23","mindfulSegments":[
+                    {"start":"2026-06-23T21:00:00+03:00","end":"23.06.2026 21:40"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(400)
+            .body("field", org.hamcrest.Matchers.equalTo("mindfulSegments[0].end"))
+    }
+
+    /** Отметка пункта «дневник» за дату; `null` = отметки нет вовсе (пропуск, а не ноль). */
+    private fun journalCount(date: LocalDate): Int? = QuarkusTransaction.requiringNew().call {
+        val item = checklistItemRepository.findByKey("journal")!!
+        checklistEntryRepository.listByDate(date).firstOrNull { it.itemId == item.id }?.count
     }
 
     @Test

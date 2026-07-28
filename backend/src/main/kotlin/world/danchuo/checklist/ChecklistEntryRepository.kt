@@ -20,6 +20,19 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
     private fun findByDateAndItem(date: LocalDate, itemId: Long): ChecklistEntry? =
         find("date = ?1 and itemId = ?2", date, itemId).firstResult()
 
+    /**
+     * Записать прогресс, только если отметки за (date, item) ещё нет; `true` — записали.
+     *
+     * Шов для **производных** отметок (пункт «дневник» ставится минутами «осознанности»,
+     * см. [JournalMarker]): существующая строка означает «за этот день уже решено», и
+     * ручной ввод её перекрывает — обычный [upsert] пишет поверх всегда.
+     */
+    fun upsertIfAbsent(date: LocalDate, item: ChecklistItem, count: Int): Boolean {
+        if (findByDateAndItem(date, item.id!!) != null) return false
+        upsert(date, item, count)
+        return true
+    }
+
     /** Записать прогресс пункта за дату; [count] зажимается в `0..target`. */
     fun upsert(date: LocalDate, item: ChecklistItem, count: Int) {
         val clamped = count.coerceIn(0, item.target)

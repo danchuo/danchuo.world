@@ -124,6 +124,9 @@ class DayAggregator(
                     sleepMinutes = record?.sleepMinutes,
                     disciplineDone = done,
                     disciplineTotal = total,
+                    // Ключи — активных пунктов, не только отмеченных: линза должна отличать
+                    // «пункт есть, не сделан» от «пункта нет». Тот же набор, что у disciplineTotal.
+                    disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
                     monster = monster,
                 )
             }

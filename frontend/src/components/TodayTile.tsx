@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
+import type { DisciplineLens } from "@/lib/disciplineLens";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { isWeekend } from "@/lib/weekend";
 import { QuestMap } from "./QuestMap";
@@ -14,6 +15,9 @@ interface TodayTileProps {
   onRetry?: () => void;
   /** Active wave key — forwarded to [QuestMap] so waves with a sprite set swap glyphs (DESIGN §12). */
   wave?: string | null;
+  /** Линза календаря (§5.3) — выбранная остановка карты-тропы; и её переключатель. */
+  lens?: DisciplineLens | null;
+  onLensChange?: (lens: DisciplineLens | null) => void;
   style?: CSSProperties;
   className?: string;
 }
@@ -60,7 +64,17 @@ function longDateRu(iso: string): string {
  * статы строкой → карта-тропа дисциплины (монстр — детур на ней). Пустой/будущий день —
  * валидный вид: статы «нет данных» (но 0 как 0), карта в каркасе с незакрытыми остановками.
  */
-export function TodayTile({ day, today, state, onRetry, wave, style, className }: TodayTileProps) {
+export function TodayTile({
+  day,
+  today,
+  state,
+  onRetry,
+  wave,
+  lens,
+  onLensChange,
+  style,
+  className,
+}: TodayTileProps) {
   // Подпись плитки относительна выбранной дате: «сегодня» только когда выбран сегодня.
   const label = day ? relativeDayRu(day.date, today) : "сегодня";
   // Выбран день соседнего месяца → фон плитки чуть меняется (§4), как и ячейка в календаре.
@@ -132,6 +146,8 @@ export function TodayTile({ day, today, state, onRetry, wave, style, className }
               monsterDone={day.monster != null}
               monsterCleanStreak={day.monsterCleanStreak ?? 0}
               wave={wave}
+              lens={lens}
+              onLensChange={onLensChange}
             />
           )}
         </div>

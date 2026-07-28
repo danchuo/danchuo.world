@@ -5,6 +5,7 @@ import { readCache, writeCache } from "@/lib/api/cache";
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { addDays, mskToday, weekWindowAround } from "@/lib/date";
+import type { DisciplineLens } from "@/lib/disciplineLens";
 import { gridArea, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
@@ -54,6 +55,9 @@ interface BoardData {
   statsHistory: DaySummary[];
   statsStatus: Status;
   selectDay: (date: string) => void;
+  /** Линза дисциплины (§5.3): выбранная на карте-тропе остановка, по которой размечен календарь. */
+  lens: DisciplineLens | null;
+  setLens: (lens: DisciplineLens | null) => void;
   retryDay: () => void;
   retryRange: () => void;
   retryStats: () => void;
@@ -76,6 +80,9 @@ export function Board() {
   const statsFrom = useMemo(() => addDays(today, -(STATS_HISTORY - 1)), [today]);
 
   const [selected, setSelected] = useState(today);
+  // Линза живёт на борде, а не в плитке: её ставит карта-тропа «Сегодня», а читает календарь.
+  // Смену выбранного дня она переживает намеренно — это взгляд на историю, а не состояние дня.
+  const [lens, setLens] = useState<DisciplineLens | null>(null);
   const [rangeStatus, setRangeStatus] = useState<Status>("loading");
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
   const [statsStatus, setStatsStatus] = useState<Status>("loading");
@@ -164,6 +171,17 @@ export function Board() {
 
   useEffect(() => loadDay(selected), [selected, loadDay]);
 
+  // Esc снимает линзу — привычный выход из «режима просмотра», и единственный клавиатурный.
+  // Вешаем слушатель только когда линза включена: без неё борд событий не слушает.
+  useEffect(() => {
+    if (!lens) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLens(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lens]);
+
   const data: BoardData = {
     day,
     dayStatus,
@@ -174,6 +192,8 @@ export function Board() {
     statsHistory,
     statsStatus,
     selectDay: setSelected,
+    lens,
+    setLens,
     retryDay: () => loadDay(selected),
     retryRange: loadRange,
     retryStats: loadStats,
@@ -276,6 +296,8 @@ function BoardTile({
           state={data.dayStatus}
           onRetry={data.retryDay}
           wave={data.wave}
+          lens={data.lens}
+          onLensChange={data.setLens}
           style={style}
           className={className}
         />
@@ -311,6 +333,8 @@ function BoardTile({
           onSelect={data.selectDay}
           state={data.rangeStatus}
           onRetry={data.retryRange}
+          lens={data.lens}
+          onLensChange={data.setLens}
           style={style}
           className={className}
         />
@@ -322,6 +346,8 @@ function BoardTile({
           onSelect={data.selectDay}
           state={data.rangeStatus}
           onRetry={data.retryRange}
+          lens={data.lens}
+          onLensChange={data.setLens}
           style={style}
           className={className}
         />

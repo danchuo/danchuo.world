@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import type { DisciplineItemView } from "@/lib/api/types";
 import { QuestMap } from "./QuestMap";
 
@@ -122,5 +123,72 @@ describe("QuestMap", () => {
 
     rerender(<QuestMap items={[]} monsterDone={false} monsterCleanStreak={1} />);
     expect(screen.queryByTestId("quest-streak-monster")).toBeNull();
+  });
+});
+
+describe("QuestMap — линза календаря", () => {
+  it("без обработчика остановки не интерактивны (карта прежняя)", () => {
+    render(<QuestMap items={ALL_DONE} monsterDone={false} />);
+    const stop = screen.getByTestId("quest-stop-stretch-1");
+    expect(stop).not.toHaveAttribute("role", "button");
+    expect(stop).not.toHaveAttribute("aria-pressed");
+  });
+
+  it("клик по остановке включает линзу этой остановки (ключ + occurrence)", async () => {
+    const onLensChange = vi.fn();
+    render(<QuestMap items={ALL_DONE} monsterDone={false} onLensChange={onLensChange} />);
+
+    await userEvent.click(screen.getByTestId("quest-stop-podcasts-2"));
+    expect(onLensChange).toHaveBeenCalledWith({ key: "podcasts", occurrence: 2, label: "подкаст" });
+  });
+
+  it("повторный клик по выбранной остановке снимает линзу", async () => {
+    const onLensChange = vi.fn();
+    render(
+      <QuestMap
+        items={ALL_DONE}
+        monsterDone={false}
+        lens={{ key: "stretch", occurrence: 1, label: "растяжка" }}
+        onLensChange={onLensChange}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("quest-stop-stretch-1"));
+    expect(onLensChange).toHaveBeenCalledWith(null);
+  });
+
+  it("выбранная остановка приподнята и озвучена; соседняя — нет", () => {
+    render(
+      <QuestMap
+        items={ALL_DONE}
+        monsterDone={false}
+        lens={{ key: "reading", occurrence: 2, label: "чтение" }}
+        onLensChange={() => {}}
+      />,
+    );
+    const focused = screen.getByTestId("quest-stop-reading-2");
+    expect(focused).toHaveAttribute("data-focused", "true");
+    expect(focused.getAttribute("class")).toContain("quest-stop--focused");
+    expect(focused).toHaveAttribute("aria-pressed", "true");
+
+    // первая остановка того же ПУНКТА — отдельная линза, не подсвечена
+    const sibling = screen.getByTestId("quest-stop-reading-1");
+    expect(sibling).not.toHaveAttribute("data-focused");
+    expect(sibling).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("монстр тоже включает линзу — со своим ключом", async () => {
+    const onLensChange = vi.fn();
+    render(<QuestMap items={[]} monsterDone={true} onLensChange={onLensChange} />);
+    await userEvent.click(screen.getByTestId("quest-stop-monster"));
+    expect(onLensChange).toHaveBeenCalledWith({ key: "monster", occurrence: 1, label: "монстр" });
+  });
+
+  it("остановка доступна с клавиатуры (Enter)", async () => {
+    const onLensChange = vi.fn();
+    render(<QuestMap items={ALL_DONE} monsterDone={false} onLensChange={onLensChange} />);
+    const stop = screen.getByTestId("quest-stop-office-1");
+    stop.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onLensChange).toHaveBeenCalledWith({ key: "office", occurrence: 1, label: "офис" });
   });
 });

@@ -1,4 +1,6 @@
+import type { KeyboardEvent } from "react";
 import type { DisciplineItemView } from "@/lib/api/types";
+import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -28,6 +30,11 @@ interface QuestMapProps {
    *  pixel glyphs for generated raster sprites (DESIGN §12); other waves and tests (no wave)
    *  keep the currentColor cells and render unchanged. */
   wave?: string | null;
+  /** Остановка, через которую сейчас смотрит календарь (§5.3) — приподнята и обведена. */
+  lens?: DisciplineLens | null;
+  /** Обработчик выбора линзы. Без него остановки НЕ интерактивны — карта рендерится как раньше
+   *  (важно для скинов/тестов/будущих мест, где карта показывается только как картинка). */
+  onLensChange?: (lens: DisciplineLens | null) => void;
 }
 
 /** Waves shipping a generated quest sprite set (/assets/waves/<wave>/quest/*.png, DESIGN §12). */
@@ -66,6 +73,10 @@ const SEGMENTS = [
   { d: "M285 160 Q245 168 205 160", ax: 245, ay: 164, deg: 180 },
   { d: "M175 160 Q132 152 90 160", ax: 132, ay: 156, deg: 180 },
 ] as const;
+
+/** Линза монстра: на маршруте он одна остановка-тупик, поэтому occurrence всегда 1.
+ *  Полярность отметки в календаре обратная (подсвечиваются ЧИСТЫЕ дни) — см. `lensMatch`. */
+const MONSTER_LENS: DisciplineLens = { key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" };
 
 /** Детур на монстра: от «офиса» (S3) вниз-влево к тупиковому узлу. */
 const MONSTER_XY = [172, 110] as const;
@@ -260,9 +271,40 @@ function StreakBadge({
   );
 }
 
-export function QuestMap({ items, monsterDone, monsterCleanStreak = 0, wave }: QuestMapProps) {
+export function QuestMap({
+  items,
+  monsterDone,
+  monsterCleanStreak = 0,
+  wave,
+  lens = null,
+  onLensChange,
+}: QuestMapProps) {
   // Волна со своим спрайт-набором ⇒ рисуем растровые иконки; иначе — ручные пиксель-клетки.
   const spriteWave = wave && QUEST_SPRITE_WAVES.has(wave) ? wave : null;
+  const interactive = onLensChange != null;
+
+  /**
+   * Пропсы остановки-кнопки. Клик по уже выбранной снимает линзу (тоггл) — это единственный
+   * способ выключить её прямо на карте; второй (крестик в ярлыке календаря) живёт там, потому
+   * что в выходной карты на экране нет вовсе.
+   */
+  const stopProps = (candidate: DisciplineLens) => {
+    if (!interactive) return {};
+    const focused = sameLens(lens, candidate);
+    const toggle = () => onLensChange(focused ? null : candidate);
+    return {
+      role: "button",
+      tabIndex: 0,
+      "aria-pressed": focused,
+      "aria-label": `${candidate.label}: показать в календаре`,
+      onClick: toggle,
+      onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault(); // пробел иначе прокручивает страницу
+        toggle();
+      },
+    };
+  };
   const byKey = new Map(items.map((i) => [i.key, i]));
   const done = ROUTE.map((s) => (byKey.get(s.key)?.count ?? 0) >= s.occurrence);
   const doneCount = done.filter(Boolean).length;
@@ -355,14 +397,20 @@ export function QuestMap({ items, monsterDone, monsterCleanStreak = 0, wave }: Q
         const [cx, cy] = STOPS_XY[i];
         // Стрик именно этой остановки (occurrence): у второго вхождения (count≥2) он ≤ первого.
         const streak = byKey.get(s.key)?.occurrenceStreaks?.[s.occurrence - 1] ?? 0;
+        const candidate: DisciplineLens = { key: s.key, occurrence: s.occurrence, label: s.label };
+        const focused = sameLens(lens, candidate);
         return (
           <g
             key={`${s.key}-${s.occurrence}`}
-            className={`quest-stop ${stopClass(i)}`}
+            className={`quest-stop ${stopClass(i)}${interactive ? " quest-stop--interactive" : ""}${focused ? " quest-stop--focused" : ""}`}
             data-testid={`quest-stop-${s.key}-${s.occurrence}`}
             data-done={done[i]}
+            data-focused={focused || undefined}
+            {...stopProps(candidate)}
           >
             <Cloud cx={cx} cy={cy + 11} cell={2.6} />
+            {/* Площадка нажатия шире рисунка (тач-таргет) и служит кольцом выбора/фокуса. */}
+            {interactive && <circle className="quest-stop__hit" cx={cx} cy={cy} r={22} />}
             <circle cx={cx} cy={cy} r={17} />
             {spriteWave ? (
               <Sprite wave={spriteWave} name={s.key} cx={cx} cy={cy} size={26} />
@@ -393,11 +441,16 @@ export function QuestMap({ items, monsterDone, monsterCleanStreak = 0, wave }: Q
 
       {/* тупик-детур: монстр */}
       <g
-        className={`quest-stop quest-stop--monster ${monsterDone ? "quest-stop--done" : "quest-stop--pending"}`}
+        className={`quest-stop quest-stop--monster ${monsterDone ? "quest-stop--done" : "quest-stop--pending"}${interactive ? " quest-stop--interactive" : ""}${sameLens(lens, MONSTER_LENS) ? " quest-stop--focused" : ""}`}
         data-testid="quest-stop-monster"
         data-done={monsterDone}
+        data-focused={sameLens(lens, MONSTER_LENS) || undefined}
+        {...stopProps(MONSTER_LENS)}
       >
         <Cloud cx={MONSTER_XY[0]} cy={MONSTER_XY[1] + 10} cell={2.1} />
+        {interactive && (
+          <circle className="quest-stop__hit" cx={MONSTER_XY[0]} cy={MONSTER_XY[1]} r={20} />
+        )}
         <circle cx={MONSTER_XY[0]} cy={MONSTER_XY[1]} r={15} />
         {spriteWave ? (
           <Sprite wave={spriteWave} name="monster" cx={MONSTER_XY[0]} cy={MONSTER_XY[1]} size={22} />

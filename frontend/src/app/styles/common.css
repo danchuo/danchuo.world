@@ -224,23 +224,100 @@ body {
 .quest-seg--broken { stroke: var(--danger); }
 .quest-seg--pending { stroke: var(--text-tertiary); opacity: 0.45; }
 
-.quest-stop circle { stroke-width: 2; }
-.quest-stop--done circle {
+/* Круг-диск остановки. `:not(.quest-stop__hit)` — обязательное исключение: площадка нажатия
+   (§5.3) это тоже <circle> внутри той же группы, и без исключения она забирала диску заливку и
+   кант, дорисовывая ВТОРОЕ кольцо вокруг каждой закрытой остановки. */
+.quest-stop circle:not(.quest-stop__hit) { stroke-width: 2; }
+.quest-stop--done circle:not(.quest-stop__hit) {
   fill: var(--accent);
   stroke: var(--accent);
 }
 .quest-stop--done { color: var(--bg-surface); } /* иконка белым по акценту */
-.quest-stop--pending circle {
+.quest-stop--pending circle:not(.quest-stop__hit) {
   fill: var(--bg-surface);
   stroke: var(--border);
 }
 .quest-stop--pending { color: var(--text-tertiary); }
-.quest-stop--missed circle {
+.quest-stop--missed circle:not(.quest-stop__hit) {
   fill: var(--bg-surface);
   stroke: var(--danger);
   stroke-dasharray: 3 3;
 }
 .quest-stop--missed { color: var(--text-tertiary); }
+
+/* Остановка как переключатель линзы календаря (§5.3). Выбранная ПРИПОДНИМАЕТСЯ — тот же язык
+   глубины, что у «коробочки» плиток волны 01 (§2.4): подъём + тень под ним, а не новая фигура.
+   Ховер даёт микро-подъём — приглашение к клику; на тач-устройствах его просто нет.
+   Площадка нажатия (r больше рисунка) служит и тач-таргетом, и кольцом выбора/фокуса. */
+.quest-stop {
+  transition: transform 0.14s ease;
+}
+.quest-stop--interactive {
+  cursor: pointer;
+}
+.quest-stop__hit {
+  fill: transparent;
+  stroke: none;
+}
+@media (hover: hover) {
+  .quest-stop--interactive:hover {
+    transform: translateY(-1.5px);
+  }
+}
+/* Выбор несёт ТОЛЬКО подъём с тенью — кольца вокруг иконки нет намеренно: у остановки уже есть
+   свой диск с кантом, и второй круг читался как лишняя мишень. Тень берёт альфу из формы группы
+   ⇒ «остановка оторвалась от тропы», без подложки-коробки. */
+.quest-stop--focused,
+.quest-stop--focused:hover {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 3px 2px color-mix(in srgb, var(--text-primary) 28%, transparent));
+}
+/* Клавиатурный фокус — кольцо пунктиром (по умолчанию SVG-outline обвёл бы и подписи).
+   На мышь не срабатывает (:focus-visible), поэтому в обычном сценарии его не видно. */
+.quest-stop--interactive:focus {
+  outline: none;
+}
+.quest-stop--interactive:focus-visible .quest-stop__hit {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .quest-stop {
+    transition: none;
+  }
+}
+
+/* ── Отметка линзы в ячейке календаря (§5.3) ────────────────────────────────────────
+   Рамка со скошенными углами в ЧИСТОМ акценте вокруг числа. Заливкой отмечать нельзя:
+   она отвечает на вопрос «когда» (соседний месяц / выходной / будущее), и подмешанный в неё
+   акцент давал мутный, тусклый тон — именно это и было забраковано. Рамка берёт акцент в полную
+   силу, ни с одним состоянием ячейки не спорит и оставляет инвариант заливки нетронутым.
+   Две клипованные плашки (кант + внутренняя заливка) — тот же приём, что у `.pixel-tile`:
+   `clip-path` умеет резать, но не обводить. Скос — пиксельный голос волны в масштабе ячейки;
+   волна правит его токеном, не переписывая правило. */
+/* Рамка сидит на САМОЙ ЦИФРЕ, а не на ячейке: по контуру ячейки она читалась как ещё одна
+   рамка дня и спорила с рамками «сегодня»/«выбран», а прижатая к числу — читается как отметка
+   этого числа. Заодно она одинаково работает и в сетке, и в недельной полосе (где ячейка
+   двухэтажная: день недели над числом), без отдельной подгонки.
+   Отступ в `em` — рамка держит пропорцию к кеглю на любой ширине борда (§8.1). */
+.cal-lens-digit {
+  position: relative;
+}
+/* Скруглённая, а не скошенная: рамка вторит форме самой ячейки (`--radius-sm`), просто уже и
+   ближе к числу. Скос пробовали — читался нарядно, но спорил с округлой геометрией календаря.
+   Раз углы круглые, обводка это обычный `border`: внутренний радиус браузер выводит из внешнего
+   сам, и не нужны ни две клипованные плашки, ни игра с z-index (`clip-path` умеет резать, но не
+   обводить — потому прежняя версия и городила слои). Прозрачная середина цифру не закрывает.
+   Отступ в `em` — рамка держит пропорцию к кеглю на любой ширине борда (§8.1). */
+.cal-lens-digit--marked::before {
+  content: "";
+  position: absolute;
+  inset: var(--cal-lens-pad-y, -0.32em) var(--cal-lens-pad-x, -0.5em);
+  pointer-events: none;
+  border: var(--cal-lens-line, 2px) solid var(--accent);
+  border-radius: var(--cal-lens-radius, 6px);
+}
 
 .quest-label {
   font-family: var(--font-mono);
@@ -260,9 +337,9 @@ body {
    заливается акцентом (цветной спрайт утонул бы) — заливка всегда кремовая, а состояние несут
    ПОЖИРНЕЕ КОЛЬЦО + стрелки. done — коралловое кольцо, pending — тихий тёплый пунктир,
    missed — danger-пунктир. Спрайты pending/missed слегка гаснут, чтобы закрытые читались ярче. */
-.quest-map--sprites .quest-stop circle { fill: var(--bg-surface); stroke-width: 2; }
-.quest-map--sprites .quest-stop--done circle { stroke: var(--accent); }
-.quest-map--sprites .quest-stop--pending circle {
+.quest-map--sprites .quest-stop circle:not(.quest-stop__hit) { fill: var(--bg-surface); stroke-width: 2; }
+.quest-map--sprites .quest-stop--done circle:not(.quest-stop__hit) { stroke: var(--accent); }
+.quest-map--sprites .quest-stop--pending circle:not(.quest-stop__hit) {
   stroke: color-mix(in srgb, var(--text-tertiary) 45%, transparent);
   stroke-dasharray: 4 4;
 }

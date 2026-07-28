@@ -2,18 +2,21 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
-import { datesInRange, windowAround } from "@/lib/date";
+import { datesInRange, weekWindowAround } from "@/lib/date";
 import { Calendar } from "./Calendar";
 
 const TODAY = "2026-06-18";
 
-function buildWindow(): DaySummary[] {
-  const { from, to } = windowAround(TODAY, 15);
+/** Прошедший день, за который ничего не залилось — дырка в записи (не «ещё не наступил»). */
+const GAP = "2026-06-10";
+
+function buildWindow(today: string = TODAY): DaySummary[] {
+  const { from, to } = weekWindowAround(today, 2, 1);
   return datesInRange(from, to).map((date) => ({
     date,
-    title: date === TODAY ? "сегодня-день" : null,
-    hasData: date <= TODAY,
-    steps: date === TODAY ? 8421 : null,
+    title: date === today ? "сегодня-день" : null,
+    hasData: date <= today && date !== GAP,
+    steps: date === today ? 8421 : null,
     sleepMinutes: null,
     disciplineDone: 0,
     disciplineTotal: 5,
@@ -22,12 +25,12 @@ function buildWindow(): DaySummary[] {
   }));
 }
 
-describe("Calendar (±15)", () => {
-  it("рисует непрерывную сетку ±15 = 31 ячейка с числами дней", () => {
+describe("Calendar (окно целыми неделями)", () => {
+  it("рисует непрерывную сетку из 4 целых недель = 28 ячеек с числами дней", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
-    expect(screen.getAllByRole("gridcell")).toHaveLength(31);
+    expect(screen.getAllByRole("gridcell")).toHaveLength(28);
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveTextContent("18");
   });
 
@@ -66,9 +69,35 @@ describe("Calendar (±15)", () => {
     expect(screen.getByTestId("day-2026-06-14")).toHaveAttribute("data-weekend", "true");
     // 2026-06-18 — будний → метки выходного нет.
     expect(screen.getByTestId("day-2026-06-18")).not.toHaveAttribute("data-weekend");
-    // Окно ±15 захватывает июль → дни соседнего месяца помечены.
-    expect(screen.getByTestId("day-2026-07-01")).toHaveAttribute("data-other-month", "true");
-    expect(screen.getByTestId("day-2026-06-20")).not.toHaveAttribute("data-other-month");
+  });
+
+  it("отличает дырку в записи от будущего дня", () => {
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    // Прошедший день без данных — пропуск: его видно пунктиром.
+    expect(screen.getByTestId(`day-${GAP}`)).toHaveAttribute("data-gap", "true");
+    // Прошедший с данными и будущий (там данных и быть не может) — не пропуски.
+    expect(screen.getByTestId("day-2026-06-11")).not.toHaveAttribute("data-gap");
+    expect(screen.getByTestId("day-2026-06-25")).not.toHaveAttribute("data-gap");
+    // Сегодня ещё идёт — незаполненность не дырка, и своя рамка сильнее.
+    expect(screen.getByTestId(`day-${TODAY}`)).not.toHaveAttribute("data-gap");
+  });
+
+  it("помечает дни соседнего месяца, когда окно ложится на стык", () => {
+    // 2026-07-02 — четверг, понедельник её недели 29 июня ⇒ окно 15.06 → 12.07 (стык месяцев).
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    expect(screen.getByTestId("day-2026-06-15")).toHaveAttribute("data-other-month", "true");
+    expect(screen.getByTestId("day-2026-07-02")).not.toHaveAttribute("data-other-month");
   });
 
   it("клик по дню перефокусирует (onSelect с датой)", async () => {

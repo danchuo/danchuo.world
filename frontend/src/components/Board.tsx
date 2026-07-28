@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { readCache, writeCache } from "@/lib/api/cache";
 import { getDay, getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
-import { addDays, mskToday, windowAround } from "@/lib/date";
+import { addDays, mskToday, weekWindowAround } from "@/lib/date";
 import { gridArea, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
@@ -27,11 +27,16 @@ import { WeekStrip } from "./WeekStrip";
 type Status = "loading" | "error" | "loaded";
 type TileVariant = "grid" | "stack" | "strip";
 
-/** Радиус окна календаря — ±15 дней (PRD §5.3). */
-const RADIUS = 15;
+/**
+ * Окно календаря — целые недели вокруг сегодня (PRD §5.3): две прошлые + текущая + следующая.
+ * Считаем неделями, а не «±N дней»: сетка календаря — это ряды пн→вс, и окно с произвольного
+ * дня давало рваный первый ряд, где прошлая неделя видна наполовину.
+ */
+const WEEKS_BEFORE = 2;
+const WEEKS_AFTER = 1;
 
 /**
- * Глубина истории для графиков статов (§7.4): окно календаря ±15 мало под скролл-в-прошлое,
+ * Глубина истории для графиков статов (§7.4): окно календаря в четыре недели мало под скролл-в-прошлое,
  * поэтому статы тянут свою выборку [сегодня−(N−1), сегодня]. Ограничена 30 днями — дальше
  * листать пустоту смысла нет (при WINDOW=10 отлистывается максимум 20 дней назад).
  */
@@ -67,7 +72,7 @@ export function Board() {
   // переключателем меняет её вживую — борд перерисовывается в новой сетке без перезагрузки.
   const { layout, activeKey } = useWave();
   const today = useMemo(() => mskToday(), []);
-  const { from, to } = useMemo(() => windowAround(today, RADIUS), [today]);
+  const { from, to } = useMemo(() => weekWindowAround(today, WEEKS_BEFORE, WEEKS_AFTER), [today]);
   const statsFrom = useMemo(() => addDays(today, -(STATS_HISTORY - 1)), [today]);
 
   const [selected, setSelected] = useState(today);

@@ -20,7 +20,8 @@ interface WeekStripProps {
  * Недельная полоса — мобильная замена сетки календаря (<640px, DESIGN §8). Горизонтальный
  * скролл только внутри полосы; ячейки шире (тач-таргет ≥44px): день недели + число.
  * Цвет вкуса монстра не рисуется. Тап = выбор/перефокус. При загрузке полоса автопрокручена
- * так, что «сегодня» стоит по центру (окно ±15 дней — иначе открывается на самой старой дате).
+ * так, что «сегодня» стоит по центру (окно начинается за две недели — иначе полоса открывается
+ * на самой старой дате).
  */
 export function WeekStrip({
   days,
@@ -34,8 +35,8 @@ export function WeekStrip({
 }: WeekStripProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Center today's cell once the window data lands: the ±15-day range starts two weeks in
-  // the past, so an unscrolled strip would open on the oldest date and hide today off-screen.
+  // Center today's cell once the window data lands: the range starts two whole weeks in the
+  // past, so an unscrolled strip would open on the oldest date and hide today off-screen.
   // Manual scrollLeft (not scrollIntoView) — it must never move the page's own scroll.
   useEffect(() => {
     const scroller = scrollerRef.current;

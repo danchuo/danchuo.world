@@ -4,8 +4,10 @@ import {
   datesInRange,
   dayOfMonth,
   mskToday,
+  startOfWeek,
+  weekWindowAround,
+  weekdayMondayIndex,
   weekdayShortRu,
-  windowAround,
 } from "./date";
 
 describe("date (канон MSK)", () => {
@@ -21,8 +23,29 @@ describe("date (канон MSK)", () => {
     expect(addDays("2026-01-01", -1)).toBe("2025-12-31");
   });
 
-  it("windowAround даёт окно ±radius", () => {
-    expect(windowAround("2026-06-18", 15)).toEqual({ from: "2026-06-03", to: "2026-07-03" });
+  it("startOfWeek — понедельник недели, в которую попадает дата", () => {
+    expect(startOfWeek("2026-06-18")).toBe("2026-06-15"); // четверг → понедельник той же недели
+    expect(startOfWeek("2026-06-15")).toBe("2026-06-15"); // сам понедельник — на месте
+    expect(startOfWeek("2026-06-21")).toBe("2026-06-15"); // воскресенье принадлежит ТОЙ ЖЕ неделе
+  });
+
+  it("weekWindowAround режет окно по целым неделям пн→вс", () => {
+    // 18 июня 2026 — четверг, её понедельник 15-е: две прошлые недели + эта + следующая
+    expect(weekWindowAround("2026-06-18", 2, 1)).toEqual({ from: "2026-06-01", to: "2026-06-28" });
+  });
+
+  it("weekWindowAround не зависит от дня недели внутри недели", () => {
+    const monday = weekWindowAround("2026-06-15", 2, 1);
+    expect(weekWindowAround("2026-06-18", 2, 1)).toEqual(monday); // четверг
+    expect(weekWindowAround("2026-06-21", 2, 1)).toEqual(monday); // воскресенье
+  });
+
+  it("окно weekWindowAround — целое число недель, от понедельника до воскресенья", () => {
+    const { from, to } = weekWindowAround("2026-06-18", 2, 1);
+    const days = datesInRange(from, to);
+    expect(days).toHaveLength(28); // 4 недели
+    expect(weekdayMondayIndex(from)).toBe(0); // понедельник
+    expect(weekdayMondayIndex(to)).toBe(6); // воскресенье
   });
 
   it("datesInRange непрерывен и включает оба конца", () => {

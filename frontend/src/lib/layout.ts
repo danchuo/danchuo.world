@@ -79,7 +79,7 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   sleep: { col: 17, row: 24, colSpan: 12, rowSpan: 5 },
   today: { col: 13, row: 8, colSpan: 15, rowSpan: 15 },
   // Calendar nudged up one track so its top lines up with today (row 8).
-  calendar: { col: 29, row: 10, colSpan: 9, rowSpan: 11 },
+  calendar: { col: 29, row: 10, colSpan: 9, rowSpan: 10 },
   // Projects — narrow vertical column at the bottom-right edge, below the calendar. rowSpan 6
   // stops one track short of the grid's last row (row-end 28 of 29) — deliberate breathing room.
   projects: { col: 34, row: 22, colSpan: 5, rowSpan: 6 },

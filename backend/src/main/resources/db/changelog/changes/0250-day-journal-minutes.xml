@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Measured minutes in the Journal app for the day's evening window (PRD 5.6). Until now
+      the sum was computed at ingest and thrown away - only the derived tick survived, so the
+      board could not answer "why was it not counted". Nullable on purpose: null means "not
+      measured" (a manual tick, or a day recorded before this column existed), and that is
+      different from a measured zero. The tick lives in checklist_entry as before - this
+      column is the measurement, not the decision.
+    -->
+    <changeSet id="0250-day-journal-minutes" author="danchuo">
+        <addColumn tableName="day_record">
+            <column name="journal_minutes" type="INT"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

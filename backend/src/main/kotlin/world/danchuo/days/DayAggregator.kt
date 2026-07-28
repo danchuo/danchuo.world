@@ -62,6 +62,10 @@ class DayAggregator(
                 count = history.count(date, itemId),
                 target = item.target,
                 occurrenceStreaks = occurrenceStreaks,
+                // Пока измеряется только дневник (минуты в приложении «Журнал», §5.6). Ключ
+                // известен здесь так же, как `monster` известен приёму: производные пункты
+                // знают себя по ключу, остальной список остаётся data-driven.
+                measuredMinutes = if (item.key == JOURNAL_ITEM_KEY) record?.journalMinutes else null,
             )
         }
 
@@ -145,6 +149,11 @@ class DayAggregator(
         val awake = record.sleepAwakeMinutes
         if (rem == null && deep == null && light == null && awake == null) return null
         return SleepStagesView(rem, deep, light, awake)
+    }
+
+    private companion object {
+        /** Единственный пункт с измерением: минуты в приложении «Журнал» (§5.6). */
+        const val JOURNAL_ITEM_KEY = "journal"
     }
 }
 

@@ -55,6 +55,14 @@ class DayRecord {
     @Column(name = "sleep_awake_minutes")
     var sleepAwakeMinutes: Int? = null
 
+    /**
+     * Измеренные минуты в приложении «Журнал» за **вечернее окно** дня (PRD §5.6).
+     * `null` = «не мерили» (ручная отметка или день до появления канала) — это не ноль.
+     * Отметка пункта живёт в `checklist_entry`: здесь измерение, там решение.
+     */
+    @Column(name = "journal_minutes")
+    var journalMinutes: Int? = null
+
     /** Вкус монстра дня (FK → monster_flavor); `null` = «не пил». */
     @Column(name = "monster_flavor_id")
     var monsterFlavorId: Long? = null

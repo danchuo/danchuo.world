@@ -9,8 +9,9 @@ function item(
   count: number,
   target: number,
   occurrenceStreaks?: number[],
+  measuredMinutes?: number | null,
 ): DisciplineItemView {
-  return { key, label: key, icon: null, count, target, occurrenceStreaks };
+  return { key, label: key, icon: null, count, target, occurrenceStreaks, measuredMinutes };
 }
 
 const ALL_DONE: DisciplineItemView[] = [
@@ -73,6 +74,36 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-frac-reading-1")).toHaveTextContent("0/2");
     expect(screen.getByTestId("quest-frac-stretch-1")).toHaveTextContent("0/1");
     expect(screen.getByTestId("quest-frac-monster")).toHaveTextContent("0/1");
+  });
+
+  it("измеренные минуты вытесняют дробь у своей остановки", () => {
+    render(
+      <QuestMap items={[item("journal", 1, 1, undefined, 23)]} monsterDone={false} />,
+    );
+    expect(screen.getByTestId("quest-minutes-journal-1")).toHaveTextContent("23 мин");
+    // дробь `1/1` у бинарного пункта не сообщает ничего сверх кольца — её место и занимаем
+    expect(screen.queryByTestId("quest-frac-journal-1")).not.toBeInTheDocument();
+    // соседние пункты не измеряются — у них дробь на месте
+    expect(screen.getByTestId("quest-frac-stretch-1")).toBeInTheDocument();
+  });
+
+  it("минуты показываются и когда порог не взят — они объясняют пустую остановку", () => {
+    render(
+      <QuestMap items={[item("journal", 0, 1, undefined, 6)]} monsterDone={false} />,
+    );
+    expect(screen.getByTestId("quest-stop-journal-1")).toHaveAttribute("data-done", "false");
+    expect(screen.getByTestId("quest-minutes-journal-1")).toHaveTextContent("6 мин");
+  });
+
+  it("без измерения строка остаётся дробью (ручная отметка, старые дни)", () => {
+    render(<QuestMap items={[item("journal", 1, 1)]} monsterDone={false} />);
+    expect(screen.queryByTestId("quest-minutes-journal-1")).not.toBeInTheDocument();
+    expect(screen.getByTestId("quest-frac-journal-1")).toHaveTextContent("1/1");
+  });
+
+  it("измеренный ноль — это не «не мерили»: цифра рисуется", () => {
+    render(<QuestMap items={[item("journal", 0, 1, undefined, 0)]} monsterDone={false} />);
+    expect(screen.getByTestId("quest-minutes-journal-1")).toHaveTextContent("0 мин");
   });
 
   it("все 7 остановок закрыты — маршрут в perfect-подсветке (монстр не обязателен)", () => {

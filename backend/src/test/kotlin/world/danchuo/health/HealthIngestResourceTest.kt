@@ -280,6 +280,90 @@ class HealthIngestResourceTest {
     }
 
     @Test
+    fun `measured minutes are stored even when they miss the threshold`() {
+        val date = LocalDate.of(2026, 6, 24)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","mindfulSegments":[
+                    {"start":"2026-06-24T21:00:00+03:00","end":"2026-06-24T21:09:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        // Измерение и решение — разные вещи: отметки нет (9 < 15), но минуты записаны.
+        // Именно на них борд отвечает «почему не засчиталось» (PRD §5.6).
+        QuarkusTransaction.requiringNew().call {
+            assertEquals(9, dayRecordRepository.findByDate(date)!!.journalMinutes)
+        }
+        assertNull(journalCount(date))
+    }
+
+    @Test
+    fun `minutes land on the evening owner, not on the requested date`() {
+        val date = LocalDate.of(2026, 6, 26)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","mindfulSegments":[
+                    {"start":"2026-06-25T23:50:00+03:00","end":"2026-06-26T00:14:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            assertEquals(24, dayRecordRepository.findByDate(date.minusDays(1))!!.journalMinutes)
+            assertNull(dayRecordRepository.findByDate(date)!!.journalMinutes)
+        }
+    }
+
+    @Test
+    fun `an empty mindful run leaves stored minutes alone`() {
+        val date = LocalDate.of(2026, 6, 28)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","mindfulSegments":[
+                    {"start":"2026-06-28T20:00:00+03:00","end":"2026-06-28T20:19:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        // Пустая выборка неотличима от «не открывал дневник» — та же логика, что у сна:
+        // молчание прогона не должно стирать измеренное.
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","steps":120,"mindfulSegments":[]}""")
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            val day = dayRecordRepository.findByDate(date)!!
+            assertEquals(120, day.steps)
+            assertEquals(19, day.journalMinutes)
+        }
+    }
+
+    @Test
+    fun `minutes are measured even when the tick was decided by hand`() {
+        val date = LocalDate.now(java.time.ZoneId.of("Europe/Moscow")).minusDays(4)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","items":{"journal":0}}""")
+            .post("/api/ingest/daily")
+            .then().statusCode(200)
+
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","mindfulSegments":[
+                    {"start":"${date}T20:00:00+03:00","end":"${date}T20:31:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        // Ручной приоритет касается ОТМЕТКИ, а не измерения — иначе поле молчало бы без причины.
+        assertEquals(0, journalCount(date))
+        QuarkusTransaction.requiringNew().call {
+            assertEquals(31, dayRecordRepository.findByDate(date)!!.journalMinutes)
+        }
+    }
+
+    @Test
     fun `unparseable mindful timestamp is rejected loudly`() {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body(

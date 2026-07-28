@@ -31,8 +31,114 @@ function formatFirstMentioned(iso: string): string {
   return `${d} ${RU_MONTHS[m - 1]} ${y}`;
 }
 
-/** Высота предмета в самой ленте (px). Меньше прежних 48 — по просьбе владельца. */
+/** Поперечный габарит предмета в ленте (px). Меньше прежних 48 — по просьбе владельца. */
 const ARTIFACT_SIZE = 40;
+/** Габарит предмета ВДОЛЬ ленты (px) — страховка от предмета-полосы на всю плитку. */
+const ARTIFACT_LONG = 120;
+/**
+ * Оптический вес предмета — сторона квадрата той же площади. Предметы равняются ИМ,
+ * а не высотой: при равной высоте широкие очки занимают вдвое больше места, чем почти
+ * квадратная мыльница, и читаются крупнее её. Взято так, чтобы ни один из предметов
+ * набора не упирался в поперечный потолок ленты.
+ */
+const ARTIFACT_PRESENCE = 48;
+/** Со скольких раз «длинная сторона / короткая» предмет считается вытянутым. */
+const ELONGATED = 2;
+
+export interface ArtifactBox {
+  width: number;
+  height: number;
+  /** Повернуть на 90°: длинная сторона предмета смотрит поперёк ленты. */
+  rotate: boolean;
+}
+
+/**
+ * Габарит предмета в ленте (DESIGN §7.2). Два правила.
+ *
+ * **Набок — только с разрешения.** Вытянутый предмет, лежащий поперёк ленты, вырождается
+ * в нитку (ракетка ~1:3.8 при поперечном габарите 40px даёт 11px), но класть набок можно
+ * не всякий: у очков и мыльницы есть «правильная сторона», у ракетки её нет. Пропорцией
+ * это не выводится, поэтому [rotatable] — свойство самого предмета (поле артефакта), по
+ * умолчанию `false`: новый предмет показывается ровно так, как нарисован. Куда и насколько
+ * поворачивать, по-прежнему решает геометрия картинки, а не запись в БД.
+ *
+ * **Предметы весят одинаково** — равная площадь, потом обрезка потолками ленты.
+ */
+export function artifactBox(
+  ratio: number,
+  vertical: boolean,
+  rotatable: boolean = false,
+  cross: number = ARTIFACT_SIZE,
+  long: number = ARTIFACT_LONG,
+): ArtifactBox {
+  // Картинка ещё не измерилась / битая — считаем предмет квадратным (упрётся в потолок).
+  const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  const elongated = r >= ELONGATED || r <= 1 / ELONGATED;
+  const longIsWidth = r >= 1;
+  const rotate = rotatable && elongated && (vertical ? longIsWidth : !longIsWidth);
+  // Экранная пропорция (после поворота стороны меняются местами).
+  const eff = rotate ? 1 / r : r;
+
+  // Равный оптический вес: w·h = presence², w/h = eff.
+  let width = ARTIFACT_PRESENCE * Math.sqrt(eff);
+  let height = ARTIFACT_PRESENCE / Math.sqrt(eff);
+  // Обрезка потолками ленты — пропорционально, поэтому предмет не плющится.
+  const k = Math.min(
+    1,
+    (vertical ? cross : long) / width,
+    (vertical ? long : cross) / height,
+  );
+  width *= k;
+  height *= k;
+  return { width, height, rotate };
+}
+
+/**
+ * Предмет в самой ленте. Пропорцию берём с картинки (`naturalWidth/Height`) на её загрузке —
+ * до замера предмет считается квадратным по потолку ленты. Поворот не двигает место в потоке,
+ * поэтому габарит держит обёртка, а у самой картинки стороны меняются местами.
+ */
+function ArtifactThumb({
+  src,
+  alt,
+  vertical,
+  rotatable,
+}: {
+  src: string;
+  alt: string;
+  vertical: boolean;
+  rotatable: boolean;
+}) {
+  const [ratio, setRatio] = useState(0);
+  const box = artifactBox(ratio, vertical, rotatable);
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: box.width,
+        height: box.height,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (img.naturalHeight > 0) setRatio(img.naturalWidth / img.naturalHeight);
+        }}
+        style={{
+          width: box.rotate ? box.height : box.width,
+          height: box.rotate ? box.width : box.height,
+          objectFit: "contain",
+          transform: box.rotate ? "rotate(90deg)" : undefined,
+        }}
+      />
+    </span>
+  );
+}
 
 /**
  * Лента артефактов (M) — PRD §5.8, DESIGN §7.2. Предметы PNG/GIF + подпись; в самой строке
@@ -121,22 +227,23 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                   key={`${a.name}-${dup ? "dup" : "main"}`}
                   type="button"
                   data-artifact-btn={dup ? undefined : ""}
+                  /* Копия — только для бесшовной петли: её не озвучивают и в неё не таб-ходят.
+                     А вот КЛИК у неё такой же, как у оригинала: мимо зрителя едут обе копии,
+                     и без этого предметы «нажимались через раз» — каждый второй проход ленты
+                     был мёртвым. */
                   aria-hidden={dup || undefined}
                   tabIndex={dup ? -1 : 0}
                   onFocus={dup ? undefined : () => setActive(idx)}
-                  onClick={dup ? undefined : () => setActive((cur) => (cur === idx ? null : idx))}
+                  onClick={() => setActive((cur) => (cur === idx ? null : idx))}
                   className={`${vertical ? "my-3" : "mx-4"} inline-flex flex-col items-center gap-1 align-middle`}
                   style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
                   {a.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <ArtifactThumb
                       src={a.imageUrl}
                       alt={a.name}
-                      /* Всегда пропорционально: ограничиваем И по высоте, И по ширине тайла
-                         (узкая вертикальная лента волны 02 иначе сплющивала широкие очки).
-                         `object-fit: contain` страхует от искажения при любом сжатии flex. */
-                      style={{ maxHeight: ARTIFACT_SIZE, maxWidth: "100%", width: "auto", height: "auto", objectFit: "contain" }}
+                      vertical={vertical}
+                      rotatable={a.rotatable === true}
                     />
                   ) : (
                     <span
@@ -198,10 +305,13 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
               <img
                 src={activeArtifact.imageUrl}
                 alt={activeArtifact.name}
-                /* Ширину картинки КАПАЕМ в px (очки широкие ⇒ их размер задаёт ширина, не
-                   maxHeight). Так расширение панели добавляет ПУСТОТУ по бокам, а не увеличивает
-                   картинку. ~400 из ~516 контента ⇒ ощутимые поля слева/справа. */
-                style={{ width: "min(100%, 400px)", height: "auto", maxHeight: 260, marginTop: 32 }}
+                /* Обе стороны — ТОЛЬКО потолки, размер считает браузер по пропорции предмета.
+                   Жёсткая ширина + `maxHeight` плющила вытянутые предметы (ракетка ~1:3.8:
+                   высота упиралась в потолок, а ширина оставалась заданной). Ширина капается
+                   в px (широкие очки задают размер ею) ⇒ расширение панели добавляет ПУСТОТУ
+                   по бокам; высокий потолок высоты — доля экрана, чтобы вытянутый предмет был
+                   виден целиком и не вылезал за меню на низком окне. */
+                style={{ maxWidth: "min(100%, 400px)", maxHeight: "min(44vh, 420px)", objectFit: "contain", marginTop: 32 }}
               />
             ) : (
               <span

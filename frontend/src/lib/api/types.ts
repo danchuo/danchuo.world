@@ -144,6 +144,8 @@ export interface ArtifactView {
   /** PNG/GIF артефакта; `null` — артефакт без картинки (рисуем пиксель-плейсхолдер). */
   imageUrl: string | null;
   firstMentionedOn: string;
+  /** Можно ли класть предмет набок в ленте, идущей поперёк него (DESIGN §7.2). */
+  rotatable?: boolean;
 }
 
 /** Волна (`GET /api/theme/active`, `/api/themes`): `tokens` инжектятся в `:root` как `--<ключ>`. */

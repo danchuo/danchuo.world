@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Second real artifact of the curated marquee set (PRD 5.8): a badminton racket.
+      Data-driven - a new artifact is a row plus a PNG in the frontend statics, no release.
+      Appended at the end of the row (sort_order 20 after the sunglasses' 10); the marquee
+      order is curated, not chronological, so an older firstMentionedOn does not move it left.
+    -->
+    <changeSet id="0220-artifact-racket" author="danchuo">
+        <insert tableName="artifact">
+            <column name="name" value="YONEX ASTROX 10 WHITE PINK 4U"/>
+            <column name="image_url" value="/assets/artifacts/yonex-astrox-10.png"/>
+            <column name="first_mentioned_on" valueDate="2025-06-23"/>
+            <column name="sort_order" valueNumeric="20"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

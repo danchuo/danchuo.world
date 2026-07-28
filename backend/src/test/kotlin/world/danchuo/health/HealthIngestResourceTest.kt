@@ -94,6 +94,78 @@ class HealthIngestResourceTest {
     }
 
     @Test
+    fun `sleep segments crossing midnight land on the wake day whole`() {
+        val date = LocalDate.of(2026, 7, 28)
+        val body = """
+            {"date":"$date","steps":5000,"sleepSegments":[
+              {"stage":"Core","start":"2026-07-27T23:20:00+03:00","end":"2026-07-27T23:50:00+03:00"},
+              {"stage":"Deep","start":"2026-07-27T23:50:00+03:00","end":"2026-07-28T00:40:00+03:00"},
+              {"stage":"REM","start":"2026-07-28T00:40:00+03:00","end":"2026-07-28T01:40:00+03:00"},
+              {"stage":"In Bed","start":"2026-07-27T23:00:00+03:00","end":"2026-07-28T07:20:00+03:00"},
+              {"stage":"Core","start":"2026-07-28T01:40:00+03:00","end":"2026-07-28T07:20:00+03:00"}]}
+        """.trimIndent()
+
+        given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            val day = dayRecordRepository.findByDate(date)!!
+            // 23:20 → 07:20 целиком, вечерний кусок не потерян; `In Bed` — не сон, ночь не удваивает
+            assertEquals(480, day.sleepMinutes)
+            assertEquals(60, day.sleepRemMinutes)
+            assertEquals(50, day.sleepDeepMinutes)
+            assertEquals(370, day.sleepLightMinutes)
+        }
+    }
+
+    @Test
+    fun `sleep segments win over the legacy duration in the same payload`() {
+        val date = LocalDate.of(2026, 7, 29)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","sleepMinutes":111,"sleepStages":{"rem":11,"deep":11,"light":89,"awake":3},
+                    "sleepSegments":[
+                      {"stage":"Asleep","start":"2026-07-28T23:00:00+03:00","end":"2026-07-29T06:00:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            val day = dayRecordRepository.findByDate(date)!!
+            assertEquals(420, day.sleepMinutes) // посчитано по кускам, а не взято из sleepMinutes
+            assertEquals(420, day.sleepLightMinutes) // ночь без часов = неразмеченный сон
+        }
+    }
+
+    @Test
+    fun `empty segment list is an honest no-sleep night, not a zero`() {
+        val date = LocalDate.of(2026, 7, 30)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","steps":700,"sleepSegments":[]}""")
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            val day = dayRecordRepository.findByDate(date)!!
+            assertEquals(700, day.steps)
+            assertNull(day.sleepMinutes)
+        }
+    }
+
+    @Test
+    fun `unparseable segment timestamp is rejected loudly`() {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"2026-07-31","sleepSegments":[
+                    {"stage":"Core","start":"27.07.2026 23:20","end":"2026-07-28T07:20:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(400)
+            .body("field", org.hamcrest.Matchers.equalTo("sleepSegments[0].start"))
+    }
+
+    @Test
     fun `date before genesis is rejected`() {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"2025-12-31","steps":100}""")

@@ -7,6 +7,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import world.danchuo.core.config.TimeConfig
 import world.danchuo.days.DayRecordService
 import java.time.LocalDate
 
@@ -21,11 +22,17 @@ import java.time.LocalDate
  * Семантика null ≠ 0 (§5.4): отсутствующая метрика остаётся `null` («нет данных»),
  * пришедший 0 — реальный ноль. Единственное исключение — сон: ночь в 0 минут «сна не было»,
  * нормализуется в `null` (см. [SleepNormalization]).
+ *
+ * Сон принимается в двух формах. Основная — сырые куски `sleepSegments`: шорткат ничего не
+ * считает, ночь собирает [SleepSessionizer] (день = день пробуждения, §4). Легаси-форма
+ * (готовые `sleepMinutes` + `sleepStages`) принимается как раньше — на ней ночь, начавшаяся
+ * до полуночи, обрезалась фильтром шортката.
  */
 @Path("/api/ingest/health")
 class HealthIngestResource(
     private val dayRecordService: DayRecordService,
     private val workoutRepository: WorkoutRepository,
+    private val timeConfig: TimeConfig,
 ) {
 
     data class SleepStagesDto(
@@ -42,11 +49,19 @@ class HealthIngestResource(
         val distanceMeters: Int? = null,
     )
 
+    /** Сырой кусок сна: имя фазы и границы строками (`2026-07-27T23:20:00+03:00`). */
+    data class SleepSegmentDto(
+        val stage: String? = null,
+        val start: String? = null,
+        val end: String? = null,
+    )
+
     data class HealthIngestRequest(
         val date: LocalDate? = null,
         val steps: Int? = null,
         val sleepMinutes: Int? = null,
         val sleepStages: SleepStagesDto? = null,
+        val sleepSegments: List<SleepSegmentDto>? = null,
         val workouts: List<WorkoutDto> = emptyList(),
     )
 
@@ -69,18 +84,39 @@ class HealthIngestResource(
             }
         }
 
-        val stages = req.sleepStages
-        // Ночь в 0 минут — не реальный ноль, а «сна не было» (шорткат шлёт 0 при пустом HealthKit):
-        // схлопываем длительность и фазы в null, чтобы плитки не показывали «0м» с пустыми фазами.
-        val sleep = SleepNormalization.normalize(
-            SleepInput(
-                minutes = req.sleepMinutes,
-                rem = stages?.rem,
-                deep = stages?.deep,
-                light = stages?.light,
-                awake = stages?.awake,
-            ),
-        )
+        val segments = req.sleepSegments
+        val sleep = if (segments != null) {
+            // Куски пришли — считаем ночь сами: только так вечернее начало (уснул до полуночи)
+            // попадает в день пробуждения независимо от того, каким окном их выбрал шорткат.
+            val zone = timeConfig.zoneId()
+            val parsed = ArrayList<SleepSegment>(segments.size)
+            segments.forEachIndexed { i, dto ->
+                // Незнакомая фаза (в т.ч. `In Bed` — это не сон) молча пропускается: имена фаз
+                // задаёт Apple, новое имя не должно ронять весь приём. Битая дата — наоборот,
+                // это поломка шортката, и о ней надо узнать сразу.
+                val stage = SleepStage.of(dto.stage) ?: return@forEachIndexed
+                val start = SleepSessionizer.parseInstant(dto.start, zone)
+                    ?: return badRequest("bad_field", "sleepSegments[$i].start")
+                val end = SleepSessionizer.parseInstant(dto.end, zone)
+                    ?: return badRequest("bad_field", "sleepSegments[$i].end")
+                parsed += SleepSegment(stage, start, end)
+            }
+            SleepSessionizer.summarize(parsed, date, zone)
+        } else {
+            val stages = req.sleepStages
+            // Ночь в 0 минут — не реальный ноль, а «сна не было» (шорткат шлёт 0 при пустом
+            // HealthKit): схлопываем длительность и фазы в null, чтобы плитки не показывали
+            // «0м» с пустыми фазами.
+            SleepNormalization.normalize(
+                SleepInput(
+                    minutes = req.sleepMinutes,
+                    rem = stages?.rem,
+                    deep = stages?.deep,
+                    light = stages?.light,
+                    awake = stages?.awake,
+                ),
+            )
+        }
         dayRecordService.applyHealth(
             date = date,
             steps = req.steps,

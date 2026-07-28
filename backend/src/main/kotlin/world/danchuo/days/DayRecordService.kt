@@ -26,6 +26,10 @@ class DayRecordService(
     /**
      * Применить статы здоровья дня (PRD §5.4). `null` пишется как «нет данных», 0 — как ноль.
      * Сбрасывает кэш проекции дня (`day-view`): любой приём может сдвинуть стрики (§5.6).
+     *
+     * [overwriteSleep] `false` — оставить сон как есть. Пустой прогон Health (заблокированный
+     * телефон, окно поиска мимо) неотличим по данным от «не спал», и раньше он **затирал**
+     * уже записанную ночь. Право стереть сон осталось только у явного `sleepMinutes = 0`.
      */
     @CacheInvalidateAll(cacheName = "day-view")
     fun applyHealth(
@@ -36,13 +40,16 @@ class DayRecordService(
         sleepDeep: Int?,
         sleepLight: Int?,
         sleepAwake: Int?,
+        overwriteSleep: Boolean = true,
     ): DayRecord = upsert(date) { day ->
         day.steps = steps
-        day.sleepMinutes = sleepMinutes
-        day.sleepRemMinutes = sleepRem
-        day.sleepDeepMinutes = sleepDeep
-        day.sleepLightMinutes = sleepLight
-        day.sleepAwakeMinutes = sleepAwake
+        if (overwriteSleep) {
+            day.sleepMinutes = sleepMinutes
+            day.sleepRemMinutes = sleepRem
+            day.sleepDeepMinutes = sleepDeep
+            day.sleepLightMinutes = sleepLight
+            day.sleepAwakeMinutes = sleepAwake
+        }
     }
 
     /**

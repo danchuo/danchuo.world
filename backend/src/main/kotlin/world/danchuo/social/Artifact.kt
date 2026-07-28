@@ -37,6 +37,15 @@ class Artifact {
     @Column(name = "model_3d_url")
     var model3dUrl: String? = null
 
+    /**
+     * Можно ли класть предмет набок, когда лента идёт поперёк его длинной стороны
+     * (DESIGN §7.2). Свойство самого предмета, а не его пропорции: у очков и мыльницы
+     * есть «правильная сторона», у ракетки её нет. По умолчанию — нельзя: новый артефакт
+     * показывается ровно так, как нарисован.
+     */
+    @Column(name = "rotatable", nullable = false)
+    var rotatable: Boolean = false
+
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0
 }

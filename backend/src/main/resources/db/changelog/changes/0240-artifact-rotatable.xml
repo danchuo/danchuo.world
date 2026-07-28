@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      May this artifact be laid on its side when the marquee runs across its long axis
+      (DESIGN 7.2)? This is a property of the object, not of its proportions: glasses and
+      a camera have a right way up, a racket does not - and no aspect ratio can tell them
+      apart. Default false, so a new artifact is always shown exactly as it was drawn.
+    -->
+    <changeSet id="0240-artifact-rotatable" author="danchuo">
+        <addColumn tableName="artifact">
+            <column name="rotatable" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0240-artifact-rotatable-racket" author="danchuo">
+        <update tableName="artifact">
+            <column name="rotatable" valueBoolean="true"/>
+            <where>name = 'YONEX ASTROX 10 WHITE PINK 4U'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

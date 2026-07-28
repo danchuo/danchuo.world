@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Third real artifact of the curated marquee set (PRD 5.8): the film point-and-shoot
+      the photo drops are actually shot on. Appended at the end of the row (sort_order 30);
+      as with the racket, an older firstMentionedOn does not move it left.
+    -->
+    <changeSet id="0230-artifact-camera" author="danchuo">
+        <insert tableName="artifact">
+            <column name="name" value="Pentax Espio 738"/>
+            <column name="image_url" value="/assets/artifacts/pentax-espio-738.png"/>
+            <column name="first_mentioned_on" valueDate="2025-12-20"/>
+            <column name="sort_order" valueNumeric="30"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

@@ -25,8 +25,11 @@ data class ArtifactView(
     val name: String,
     val imageUrl: String?,
     val firstMentionedOn: String,
+    /** Можно ли класть предмет набок в ленте, идущей поперёк него (DESIGN §7.2). */
+    val rotatable: Boolean,
 ) {
     companion object {
-        fun from(a: Artifact) = ArtifactView(a.name, a.imageUrl, a.firstMentionedOn.toString())
+        fun from(a: Artifact) =
+            ArtifactView(a.name, a.imageUrl, a.firstMentionedOn.toString(), a.rotatable)
     }
 }

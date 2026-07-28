@@ -7,6 +7,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import world.danchuo.checklist.JournalMarker
 import world.danchuo.core.config.TimeConfig
 import world.danchuo.days.DayRecordService
 import java.time.LocalDate
@@ -32,7 +33,9 @@ import java.time.LocalDate
 class HealthIngestResource(
     private val dayRecordService: DayRecordService,
     private val workoutRepository: WorkoutRepository,
+    private val journalMarker: JournalMarker,
     private val timeConfig: TimeConfig,
+    private val journalConfig: JournalConfig,
 ) {
 
     data class SleepStagesDto(
@@ -56,12 +59,19 @@ class HealthIngestResource(
         val end: String? = null,
     )
 
+    /** Сырой кусок «осознанности» (время в приложении «Журнал»): только границы, фазы нет. */
+    data class MindfulSegmentDto(
+        val start: String? = null,
+        val end: String? = null,
+    )
+
     data class HealthIngestRequest(
         val date: LocalDate? = null,
         val steps: Int? = null,
         val sleepMinutes: Int? = null,
         val sleepStages: SleepStagesDto? = null,
         val sleepSegments: List<SleepSegmentDto>? = null,
+        val mindfulSegments: List<MindfulSegmentDto>? = null,
         val workouts: List<WorkoutDto> = emptyList(),
     )
 
@@ -122,6 +132,25 @@ class HealthIngestResource(
         // поэтому сон не трогаем. Стереть ночь по-прежнему можно явным `sleepMinutes = 0`.
         val blankRun = segments != null && sleep.minutes == null
 
+        // «Осознанность» = время в приложении «Журнал». День выбирает бэк, как и у сна, но
+        // по другому правилу: не по пробуждению, а по вечерней корзине (§5.6). Поэтому один
+        // широкий прогон может закрыть и вчерашний день — дата запроса тут не ограничитель.
+        val mindful = req.mindfulSegments
+        val journalMinutes = if (mindful == null) {
+            emptyMap()
+        } else {
+            val zone = timeConfig.zoneId()
+            val parsed = ArrayList<MindfulSegment>(mindful.size)
+            mindful.forEachIndexed { i, dto ->
+                val start = SleepSessionizer.parseInstant(dto.start, zone)
+                    ?: return badRequest("bad_field", "mindfulSegments[$i].start")
+                val end = SleepSessionizer.parseInstant(dto.end, zone)
+                    ?: return badRequest("bad_field", "mindfulSegments[$i].end")
+                parsed += MindfulSegment(start, end)
+            }
+            JournalDetector.minutesByDay(parsed, journalConfig.windowStart(), journalConfig.windowEnd(), zone)
+        }
+
         dayRecordService.applyHealth(
             date = date,
             steps = req.steps,
@@ -134,14 +163,24 @@ class HealthIngestResource(
         )
         workoutRepository.replaceForDate(date, workouts)
 
+        // Отметка идёт только «сделано» и только в пустоту: ручная галочка перекрывает минуты.
+        // Кэш проекции дня уже сброшен applyHealth выше — стрики дисциплины пересчитаются.
+        val journalDays = journalMinutes
+            .filterValues { it >= journalConfig.minMinutes() }
+            .keys.sorted()
+            .filter { journalMarker.markDone(it) }
+
         // Ответ читается глазами в `Show Result` на телефоне — пусть сразу видно, что записалось:
-        // ночь в минутах и признак «прогон пустой, сон не тронут» (иначе пустота неотличима от нуля).
+        // ночь в минутах, признак «прогон пустой, сон не тронут» (иначе пустота неотличима от
+        // нуля) и минуты дневника по дням — с ними видно и «не добрал порог», и «решено вручную».
         return Response.ok(
             mapOf(
                 "date" to date.toString(),
                 "workouts" to workouts.size,
                 "sleepMinutes" to sleep.minutes,
                 "sleepSkipped" to blankRun,
+                "journalMinutes" to journalMinutes.mapKeys { (day, _) -> day.toString() },
+                "journalDays" to journalDays.map { it.toString() },
             ),
         ).build()
     }

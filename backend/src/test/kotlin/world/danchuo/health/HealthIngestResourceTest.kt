@@ -139,8 +139,35 @@ class HealthIngestResourceTest {
     }
 
     @Test
-    fun `empty segment list is an honest no-sleep night, not a zero`() {
+    fun `empty segment list leaves sleep as it was — a blank run must not wipe a night`() {
         val date = LocalDate.of(2026, 7, 30)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","steps":700,"sleepSegments":[
+                    {"stage":"Core","start":"2026-07-29T23:00:00+03:00","end":"2026-07-30T06:00:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        // Пустой прогон (телефон был заблокирован / окно поиска мимо) — сон не трогаем,
+        // и ответ честно об этом говорит: его читают глазами в Show Result на телефоне
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","steps":9100,"sleepSegments":[]}""")
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+            .body("sleepSkipped", org.hamcrest.Matchers.equalTo(true))
+
+        QuarkusTransaction.requiringNew().call {
+            val day = dayRecordRepository.findByDate(date)!!
+            assertEquals(9100, day.steps) // шаги обновились
+            assertEquals(420, day.sleepMinutes) // ночь на месте
+            assertEquals(420, day.sleepLightMinutes)
+        }
+    }
+
+    @Test
+    fun `empty segment list on a day without sleep leaves it empty`() {
+        val date = LocalDate.of(2026, 7, 31)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":700,"sleepSegments":[]}""")
             .post("/api/ingest/health")
@@ -150,6 +177,27 @@ class HealthIngestResourceTest {
             val day = dayRecordRepository.findByDate(date)!!
             assertEquals(700, day.steps)
             assertNull(day.sleepMinutes)
+        }
+    }
+
+    @Test
+    fun `legacy zero-minute sleep still clears a stored night — the explicit wipe channel`() {
+        val date = LocalDate.of(2026, 8, 1)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","sleepSegments":[
+                    {"stage":"Core","start":"2026-07-31T23:00:00+03:00","end":"2026-08-01T06:00:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","sleepMinutes":0}""")
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            assertNull(dayRecordRepository.findByDate(date)!!.sleepMinutes)
         }
     }
 

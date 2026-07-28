@@ -117,6 +117,11 @@ class HealthIngestResource(
                 ),
             )
         }
+        // Куски пришли, но ночи из них не собралось — это почти всегда пустой прогон (телефон был
+        // заблокирован, окно поиска промахнулось), а не «не спал»: отличить по данным нельзя,
+        // поэтому сон не трогаем. Стереть ночь по-прежнему можно явным `sleepMinutes = 0`.
+        val blankRun = segments != null && sleep.minutes == null
+
         dayRecordService.applyHealth(
             date = date,
             steps = req.steps,
@@ -125,11 +130,19 @@ class HealthIngestResource(
             sleepDeep = sleep.deep,
             sleepLight = sleep.light,
             sleepAwake = sleep.awake,
+            overwriteSleep = !blankRun,
         )
         workoutRepository.replaceForDate(date, workouts)
 
+        // Ответ читается глазами в `Show Result` на телефоне — пусть сразу видно, что записалось:
+        // ночь в минутах и признак «прогон пустой, сон не тронут» (иначе пустота неотличима от нуля).
         return Response.ok(
-            mapOf("date" to date.toString(), "workouts" to workouts.size),
+            mapOf(
+                "date" to date.toString(),
+                "workouts" to workouts.size,
+                "sleepMinutes" to sleep.minutes,
+                "sleepSkipped" to blankRun,
+            ),
         ).build()
     }
 

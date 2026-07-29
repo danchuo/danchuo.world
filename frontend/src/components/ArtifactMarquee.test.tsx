@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactView } from "@/lib/api/types";
-import { ArtifactMarquee, artifactBox } from "./ArtifactMarquee";
+import { ArtifactMarquee } from "./ArtifactMarquee";
+import { artifactBox } from "@/lib/artifactBox";
 
 vi.mock("@/lib/api/client", () => ({ getArtifacts: vi.fn() }));
 import { getArtifacts } from "@/lib/api/client";

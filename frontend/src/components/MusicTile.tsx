@@ -14,6 +14,7 @@ import {
 } from "react";
 import { readCache, writeCache } from "@/lib/api/cache";
 import { getNowPlaying, getRecent } from "@/lib/api/client";
+import { collapseConsecutiveRecent } from "@/lib/recentTracks";
 import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, SourceRef, TrackView } from "@/lib/api/types";
 import { TileShell, type TileState } from "./TileShell";
 import { Icon } from "./Icon";
@@ -47,28 +48,6 @@ const LOADING_W = 340;
 
 /* useLayoutEffect ругается при SSR клиентских компонентов — на сервере падаем на useEffect. */
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
-
-/** Идентичность недавнего трека для схлопывания: url, а без него — название + имена артистов. */
-function recentKey(t: TrackView): string {
-  return t.url ?? `${t.title} | ${t.artists.map((a) => a.name).join(", ")}`;
-}
-
-/**
- * Схлопывает **подряд** идущие одинаковые треки в один ряд (повтор трека, сыгранный сразу
- * после себя же), сохраняя первый — самый свежий — элемент серии (§5.5). Повторы «через один»
- * не трогаем: это отдельные прослушивания. Чистая функция — под юнит-тест.
- */
-export function collapseConsecutiveRecent(recent: RecentTrackView[]): RecentTrackView[] {
-  const out: RecentTrackView[] = [];
-  let prevKey: string | null = null;
-  for (const r of recent) {
-    const key = recentKey(r.track);
-    if (key === prevKey) continue;
-    out.push(r);
-    prevKey = key;
-  }
-  return out;
-}
 
 /** Снимок музыки для кэш-копии (stale-while-revalidate, как у тайлов на [useTileData]). */
 interface MusicSnapshot {

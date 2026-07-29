@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildMosaic, LatestDropTile } from "./LatestDropTile";
+import { LatestDropTile } from "./LatestDropTile";
+import { buildMosaic } from "@/lib/mosaic";
 import type { FilmPhotoView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn(), getDrop: vi.fn() }));

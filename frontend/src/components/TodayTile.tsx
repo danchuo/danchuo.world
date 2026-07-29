@@ -2,9 +2,9 @@ import type { CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
 import type { DisciplineLens } from "@/lib/disciplineLens";
 import { relativeDayRu } from "@/lib/relativeDay";
-import { isWeekend } from "@/lib/weekend";
+import { hasWeekendScene, isWeekend } from "@/lib/weekend";
 import { QuestMap } from "./QuestMap";
-import { WeekendScene, hasWeekendScene } from "./WeekendScene";
+import { WeekendScene } from "./WeekendScene";
 import { TileShell, type TileState } from "./TileShell";
 
 interface TodayTileProps {

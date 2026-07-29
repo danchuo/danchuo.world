@@ -1,7 +1,8 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NowPlayingView, RecentTrackView, TrackView } from "@/lib/api/types";
-import { MusicTile, collapseConsecutiveRecent } from "./MusicTile";
+import { MusicTile } from "./MusicTile";
+import { collapseConsecutiveRecent } from "@/lib/recentTracks";
 
 // Музыка тянет данные сама — мокаем JSON-клиент.
 vi.mock("@/lib/api/client", () => ({

@@ -1,14 +1,5 @@
 import type { CSSProperties } from "react";
 
-/** Waves shipping a weekend rest-scene asset (/assets/waves/<wave>/today/weekend-horizon.png).
- *  Waves without one keep the discipline quest map on weekends (graceful fallback). */
-const WEEKEND_SCENE_WAVES = new Set(["wave-01"]);
-
-/** Does this wave have a weekend rest scene? Gate for swapping the quest map on Sat/Sun. */
-export function hasWeekendScene(wave?: string | null): boolean {
-  return wave != null && WEEKEND_SCENE_WAVES.has(wave);
-}
-
 interface WeekendSceneProps {
   wave: string;
   /** Whether the monster was drunk that day — the one discipline event kept on weekends. */

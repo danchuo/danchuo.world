@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { getArtifacts } from "@/lib/api/client";
+import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
 import type { ArtifactView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { Icon } from "./Icon";
@@ -29,68 +30,6 @@ function formatFirstMentioned(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
   return `${d} ${RU_MONTHS[m - 1]} ${y}`;
-}
-
-/** Поперечный габарит предмета в ленте (px). Меньше прежних 48 — по просьбе владельца. */
-const ARTIFACT_SIZE = 40;
-/** Габарит предмета ВДОЛЬ ленты (px) — страховка от предмета-полосы на всю плитку. */
-const ARTIFACT_LONG = 120;
-/**
- * Оптический вес предмета — сторона квадрата той же площади. Предметы равняются ИМ,
- * а не высотой: при равной высоте широкие очки занимают вдвое больше места, чем почти
- * квадратная мыльница, и читаются крупнее её. Взято так, чтобы ни один из предметов
- * набора не упирался в поперечный потолок ленты.
- */
-const ARTIFACT_PRESENCE = 48;
-/** Со скольких раз «длинная сторона / короткая» предмет считается вытянутым. */
-const ELONGATED = 2;
-
-export interface ArtifactBox {
-  width: number;
-  height: number;
-  /** Повернуть на 90°: длинная сторона предмета смотрит поперёк ленты. */
-  rotate: boolean;
-}
-
-/**
- * Габарит предмета в ленте (DESIGN §7.2). Два правила.
- *
- * **Набок — только с разрешения.** Вытянутый предмет, лежащий поперёк ленты, вырождается
- * в нитку (ракетка ~1:3.8 при поперечном габарите 40px даёт 11px), но класть набок можно
- * не всякий: у очков и мыльницы есть «правильная сторона», у ракетки её нет. Пропорцией
- * это не выводится, поэтому [rotatable] — свойство самого предмета (поле артефакта), по
- * умолчанию `false`: новый предмет показывается ровно так, как нарисован. Куда и насколько
- * поворачивать, по-прежнему решает геометрия картинки, а не запись в БД.
- *
- * **Предметы весят одинаково** — равная площадь, потом обрезка потолками ленты.
- */
-export function artifactBox(
-  ratio: number,
-  vertical: boolean,
-  rotatable: boolean = false,
-  cross: number = ARTIFACT_SIZE,
-  long: number = ARTIFACT_LONG,
-): ArtifactBox {
-  // Картинка ещё не измерилась / битая — считаем предмет квадратным (упрётся в потолок).
-  const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
-  const elongated = r >= ELONGATED || r <= 1 / ELONGATED;
-  const longIsWidth = r >= 1;
-  const rotate = rotatable && elongated && (vertical ? longIsWidth : !longIsWidth);
-  // Экранная пропорция (после поворота стороны меняются местами).
-  const eff = rotate ? 1 / r : r;
-
-  // Равный оптический вес: w·h = presence², w/h = eff.
-  let width = ARTIFACT_PRESENCE * Math.sqrt(eff);
-  let height = ARTIFACT_PRESENCE / Math.sqrt(eff);
-  // Обрезка потолками ленты — пропорционально, поэтому предмет не плющится.
-  const k = Math.min(
-    1,
-    (vertical ? cross : long) / width,
-    (vertical ? long : cross) / height,
-  );
-  width *= k;
-  height *= k;
-  return { width, height, rotate };
 }
 
 /**

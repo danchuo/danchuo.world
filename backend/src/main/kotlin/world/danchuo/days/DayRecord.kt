@@ -63,6 +63,15 @@ class DayRecord {
     @Column(name = "journal_minutes")
     var journalMinutes: Int? = null
 
+    /**
+     * Вклады GitHub за день (PRD §5.4): коммиты + PR + ревью + issue, как их считает сам
+     * календарь профиля. `null` = «день не собирали», `0` = «собрали, вкладов не было» —
+     * различие здесь рабочее, нулевых дней много. Корзину дня назначает GitHub, мы её не
+     * пересчитываем (см. врез про границу суток в §5.4).
+     */
+    @Column(name = "contributions")
+    var contributions: Int? = null
+
     /** Вкус монстра дня (FK → monster_flavor); `null` = «не пил». */
     @Column(name = "monster_flavor_id")
     var monsterFlavorId: Long? = null

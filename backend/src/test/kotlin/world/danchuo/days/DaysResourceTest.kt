@@ -1,8 +1,10 @@
 package world.danchuo.days
 
+import io.quarkus.narayana.jta.QuarkusTransaction
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
+import jakarta.inject.Inject
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.greaterThan
 import org.hamcrest.Matchers.hasItem
@@ -23,6 +25,9 @@ import java.time.ZoneId
  */
 @QuarkusTest
 class DaysResourceTest {
+
+    @Inject
+    lateinit var dayRecords: DayRecordService
 
     private val token = "dev-ingest-token-change-me"
 
@@ -138,6 +143,43 @@ class DaysResourceTest {
             .body("[0].disciplineCounts.stretch", equalTo(1))
             // Активный пункт без отметок присутствует нулём: «не сделал» отличимо от «нет пункта».
             .body("[0].disciplineCounts.journal", equalTo(0))
+    }
+
+    /**
+     * Вклады GitHub (§5.15) доезжают до сводки календаря, и `0` при этом остаётся нулём —
+     * именно на нём держится различие «собрали, вкладов не было» / «не собирали» (`null`).
+     */
+    @Test
+    fun `summary carries github contributions, measured zero included`() {
+        val worked = today.minusDays(9)
+        val idle = today.minusDays(10)
+        QuarkusTransaction.requiringNew().run {
+            dayRecords.applyContributions(worked, 15)
+            dayRecords.applyContributions(idle, 0)
+        }
+
+        given().get("/api/days?from=$idle&to=$worked")
+            .then().statusCode(200)
+            .body("find { it.date == '$worked' }.contributions", equalTo(15))
+            .body("find { it.date == '$idle' }.contributions", equalTo(0))
+    }
+
+    /**
+     * Сбор вкладов **не двигает индикатор свежести** (§8): лампа отвечает на «когда с телефона
+     * приезжали данные», а фоновый сборщик, ходящий наружу сам, держал бы её вечно на «только что».
+     */
+    @Test
+    fun `collecting contributions does not touch the freshness lamp`() {
+        val before = given().get("/api/freshness").then().statusCode(200)
+            .extract().path<String?>("lastIngestAt")
+
+        QuarkusTransaction.requiringNew().run {
+            dayRecords.applyContributions(today.minusDays(11), 7)
+        }
+
+        given().get("/api/freshness")
+            .then().statusCode(200)
+            .body("lastIngestAt", equalTo(before))
     }
 
     @Test

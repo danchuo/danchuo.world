@@ -39,7 +39,8 @@ describe("QuestMap", () => {
     ]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
-    expect(screen.getByTestId("quest-total")).toHaveTextContent("0/7");
+    // Итога дня «N/7» на карте нет (решение владельца): счёт читается самой тропой.
+    expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
   it("остановка done по счётчику ≥ occurrence; иначе pending (два состояния, без missed)", () => {
@@ -56,7 +57,7 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-stop-journal-1").getAttribute("class")).toContain(
       "quest-stop--pending",
     );
-    expect(screen.getByTestId("quest-total")).toHaveTextContent("2/7");
+    expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
   it("частичный прогресс пункта закрывает только первую его остановку", () => {
@@ -109,7 +110,8 @@ describe("QuestMap", () => {
   it("все 7 остановок закрыты — маршрут в perfect-подсветке (монстр не обязателен)", () => {
     render(<QuestMap items={ALL_DONE} monsterDone={false} />);
     expect(screen.getByTestId("quest-map").getAttribute("class")).toContain("quest-map--perfect");
-    expect(screen.getByTestId("quest-total")).toHaveTextContent("7/7");
+    // Празднование живёт классом маршрута, а не цифрой: итога на карте больше нет.
+    expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
   it("детур монстра отражает «пил/не пил»", () => {

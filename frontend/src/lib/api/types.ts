@@ -314,6 +314,11 @@ export interface DaySummary {
   hasData: boolean;
   steps: number | null;
   sleepMinutes: number | null;
+  /**
+   * Вклады GitHub за день (§5.4): `null` = день не собирали, `0` = собрали, вкладов не было.
+   * Чип в статах молчит в обоих случаях, но различие живо в данных — его ждёт линза календаря.
+   */
+  contributions: number | null;
   disciplineDone: number;
   disciplineTotal: number;
   /**

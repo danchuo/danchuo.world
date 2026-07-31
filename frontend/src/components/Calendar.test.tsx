@@ -18,6 +18,7 @@ function buildWindow(today: string = TODAY): DaySummary[] {
     hasData: date <= today && date !== GAP,
     steps: date === today ? 8421 : null,
     sleepMinutes: null,
+    contributions: null,
     disciplineDone: 0,
     disciplineTotal: 5,
     // Растяжка сделана по чётным числам — материал для линзы.

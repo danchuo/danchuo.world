@@ -51,6 +51,10 @@ function summaries(from: string, to: string) {
       hasData: has,
       steps: has ? 5000 + ((i * 311) % 6000) : null,
       sleepMinutes: has ? 400 + ((i * 17) % 80) : null,
+      // Вклады GitHub (§5.15): чип «+N» в статах. Каждый четвёртый день — измеренный ноль
+      // (чип на нём молчит), у «сегодня» значение заведомо ненулевое — иначе эталон не
+      // закреплял бы сам чип.
+      contributions: has ? (iso === TODAY ? 7 : i % 4 === 0 ? 0 : 1 + ((i * 5) % 12)) : null,
       disciplineDone: has ? (i % 6) : 0,
       disciplineTotal: 6,
       monster: has && i % 3 === 0 ? { key: "ultra", name: "Ultra", accentColor: "#6ec1e4" } : null,

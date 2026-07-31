@@ -39,7 +39,8 @@ describe("TodayTile", () => {
     // выбран вкус ⇒ детур монстра закрыт; отдельного блока монстра внизу плитки нет
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "true");
     expect(screen.queryByText("Mango Loco")).not.toBeInTheDocument();
-    expect(screen.getByTestId("quest-total")).toHaveTextContent("2/7");
+    // Итоговой дроби «N/7» в плитке нет — прогресс виден остановками тропы.
+    expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
   it("пустой день: null → «нет данных», детур монстра не закрыт, пометки «не пил» нет", () => {

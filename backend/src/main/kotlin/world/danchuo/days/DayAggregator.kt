@@ -126,6 +126,7 @@ class DayAggregator(
                     hasData = record != null,
                     steps = record?.steps,
                     sleepMinutes = record?.sleepMinutes,
+                    contributions = record?.contributions,
                     disciplineDone = done,
                     disciplineTotal = total,
                     // Ключи — активных пунктов, не только отмеченных: линза должна отличать

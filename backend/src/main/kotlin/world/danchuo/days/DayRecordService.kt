@@ -66,6 +66,19 @@ class DayRecordService(
     }
 
     /**
+     * Записать вклады GitHub за день (PRD §5.4). Зовётся фоновым сборщиком слайса `github`.
+     *
+     * [markFresh] = `false` намеренно: индикатор свежести (§8) отвечает на вопрос «когда с
+     * телефона в последний раз приезжали данные», а сборщик, который сам ходит наружу каждые
+     * полчаса, держал бы лампу вечно на «только что» и обессмыслил бы её.
+     */
+    @CacheInvalidateAll(cacheName = "day-view")
+    fun applyContributions(date: LocalDate, contributions: Int): DayRecord =
+        upsert(date, markFresh = false) { day ->
+            day.contributions = contributions
+        }
+
+    /**
      * Применить ручную мету дня (PRD §5.6): имя дня и вкус монстра (`null` = «не пил»).
      * Сбрасывает кэш проекции дня (`day-view`): `ingest/daily` всегда проходит здесь, поэтому
      * инвалидация покрывает и запись отметок дисциплины того же запроса (стрики пересчитаются).
@@ -83,8 +96,15 @@ class DayRecordService(
     /**
      * Find-or-create за дату с генезис-гардом, применяет [mutate], бьёт `updatedAt`.
      * Внутренний шов: каждый публичный метод выражается через него — инварианты в одном месте.
+     *
+     * [markFresh] — двигать ли отметку свежести. `true` для каналов приёма с телефона (её
+     * они и показывают), `false` для фоновых сборщиков, ходящих наружу по расписанию.
      */
-    private inline fun upsert(date: LocalDate, mutate: (DayRecord) -> Unit): DayRecord {
+    private inline fun upsert(
+        date: LocalDate,
+        markFresh: Boolean = true,
+        mutate: (DayRecord) -> Unit,
+    ): DayRecord {
         if (date.isBefore(mskTime.genesis)) {
             throw DateBeforeGenesisException(date, mskTime.genesis)
         }
@@ -97,9 +117,9 @@ class DayRecordService(
         }
         mutate(day)
         day.updatedAt = now
-        // Свежесть данных (PRD §8): любой успешный приём двигает singleton-отметку. Здесь,
+        // Свежесть данных (PRD §8): успешный ПРИЁМ двигает singleton-отметку. Здесь,
         // в единой точке записи, — значит оба канала (health/дисциплина) учтены без дублей.
-        ingestStatus.markIngest(now)
+        if (markFresh) ingestStatus.markIngest(now)
         return day
     }
 }

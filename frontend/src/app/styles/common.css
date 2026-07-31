@@ -325,12 +325,6 @@ body {
   fill: var(--text-secondary);
   text-anchor: middle;
 }
-.quest-total {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  fill: var(--text-secondary);
-  text-anchor: end;
-}
 .quest-flag { color: var(--accent); }
 
 /* Sprite-режим (волны с растровым набором, DESIGN §12), подача D «крем + кольцо»: диск НЕ
@@ -353,11 +347,12 @@ body {
   fill: color-mix(in srgb, var(--text-tertiary) 50%, transparent);
 }
 
-/* Perfect day (7/7): празднование несёт ИТОГ «N/7» тёплым акцентом. Связи между сделанными
-   шагами остаются ЗЕЛЁНЫМИ (--success) — владелец вернул зелёную стрелку между успешными шагами
-   (perfect больше НЕ перекрашивает done-сегменты в тёплый). Свечение кругов снято ранее. */
+/* Perfect day (7/7): связи между сделанными шагами остаются ЗЕЛЁНЫМИ (--success) — владелец
+   вернул зелёную стрелку между успешными шагами (perfect НЕ перекрашивает done-сегменты в
+   тёплый). Свечение кругов снято ранее, тёплый итог «N/7» — вместе с самим итогом (§4.1).
+   Класс .quest-map--perfect живёт дальше: он остаётся точкой входа для празднования, когда
+   оно найдёт носитель, не спорящий с тропой. */
 .quest-map--perfect .quest-seg--done { opacity: 1; }
-.quest-map--perfect .quest-total { fill: var(--accent-warm); }
 
 /* Декор-слои карты, включаемые СКИНОМ волны (по умолчанию скрыты): облака-подставки
    остановок, солнце/луна краёв маршрута «утро → ночь», дроби прогресса под подписями.
@@ -718,6 +713,26 @@ body {
 }
 .t-stats-axis {
   font-size: clamp(7px, calc(4.25px + 1.245cqw), 18px);
+}
+/* Чип вкладов GitHub (§7.4): на ступень крупнее AVG (11px против 9 на опоре) — цифра дня
+   читается сама, не как приписка к среднему; демпфер §8.1 тот же. */
+.t-stats-git {
+  font-size: clamp(8px, calc(5.5px + 1.61cqw), 23px);
+  gap: clamp(2px, calc(1.5px + 0.44cqw), 6px);
+}
+/* Значок канала слева от цифры. Механика — «скин решает», ровно как у соцсетей: базово
+   одноцветная МАСКА в цвет самого чипа (--accent-code), а волна вправе подменить её своим
+   рисованным спрайтом. Размер — токеном, чтобы волна меняла его, не переписывая правило;
+   он заметно меньше соцсетевого (там иконка — сама ссылка, здесь — подпись к цифре) и
+   вместе со строкой должен уложиться в поясок оси дат (14px), иначе плитка обрежет низ. */
+.git-chip-icon {
+  --git-chip-icon-size: clamp(9px, calc(6px + 1.75cqw), 26px);
+  width: var(--git-chip-icon-size);
+  height: var(--git-chip-icon-size);
+  flex-shrink: 0;
+  background: var(--accent-code);
+  -webkit-mask: url("/assets/social/github.svg") center / contain no-repeat;
+  mask: url("/assets/social/github.svg") center / contain no-repeat;
 }
 /* Колонка читаутов росла бы вместе с кеглем и обрезала его на 58px фикса — тоже доля. */
 .t-stats-col {

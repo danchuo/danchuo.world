@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Вклады GitHub за день (PRD 5.4, реестр I-01) - "активность другого рода" рядом с
+      шагами и сном. Считаем вклады целиком (коммиты + PR + ревью + issue), а не коммиты:
+      при конвенции "одна ветка = один коммит" число коммитов систематически занижает день,
+      в который приземлилась крупная фича.
+
+      Nullable намеренно, и разница здесь работает чаще, чем у остальных статов:
+        null = день не собирали (канал ещё не бегал, день старше окна фрагмента);
+        0    = собрали, вкладов не было - обычный, частый и честный день.
+      Схлопывать одно в другое нельзя: чип на борде молчит в обоих случаях, но линза
+      календаря (I-19) обязана отличать "пусто" от "не мерили".
+    -->
+    <changeSet id="0260-day-contributions" author="danchuo">
+        <addColumn tableName="day_record">
+            <column name="contributions" type="INT"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

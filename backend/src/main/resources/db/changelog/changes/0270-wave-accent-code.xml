@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Цвет канала вкладов GitHub (DESIGN §2.1, §7.4) — чип "+N" в плитке статов.
+
+      Токен назван по РОЛИ (accent-code), а не по цвету: зелёный тут смысловой (это цвет
+      гита), но чужой обеим палитрам. Прямой зелёный литерал в компоненте повторил бы
+      ошибку, за которую с борда сняли цвета вкусов монстра - семь чужих цветов, спорящих
+      с волной. Поэтому оттенок выбирает волна, а компонент про цвет ничего не знает.
+
+        wave-01  тёплый мшистый: рядом с персиком гитхабовский кислотный звенел бы тревогой.
+        wave-02  холодный аркадный: у Obscura один сигнальный оранжевый на весь борд,
+                 вкладам нужен отдельный голос из той же 8-битной палитры.
+
+      UPDATE поверх применённого 0080-theme-seed (checksum сида трогать нельзя); `||`
+      добавляет один ключ, остальной токен-набор волн не меняется. Те же значения лежат
+      CSS-фолбэком в wave-01.css / wave-02.css - борд не белеет, если БД недоступна.
+    -->
+    <changeSet id="0270-wave-01-accent-code" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"accent-code": "#5f9e52"}$J$::jsonb WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens - 'accent-code' WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+
+    <changeSet id="0270-wave-02-accent-code" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"accent-code": "#2fb27a"}$J$::jsonb WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens - 'accent-code' WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -67,6 +67,7 @@ function useSize(): [React.RefObject<HTMLDivElement | null>, { w: number; h: num
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
     const ro = new ResizeObserver(([e]) => {
       const { width, height } = e.contentRect;
       setSize({ w: width, h: height });
@@ -94,6 +95,35 @@ function MetricReadout({ m, value, avg }: { m: Metric; value: number | null; avg
       <div className="t-stats-avg mt-1.5 truncate" style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>
         AVG {avg === null ? "—" : m.valueLabel(avg)}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Чип вкладов GitHub выбранного дня (§7.4, реестр I-01) — «активность другого рода» рядом с
+ * шагами и сном. Живёт в подвале колонки читаутов, ровно в поясе оси дат: слот той же высоты
+ * ([AXIS_H]) уже был пустым, поэтому полосы графиков остаются отцентрованными как были.
+ *
+ * **Молчит на нуле и на «не собирали».** Чип отвечает на один вопрос — «гит сегодня был?»;
+ * нулевых дней много подряд, и ежедневный «+0» стал бы шумом. Различие `0` / `null` при этом
+ * в данных живо (§5.4) — его ждёт линза календаря, а не эта строка.
+ *
+ * **Цвет — токеном `--accent-code`, а не зелёным литералом.** Зелёный тут смысловой (это цвет
+ * гита), но чужой палитре: волна 01 персиковая, Obscura графитовая — ровно за такой спор с
+ * борда сняли цвета вкусов монстра. Оттенок выбирает волна, компонент цвет не знает.
+ */
+function ContributionChip({ count }: { count: number | null }) {
+  if (count === null || count === 0) return null;
+  return (
+    <div
+      data-testid="stats-contributions"
+      className="t-stats-git flex min-w-0 items-center font-medium"
+      style={{ color: "var(--accent-code)", fontFamily: "var(--font-mono)" }}
+      title={`${count} вкладов на GitHub`}
+    >
+      {/* Значок канала — decorative: цифру уже объясняет `title`, дубль сбивал бы скринридер. */}
+      <span className="git-chip-icon" aria-hidden />
+      <span className="truncate">+{count}</span>
     </div>
   );
 }
@@ -207,6 +237,8 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
   const x = (i: number) => PAD_X + (i / denom) * innerW;
 
   const selectedValue = (points: SparkPoint[]) => (selHistoryIdx >= 0 ? points[selHistoryIdx]?.value ?? null : null);
+  // Вклады выбранного дня — чип следует за выбором, как и оба читаута.
+  const selectedContributions = selHistoryIdx >= 0 ? history[selHistoryIdx]?.contributions ?? null : null;
 
   const bands = metrics.map((m, row) => {
     const wPts = visibleWindow(m.points, WINDOW, offset);
@@ -241,8 +273,11 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
             </div>
           ))}
         </div>
-        {/* Пустой поясок под ось дат — чтобы читауты центрировались ровно по полосам графиков. */}
-        <div style={{ height: AXIS_H }} />
+        {/* Поясок под ось дат: держит центровку читаутов по полосам графиков — и заодно даёт
+            чипу вкладов место, не двигая ни одну из них. Пусто, когда гита в этот день не было. */}
+        <div className="flex items-center" style={{ height: AXIS_H }}>
+          <ContributionChip count={selectedContributions} />
+        </div>
       </div>
 
       {/* Графики. */}
@@ -355,8 +390,8 @@ export function StatsTile({ history, selected, state, onRetry, style, className 
     <TileShell
       state={effective}
       onRetry={onRetry}
-      label="активность и сон"
-      ariaLabel="Статы — активность и сон"
+      label="активность"
+      ariaLabel="Статы — активность"
       style={style}
       className={className}
     >

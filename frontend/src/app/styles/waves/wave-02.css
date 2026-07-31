@@ -16,6 +16,10 @@
 :root[data-wave="wave-02"] {
   --font-sans: var(--font-manrope), "Manrope", system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+  /* Свой «код-канал» вместо мшистого персикового: у Obscura один сигнальный оранжевый на
+     весь борд, поэтому вклады берут холодный аркадный зелёный — отдельный голос, но из
+     той же 8-битной палитры (§7.4, токен по роли — см. wave-01.css). */
+  --accent-code: #2fb27a;
 }
 
 /* Небо вместо персикового зерна: мягкий облачный градиент. */
@@ -255,7 +259,4 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 9px;
-}
-:root[data-wave="wave-02"] .quest-total {
-  fill: var(--accent);
 }

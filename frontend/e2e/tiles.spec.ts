@@ -16,7 +16,7 @@ interface Tile {
 /** Десктоп: полный bento (см. layout.ts TILE_LAYOUT). */
 const DESKTOP: Tile[] = [
   { label: "Сегодня", slug: "today" },
-  { label: "Статы — активность и сон", slug: "stats" },
+  { label: "Статы — активность", slug: "stats" },
   { label: "Сон", slug: "sleep" },
   { label: "Календарь", slug: "calendar" },
   { label: "Музыка", slug: "music" },
@@ -34,7 +34,7 @@ const DESKTOP: Tile[] = [
 const MOBILE: Tile[] = [
   { label: "Сегодня", slug: "today" },
   { label: "Календарь (полоса)", slug: "calendar" },
-  { label: "Статы — активность и сон", slug: "stats" },
+  { label: "Статы — активность", slug: "stats" },
   { label: "Сон", slug: "sleep" },
   { label: "Музыка", slug: "music" },
   { label: "Последняя поездка на Велобайке", slug: "ride" },
@@ -67,4 +67,18 @@ test("per-tile visual regression", async ({ page }, testInfo) => {
     await expect.soft(tile, `tile «${t.label}» виден`).toBeVisible();
     await expect.soft(tile).toHaveScreenshot(`${t.slug}.png`);
   }
+});
+
+/**
+ * Чип вкладов GitHub (PRD §5.15) — **проверкой DOM, а не пикселями**: две цифры мелким кеглем
+ * не добирают допуск `maxDiffPixelRatio` эталона плитки, то есть визуальная регрессия его
+ * пропажу не заметит. Дублировать юнит-тесты незачем — здесь важно, что цифра доезжает
+ * до собранного борда через реальную цепочку `days?from=&to=` → плитка статов.
+ */
+test("чип вкладов GitHub доезжает до борда", async ({ page }, testInfo) => {
+  const isMobile = testInfo.project.name === "mobile";
+  const container = page.locator(isMobile ? '[data-testid="stack"]' : '[data-testid="bento"]');
+  const stats = container.locator('section[aria-label="Статы — активность"]').first();
+
+  await expect(stats.getByTestId("stats-contributions")).toHaveText("+7");
 });

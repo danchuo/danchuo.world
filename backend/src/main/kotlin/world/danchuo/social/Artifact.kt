@@ -48,4 +48,12 @@ class Artifact {
 
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0
+
+    /**
+     * Как предмет выглядит — описание для поиска артефактов на кадрах фото-дропов (PRD §5.12).
+     * Каталожное [name] для этого не годится: «YONEX ASTROX 10 WHITE PINK 4U» модель не ищет,
+     * ей нужна «бело-розовая бадминтонная ракетка». `null` ⇒ в ход идёт [name].
+     */
+    @Column(name = "detection_hint")
+    var detectionHint: String? = null
 }

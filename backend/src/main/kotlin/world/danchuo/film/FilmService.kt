@@ -19,6 +19,8 @@ class FilmService(
     private val photos: FilmPhotoRepository,
     private val storage: PhotoStorage,
     private val imaging: FilmImaging,
+    private val detections: ArtifactDetectionRepository,
+    private val artifacts: world.danchuo.social.ArtifactRepository,
 ) {
 
     // ── Загрузка ──
@@ -176,12 +178,21 @@ class FilmService(
     /** Кадры дропа для модалки; `null` — дроп не найден (404). */
     fun publicPhotos(dropId: Long): List<FilmPhotoView>? {
         drops.findById(dropId) ?: return null
-        return photos.listByDrop(dropId).map { p ->
+        val frames = photos.listByDrop(dropId)
+        // Находки и имена артефактов — двумя запросами на весь дроп, а не по кадру (N+1).
+        val boxes = detections.listByPhotos(frames.mapNotNull { it.id }).groupBy { it.photoId }
+        val names = artifacts.listAll().associate { it.id to it.name }
+        return frames.map { p ->
             FilmPhotoView(
                 imageUrl = mediaUrl(p, PhotoVariant.WEB),
                 thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
                 width = p.width,
                 height = p.height,
+                artifacts = boxes[p.id].orEmpty().mapNotNull { d ->
+                    names[d.artifactId]?.let { name ->
+                        ArtifactBoxView(d.artifactId, name, d.x0, d.y0, d.x1, d.y1)
+                    }
+                },
             )
         }
     }

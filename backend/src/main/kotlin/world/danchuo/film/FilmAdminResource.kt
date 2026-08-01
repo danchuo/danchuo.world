@@ -8,6 +8,7 @@ import jakarta.ws.rs.PUT
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import org.eclipse.microprofile.config.inject.ConfigProperty
@@ -30,11 +31,15 @@ import java.time.format.DateTimeParseException
  * - `POST /api/ingest/drops/{id}/orientation` — запустить LLM-проверку поворота кадров (B9).
  * - `GET /api/ingest/drops/{id}/orientation` — статус проверки (поллинг из админки).
  * - `POST /api/ingest/drops/{id}/photos/{photoId}/rotate` — ручной поворот кадра (override).
+ * - `POST /api/ingest/drops/{id}/artifacts` — искать артефакты на кадрах (`?recheck=true`).
+ * - `GET /api/ingest/drops/{id}/artifacts` — статус поиска (поллинг из админки).
+ * - `PUT|DELETE /api/ingest/drops/{id}/photos/{photoId}/artifacts/{artifactId}` — рамка руками.
  */
 @Path("/api/ingest/drops")
 class FilmAdminResource(
     private val film: FilmService,
     private val orientation: FilmOrientationService,
+    private val artifactScan: ArtifactDetectionService,
     @param:ConfigProperty(name = "danchuo.film.orientation.auto-check") private val autoCheck: Boolean,
 ) {
 
@@ -101,6 +106,68 @@ class FilmAdminResource(
         } catch (e: IllegalArgumentException) {
             badRequest(e.message ?: "bad_request")
         }
+    }
+
+    // ── Поиск артефактов на кадрах (§5.12) ──
+
+    /**
+     * Запустить поиск по дропу. `?recheck=true` — пройти и уже проверенные кадры (после правки
+     * описаний артефактов). Прогон только ручной: каждый кадр — обращение к платной модели.
+     */
+    @POST
+    @Path("/{id}/artifacts")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun startArtifactScan(
+        @PathParam("id") id: Long,
+        @QueryParam("recheck") recheck: Boolean = false,
+    ): Response {
+        val status = artifactScan.start(id, recheck) ?: return notFound(id)
+        return Response.status(Response.Status.ACCEPTED).entity(status).build()
+    }
+
+    @GET
+    @Path("/{id}/artifacts")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun artifactScanStatus(@PathParam("id") id: Long): Response {
+        val status = artifactScan.status(id) ?: return notFound(id)
+        return Response.ok(status).build()
+    }
+
+    /** Поставить/подвинуть рамку руками — она становится главнее находки модели. */
+    @PUT
+    @Path("/{id}/photos/{photoId}/artifacts/{artifactId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    fun saveArtifactBox(
+        @PathParam("id") id: Long,
+        @PathParam("photoId") photoId: Long,
+        @PathParam("artifactId") artifactId: Long,
+        body: BoxInput,
+    ): Response = guarded {
+        if (!artifactScan.saveManual(id, photoId, artifactId, body)) notFound(id)
+        else Response.ok(film.adminPhotos(id)).build()
+    }
+
+    /** Убрать рамку (ошибка модели или передумали). */
+    @DELETE
+    @Path("/{id}/photos/{photoId}/artifacts/{artifactId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun deleteArtifactBox(
+        @PathParam("id") id: Long,
+        @PathParam("photoId") photoId: Long,
+        @PathParam("artifactId") artifactId: Long,
+    ): Response = guarded {
+        if (!artifactScan.deleteDetection(id, photoId, artifactId)) notFound(id)
+        else Response.ok(film.adminPhotos(id)).build()
+    }
+
+    private inline fun guarded(block: () -> Response): Response = try {
+        block()
+    } catch (e: IllegalStateException) {
+        Response.status(Response.Status.CONFLICT)
+            .entity(mapOf("error" to (e.message ?: "conflict"))).build()
+    } catch (e: IllegalArgumentException) {
+        badRequest(e.message ?: "bad_request")
     }
 
     @GET

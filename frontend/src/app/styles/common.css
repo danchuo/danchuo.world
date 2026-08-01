@@ -837,6 +837,44 @@ body {
   opacity: 1;
 }
 
+/* Подсветка найденного артефакта на кадре (PhotoDropModal, PRD §5.12). Координаты приходят
+   долями кадра, позицию задаёт инлайновый процент — здесь только вид. Рамка НЕ ловит указатель:
+   кадр под ней остаётся кликабельным, а подпись показывается по наведению на сам кадр. Цвет —
+   токен волны, никаких фиксированных значений (DESIGN §2.1). */
+.artifact-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-base) 45%, transparent);
+}
+
+.artifact-box__label {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  /* Поверх соседних кадров: обёртка кадра больше не клипует, и подпись у нижней рамки
+     выходит за его край — пусть перекрывает соседа, а не обрезается. */
+  z-index: 2;
+}
+
+/* Подпись проступает, когда курсор на кадре — постоянные подписи на 36 кадрах были бы шумом. */
+*:hover > .artifact-box > .artifact-box__label {
+  opacity: 1;
+}
+
 /* Пиксельные пины мини-карты Велобайк (RideMap, DESIGN §7.6/§12): спрайт нарисован в маленькой
    сетке и масштабируется — pixelated держит чёткие пиксели вместо мыла интерполяции. */
 .ride-pin-icon {

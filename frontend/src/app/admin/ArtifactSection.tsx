@@ -61,6 +61,9 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  /** Картинка редактируемой записи — берётся из списка, чтобы форма показывала актуальную. */
+  const editingImage = items.find((a) => a.id === editingId)?.imageUrl ?? null;
+
   const load = useCallback(async () => {
     try {
       setItems(await listArtifactsAdmin(token));
@@ -177,30 +180,39 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
         </button>
       </div>
 
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 8, maxWidth: 560 }}>
-        <input
-          style={fieldStyle}
-          placeholder="название"
-          aria-label="название артефакта"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-        />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={mono}>название</span>
           <input
             style={fieldStyle}
-            type="date"
-            aria-label="дата первого упоминания"
-            value={form.firstMentionedOn}
-            onChange={(e) => setForm({ ...form, firstMentionedOn: e.target.value })}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
-          <input
-            style={{ ...fieldStyle, width: 110 }}
-            type="number"
-            aria-label="порядок в ленте"
-            value={form.sortOrder}
-            onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
-          />
-          <label style={{ ...mono, display: "flex", alignItems: "center", gap: 6 }}>
+        </label>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label style={{ display: "grid", gap: 4 }}>
+            <span style={mono}>первое упоминание</span>
+            <input
+              style={fieldStyle}
+              type="date"
+              value={form.firstMentionedOn}
+              onChange={(e) => setForm({ ...form, firstMentionedOn: e.target.value })}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 4 }}>
+            {/* Без подписи это поле читалось как загадочный счётчик — оно про место в ленте. */}
+            <span style={mono}>порядок в ленте</span>
+            <input
+              style={{ ...fieldStyle, width: 120 }}
+              type="number"
+              value={form.sortOrder}
+              onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
+            />
+          </label>
+          <label
+            style={{ ...mono, display: "flex", alignItems: "center", gap: 6, paddingBottom: 10 }}
+          >
             <input
               type="checkbox"
               checked={form.rotatable}
@@ -209,13 +221,64 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
             можно класть набок
           </label>
         </div>
-        <textarea
-          style={{ ...fieldStyle, minHeight: 56, resize: "vertical" }}
-          placeholder="описание для поиска на кадрах — как предмет выглядит, по-английски"
-          aria-label="описание для поиска"
-          value={form.detectionHint ?? ""}
-          onChange={(e) => setForm({ ...form, detectionHint: e.target.value || null })}
-        />
+
+        {/* Картинку можно привязать только к существующей записи — до сохранения нет id.
+            Поэтому у нового предмета тут подсказка, а не мёртвая кнопка. */}
+        <div style={{ display: "grid", gap: 4 }}>
+          <span style={mono}>картинка</span>
+          {editingId === null ? (
+            <span style={mono}>появится сразу после «завести»</span>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {editingImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={editingImage}
+                  alt=""
+                  width={48}
+                  height={48}
+                  style={{ objectFit: "contain" }}
+                />
+              ) : (
+                <span style={{ ...mono, width: 48, textAlign: "center" }}>—</span>
+              )}
+              <label style={{ ...secondaryBtnStyle, cursor: "pointer" }}>
+                {editingImage ? "заменить" : "загрузить"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onImage(editingId, f);
+                  }}
+                />
+              </label>
+            </div>
+          )}
+        </div>
+
+        <label style={{ display: "grid", gap: 4 }}>
+          <span style={mono}>описание для поиска на кадрах — как предмет выглядит, по-английски</span>
+          <textarea
+            style={{ ...fieldStyle, minHeight: 56, resize: "vertical" }}
+            placeholder="a white and pink badminton racket"
+            value={form.detectionHint ?? ""}
+            onChange={(e) => setForm({ ...form, detectionHint: e.target.value || null })}
+          />
+        </label>
+        {editingId !== null && (
+          <button
+            type="button"
+            style={{ ...secondaryBtnStyle, justifySelf: "start" }}
+            onClick={() => void onSuggest(editingId)}
+            disabled={busy || !editingImage}
+            title={editingImage ? "описать картинку моделью" : "сначала загрузи картинку"}
+          >
+            предложить описание
+          </button>
+        )}
+
         <div style={{ display: "flex", gap: 8 }}>
           <button type="submit" style={btnStyle} disabled={busy || !form.name.trim()}>
             {editingId === null ? "завести" : "сохранить"}

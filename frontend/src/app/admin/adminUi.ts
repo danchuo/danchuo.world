@@ -6,7 +6,7 @@
 
 import type { CSSProperties } from "react";
 import { AdminApiError } from "@/lib/api/admin";
-import type { OrientationStatusView } from "@/lib/api/types";
+import type { ArtifactScanStatusView, OrientationStatusView } from "@/lib/api/types";
 
 export const TOKEN_KEY = "danchuo_admin_token";
 
@@ -135,3 +135,48 @@ export function orientationLabel(s: OrientationStatusView): string {
       return s.total > 0 ? `проверено кадров: ${s.checked}/${s.total}` : "";
   }
 }
+
+/**
+ * Строка статуса поиска артефактов (§5.12). «Пропущено» тут значит «модель не ответила» —
+ * такие кадры остаются непроверенными и подхватятся следующим прогоном, поэтому их видно
+ * отдельно от найденного.
+ */
+export function artifactScanLabel(s: ArtifactScanStatusView): string {
+  switch (s.state) {
+    case "running":
+      return `ищу… ${s.checked + s.skipped}/${s.total}, найдено ${s.found}`;
+    case "done":
+      return `проверено ${s.checked}/${s.total}, найдено ${s.found}${s.skipped ? `, пропущено ${s.skipped}` : ""}`;
+    case "failed":
+      return "поиск упал — смотри логи бэка";
+    default:
+      return s.total > 0 ? `проверено кадров: ${s.checked}/${s.total}, найдено ${s.found}` : "";
+  }
+}
+
+/* Список находок под кадром в админ-сетке (§5.12). Ниже картинки, а не поверх: углы кадра уже
+   заняты поворотом, удалением и бейджем «?», а имён может быть несколько. */
+export const artifactChipListStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 3,
+  listStyle: "none",
+  margin: "3px 0 0",
+  padding: 0,
+};
+
+export const artifactChipStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  maxWidth: "100%",
+  padding: "1px 5px",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--bg-surface)",
+  color: "var(--text-secondary)",
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  lineHeight: 1.6,
+  cursor: "pointer",
+};

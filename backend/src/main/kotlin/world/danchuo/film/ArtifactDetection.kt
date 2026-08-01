@@ -46,7 +46,14 @@ class ArtifactDetection {
     @Column(name = "y1", nullable = false)
     var y1: Double = 0.0
 
-    /** `llm` — нашла модель, `manual` — поставлено руками в админке. */
+    /**
+     * `llm` — нашла модель, `manual` — поставлено руками, `rejected` — владелец снял находку.
+     *
+     * Отклонение **хранится**, а не удаляется: иначе следующий прогон нашёл бы предмет заново
+     * и рамка вернулась бы — снятие руками должно быть решением, а не косметикой. Координаты у
+     * отклонённой строки сохраняются: по ним видно, что именно модель принимала за предмет.
+     * Обратный ход есть — ручная рамка на ту же пару перезаписывает строку в `manual`.
+     */
     @Column(name = "source", nullable = false)
     lateinit var source: String
 
@@ -56,5 +63,6 @@ class ArtifactDetection {
     companion object {
         const val SOURCE_LLM = "llm"
         const val SOURCE_MANUAL = "manual"
+        const val SOURCE_REJECTED = "rejected"
     }
 }

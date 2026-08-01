@@ -95,14 +95,14 @@ class ArtifactDetectionService(
             state = "idle",
             total = all.size,
             checked = all.count { it.artifactsCheckedAt != null },
-            found = detections.listByPhotos(all.mapNotNull { it.id }).size,
+            found = detections.listVisibleByPhotos(all.mapNotNull { it.id }).size,
             skipped = 0,
         )
     }
 
     /** Находки по кадрам дропа: `photoId -> рамки`. Пусто, если ничего не найдено. */
     fun byPhoto(photoIds: Collection<Long>): Map<Long, List<ArtifactDetection>> =
-        detections.listByPhotos(photoIds).groupBy { it.photoId }
+        detections.listVisibleByPhotos(photoIds).groupBy { it.photoId }
 
     /**
      * Поставить/подвинуть рамку руками. Перезаписывает находку модели по той же паре
@@ -135,12 +135,19 @@ class ArtifactDetectionService(
         }
     }
 
-    /** Убрать рамку (ошибка модели или передумали). `false` — такой находки нет. */
+    /**
+     * Снять рамку с кадра (модель ошиблась или передумали).
+     *
+     * Строка не удаляется, а помечается `rejected`: удалённую находку следующий прогон нашёл бы
+     * заново, и рамка вернулась бы — снятие руками должно быть решением, а не косметикой.
+     * Вернуть предмет на кадр можно, поставив рамку руками: она перезапишет строку в `manual`.
+     * `false` — такой находки нет.
+     */
     fun deleteDetection(dropId: Long, photoId: Long, artifactId: Long): Boolean {
         check(!isRunning(dropId)) { "artifacts_running" }
         return tx {
             val row = detections.findOne(photoId, artifactId) ?: return@tx false
-            detections.delete(row)
+            row.source = ArtifactDetection.SOURCE_REJECTED
             true
         }
     }
@@ -184,10 +191,11 @@ class ArtifactDetectionService(
             is DetectionOutcome.Found -> {
                 tx {
                     detections.deleteLlmByPhoto(photoId)
-                    val manual = detections.listByPhoto(photoId).map { it.artifactId }.toSet()
+                    // Остались строки, решённые человеком: ручные рамки и отклонённые находки.
+                    // И те и другие перепрогон не трогает — иначе снятая рамка вернулась бы.
+                    val decided = detections.listByPhoto(photoId).map { it.artifactId }.toSet()
                     outcome.boxes
-                        // Ручная рамка главнее находки модели — её перепрогон не трогает.
-                        .filterNot { it.artifactId in manual }
+                        .filterNot { it.artifactId in decided }
                         .forEach { box ->
                             detections.persist(
                                 ArtifactDetection().apply {

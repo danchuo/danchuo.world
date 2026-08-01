@@ -96,6 +96,57 @@ class ArtifactScanResourceTest {
     }
 
     @Test
+    fun `snatched box stays gone after a rerun`() {
+        // Удаление помечает находку отклонённой, а не стирает строку: иначе следующий прогон
+        // нашёл бы предмет заново и рамка вернулась бы — снятие руками должно быть решением.
+        val dropId = upload()
+        val photoId = firstPhotoId(dropId)
+        val artifactId = anyArtifactId()
+
+        given().header("Authorization", "Bearer $token")
+            .contentType("application/json")
+            .body("""{"x0":0.1,"y0":0.2,"x1":0.6,"y1":0.8}""")
+            .put("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
+            .then().statusCode(200)
+
+        given().header("Authorization", "Bearer $token")
+            .delete("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
+            .then().statusCode(200)
+
+        // Перепрогон по уже проверенным кадрам — отклонённую пару он трогать не должен.
+        given().header("Authorization", "Bearer $token")
+            .post("/api/ingest/drops/$dropId/artifacts?recheck=true")
+            .then().statusCode(202)
+        awaitScanFinished(dropId)
+
+        given().get("/api/drops/$dropId")
+            .then().statusCode(200)
+            .body("[0].artifacts", hasSize<Any>(0))
+    }
+
+    @Test
+    fun `rejected box can be brought back by drawing it again`() {
+        val dropId = upload()
+        val photoId = firstPhotoId(dropId)
+        val artifactId = anyArtifactId()
+        val box = """{"x0":0.1,"y0":0.2,"x1":0.6,"y1":0.8}"""
+
+        given().header("Authorization", "Bearer $token").contentType("application/json").body(box)
+            .put("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
+            .then().statusCode(200)
+        given().header("Authorization", "Bearer $token")
+            .delete("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
+            .then().statusCode(200)
+        given().get("/api/drops/$dropId").then().body("[0].artifacts", hasSize<Any>(0))
+
+        // Ручная рамка на ту же пару перезаписывает отклонение — путь назад есть.
+        given().header("Authorization", "Bearer $token").contentType("application/json").body(box)
+            .put("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
+            .then().statusCode(200)
+        given().get("/api/drops/$dropId").then().body("[0].artifacts", hasSize<Any>(1))
+    }
+
+    @Test
     fun `inverted or out-of-frame box is rejected`() {
         val dropId = upload()
         val photoId = firstPhotoId(dropId)

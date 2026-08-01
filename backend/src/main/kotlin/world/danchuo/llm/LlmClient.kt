@@ -24,6 +24,21 @@ interface LlmClient {
      * originals waste tokens without improving classification.
      */
     fun completeVision(systemPrompt: String, userPrompt: String, image: LlmImage): String?
+
+    /**
+     * Vision completion whose reply is constrained to [jsonSchema] (provider-native structured
+     * output), returning raw JSON text under the same `null` rules as [completeVision].
+     *
+     * Providers that cannot constrain the reply fall back to a plain [completeVision] — callers
+     * must parse defensively either way, since a schema-less model may wrap the JSON in prose or
+     * run out of budget mid-object.
+     */
+    fun completeVisionJson(
+        systemPrompt: String,
+        userPrompt: String,
+        image: LlmImage,
+        jsonSchema: String,
+    ): String? = completeVision(systemPrompt, userPrompt, image)
 }
 
 /** An image passed to the model: raw bytes + IANA media type (e.g. `image/jpeg`). */

@@ -1,6 +1,7 @@
 package world.danchuo.llm
 
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.enterprise.inject.Typed
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.eclipse.microprofile.rest.client.inject.RestClient
 import org.jboss.logging.Logger
@@ -15,6 +16,7 @@ import java.util.Optional
  * provider error is logged and also collapses to `null`; callers degrade gracefully.
  */
 @ApplicationScoped
+@Typed(GroqLlmClient::class)
 class GroqLlmClient(
     @param:RestClient private val api: GroqApi,
     @param:ConfigProperty(name = "danchuo.llm.api-key") private val apiKey: Optional<String>,

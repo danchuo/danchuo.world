@@ -22,6 +22,8 @@ data class SocialLinkView(
  * только в ховер-поповере (§5.8, DESIGN §7.2), не в самой строке.
  */
 data class ArtifactView(
+    /** Нужен, чтобы соотнести предмет с рамкой его подсветки на кадре дропа (PRD §5.12). */
+    val id: Long,
     val name: String,
     val imageUrl: String?,
     val firstMentionedOn: String,
@@ -30,6 +32,6 @@ data class ArtifactView(
 ) {
     companion object {
         fun from(a: Artifact) =
-            ArtifactView(a.name, a.imageUrl, a.firstMentionedOn.toString(), a.rotatable)
+            ArtifactView(a.id!!, a.name, a.imageUrl, a.firstMentionedOn.toString(), a.rotatable)
     }
 }

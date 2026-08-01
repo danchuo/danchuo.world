@@ -29,6 +29,22 @@ data class FilmPhotoView(
     val thumbUrl: String,
     val width: Int?,
     val height: Int?,
+    /** Найденные на кадре артефакты — подсветка в модалке (§5.12). Пусто, если ничего нет. */
+    val artifacts: List<ArtifactBoxView> = emptyList(),
+)
+
+/**
+ * Подсвеченный артефакт: подпись + рамка в **долях кадра** (0..1). Доли, а не пиксели — кадр
+ * рендерится в разных размерах (мозаика, thumb, модалка), и фронт умножает их на свой размер.
+ */
+@RegisterForReflection
+data class ArtifactBoxView(
+    val artifactId: Long,
+    val name: String,
+    val x0: Double,
+    val y0: Double,
+    val x1: Double,
+    val y1: Double,
 )
 
 // ── Админские проекции (за bearer, /api/ingest/drops) ──
@@ -67,6 +83,20 @@ data class OrientationStatusView(
     val checked: Int,
     val rotated: Int,
     /** Пропущено (LLM молчала/битые байты) — останутся непроверенными до следующего прогона. */
+    val skipped: Int,
+)
+
+/** Статус поиска артефактов по дропу (§5.12): поллится админкой, пока `state == "running"`. */
+@RegisterForReflection
+data class ArtifactScanStatusView(
+    /** `idle` (не запускался) / `running` / `done` / `failed`. */
+    val state: String,
+    /** Сколько кадров было к проверке на старте прогона (или всего кадров при `idle`). */
+    val total: Int,
+    val checked: Int,
+    /** Сколько рамок нашла модель за прогон (при `idle` — сколько их лежит в БД). */
+    val found: Int,
+    /** Пропущено (модель молчала/нет байтов) — останутся непроверенными до следующего прогона. */
     val skipped: Int,
 )
 

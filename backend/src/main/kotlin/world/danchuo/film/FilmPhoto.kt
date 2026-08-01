@@ -48,6 +48,14 @@ class FilmPhoto {
     @Column(name = "rotated_at")
     var rotatedAt: Instant? = null
 
+    /**
+     * Кадр проверен на артефакты — повторный прогон его пропускает (как [orientationCheckedAt]).
+     * Сбой провайдера отметку **не** ставит: «не смогли проверить» и «проверили, ничего нет» —
+     * разные состояния, и смешать их значит записать простой Gemini как отсутствие артефактов.
+     */
+    @Column(name = "artifacts_checked_at")
+    var artifactsCheckedAt: Instant? = null
+
     /** Стабильный ключ кадра в [PhotoStorage]: `"{dropId}/{sortOrder}"`. */
     val storageKey: String get() = "$dropId/$sortOrder"
 }

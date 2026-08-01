@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Highlighting artifacts on photo-drop frames (PRD 5.12).
+
+      NB: XML comments cannot contain a double dash, so token and flag names appear here
+      without their usual prefix.
+    -->
+
+    <!--
+      What the detector hands to the model. The catalogue name is a product name
+      ("YONEX ASTROX 10 WHITE PINK 4U") and is useless for searching - the model needs a
+      description of what the thing looks like. Nullable: without a hint the catalogue name
+      is used, which is fine for an artifact whose name already describes it.
+    -->
+    <changeSet id="0280-artifact-detection-hint" author="danchuo">
+        <addColumn tableName="artifact">
+            <column name="detection_hint" type="VARCHAR(500)"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+      Frame was looked at, so a repeat run skips it - the same guard orientation_checked_at
+      gives rotation checks. A provider failure must NOT set this: "we could not check" and
+      "we checked and found nothing" are different states, and merging them would record an
+      outage as an absence of artifacts.
+    -->
+    <changeSet id="0280-photo-artifacts-checked" author="danchuo">
+        <addColumn tableName="film_photo">
+            <column name="artifacts_checked_at" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+      One row per artifact found on one frame. Coordinates are fractions of the frame (0..1),
+      never pixels: the mosaic scales frames freely and thumb differs from web, so fractions
+      survive every rendering path. A rectangle, not a polygon (owner's decision): one shape
+      from both the model and the hand means one renderer and one rotation transform.
+    -->
+    <changeSet id="0280-artifact-detection-table" author="danchuo">
+        <createTable tableName="artifact_detection">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="photo_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="artifact_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="x0" type="DOUBLE PRECISION">
+                <constraints nullable="false"/>
+            </column>
+            <column name="y0" type="DOUBLE PRECISION">
+                <constraints nullable="false"/>
+            </column>
+            <column name="x1" type="DOUBLE PRECISION">
+                <constraints nullable="false"/>
+            </column>
+            <column name="y1" type="DOUBLE PRECISION">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="artifact_detection" indexName="idx_artifact_detection_photo">
+            <column name="photo_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!--
+      Descriptions for the three artifacts that exist today, written from the frames the
+      detector will actually see. The T-shirt one is deliberately specific about the print:
+      the measured failure mode was a false positive on somebody else's white tee.
+    -->
+    <changeSet id="0280-artifact-hints-seed" author="danchuo">
+        <update tableName="artifact">
+            <column name="detection_hint"
+                    value="black wraparound sport sunglasses with dark lenses, Y2K style"/>
+            <where>name = 'Cyber Y2K Sunglasses'</where>
+        </update>
+        <update tableName="artifact">
+            <column name="detection_hint"
+                    value="a white and pink badminton racket"/>
+            <where>name = 'YONEX ASTROX 10 WHITE PINK 4U'</where>
+        </update>
+        <update tableName="artifact">
+            <column name="detection_hint"
+                    value="a small silver compact 35mm film camera"/>
+            <where>name = 'Pentax Espio 738'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

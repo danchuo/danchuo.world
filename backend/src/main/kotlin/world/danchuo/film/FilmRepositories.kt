@@ -23,3 +23,26 @@ class FilmPhotoRepository : PanacheRepository<FilmPhoto> {
     /** Удалить кадры дропа из БД (файлы из хранилища чистит сервис). */
     fun deleteByDrop(dropId: Long): Long = delete("dropId", dropId)
 }
+
+/** Доступ к находкам артефактов на кадрах (PRD §5.12). */
+@ApplicationScoped
+class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
+
+    fun listByPhotos(photoIds: Collection<Long>): List<ArtifactDetection> =
+        if (photoIds.isEmpty()) emptyList() else list("photoId in ?1", photoIds)
+
+    fun listByPhoto(photoId: Long): List<ArtifactDetection> = list("photoId", photoId)
+
+    /**
+     * Снести находки модели по кадру, ручные — оставить: перепрогон не должен затирать правку,
+     * сделанную руками (тот же приоритет, что у ручной галочки над производной).
+     */
+    fun deleteLlmByPhoto(photoId: Long): Long =
+        delete("photoId = ?1 and source = ?2", photoId, ArtifactDetection.SOURCE_LLM)
+
+    fun deleteByPhotos(photoIds: Collection<Long>): Long =
+        if (photoIds.isEmpty()) 0 else delete("photoId in ?1", photoIds)
+
+    fun findOne(photoId: Long, artifactId: Long): ArtifactDetection? =
+        find("photoId = ?1 and artifactId = ?2", photoId, artifactId).firstResult()
+}

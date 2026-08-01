@@ -14,13 +14,21 @@ import {
   deleteDrop,
   deletePhoto,
   getDropPhotosAdmin,
+  deleteArtifactBox,
+  getArtifactScanStatus,
   getOrientationStatus,
   listDropsAdmin,
+  startArtifactScan,
   rotatePhoto,
   setCover,
   startOrientationCheck,
 } from "@/lib/api/admin";
-import type { AdminDropView, AdminPhotoView, OrientationStatusView } from "@/lib/api/types";
+import type {
+  AdminDropView,
+  AdminPhotoView,
+  ArtifactScanStatusView,
+  OrientationStatusView,
+} from "@/lib/api/types";
 
 /**
  * Админка (B1+B2, PRD §5.11–5.12, §9 п.8) — один скроллящийся экран под общим bearer-токеном
@@ -41,6 +49,7 @@ export default function AdminPage() {
   const [selected, setSelected] = useState<AdminDropView | null>(null);
   const [photos, setPhotos] = useState<AdminPhotoView[]>([]);
   const [orientation, setOrientation] = useState<OrientationStatusView | null>(null);
+  const [artifactScan, setArtifactScan] = useState<ArtifactScanStatusView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadDrops = useCallback(async (t: string) => {
@@ -82,9 +91,11 @@ export default function AdminPage() {
       setSelected(drop);
       setPhotos([]);
       setOrientation(null);
+      setArtifactScan(null);
       try {
         setPhotos(await getDropPhotosAdmin(token, drop.id));
         setOrientation(await getOrientationStatus(token, drop.id));
+        setArtifactScan(await getArtifactScanStatus(token, drop.id));
       } catch (err) {
         setError(describe(err));
       }
@@ -110,6 +121,43 @@ export default function AdminPage() {
     }, 2500);
     return () => window.clearInterval(timer);
   }, [token, selected, orientation?.state]);
+
+  // Поллинг поиска артефактов, пока прогон бежит. Отдельный от поворота: прогоны независимы,
+  // и объединять их значило бы дёргать оба эндпоинта, когда бежит только один.
+  useEffect(() => {
+    if (!selected || artifactScan?.state !== "running") return;
+    const dropId = selected.id;
+    const timer = window.setInterval(async () => {
+      try {
+        setArtifactScan(await getArtifactScanStatus(token, dropId));
+      } catch (err) {
+        setError(describe(err));
+      }
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [token, selected, artifactScan?.state]);
+
+  /** Поиск артефактов по кадрам дропа — только по кнопке: платная модель на каждый кадр. */
+  async function onScanArtifacts() {
+    if (!selected) return;
+    setError(null);
+    try {
+      setArtifactScan(await startArtifactScan(token, selected.id));
+    } catch (err) {
+      setError(describe(err));
+    }
+  }
+
+  /** Снять с кадра рамку одного предмета: ручное решение главнее находки модели. */
+  async function onDeleteArtifact(photoId: number, artifactId: number) {
+    if (!selected) return;
+    setError(null);
+    try {
+      setPhotos(await deleteArtifactBox(token, selected.id, photoId, artifactId));
+    } catch (err) {
+      setError(describe(err));
+    }
+  }
 
   async function onCheckOrientation() {
     if (!selected) return;
@@ -204,9 +252,12 @@ export default function AdminPage() {
           photos={photos}
           orientation={orientation}
           onCheckOrientation={onCheckOrientation}
+          artifactScan={artifactScan}
+          onScanArtifacts={onScanArtifacts}
           onSetCover={onSetCover}
           onRotate={onRotate}
           onDeletePhoto={onDeletePhoto}
+          onDeleteArtifact={onDeleteArtifact}
         />
       </div>
 

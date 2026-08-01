@@ -274,3 +274,42 @@ export async function scanArtifactsEverywhere(token: string): Promise<ArtifactSc
   if (!res.ok) return parseError(res);
   return (await res.json()) as ArtifactScanStatusView[];
 }
+
+/** Запустить поиск артефактов по кадрам одного дропа (§5.12). */
+export async function startArtifactScan(
+  token: string,
+  dropId: number,
+): Promise<ArtifactScanStatusView> {
+  const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/artifacts`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ArtifactScanStatusView;
+}
+
+export async function getArtifactScanStatus(
+  token: string,
+  dropId: number,
+): Promise<ArtifactScanStatusView> {
+  const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/artifacts`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ArtifactScanStatusView;
+}
+
+/** Снять рамку артефакта с кадра (ошибка модели или передумали). Возвращает свежие кадры. */
+export async function deleteArtifactBox(
+  token: string,
+  dropId: number,
+  photoId: number,
+  artifactId: number,
+): Promise<AdminPhotoView[]> {
+  const res = await fetch(
+    `${BASE}/api/ingest/drops/${dropId}/photos/${photoId}/artifacts/${artifactId}`,
+    { method: "DELETE", headers: authHeaders(token) },
+  );
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminPhotoView[];
+}

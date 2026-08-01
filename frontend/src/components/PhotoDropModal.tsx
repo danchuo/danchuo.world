@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { getDrop } from "@/lib/api/client";
+import { padHighlight } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
@@ -139,9 +140,10 @@ function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
       style={{
         position: "relative",
         breakInside: "avoid",
-        borderRadius: "var(--radius-sm)",
-        overflow: "hidden",
+        // Клипа тут намеренно НЕТ: подпись артефакта висит под рамкой и у кадра с находкой
+        // внизу обрезалась бы краем обёртки. Скругление углов переехало на сами картинки.
         background: "var(--bg-surface-muted)",
+        borderRadius: "var(--radius-sm)",
         aspectRatio: ratio,
       }}
     >
@@ -153,7 +155,7 @@ function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
         alt=""
         aria-hidden
         className="blur-up-thumb w-full"
-        style={{ display: "block" }}
+        style={{ display: "block", borderRadius: "var(--radius-sm)" }}
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -164,8 +166,35 @@ function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
         onLoad={() => setLoaded(true)}
         className="blur-up-full"
         data-loaded={loaded}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          borderRadius: "var(--radius-sm)",
+        }}
       />
+      {/* Найденные артефакты (§5.12). Позиция — в процентах: координаты приходят долями кадра,
+          и кадр рендерится в разном размере, так что множитель задаёт вёрстка. */}
+      {photo.artifacts?.map((a) => {
+        // Рамка намеренно шире находки: показываем область, а не обводим предмет по краю.
+        const r = padHighlight(a);
+        return (
+        <span
+          key={a.artifactId}
+          className="artifact-box"
+          style={{
+            left: `${r.x0 * 100}%`,
+            top: `${r.y0 * 100}%`,
+            width: `${r.width * 100}%`,
+            height: `${r.height * 100}%`,
+          }}
+        >
+          <span className="artifact-box__label">{a.name}</span>
+        </span>
+        );
+      })}
     </div>
   );
 }

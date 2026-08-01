@@ -31,6 +31,14 @@ class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
     fun listByPhotos(photoIds: Collection<Long>): List<ArtifactDetection> =
         if (photoIds.isEmpty()) emptyList() else list("photoId in ?1", photoIds)
 
+    /** Показываемые находки: отклонённые владельцем не рисуются ни публично, ни в админке. */
+    fun listVisibleByPhotos(photoIds: Collection<Long>): List<ArtifactDetection> =
+        if (photoIds.isEmpty()) {
+            emptyList()
+        } else {
+            list("photoId in ?1 and source <> ?2", photoIds, ArtifactDetection.SOURCE_REJECTED)
+        }
+
     fun listByPhoto(photoId: Long): List<ArtifactDetection> = list("photoId", photoId)
 
     /**

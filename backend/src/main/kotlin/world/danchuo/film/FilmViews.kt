@@ -71,6 +71,8 @@ data class AdminPhotoView(
     val isCover: Boolean,
     /** Итог проверки поворота (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`, `null` — не проверялся. */
     val orientation: String?,
+    /** Что нашлось на кадре (§5.12) — админка показывает список и даёт снять лишнее. */
+    val artifacts: List<ArtifactBoxView> = emptyList(),
 )
 
 /** Статус проверки поворота дропа (B9): поллится админкой, пока `state == "running"`. */

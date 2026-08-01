@@ -66,3 +66,83 @@ describe("PhotoDropModal — blur-up загрузка", () => {
     expect(await screen.findByText("в этом дропе пока нет кадров")).toBeInTheDocument();
   });
 });
+
+describe("PhotoDropModal — подсветка артефактов (§5.12)", () => {
+  it("рисует рамку долями кадра, а не пикселями", async () => {
+    getDropMock.mockResolvedValue([
+      {
+        imageUrl: "/api/film-media/1/0/web",
+        thumbUrl: "/api/film-media/1/0/thumb",
+        width: 300,
+        height: 400,
+        artifacts: [{ artifactId: 7, name: "Ракетка", x0: 0.25, y0: 0.1, x1: 0.75, y1: 0.6 }],
+      },
+    ]);
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
+    );
+
+    await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
+    const box = container.querySelector<HTMLElement>(".artifact-box")!;
+
+    // Доли переживают любой размер рендера — множитель задаёт вёрстка, а не бэкенд.
+    // Рамка шире находки на запас 15% с каждой стороны: 0.25..0.75 ⇒ 0.175..0.825.
+    expect(box.style.left).toBe("17.5%");
+    expect(box.style.top).toBe("2.5%");
+    expect(box.style.width).toBe("65%");
+    expect(box.style.height).toBe("65%");
+  });
+
+  it("подпись артефакта доступна с клавиатуры и скринридеру", async () => {
+    getDropMock.mockResolvedValue([
+      {
+        imageUrl: "/api/film-media/1/0/web",
+        thumbUrl: "/api/film-media/1/0/thumb",
+        width: 300,
+        height: 400,
+        artifacts: [{ artifactId: 7, name: "Ракетка", x0: 0.1, y0: 0.1, x1: 0.5, y1: 0.5 }],
+      },
+    ]);
+
+    render(<PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Ракетка")).toBeInTheDocument());
+  });
+
+  it("кадр без находок не несёт ни одной рамки", async () => {
+    getDropMock.mockResolvedValue([
+      { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 300, height: 400 },
+    ]);
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
+    );
+
+    await waitFor(() => expect(container.querySelector(".blur-up-full")).not.toBeNull());
+    expect(container.querySelectorAll(".artifact-box")).toHaveLength(0);
+  });
+});
+
+describe("PhotoDropModal — подпись артефакта не обрезается", () => {
+  it("обёртка кадра не клипует содержимое", async () => {
+    // Регрессионный якорь: при overflow:hidden подпись у рамки внизу кадра срезалась краем
+    // обёртки. Скругление живёт на самих картинках, обёртка ничего не режет.
+    getDropMock.mockResolvedValue([
+      {
+        imageUrl: "/api/film-media/1/0/web",
+        thumbUrl: "/api/film-media/1/0/thumb",
+        width: 300,
+        height: 400,
+        artifacts: [{ artifactId: 7, name: "Ракетка", x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }],
+      },
+    ]);
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
+    );
+
+    await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
+    const frame = container.querySelector<HTMLElement>(".artifact-box")!.parentElement!;
+    expect(frame.style.overflow).not.toBe("hidden");
+  });
+});

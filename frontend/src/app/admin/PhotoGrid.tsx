@@ -2,12 +2,20 @@
 
 import { Icon } from "@/components/Icon";
 import { mediaUrl } from "@/lib/api/media";
-import type { AdminDropView, AdminPhotoView, OrientationStatusView } from "@/lib/api/types";
+import type {
+  AdminDropView,
+  AdminPhotoView,
+  ArtifactScanStatusView,
+  OrientationStatusView,
+} from "@/lib/api/types";
 import {
   ambiguousBadgeStyle,
+  artifactChipListStyle,
+  artifactChipStyle,
   coverBtnStyle,
   deletePhotoBtnStyle,
   mono,
+  artifactScanLabel,
   orientationLabel,
   rotateBtnStyle,
   secondaryBtnStyle,
@@ -19,9 +27,14 @@ interface PhotoGridProps {
   photos: AdminPhotoView[];
   orientation: OrientationStatusView | null;
   onCheckOrientation: () => void;
+  /** Поиск артефактов по кадрам дропа (§5.12) — только вручную: платная модель на каждый кадр. */
+  artifactScan: ArtifactScanStatusView | null;
+  onScanArtifacts: () => void;
   onSetCover: (photoId: number) => void;
   onRotate: (photoId: number) => void;
   onDeletePhoto: (photoId: number) => void;
+  /** Снять с кадра рамку конкретного предмета — на кадре их может быть несколько. */
+  onDeleteArtifact: (photoId: number, artifactId: number) => void;
 }
 
 /**
@@ -34,11 +47,15 @@ export function PhotoGrid({
   photos,
   orientation,
   onCheckOrientation,
+  artifactScan,
+  onScanArtifacts,
   onSetCover,
   onRotate,
   onDeletePhoto,
+  onDeleteArtifact,
 }: PhotoGridProps) {
   const checking = orientation?.state === "running";
+  const scanning = artifactScan?.state === "running";
 
   return (
     <section className="md:flex-1">
@@ -52,6 +69,12 @@ export function PhotoGrid({
             {checking ? "проверяю поворот…" : "проверить поворот"}
           </button>
           {orientation && <span aria-live="polite" style={mono}>{orientationLabel(orientation)}</span>}
+          <button type="button" onClick={onScanArtifacts} disabled={scanning} style={secondaryBtnStyle}>
+            {scanning ? "ищу артефакты…" : "искать артефакты"}
+          </button>
+          {artifactScan && (
+            <span aria-live="polite" style={mono}>{artifactScanLabel(artifactScan)}</span>
+          )}
         </div>
       )}
       {selected && photos.length === 0 && <p style={mono}>в дропе нет кадров</p>}
@@ -111,6 +134,30 @@ export function PhotoGrid({
                   >
                     <Icon name="help" size={12} />
                   </span>
+                )}
+                {/* Что нашлось на кадре (§5.12). Чипами, а не одной кнопкой: находок может быть
+                    несколько, и выбирать нужную удобнее по имени, чем по порядку. */}
+                {p.artifacts && p.artifacts.length > 0 && (
+                  <ul style={artifactChipListStyle}>
+                    {p.artifacts.map((a) => (
+                      <li key={a.artifactId}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteArtifact(p.id, a.artifactId);
+                          }}
+                          disabled={scanning}
+                          title={`убрать «${a.name}» с этого кадра`}
+                          aria-label={`Убрать ${a.name} с кадра`}
+                          style={artifactChipStyle}
+                        >
+                          <span>{a.name}</span>
+                          <Icon name="close" size={11} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </li>
             ))}

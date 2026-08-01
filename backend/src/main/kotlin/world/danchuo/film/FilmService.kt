@@ -180,7 +180,8 @@ class FilmService(
         drops.findById(dropId) ?: return null
         val frames = photos.listByDrop(dropId)
         // Находки и имена артефактов — двумя запросами на весь дроп, а не по кадру (N+1).
-        val boxes = detections.listByPhotos(frames.mapNotNull { it.id }).groupBy { it.photoId }
+        val boxes = detections.listVisibleByPhotos(frames.mapNotNull { it.id })
+            .groupBy { it.photoId }
         val names = artifacts.listAll().associate { it.id to it.name }
         return frames.map { p ->
             FilmPhotoView(
@@ -204,12 +205,22 @@ class FilmService(
     /** Кадры дропа для админ-сетки выбора обложки; `null` — дроп не найден. */
     fun adminPhotos(dropId: Long): List<AdminPhotoView>? {
         val drop = drops.findById(dropId) ?: return null
-        return photos.listByDrop(dropId).map { p ->
+        val frames = photos.listByDrop(dropId)
+        // Находки нужны админке, чтобы показать, что нашлось на кадре, и дать снять лишнее.
+        val boxes = detections.listVisibleByPhotos(frames.mapNotNull { it.id })
+            .groupBy { it.photoId }
+        val names = artifacts.listAll().associate { it.id to it.name }
+        return frames.map { p ->
             AdminPhotoView(
                 id = p.id!!,
                 thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
                 isCover = p.id == drop.coverPhotoId,
                 orientation = p.orientationApplied,
+                artifacts = boxes[p.id].orEmpty().mapNotNull { d ->
+                    names[d.artifactId]?.let { name ->
+                        ArtifactBoxView(d.artifactId, name, d.x0, d.y0, d.x1, d.y1)
+                    }
+                },
             )
         }
     }

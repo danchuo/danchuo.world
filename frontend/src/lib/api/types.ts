@@ -183,6 +183,22 @@ export interface FilmPhotoView {
   thumbUrl: string;
   width: number | null;
   height: number | null;
+  /** Найденные на кадре артефакты — подсветка в модалке (§5.12). Пусто/нет — рамок нет. */
+  artifacts?: ArtifactBoxView[];
+}
+
+/**
+ * Рамка подсветки артефакта на кадре. Координаты — **доли кадра** (0..1), а не пиксели:
+ * один и тот же кадр рендерится в разных размерах (мозаика, thumb, модалка), и множитель
+ * задаёт уже вёрстка.
+ */
+export interface ArtifactBoxView {
+  artifactId: number;
+  name: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
 }
 
 // ── Админ фото-дропов (`/api/ingest/drops*`, за bearer; зеркало Kotlin-DTO film) ──
@@ -202,6 +218,8 @@ export interface AdminPhotoView {
   id: number;
   thumbUrl: string;
   isCover: boolean;
+  /** Что нашлось на кадре (§5.12) — админка даёт снять лишнее. */
+  artifacts?: ArtifactBoxView[];
   /** Итог проверки поворота (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`; `null` — не проверялся. */
   orientation: string | null;
 }

@@ -22,6 +22,8 @@ class GroqLlmClient(
     @param:ConfigProperty(name = "danchuo.llm.api-key") private val apiKey: Optional<String>,
     @param:ConfigProperty(name = "danchuo.llm.model") private val model: String,
     @param:ConfigProperty(name = "danchuo.llm.vision-model") private val visionModel: String,
+    @param:ConfigProperty(name = "danchuo.llm.reasoning-effort")
+    private val reasoningEffort: Optional<String>,
 ) : LlmClient {
 
     private val log: Logger = Logger.getLogger(GroqLlmClient::class.java)
@@ -65,11 +67,25 @@ class GroqLlmClient(
             return null
         }
         return try {
-            api.chat("Bearer $key", ChatRequest(model = model, messages = messages, temperature = temperature))
-                .choices.firstOrNull()?.message?.content?.trim()?.ifBlank { null }
+            api.chat(
+                "Bearer $key",
+                ChatRequest(
+                    model = model,
+                    messages = messages,
+                    temperature = temperature,
+                    reasoningEffort = reasoningEffort.map { it.trim() }.filter { it.isNotEmpty() }
+                        .orElse(null),
+                ),
+            ).choices.firstOrNull()?.message?.content
+                // Подстраховка: если модель всё же «подумала вслух», ответ идёт после блока.
+                ?.replace(THINK_BLOCK, "")?.trim()?.ifBlank { null }
         } catch (e: Exception) {
             log.error("Groq request failed", e)
             null
         }
+    }
+
+    private companion object {
+        val THINK_BLOCK = Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL)
     }
 }

@@ -329,3 +329,33 @@ export interface DaySummary {
   disciplineCounts?: Record<string, number>;
   monster: MonsterMark | null;
 }
+
+/** Артефакт в админке (`/api/ingest/artifacts`) — все поля формы (PRD §5.8). */
+export interface AdminArtifactView {
+  id: number;
+  name: string;
+  imageUrl: string | null;
+  firstMentionedOn: string;
+  rotatable: boolean;
+  sortOrder: number;
+  /** Как предмет выглядит — описание для поиска на кадрах дропов (§5.12). */
+  detectionHint: string | null;
+}
+
+/** Тело формы заведения/правки артефакта. */
+export interface ArtifactInput {
+  name: string;
+  firstMentionedOn: string;
+  rotatable: boolean;
+  sortOrder: number;
+  detectionHint: string | null;
+}
+
+/** Статус поиска артефактов по дропу (§5.12) — поллится, пока `state === "running"`. */
+export interface ArtifactScanStatusView {
+  state: "idle" | "running" | "done" | "failed";
+  total: number;
+  checked: number;
+  found: number;
+  skipped: number;
+}

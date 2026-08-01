@@ -72,7 +72,7 @@ group = "world.danchuo"
 // 1.4.2 — GET /api/rides отдаёт поездки текущего года (фолбэк — последняя, если года пустой); лимит 67 снят.
 // 1.7.1 — сон в 0 минут при ingest'е нормализуется в «сна не было» (null + null-фазы).
 // 1.7.2 — перекомпоновка layout волны 02 «Obscura» (миграция 0170, данные): «аркадный автомат в небе».
-version = "1.13.0"
+version = "1.14.0"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {
@@ -103,4 +103,11 @@ kotlin {
 
 tasks.test {
     systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
+    // Tests must never call an external model. Quarkus reads backend/.env at a HIGHER precedence
+    // than application.properties (even the %test profile), so a developer's real keys would leak
+    // into the suite: it would spend paid quota and its results would depend on the network.
+    // Blank the environment variables the .env feeds, not the properties themselves — env beats
+    // .env, while tests that stub a provider still set `danchuo.*.api-key` directly and win.
+    environment("DANCHUO_LLM_API_KEY", "")
+    environment("GEMINI_API_KEY", "")
 }

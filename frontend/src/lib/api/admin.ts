@@ -1,4 +1,4 @@
-import type { AdminDropView, AdminPhotoView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
+import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanStatusView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /**
  * Админ-клиент фото-дропов (B1, PRD §5.12, §9 п.8) — `/api/ingest/drops*` за статическим bearer
@@ -191,4 +191,86 @@ export async function getHeatmap(
   });
   if (!res.ok) return parseError(res);
   return (await res.json()) as HeatmapView;
+}
+
+// ── Артефакты (PRD §5.8): раньше новый предмет означал миграцию, теперь — форма ──
+
+export async function listArtifactsAdmin(token: string): Promise<AdminArtifactView[]> {
+  const res = await fetch(`${BASE}/api/ingest/artifacts`, { headers: authHeaders(token) });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminArtifactView[];
+}
+
+export async function createArtifact(
+  token: string,
+  input: ArtifactInput,
+): Promise<AdminArtifactView> {
+  const res = await fetch(`${BASE}/api/ingest/artifacts`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminArtifactView;
+}
+
+export async function updateArtifact(
+  token: string,
+  id: number,
+  input: ArtifactInput,
+): Promise<AdminArtifactView> {
+  const res = await fetch(`${BASE}/api/ingest/artifacts/${id}`, {
+    method: "PUT",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminArtifactView;
+}
+
+export async function deleteArtifact(token: string, id: number): Promise<void> {
+  const res = await fetch(`${BASE}/api/ingest/artifacts/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+}
+
+export async function uploadArtifactImage(
+  token: string,
+  id: number,
+  image: File,
+): Promise<AdminArtifactView> {
+  const form = new FormData();
+  form.append("image", image);
+  const res = await fetch(`${BASE}/api/ingest/artifacts/${id}/image`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: form,
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminArtifactView;
+}
+
+/**
+ * Попросить дешёвую модель описать предмет по его картинке. `null` — модель не настроена или
+ * промолчала: это штатный ответ, поле дозаполняется руками.
+ */
+export async function suggestArtifactHint(token: string, id: number): Promise<string | null> {
+  const res = await fetch(`${BASE}/api/ingest/artifacts/${id}/hint`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return ((await res.json()) as { hint: string | null }).hint;
+}
+
+/** Искать артефакты на кадрах ВСЕХ дропов — путь «завели предмет, ищем в старом архиве». */
+export async function scanArtifactsEverywhere(token: string): Promise<ArtifactScanStatusView[]> {
+  const res = await fetch(`${BASE}/api/ingest/artifact-scan`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ArtifactScanStatusView[];
 }

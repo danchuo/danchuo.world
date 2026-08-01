@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { WaveSwitcher } from "@/components/WaveSwitcher";
 import { AdminLogin } from "./AdminLogin";
+import { ArtifactSection } from "./ArtifactSection";
 import { BikeImportSection } from "./BikeImportSection";
 import { DropList } from "./DropList";
 import { DropUploadForm } from "./DropUploadForm";
@@ -24,7 +25,8 @@ import type { AdminDropView, AdminPhotoView, OrientationStatusView } from "@/lib
 /**
  * Админка (B1+B2, PRD §5.11–5.12, §9 п.8) — один скроллящийся экран под общим bearer-токеном
  * ingest: сверху фото-дропы (zip ≈36 кадров с названием/датой, клик по кадру — обложка,
- * удаление), ниже — импорт поездок Велобайка и секция хитмапы кликов [HeatmapSection].
+ * удаление), ниже — артефакты [ArtifactSection], импорт поездок Велобайка и секция хитмапы
+ * кликов [HeatmapSection].
  * Токен хранится в sessionStorage. Дизайн следует волнам (токены из корневого layout,
  * свитчер в шапке). Не SSR/SEO.
  *
@@ -207,6 +209,10 @@ export default function AdminPage() {
           onDeletePhoto={onDeletePhoto}
         />
       </div>
+
+      {/* Артефакты (§5.8): раньше новый предмет означал миграцию, теперь — форма. */}
+      <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+      <ArtifactSection token={token} onError={setError} />
 
       <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
       <BikeImportSection token={token} onError={setError} />

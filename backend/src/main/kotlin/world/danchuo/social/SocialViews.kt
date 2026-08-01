@@ -1,5 +1,7 @@
 package world.danchuo.social
 
+import io.quarkus.runtime.annotations.RegisterForReflection
+
 /**
  * Публичные read-проекции слайса social (PRD §5.8). `GET /api/social-links` и
  * `GET /api/artifacts` отдают эти DTO; фронт рисует блок ссылок и marquee артефактов.
@@ -21,6 +23,18 @@ data class SocialLinkView(
  * Артефакт marquee. [firstMentionedOn] — ISO-строка (`YYYY-MM-DD`); в UI показывается
  * только в ховер-поповере (§5.8, DESIGN §7.2), не в самой строке.
  */
+/** Артефакт в админке: все поля формы, включая описание для поиска на кадрах (§5.12). */
+@RegisterForReflection
+data class AdminArtifactView(
+    val id: Long,
+    val name: String,
+    val imageUrl: String?,
+    val firstMentionedOn: String,
+    val rotatable: Boolean,
+    val sortOrder: Int,
+    val detectionHint: String?,
+)
+
 data class ArtifactView(
     /** Нужен, чтобы соотнести предмет с рамкой его подсветки на кадре дропа (PRD §5.12). */
     val id: Long,

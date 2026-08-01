@@ -20,7 +20,7 @@ class GroqLlmClientUnitTest {
     }
 
     private fun client(api: GroqApi, key: Optional<String>) =
-        GroqLlmClient(api, key, "text-model", "vision-model")
+        GroqLlmClient(api, key, "text-model", "vision-model", Optional.of("none"))
 
     @Test
     fun `blank api-key skips the external call and returns null`() {

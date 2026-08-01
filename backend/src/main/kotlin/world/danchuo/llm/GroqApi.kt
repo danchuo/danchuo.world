@@ -1,6 +1,7 @@
 package world.danchuo.llm
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.quarkus.runtime.annotations.RegisterForReflection
 import jakarta.ws.rs.Consumes
@@ -29,10 +30,18 @@ interface GroqApi {
     ): ChatResponse
 }
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChatRequest(
     val model: String,
     val messages: List<ChatMessage>,
     val temperature: Double,
+    /**
+     * Гасит «размышления вслух» у reasoning-моделей (`none`). Для qwen3.6 это обязательно:
+     * иначе она тратит весь лимит ответа на `<think>` и обрывается, не дойдя до полезной части —
+     * снаружи это выглядит как «модель не смогла», а не как обрезанный ответ. Заодно вдвое
+     * дешевле. Модели, не знающие параметра, отвергают запрос — поэтому он выключаем конфигом.
+     */
+    @get:JsonProperty("reasoning_effort") val reasoningEffort: String? = null,
 )
 
 /**

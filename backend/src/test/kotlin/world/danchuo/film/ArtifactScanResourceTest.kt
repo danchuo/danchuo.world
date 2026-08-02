@@ -167,6 +167,44 @@ class ArtifactScanResourceTest {
             .then().statusCode(400)
     }
 
+    @Test
+    fun `archive scan reports a summary and can be scoped to one artifact`() {
+        val dropId = upload()
+        val artifactId = anyArtifactId()
+
+        // Прогон ради одного предмета: сводка называет его, чтобы в админке было видно,
+        // что именно сейчас ищется — на длинном прогоне это единственный признак.
+        given().header("Authorization", "Bearer $token")
+            .post("/api/ingest/artifact-scan?artifactId=$artifactId")
+            .then().statusCode(202)
+            .body("artifactName", org.hamcrest.Matchers.notNullValue())
+
+        awaitScanFinished(dropId)
+
+        given().header("Authorization", "Bearer $token")
+            .get("/api/ingest/artifact-scan")
+            .then().statusCode(200)
+            .body("drops", org.hamcrest.Matchers.greaterThan(0))
+            // Модель молчит ⇒ ни одного проверенного кадра, все в пропущенных.
+            .body("checked", equalTo(0))
+    }
+
+    @Test
+    fun `scan scoped to a missing artifact is a 404, not a silent full scan`() {
+        given().header("Authorization", "Bearer $token")
+            .post("/api/ingest/artifact-scan?artifactId=99999")
+            .then().statusCode(404)
+    }
+
+    @Test
+    fun `cancelling with nothing running is a conflict, not a false success`() {
+        // Отменять нечего — ответ обязан это сказать, иначе кнопка «остановить» врала бы
+        // об остановке прогона, который на самом деле уже кончился.
+        given().header("Authorization", "Bearer $token")
+            .delete("/api/ingest/artifact-scan")
+            .then().statusCode(409)
+    }
+
     // ── Помощники ──
 
     private fun awaitScanFinished(dropId: Long) {
@@ -174,7 +212,8 @@ class ArtifactScanResourceTest {
             val state = given().header("Authorization", "Bearer $token")
                 .get("/api/ingest/drops/$dropId/artifacts")
                 .then().extract().jsonPath().getString("state")
-            if (state != "running") return
+            // `queued` — дроп ещё ждёт очереди: единственный воркер может разбирать соседний.
+            if (state != "running" && state != "queued") return
             Thread.sleep(100)
         }
     }

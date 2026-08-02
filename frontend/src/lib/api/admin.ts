@@ -1,4 +1,4 @@
-import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanStatusView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
+import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /**
  * Админ-клиент фото-дропов (B1, PRD §5.12, §9 п.8) — `/api/ingest/drops*` за статическим bearer
@@ -266,13 +266,38 @@ export async function suggestArtifactHint(token: string, id: number): Promise<st
 }
 
 /** Искать артефакты на кадрах ВСЕХ дропов — путь «завели предмет, ищем в старом архиве». */
-export async function scanArtifactsEverywhere(token: string): Promise<ArtifactScanStatusView[]> {
-  const res = await fetch(`${BASE}/api/ingest/artifact-scan`, {
+/**
+ * Прогон по всему архиву. [artifactId] сужает его до одного предмета — так новый артефакт
+ * ищется, не задевая находки остальных. Дешевле от этого не становится: вызов один на кадр.
+ */
+export async function scanArtifactsEverywhere(
+  token: string,
+  artifactId?: number,
+): Promise<ArtifactScanRunView> {
+  const query = artifactId === undefined ? "" : `?artifactId=${artifactId}`;
+  const res = await fetch(`${BASE}/api/ingest/artifact-scan${query}`, {
     method: "POST",
     headers: authHeaders(token),
   });
   if (!res.ok) return parseError(res);
-  return (await res.json()) as ArtifactScanStatusView[];
+  return (await res.json()) as ArtifactScanRunView;
+}
+
+/** Сводка по прогону архива — поллится, пока `state === "running"`. */
+export async function getArtifactScanRun(token: string): Promise<ArtifactScanRunView> {
+  const res = await fetch(`${BASE}/api/ingest/artifact-scan`, { headers: authHeaders(token) });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ArtifactScanRunView;
+}
+
+/** Остановить прогон архива. 409, если останавливать нечего. */
+export async function cancelArtifactScan(token: string): Promise<ArtifactScanRunView> {
+  const res = await fetch(`${BASE}/api/ingest/artifact-scan`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ArtifactScanRunView;
 }
 
 /** Запустить поиск артефактов по кадрам одного дропа (§5.12). */

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PhotoDropModal } from "./PhotoDropModal";
+import { padHighlight } from "@/lib/artifactHighlight";
 
 vi.mock("@/lib/api/client", () => ({ getDrop: vi.fn() }));
 import { getDrop } from "@/lib/api/client";
@@ -124,18 +125,22 @@ describe("PhotoDropModal — подсветка артефактов (§5.12)", 
 });
 
 describe("PhotoDropModal — подпись артефакта не обрезается", () => {
-  it("обёртка кадра не клипует содержимое", async () => {
-    // Регрессионный якорь: при overflow:hidden подпись у рамки внизу кадра срезалась краем
-    // обёртки. Скругление живёт на самих картинках, обёртка ничего не режет.
-    getDropMock.mockResolvedValue([
-      {
-        imageUrl: "/api/film-media/1/0/web",
-        thumbUrl: "/api/film-media/1/0/thumb",
-        width: 300,
-        height: 400,
-        artifacts: [{ artifactId: 7, name: "Ракетка", x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }],
-      },
-    ]);
+  const frameWith = (box: { x0: number; y0: number; x1: number; y1: number }) => [
+    {
+      imageUrl: "/api/film-media/1/0/web",
+      thumbUrl: "/api/film-media/1/0/thumb",
+      width: 300,
+      height: 400,
+      artifacts: [{ artifactId: 7, name: "Ракетка", ...box }],
+    },
+  ];
+
+  it("обёртка кадра клипует — иначе размытие thumb светится за краем", async () => {
+    // Регрессионный якорь на два бага сразу. Клип снимали, чтобы подпись под рамкой не
+    // срезалась краем кадра, — и получили ореол: filter: blur() расплывается ЗА границы
+    // элемента, так что кадры засветились по всему периметру. Клип вернули, а подпись
+    // перенесли внутрь рамки (кейс ниже) — там ей обрезаться не обо что.
+    getDropMock.mockResolvedValue(frameWith({ x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }));
 
     const { container } = render(
       <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
@@ -143,6 +148,39 @@ describe("PhotoDropModal — подпись артефакта не обреза
 
     await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
     const frame = container.querySelector<HTMLElement>(".artifact-box")!.parentElement!;
-    expect(frame.style.overflow).not.toBe("hidden");
+    expect(frame.style.overflow).toBe("hidden");
+  });
+
+  it("подпись лежит внутри рамки, а не под ней", async () => {
+    getDropMock.mockResolvedValue(frameWith({ x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }));
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
+    );
+
+    await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
+    const label = container.querySelector<HTMLElement>(".artifact-box__label")!;
+    expect(label.parentElement).toHaveClass("artifact-box");
+  });
+
+  it("подпись длиннее рамки упирается в правый край кадра, но не заходит за него", async () => {
+    // Узкая рамка у правого края — худший случай: подписи тесно внутри рамки, и без потолка
+    // она вылезла бы за кадр (а кадр теперь клипует, значит подпись бы срезало).
+    const raw = { x0: 0.65, y0: 0.1, x1: 0.85, y1: 0.4 };
+    getDropMock.mockResolvedValue(frameWith(raw));
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
+    );
+
+    await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
+    const box = container.querySelector<HTMLElement>(".artifact-box")!;
+    const r = padHighlight({ artifactId: 7, name: "Ракетка", ...raw });
+    const labelMax = parseFloat(box.style.getPropertyValue("--label-max")) / 100;
+
+    // Потолок задан в долях ШИРИНЫ РАМКИ, поэтому он больше 100% — подпись вправе выйти
+    // за рамку. Проверяем то, ради чего он введён: во всю ширину она встаёт ровно в край кадра.
+    expect(labelMax).toBeGreaterThan(1);
+    expect(r.x0 + labelMax * r.width).toBeCloseTo(1, 5);
   });
 });

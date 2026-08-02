@@ -48,6 +48,19 @@ class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
     fun deleteLlmByPhoto(photoId: Long): Long =
         delete("photoId = ?1 and source = ?2", photoId, ArtifactDetection.SOURCE_LLM)
 
+    /**
+     * То же, но по одному предмету — прогон, заведённый ради нового артефакта, не должен
+     * трогать находки остальных: модель недетерминирована, и общий снос стёр бы удачные рамки
+     * соседних предметов ради того, что человек не просил перепроверять.
+     */
+    fun deleteLlmByPhotoAndArtifact(photoId: Long, artifactId: Long): Long =
+        delete(
+            "photoId = ?1 and artifactId = ?2 and source = ?3",
+            photoId,
+            artifactId,
+            ArtifactDetection.SOURCE_LLM,
+        )
+
     fun deleteByPhotos(photoIds: Collection<Long>): Long =
         if (photoIds.isEmpty()) 0 else delete("photoId in ?1", photoIds)
 

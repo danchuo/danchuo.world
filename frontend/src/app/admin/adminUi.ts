@@ -6,7 +6,7 @@
 
 import type { CSSProperties } from "react";
 import { AdminApiError } from "@/lib/api/admin";
-import type { ArtifactScanStatusView, OrientationStatusView } from "@/lib/api/types";
+import type { ArtifactScanRunView, ArtifactScanStatusView, OrientationStatusView } from "@/lib/api/types";
 
 export const TOKEN_KEY = "danchuo_admin_token";
 
@@ -151,6 +151,36 @@ export function artifactScanLabel(s: ArtifactScanStatusView): string {
       return "поиск упал — смотри логи бэка";
     default:
       return s.total > 0 ? `проверено кадров: ${s.checked}/${s.total}, найдено ${s.found}` : "";
+  }
+}
+
+/**
+ * Строка сводки по прогону всего архива (§5.12).
+ *
+ * Отдельно от [artifactScanLabel] называет **предмет**, ради которого прогон затеян, и
+ * **дропы** — на прогоне в двести кадров счётчик кадров движется незаметно, а «дроп 2 из 6»
+ * читается сразу.
+ *
+ * Всё пропущено и ничего не найдено — не «на кадрах пусто», а молчащий провайдер (нет ключа,
+ * не тот провайдер в `DANCHUO_LLM_PROVIDER`, рейт-лимит). Разница видна только тут, поэтому
+ * строка говорит об этом прямо: иначе прогон выглядит успешным и пустым одновременно.
+ */
+export function artifactRunLabel(r: ArtifactScanRunView): string {
+  const scope = r.artifactName ? `«${r.artifactName}»` : "все предметы";
+  const done = r.checked + r.skipped;
+  switch (r.state) {
+    case "running":
+      return `ищу ${scope}: дроп ${Math.min(r.dropsDone + 1, r.drops)} из ${r.drops}, кадров ${done}/${r.total}, найдено ${r.found}`;
+    case "cancelled":
+      return `прогон остановлен на ${done}/${r.total}, найдено ${r.found}`;
+    case "failed":
+      return "прогон упал — смотри логи бэка";
+    case "done":
+      return r.skipped > 0 && r.found === 0
+        ? `прогон кончился, но все ${r.skipped} кадров пропущены — модель не отвечала: проверь ключ и DANCHUO_LLM_PROVIDER`
+        : `прогон кончился: проверено ${r.checked}/${r.total}, найдено ${r.found}${r.skipped ? `, пропущено ${r.skipped}` : ""}`;
+    default:
+      return "";
   }
 }
 

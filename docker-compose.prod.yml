@@ -71,9 +71,16 @@ services:
       DANCHUO_BIKE_TOKEN_KEY: ${DANCHUO_BIKE_TOKEN_KEY:-}
       DANCHUO_BIKE_POLL_ENABLED: ${DANCHUO_BIKE_POLL_ENABLED:-false}
 
-      # LLM / Groq (B9 photo-drop orientation): optional — without the key the llm
-      # slice is a silent no-op and orientation checks mark frames as skipped.
+      # LLM: optional — without a key the llm slice is a silent no-op and every check
+      # marks frames as skipped (never as "nothing found", see PRD 5.12).
+      #
+      # Two providers live side by side. Groq is the cheap one and drives orientation
+      # checks (B9) and the artifact-hint suggestion. Gemini is the only one whose box
+      # coordinates land on target, so artifact detection needs it — and needs the
+      # provider switch flipped, otherwise every frame goes to Groq and 429s.
       DANCHUO_LLM_API_KEY: ${DANCHUO_LLM_API_KEY:-}
+      DANCHUO_LLM_PROVIDER: ${DANCHUO_LLM_PROVIDER:-groq}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       # Loopback only: deploy health gate + owner's ssh tunnel to /q/*. 8081 because
       # proxemics owns loopback 8080. Public traffic reaches the API via caddy /api/*.

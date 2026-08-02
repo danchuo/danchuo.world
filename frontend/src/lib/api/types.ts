@@ -371,9 +371,23 @@ export interface ArtifactInput {
 
 /** Статус поиска артефактов по дропу (§5.12) — поллится, пока `state === "running"`. */
 export interface ArtifactScanStatusView {
-  state: "idle" | "running" | "done" | "failed";
+  state: "idle" | "queued" | "running" | "done" | "failed" | "cancelled";
   total: number;
   checked: number;
   found: number;
   skipped: number;
+}
+
+/** Сводка по прогону, запущенному разом по всем дропам (§5.12). */
+export interface ArtifactScanRunView {
+  state: "idle" | "running" | "done" | "failed" | "cancelled";
+  total: number;
+  checked: number;
+  found: number;
+  /** Устойчиво большой при нулевых находках — обычно молчит провайдер, а не пусты кадры. */
+  skipped: number;
+  drops: number;
+  dropsDone: number;
+  /** Имя предмета, если прогон заведён ради одного; `null` — искали весь каталог. */
+  artifactName: string | null;
 }

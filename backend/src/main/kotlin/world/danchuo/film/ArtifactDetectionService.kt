@@ -42,6 +42,13 @@ class ArtifactDetectionService(
 
     private val jobs = ConcurrentHashMap<Long, DetectionJob>()
 
+    /**
+     * Текущий прогон «по всему архиву»: очередь дропов уходит в исполнитель разом, поэтому
+     * сводку и отмену надо держать поверх отдельных дропов, а не внутри них.
+     */
+    @Volatile
+    private var archiveRun: ScanRun? = null
+
     @PreDestroy
     fun shutdown() {
         executor.shutdownNow()
@@ -54,18 +61,18 @@ class ArtifactDetectionService(
      * дублируется. [recheck] — перепроверить и уже проверенные (после смены описаний артефактов
      * или добавления нового предмета). `null` — дропа нет.
      */
-    fun start(dropId: Long, recheck: Boolean = false): ArtifactScanStatusView? {
+    fun start(dropId: Long, recheck: Boolean = false, onlyArtifactId: Long? = null): ArtifactScanStatusView? {
         drops.findById(dropId) ?: return null
         val job = jobs.compute(dropId) { _, existing ->
-            if (existing != null && existing.state == "running") {
+            if (existing != null && existing.state in ACTIVE) {
                 existing
             } else {
                 val pending = pendingIds(dropId, recheck).size
-                DetectionJob(total = pending).also { fresh ->
+                DetectionJob(dropId = dropId, total = pending).also { fresh ->
                     if (pending == 0) {
                         fresh.state = "done"
                     } else {
-                        executor.execute { run(dropId, recheck, fresh) }
+                        executor.execute { execute(dropId, recheck, onlyArtifactId, fresh) }
                     }
                 }
             }
@@ -79,12 +86,40 @@ class ArtifactDetectionService(
      * Всегда `recheck`: у существующих кадров отметка о проверке уже стоит, и без него новый
      * предмет не искался бы нигде. Дропы уходят в ту же одну очередь и идут друг за другом —
      * прогон по всему архиву долгий и стоит денег, поэтому он только ручной.
+     *
+     * [onlyArtifactId] сужает прогон до одного предмета. **Дешевле от этого не становится** —
+     * вызов всё равно один на кадр, а цена зависит от числа кадров, — но такой прогон не трогает
+     * находки остальных предметов и задаёт модели один вопрос вместо списка.
      */
-    fun startAll(): List<ArtifactScanStatusView> =
-        drops.listOrdered().mapNotNull { drop -> drop.id?.let { start(it, recheck = true) } }
+    fun startAll(onlyArtifactId: Long? = null): ArtifactScanRunView {
+        val name = onlyArtifactId?.let { id -> tx { artifacts.findById(id)?.name } }
+        require(onlyArtifactId == null || name != null) { "artifact_not_found" }
+        val ids = drops.listOrdered().mapNotNull { it.id }
+        // Новый прогон снимает отмену предыдущего — иначе он умер бы, не начавшись.
+        val fresh = ScanRun(artifactName = name)
+        archiveRun = fresh
+        ids.forEach { start(it, recheck = true, onlyArtifactId = onlyArtifactId) }
+        fresh.jobs.addAll(ids.mapNotNull { jobs[it] })
+        return fresh.view()
+    }
+
+    /**
+     * Остановить прогон по архиву. Кадр, начатый до отмены, дописывается — рвать его посреди
+     * записи незачем, — а очередь дальше не разбирается. Возвращает `false`, если останавливать
+     * нечего. Данные остаются согласованными: непроверенные кадры так и остаются непроверенными.
+     */
+    fun cancel(): Boolean {
+        val current = archiveRun ?: return false
+        if (current.view().state != "running") return false
+        current.cancelled.set(true)
+        return true
+    }
+
+    /** Сводка по последнему прогону архива; `idle`, если их ещё не было. */
+    fun runStatus(): ArtifactScanRunView = archiveRun?.view() ?: ScanRun(artifactName = null).view()
 
     /** Бежит ли прогон — гейт для ручной правки рамок (иначе гонка за одни и те же строки). */
-    fun isRunning(dropId: Long): Boolean = jobs[dropId]?.state == "running"
+    fun isRunning(dropId: Long): Boolean = jobs[dropId]?.state in ACTIVE
 
     /** Статус: бегущий/последний прогон, а без него — срез по БД. `null` — дропа нет. */
     fun status(dropId: Long): ArtifactScanStatusView? {
@@ -159,13 +194,26 @@ class ArtifactDetectionService(
             .filter { recheck || it.artifactsCheckedAt == null }
             .mapNotNull { it.id }
 
-    private fun run(dropId: Long, recheck: Boolean, job: DetectionJob) {
+    private fun execute(dropId: Long, recheck: Boolean, onlyArtifactId: Long?, job: DetectionJob) {
+        val current = archiveRun
         try {
+            // Отмену проверяем и до первого кадра: очередь архива уходит в исполнитель разом,
+            // и на момент старта дропа №5 прогон могли уже остановить.
+            if (current?.cancelled?.get() == true) {
+                job.state = "cancelled"
+                return
+            }
+            job.state = "running"
             val catalogue = tx { catalogue() }
+                .filter { onlyArtifactId == null || it.id == onlyArtifactId }
             val pending = tx { pendingIds(dropId, recheck) }
             for ((index, photoId) in pending.withIndex()) {
+                if (current?.cancelled?.get() == true) {
+                    job.state = "cancelled"
+                    return
+                }
                 if (index > 0 && throttleMs > 0) Thread.sleep(throttleMs)
-                processFrame(photoId, catalogue, job)
+                processFrame(photoId, catalogue, onlyArtifactId, job)
             }
             job.state = "done"
         } catch (e: InterruptedException) {
@@ -177,7 +225,12 @@ class ArtifactDetectionService(
         }
     }
 
-    private fun processFrame(photoId: Long, catalogue: List<DetectableArtifact>, job: DetectionJob) {
+    private fun processFrame(
+        photoId: Long,
+        catalogue: List<DetectableArtifact>,
+        onlyArtifactId: Long?,
+        job: DetectionJob,
+    ) {
         val key = tx { photos.findById(photoId)?.storageKey } ?: return
         // Модели хватает web-варианта; оригиналов мы не храним, а thumb теряет мелкие принты.
         val bytes = storage.get(key, PhotoVariant.WEB)
@@ -190,7 +243,13 @@ class ArtifactDetectionService(
             DetectionOutcome.Unavailable -> job.skipped.incrementAndGet()
             is DetectionOutcome.Found -> {
                 tx {
-                    detections.deleteLlmByPhoto(photoId)
+                    // Прогон ради одного предмета сносит только его находки: у остальных они
+                    // могли быть удачными, а спрашивали про них в прошлый раз, не сейчас.
+                    if (onlyArtifactId == null) {
+                        detections.deleteLlmByPhoto(photoId)
+                    } else {
+                        detections.deleteLlmByPhotoAndArtifact(photoId, onlyArtifactId)
+                    }
                     // Остались строки, решённые человеком: ручные рамки и отклонённые находки.
                     // И те и другие перепрогон не трогает — иначе снятая рамка вернулась бы.
                     val decided = detections.listByPhoto(photoId).map { it.artifactId }.toSet()
@@ -210,7 +269,12 @@ class ArtifactDetectionService(
                             )
                             job.found.incrementAndGet()
                         }
-                    photos.findById(photoId)?.artifactsCheckedAt = Instant.now()
+                    // Отметку «кадр проверен» ставит только полный прогон. Прогон по одному
+                    // предмету ничего не говорит про остальной каталог, а отметка нужна ровно
+                    // затем, чтобы кнопка по дропу пропускала уже проверенное.
+                    if (onlyArtifactId == null) {
+                        photos.findById(photoId)?.artifactsCheckedAt = Instant.now()
+                    }
                 }
                 job.checked.incrementAndGet()
             }
@@ -222,14 +286,14 @@ class ArtifactDetectionService(
 
     private fun <T> tx(block: () -> T): T = QuarkusTransaction.requiringNew().call(block)
 
-    /** Счётчики бегущего прогона (поллятся админкой). */
-    private class DetectionJob(val total: Int) {
+    /** Счётчики прогона по одному дропу (поллятся админкой). */
+    private class DetectionJob(val dropId: Long, val total: Int) {
         val checked = AtomicInteger()
         val found = AtomicInteger()
         val skipped = AtomicInteger()
 
         @Volatile
-        var state: String = "running"
+        var state: String = "queued"
 
         fun view() = ArtifactScanStatusView(
             state = state,
@@ -238,6 +302,44 @@ class ArtifactDetectionService(
             found = found.get(),
             skipped = skipped.get(),
         )
+    }
+
+    /**
+     * Прогон по всему архиву: набор дропов + флаг отмены на всех сразу.
+     *
+     * Состояние выводится из дропов, а не хранится: у прогона нет собственного потока — очередь
+     * разбирает тот же единственный исполнитель, — и любое отдельно хранимое состояние
+     * разъезжалось бы с настоящим.
+     */
+    private class ScanRun(val artifactName: String?) {
+        val jobs = java.util.concurrent.CopyOnWriteArrayList<DetectionJob>()
+        val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        fun view(): ArtifactScanRunView {
+            val states = jobs.map { it.state }
+            val state = when {
+                jobs.isEmpty() -> "idle"
+                states.any { it in ACTIVE } -> "running"
+                states.any { it == "failed" } -> "failed"
+                states.any { it == "cancelled" } -> "cancelled"
+                else -> "done"
+            }
+            return ArtifactScanRunView(
+                state = state,
+                total = jobs.sumOf { it.total },
+                checked = jobs.sumOf { it.checked.get() },
+                found = jobs.sumOf { it.found.get() },
+                skipped = jobs.sumOf { it.skipped.get() },
+                drops = jobs.size,
+                dropsDone = states.count { it !in ACTIVE },
+                artifactName = artifactName,
+            )
+        }
+    }
+
+    private companion object {
+        /** Состояния, в которых дроп ещё занимает очередь: правку рамок в это время не пускаем. */
+        val ACTIVE = setOf("queued", "running")
     }
 }
 

@@ -192,7 +192,7 @@ class FilmService(
                 height = p.height,
                 artifacts = boxes[p.id].orEmpty().mapNotNull { d ->
                     known[d.artifactId]?.let { a ->
-                        ArtifactBoxView(d.artifactId, a.name, a.imageUrl, d.x0, d.y0, d.x1, d.y1)
+                        ArtifactBoxView(d.artifactId, a.name, a.imageUrl, a.rotatable, d.x0, d.y0, d.x1, d.y1)
                     }
                 },
             )
@@ -220,7 +220,7 @@ class FilmService(
                 orientation = p.orientationApplied,
                 artifacts = boxes[p.id].orEmpty().mapNotNull { d ->
                     known[d.artifactId]?.let { a ->
-                        ArtifactBoxView(d.artifactId, a.name, a.imageUrl, d.x0, d.y0, d.x1, d.y1)
+                        ArtifactBoxView(d.artifactId, a.name, a.imageUrl, a.rotatable, d.x0, d.y0, d.x1, d.y1)
                     }
                 },
             )

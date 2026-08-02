@@ -197,6 +197,8 @@ export interface ArtifactBoxView {
   name: string;
   /** Картинка предмета из каталога для подсказки у рамки; `null` — предмет без картинки. */
   imageUrl?: string | null;
+  /** Можно ли класть предмет набок — карточка у рамки уважает флаг так же, как лента (§7.2). */
+  rotatable?: boolean;
   x0: number;
   y0: number;
   x1: number;

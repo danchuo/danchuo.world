@@ -244,6 +244,87 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(cards[0].parentElement).toHaveClass("artifact-box");
   });
 
+  it("в полноэкранном кадре находки подписаны сразу — без наведения", async () => {
+    // Тач-флоу (§7.5): ховера на телефоне нет, а тап по кадру уже занят открытием на весь
+    // экран. Поэтому объясняет находку сам полноэкранный кадр: рамки те же, но карточки видны
+    // без жеста. Довод «постоянные подписи — шум» тут не работает: кадр ровно один, не 36.
+    getDropMock.mockResolvedValue(twoFinds);
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} onClose={() => {}} />,
+    );
+    const frames = await screen.findAllByRole("button", { name: /открыть кадр/ });
+    fireEvent.click(frames[0]);
+
+    const lightbox = screen.getByRole("dialog", { name: "кадр 1 из 1" });
+    // Ни одного mouseMove не было — карточки обеих находок всё равно на месте.
+    expect(lightbox.querySelectorAll(".artifact-box")).toHaveLength(2);
+    expect(lightbox.querySelectorAll(".artifact-card")).toHaveLength(2);
+    expect(lightbox).toHaveTextContent("Очки");
+    expect(lightbox).toHaveTextContent("Футболка");
+  });
+
+  it("рамки в полноэкранном кадре не перехватывают закрытие по фону", async () => {
+    // Рамка лежит поверх картинки; если бы она ловила указатель, промах мимо предмета
+    // закрывал бы просмотр (клик по картинке закрывать не должен — регрессионный якорь).
+    getDropMock.mockResolvedValue(twoFinds);
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} onClose={() => {}} />,
+    );
+    const frames = await screen.findAllByRole("button", { name: /открыть кадр/ });
+    fireEvent.click(frames[0]);
+    fireEvent.click(container.querySelector(".lightbox-stage")!);
+    expect(container.querySelector(".lightbox-photo")).not.toBeNull();
+  });
+
+  it("вытянутый предмет с разрешением ложится в карточке набок", async () => {
+    // Ракетка нарисована стоймя, а слот карточки лежачий: без поворота предмет вырождается
+    // в нитку. Флаг `rotatable` тут тот же, что в ленте, — карточка обязана его уважать.
+    getDropMock.mockResolvedValue([
+      {
+        imageUrl: "/api/film-media/1/0/web",
+        thumbUrl: "/api/film-media/1/0/thumb",
+        width: 400,
+        height: 400,
+        artifacts: [
+          {
+            artifactId: 7,
+            name: "Ракетка",
+            imageUrl: "/api/artifact-media/7",
+            rotatable: true,
+            x0: 0.05,
+            y0: 0.05,
+            x1: 0.95,
+            y1: 0.95,
+          },
+        ],
+      },
+    ]);
+    const view = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} onClose={() => {}} />,
+    );
+    await waitFor(() => expect(view.container.querySelector(".artifact-box")).not.toBeNull());
+    hoverAt(view.container.querySelector<HTMLElement>(".drop-frame")!, 0.5, 0.5);
+
+    const img = view.container.querySelector<HTMLImageElement>(".artifact-card__img")!;
+    // До onLoad пропорция неизвестна — предмет рисуется как есть.
+    expect(img).not.toHaveClass("artifact-card__img--tilted");
+
+    Object.defineProperty(img, "naturalWidth", { value: 619, configurable: true });
+    Object.defineProperty(img, "naturalHeight", { value: 2055, configurable: true });
+    fireEvent.load(img);
+    expect(img).toHaveClass("artifact-card__img--tilted");
+  });
+
+  it("без разрешения предмет в карточке не поворачивается", async () => {
+    const view = await renderFrame(); // очки: rotatable не задан
+    hoverAt(view.container.querySelector<HTMLElement>(".drop-frame")!, 0.1, 0.1);
+    const img = view.container.querySelector<HTMLImageElement>(".artifact-card__img")!;
+    Object.defineProperty(img, "naturalWidth", { value: 619, configurable: true });
+    Object.defineProperty(img, "naturalHeight", { value: 2055, configurable: true });
+    fireEvent.load(img);
+    expect(img).not.toHaveClass("artifact-card__img--tilted");
+  });
+
   it("две находки на кадре: показывается та, под которой курсор", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.8, 0.8);

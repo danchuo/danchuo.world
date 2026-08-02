@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      The camera hint seeded in 0280 called the Pentax silver. The item is black, and that single
+      wrong trait flipped the search onto a different object: black body inside black gloves went
+      unseen, while any silvery compact thing in frame came back as a match. Written as an UPDATE
+      on top of the applied 0280 seed, per the migration convention.
+    -->
+    <changeSet id="0320-artifact-camera-hint" author="danchuo">
+        <update tableName="artifact">
+            <column name="detection_hint"
+                    value="a small matte black plastic compact 35mm point-and-shoot film camera with a round black lens barrel in the middle and a narrow flash window beside it; the body is entirely black, never silver or metallic"/>
+            <where>name = 'Pentax Espio 738'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

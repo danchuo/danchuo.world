@@ -11,8 +11,9 @@ import {
 } from "react";
 import { getDrop } from "@/lib/api/client";
 import { boxesAt, padHighlight } from "@/lib/artifactHighlight";
+import { laysOnSide } from "@/lib/artifactBox";
 import { mediaUrl } from "@/lib/api/media";
-import type { FilmPhotoView } from "@/lib/api/types";
+import type { ArtifactBoxView, FilmPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
 import { useTileData } from "./useTileData";
 
@@ -175,6 +176,8 @@ const PhotoLightbox = forwardRef<
 >(function PhotoLightbox({ photo, index, total, onClose }, ref) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);
+  const boxes = photo.artifacts ?? [];
+  const ratio = photo.width && photo.height ? `${photo.width} / ${photo.height}` : undefined;
 
   return (
     <div
@@ -186,13 +189,22 @@ const PhotoLightbox = forwardRef<
       style={{ background: "rgba(20, 15, 12, 0.92)" }}
       onClick={onClose}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="lightbox-photo"
-        src={mediaUrl(photo.imageUrl)}
-        alt=""
+      {/* Сцена повторяет пропорцию кадра, поэтому картинка заполняет её без полей, а рамки
+          находок можно ставить процентами прямо от неё. Без известных `width/height` пропорции
+          нет — тогда сцена просто обнимает картинку, а рамки не рисуются (ставить их было бы
+          некуда: `contain` оставил бы поля, и проценты поехали бы). */}
+      <span
+        className="lightbox-stage"
+        style={ratio ? { aspectRatio: ratio } : undefined}
         onClick={(e) => e.stopPropagation()}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="lightbox-photo" src={mediaUrl(photo.imageUrl)} alt="" />
+        {/* Тач-флоу (DESIGN §7.5): на телефоне ховера нет, а тап по кадру занят открытием на
+            весь экран — поэтому находки объясняет сам полноэкранный кадр, показывая карточки
+            сразу. «Постоянные подписи — шум» тут не применимо: кадр ровно один, а не 36. */}
+        {ratio && <ArtifactBoxes boxes={boxes} shown={boxes.map((a) => a.artifactId)} />}
+      </span>
       <button
         ref={closeRef}
         type="button"
@@ -211,6 +223,81 @@ const monoTertiary = {
   fontSize: "var(--fs-modal-meta)",
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
+
+/**
+ * Рамки находок поверх кадра (§5.12). Позиция — **в процентах**: координаты приходят долями
+ * кадра, а кадр рендерится в разном размере (мозаика, галерея, полный экран), так что множитель
+ * задаёт вёрстка.
+ *
+ * [shown] — чьи карточки сейчас раскрыты, **в порядке появления**: индекс задаёт высоту слоя,
+ * поэтому в пересечении рамок сверху оказывается та, что открылась позже. В галерее это порядок
+ * наведения, в полноэкранном кадре — просто все находки (тач-флоу, см. [PhotoLightbox]).
+ */
+function ArtifactBoxes({ boxes, shown }: { boxes: ArtifactBoxView[]; shown: number[] }) {
+  return (
+    <>
+      {boxes.map((a) => {
+        // Рамка намеренно шире находки: показываем область, а не обводим предмет по краю.
+        const r = padHighlight(a);
+        return (
+          <span
+            key={a.artifactId}
+            className="artifact-box"
+            style={{
+              left: `${r.x0 * 100}%`,
+              top: `${r.y0 * 100}%`,
+              width: `${r.width * 100}%`,
+              height: `${r.height * 100}%`,
+            }}
+          >
+            {/* Имя — в разметке ВСЕГДА: подсказка живёт по наведению, а ховера у скринридера
+                нет, и без этого находка для него просто не существовала бы. */}
+            <span className="sr-only">{a.name}</span>
+            {shown.includes(a.artifactId) && (
+              // Карточка предмета: сам предмет картинкой + имя под ней. Имя словами не объясняет,
+              // что это за надпись на фото, — знакомый вырезанный предмет объясняет сразу.
+              <span
+                className="artifact-card"
+                aria-hidden
+                style={{ zIndex: shown.indexOf(a.artifactId) + 1 }}
+              >
+                {a.imageUrl && (
+                  <ArtifactCardImage src={a.imageUrl} rotatable={a.rotatable === true} />
+                )}
+                <span className="artifact-card__name">{a.name}</span>
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Предмет внутри карточки-подсказки. Слот карточки **лежачий**, а предмет бывает нарисован
+ * стоймя (ракетка ~1:3.3) — в contain он вырождается в нитку и опознать его нельзя. Поэтому
+ * карточка уважает тот же флаг «можно набок», что и лента (DESIGN §7.2): флаг разрешает,
+ * решает пропорция самой картинки, и меряется она только по факту загрузки — до `onLoad`
+ * пропорции нет, а повернуть «на всякий случай» значит показать предмет боком.
+ */
+function ArtifactCardImage({ src, rotatable }: { src: string; rotatable: boolean }) {
+  const [ratio, setRatio] = useState(0);
+  // Слот лежачий ⇒ vertical = false.
+  const tilted = laysOnSide(ratio, rotatable, false);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className={`artifact-card__img${tilted ? " artifact-card__img--tilted" : ""}`}
+      onLoad={(e) => {
+        const img = e.currentTarget;
+        if (img.naturalHeight > 0) setRatio(img.naturalWidth / img.naturalHeight);
+      }}
+    />
+  );
+}
 
 /**
  * Один кадр с blur-up-загрузкой: размытый `thumbUrl` виден сразу, полноразмерный `imageUrl`
@@ -308,44 +395,7 @@ function BlurUpPhoto({
             вылезать за скруглённый край картинки. */}
         <span className="drop-frame__scrim" aria-hidden />
       </span>
-      {/* Найденные артефакты (§5.12). Позиция — в процентах: координаты приходят долями кадра,
-          и кадр рендерится в разном размере, так что множитель задаёт вёрстка. */}
-      {boxes.map((a) => {
-        // Рамка намеренно шире находки: показываем область, а не обводим предмет по краю.
-        const r = padHighlight(a);
-        return (
-        <span
-          key={a.artifactId}
-          className="artifact-box"
-          style={{
-            left: `${r.x0 * 100}%`,
-            top: `${r.y0 * 100}%`,
-            width: `${r.width * 100}%`,
-            height: `${r.height * 100}%`,
-          }}
-        >
-          {/* Имя — в разметке ВСЕГДА: подсказка живёт по наведению, а ховера у скринридера
-              нет, и без этого находка для него просто не существовала бы. */}
-          <span className="sr-only">{a.name}</span>
-          {under.includes(a.artifactId) && (
-            // Карточка предмета: сам предмет картинкой + имя под ней. Имя словами не объясняет,
-            // что это за надпись на фото, — знакомый вырезанный предмет объясняет сразу.
-            <span
-              className="artifact-card"
-              aria-hidden
-              // Позиция в очереди наведения = высота слоя: последняя наведённая — сверху.
-              style={{ zIndex: under.indexOf(a.artifactId) + 1 }}
-            >
-              {a.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.imageUrl} alt="" className="artifact-card__img" />
-              )}
-              <span className="artifact-card__name">{a.name}</span>
-            </span>
-          )}
-        </span>
-        );
-      })}
+      <ArtifactBoxes boxes={boxes} shown={under} />
       {/* Значок «крупнее» — последним в дереве, чтобы лежать поверх всего кадра. Он декор:
           что кадр открывается, скринридеру говорит доступное имя кнопки. */}
       <span className="drop-frame__zoom" aria-hidden>

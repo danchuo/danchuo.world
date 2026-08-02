@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Откат затемнения дней соседнего месяца (DESIGN §5). Выходные остаются тёмными -
+      правку 0290 отменяем только наполовину.
+
+      Что пошло не так. В 0290 соседний месяц опустили следом за выходным, чтобы они не
+      слились по светлоте. Арифметически верно, а на экране - нет: окно календаря это две
+      прошлые недели + текущая + следующая, и в начале месяца соседний месяц занимает
+      БОЛЬШУЮ ЧАСТЬ сетки. Замер на 02.08.2026: 19 ячеек из 28, то есть две трети борда
+      разом потемнели, и календарь стал читаться как сплошное серое поле. К середине
+      месяца доля падает до 5/28, но жить с этим три недели каждый месяц нельзя.
+
+      Почему заливке соседнего месяца НЕ нужно быть самой тёмной: у него есть вторая
+      метка - приглушённая цифра (text-secondary вместо text-primary). Выходной несёт
+      только заливку, поэтому глубину отдаём ему, а соседнему месяцу хватает пары
+      "тихая заливка + тихая цифра".
+
+      Следствие, принятое сознательно: выходной (#f0e1d8) и соседний месяц (#ece0d7)
+      стали почти равны по светлоте. Рядом они не путаются - соседний месяц опознаётся
+      цифрой; а внутри блока чужого месяца выходные и так не выделяются, потому что
+      приоритет заливки ставит "чужой месяц" выше "выходного" (и это не менялось).
+    -->
+    <changeSet id="0300-wave-01-othermonth-back" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-othermonth": "#ece0d7"}$J$::jsonb WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-othermonth": "#e3d1c4"}$J$::jsonb WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+
+    <changeSet id="0300-wave-02-othermonth-back" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-othermonth": "#cbe1f6"}$J$::jsonb WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-othermonth": "#b6d3ee"}$J$::jsonb WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

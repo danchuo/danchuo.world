@@ -82,6 +82,44 @@ class ArtifactImageTrimTest {
     }
 
     @Test
+    fun `invisible alpha haze over the canvas does not defeat the crop`() {
+        // Главный кейс, найденный на проде. Фон снимали внешним инструментом, и он оставил по
+        // всему холсту пиксели с альфой 1..8 (0.4-3% непрозрачности — глазом не видно). При
+        // строгом «альфа > 0» рамка непрозрачного растягивалась на весь холст, обрезка решала,
+        // что резать нечего, и ракетка 619x2055 уезжала в ленту как холст 1600x2400: лента
+        // считала её пропорцию 0.67 вместо 0.30, не признавала вытянутой и не клала набок,
+        // хотя предмету это разрешено.
+        val png = pngOf(100, 100) { g ->
+            g.color = Color(0, 0, 0, 6) // дымка ниже порога видимости — по всему холсту
+            g.fillRect(0, 0, 100, 100)
+            g.color = Color.RED
+            g.fillRect(40, 45, 20, 10)
+        }
+
+        val out = ImageIO.read(ArtifactImageTrim.trim(png).inputStream())
+
+        assertEquals(20, out.width)
+        assertEquals(10, out.height)
+    }
+
+    @Test
+    fun `a real halo around the object survives the crop`() {
+        // Порог не должен съедать настоящее свечение: у предмета бывает мягкий ореол, и он
+        // часть его вида. Различие чисто количественное — заметная альфа остаётся в рамке.
+        val png = pngOf(100, 100) { g ->
+            g.color = Color(255, 0, 0, 60) // ~24% непрозрачности: видно глазом
+            g.fillRect(30, 40, 40, 20)
+            g.color = Color.RED
+            g.fillRect(40, 45, 20, 10)
+        }
+
+        val out = ImageIO.read(ArtifactImageTrim.trim(png).inputStream())
+
+        assertEquals(40, out.width)
+        assertEquals(20, out.height)
+    }
+
+    @Test
     fun `crop is tight on every side`() {
         // Поля бывают несимметричными — обрезка обязана снять каждое по отдельности.
         val png = pngOf(80, 60) { g -> g.color = Color.BLACK; g.fillRect(5, 30, 40, 10) }

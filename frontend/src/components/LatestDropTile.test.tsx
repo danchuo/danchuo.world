@@ -61,4 +61,22 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     // Тянет кадры только последнего дропа (id=2).
     expect(getDropMock).toHaveBeenCalledWith(2, expect.anything());
   });
+
+  it("блок мозаики зацеплен за .drop-mosaic — свою высоту ему даёт CSS", async () => {
+    // Высота блока — вход расчёта рядов (`buildMosaic` при H<=0 возвращает null), а в мобильном
+    // стеке родитель её не задаёт: без собственной высоты плитка оставалась без кадров навсегда
+    // (пустой блок мерился нулём, ноль не давал кадров). Пиксели проверяет CSS-контракт
+    // `app/styles/stackHeights.test.ts`, здесь — что зацепка на месте.
+    getDropsMock.mockResolvedValue([
+      { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
+    ]);
+    getDropMock.mockResolvedValue([
+      { imageUrl: "/api/film-media/2/0/web", thumbUrl: "/api/film-media/2/0/thumb", width: 120, height: 80 },
+    ]);
+
+    render(<LatestDropTile />);
+
+    const box = await screen.findByRole("button", { name: /Открыть дроп/ });
+    expect(box).toHaveClass("drop-mosaic");
+  });
 });

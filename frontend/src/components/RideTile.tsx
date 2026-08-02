@@ -64,10 +64,10 @@ export function RideTile({ wave, style, className }: RideTileProps) {
               type="button"
               onClick={() => setModalOpen(true)}
               aria-label="Открыть карту поездок"
-              className="tap-target"
+              // Геометрия бокса — в классе .ride-map-box: в бенто это доля высоты тайла, в стеке
+              // (§8) её нет вовсе, и карта инициализировалась в нулевую высоту (пустое место).
+              className="ride-map-box tap-target"
               style={{
-                flex: "1 1 42%",
-                minHeight: 80,
                 overflow: "hidden",
                 borderRadius: "var(--radius-sm)",
                 border: "none",

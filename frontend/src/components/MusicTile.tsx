@@ -497,7 +497,9 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
             // Обёртка с жёсткой высотой (flex-1 + relative), список — absolute inset-0:
             // так его clientHeight всегда равен доступному месту, а не контенту — замер
             // в useFitOverflow корректен и лишние треки реально прячутся (не наезжают).
-            <div className="relative min-h-0 flex-1">
+            // Оборотная сторона: своей высоты у обёртки нет, поэтому в стеке (§8) её задаёт
+            // min-height класса .music-recent — иначе список нулевой и треков не видно.
+            <div className="music-recent relative min-h-0 flex-1">
               <ul ref={recentRef} className="absolute inset-0 flex flex-col gap-0.5 overflow-hidden">
                 {collapsedRecent.map((r, i) => (
                 <li

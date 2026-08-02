@@ -53,6 +53,17 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
   });
 
+  it("бокс мини-карты зацеплен за .ride-map-box — свою высоту ему даёт CSS", async () => {
+    // Leaflet рисует в контейнер `height: 100%`, а тот считает проценты от бокса-кнопки. В бенто
+    // высота кнопки приходит от тайла, в мобильном стеке её нет вовсе ⇒ карта инициализируется в
+    // нулевую высоту и не видна. Пиксели проверяет `app/styles/stackHeights.test.ts`.
+    getRidesMock.mockResolvedValue([base({ id: 10 })]);
+    render(<RideTile />);
+
+    const mapButton = await screen.findByRole("button", { name: "Открыть карту поездок" });
+    expect(mapButton).toHaveClass("ride-map-box");
+  });
+
   it("кнопка «предыдущие» тоже открывает модалку", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10 }), base({ id: 11, rideDate: "2026-07-10" })]);
     render(<RideTile />);

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Выходные внутри соседнего месяца получают свою заливку (DESIGN §5).
+
+      Что было. Приоритет заливки ячейки ставит "чужой месяц" выше "выходного", поэтому
+      внутри блока соседнего месяца сб/вс красились ровно как будни - колонка выходных
+      обрывалась на границе месяца. В 0300 это записали как принятое следствие, но
+      следствие оказалось дороже, чем думали: в начале месяца соседний месяц занимает
+      большую часть окна (замер 02.08.2026 - 19 ячеек из 28), то есть выходных не видно
+      на двух третях календаря.
+
+      Почему это НЕ повторяет ошибку 0290. Там потемнел весь блок чужого месяца разом;
+      здесь темнеют только его сб/вс - максимум 2 ячейки из 7, при 19 чужих ячейках это
+      5-6 клеток. Массового затемнения не выходит по построению.
+
+      Шаг вниз от cal-othermonth - около 4.7 L*, крупнее шага "выходной над будущим
+      днём". Мельче нельзя: цифра в чужом месяце и так приглушена (text-secondary), и
+      тихий шаг на приглушённой ячейке не читается.
+    -->
+    <!--
+      Заодно сам выходной опущен ещё на ~2 L*. Над БУДУЩИМ днём (bg-surface-muted) он
+      поднимался всего на 1.6 L*, а окно наполовину состоит из будущего - в будущей половине
+      колонка сб/вс не читалась вовсе (замер на живом борде 02.08.2026: будущий будний
+      rgb(243,230,222) против будущего выходного rgb(240,225,216)). Правка 0290 эту разницу
+      только назначила, но не сделала видимой.
+
+      Побочное следствие, принятое сознательно: выходной становится чуть ТЕМНЕЕ буднего дня
+      соседнего месяца. Не путаются - у чужого месяца вторая метка, приглушённая цифра.
+    -->
+    <changeSet id="0310-wave-01-weekend-deeper" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-weekend": "#ecdbd0"}$J$::jsonb WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-weekend": "#f0e1d8"}$J$::jsonb WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+
+    <changeSet id="0310-wave-02-weekend-deeper" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-weekend": "#cce2f8"}$J$::jsonb WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-weekend": "#d8ebfd"}$J$::jsonb WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+
+    <changeSet id="0310-wave-01-othermonth-weekend" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-othermonth-weekend": "#e3d2c5"}$J$::jsonb WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens - 'cal-othermonth-weekend' WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+
+    <!-- Волна 02 - та же лестница в своих голубых тонах. -->
+    <changeSet id="0310-wave-02-othermonth-weekend" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"cal-othermonth-weekend": "#bed6ed"}$J$::jsonb WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens - 'cal-othermonth-weekend' WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

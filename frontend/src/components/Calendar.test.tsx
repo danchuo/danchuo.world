@@ -134,6 +134,46 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("day-2026-07-02")).not.toHaveAttribute("data-other-month");
   });
 
+  it("выходной соседнего месяца красится своим токеном, а не заливкой чужого месяца", () => {
+    // В начале месяца соседний месяц занимает большую часть окна, и колонка сб/вс внутри него
+    // обрывалась: «чужой месяц» перебивал «выходной», и весь блок был одного тона.
+    const stride = "2026-07-02"; // окно 15.06 → 12.07: июнь целиком в соседнем месяце
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    for (const date of ["2026-06-20", "2026-06-21", "2026-06-27"]) {
+      const cell = screen.getByTestId(`day-${date}`).getAttribute("style") ?? "";
+      expect(cell).toContain("var(--cal-othermonth-weekend)");
+    }
+    // Будни соседнего месяца остаются на прежней заливке — потемнел не весь блок, а его сб/вс.
+    const weekday = screen.getByTestId("day-2026-06-22").getAttribute("style") ?? "";
+    expect(weekday).toContain("var(--cal-othermonth)");
+    expect(weekday).not.toContain("var(--cal-othermonth-weekend)");
+  });
+
+  it("выходной текущего месяца свой токен не меняет", () => {
+    // Регрессионный якорь: правка касается только чужого месяца.
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    const cell = screen.getByTestId("day-2026-07-04").getAttribute("style") ?? "";
+    expect(cell).toContain("var(--cal-weekend)");
+    expect(cell).not.toContain("othermonth");
+  });
+
   it("клик по дню перефокусирует (onSelect с датой)", async () => {
     const onSelect = vi.fn();
     render(

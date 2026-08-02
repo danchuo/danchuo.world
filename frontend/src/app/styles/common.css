@@ -837,46 +837,149 @@ body {
   opacity: 1;
 }
 
+/* Кадр галереи — кнопка (клик открывает его во весь экран), поэтому с неё снимаются дефолты
+   кнопки: она должна остаться ровно тем же прямоугольником картинки, что и раньше.
+
+   Что кадр кликабелен, говорит ХОВЕР, а не постоянная метка: на ~36 кадрах 36 одинаковых
+   значков были бы шумом (та же логика, по которой подписи артефактов увели под наведение).
+   По наведению кадр слегка притемняется и в углу проступает лупа. Клавиатуре — тот же сигнал
+   по :focus-visible, иначе кадр в обходе табом ничем не отзывался бы. */
+.drop-frame {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.drop-frame__scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(33, 26, 22, 0.22);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.drop-frame__zoom {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  /* Кадр под значком бывает любым — от белого неба до ночной тени, поэтому контраст не
+     «подбирается» под фото, а НАВЯЗЫВАЕТСЯ: плашка сама притемняет то, что под ней
+     (`backdrop-filter`), и светлый глиф читается на чём угодно. Тинт чернилами волны — не
+     украшение, а страховка: без поддержки backdrop-filter плашка остаётся тёмной сама по себе.
+     ⚠️ Динамическая инверсия (`mix-blend-mode: difference`) тут не годится: на среднесером
+     кадре инверсия даёт тот же среднесерый, и значок исчезает ровно посередине шкалы. */
+  background: color-mix(in srgb, var(--text-primary) 52%, transparent);
+  backdrop-filter: blur(4px) brightness(0.55);
+  color: var(--bg-surface);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.drop-frame:hover .drop-frame__scrim,
+.drop-frame:focus-visible .drop-frame__scrim,
+.drop-frame:hover .drop-frame__zoom,
+.drop-frame:focus-visible .drop-frame__zoom {
+  opacity: 1;
+}
+/* Кадр под курсором — над соседями: подпись артефакта выходит за его границы, а в потоке
+   колонок следующие кадры рисуются поверх предыдущих и срезали бы её собой. */
+.drop-frame:hover,
+.drop-frame:focus-visible {
+  z-index: 2;
+}
+
+/* Кадр во весь экран (PhotoLightbox, DESIGN §7.5): вписывается целиком — плёночный кадр
+   смотрят целиком, обрезать его на просмотре нечего. Кнопка закрытия лежит в углу слоя и
+   красится светлым: подложка тут заведомо тёмная на любой волне. */
+.lightbox-photo {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--bg-surface);
+  cursor: pointer;
+}
+
 /* Подсветка найденного артефакта на кадре (PhotoDropModal, PRD §5.12). Координаты приходят
    долями кадра, позицию задаёт инлайновый процент — здесь только вид. Рамка НЕ ловит указатель:
    кадр под ней остаётся кликабельным, а подпись показывается по наведению на сам кадр. Цвет —
-   токен волны, никаких фиксированных значений (DESIGN §2.1). */
+   токен волны, никаких фиксированных значений (DESIGN §2.1).
+
+   ⚠️ Рамка — РОВНЫЙ прямоугольник без скруглений и без внешней обводки (решение владельца).
+   Полупрозрачное светлое кольцо снаружи заводили, чтобы рамка не терялась на светлом небе;
+   живьём оно читалось как грязная серая кайма вокруг акцента и держалось на несуществующем
+   токене (--bg-base), то есть большую часть жизни не рисовалось вовсе. Контраст несёт сам
+   акцент + заливка. */
 .artifact-box {
   position: absolute;
   pointer-events: none;
   border: 2px solid var(--accent);
-  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-base) 45%, transparent);
 }
 
-/* Подпись живёт ВНУТРИ рамки, у её левого-верхнего угла, а не под рамкой.
-   Так она не может выйти за кадр — а значит, кадру можно вернуть клип (см. .blur-up-thumb:
-   без клипа размытие thumb расплывалось за край и кадры «светились» по всему периметру).
-   Ширину сверху ограничивает инлайновый --label-max: сколько места остаётся от левого края
-   рамки до правого края кадра, в долях ширины самой рамки. */
-.artifact-box__label {
+/* Карточка предмета у рамки — то, что раньше было голой подписью именем на акценте. Имя
+   словами не отвечает на вопрос «что это за надпись на фото», а знакомый вырезанный предмет
+   отвечает сразу: та же картинка, что едет в ленте артефактов внизу борда.
+
+   Показывается по наведению НА СВОЮ РАМКУ (какие рамки под курсором, считает `boxesAt` по
+   точке — рамки пересекаются, а `:hover` достаётся только верхней), поэтому на 36 кадрах не
+   висит ни одной лишней подписи. Ширину не ограничиваем и многоточием не режем: усечённое
+   «2YK Su…» не отвечает ни на что; выйти за кадр карточке есть куда — клипует только
+   картинка (.drop-frame), а кадр под курсором поднят над соседями.
+
+   Подложка приглушённая, а не акцентная: акцент уже держит рамка, и вторым таким же пятном
+   карточка спорила бы с ней за внимание; связь с рамкой несёт акцентный контур. */
+.artifact-card {
   position: absolute;
-  left: 2px;
-  top: 2px;
-  max-width: var(--label-max, 100%);
-  padding: 1px 6px;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 7px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--accent);
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--bg-base);
+  box-shadow: 0 4px 14px rgba(33, 26, 22, 0.28);
+  pointer-events: none;
+}
+.artifact-card__img {
+  display: block;
+  width: 44px;
+  height: 34px;
+  object-fit: contain;
+}
+.artifact-card__name {
   font-family: var(--font-mono);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.4;
+  color: var(--text-primary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-
-/* Подпись проступает, когда курсор на кадре — постоянные подписи на 36 кадрах были бы шумом. */
-*:hover > .artifact-box > .artifact-box__label {
-  opacity: 1;
 }
 
 /* Пиксельные пины мини-карты Велобайк (RideMap, DESIGN §7.6/§12): спрайт нарисован в маленькой

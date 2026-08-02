@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { getDrop } from "@/lib/api/client";
-import { padHighlight } from "@/lib/artifactHighlight";
+import { boxesAt, padHighlight } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
 import type { FilmPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
@@ -26,6 +34,10 @@ interface PhotoDropModalProps {
  * `onLoad` резко «наводится на резкость» поверх размытого. Размытый thumb остаётся непрозрачной
  * подложкой (не гаснет) — так во время проявления полного кадра сквозь него не мелькает фон
  * тайла. Никакой «доливки по чуть-чуть»: кадр не появляется из пустоты (см. [BlurUpPhoto]).
+ *
+ * Каждый кадр — **кнопка**: клик открывает его во весь экран слоем поверх галереи
+ * ([PhotoLightbox]). Слой именно поверх, а не вместо: закрыл кадр — набор дропа на месте, и
+ * закрытие кадра не закрывает галерею (Esc гасит верхний слой, следующий Esc — саму галерею).
  */
 export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDropModalProps) {
   const { phase, data } = useTileData<FilmPhotoView[]>(
@@ -34,17 +46,32 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
   const photos = data ?? [];
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  // Кадр, открытый во весь экран, и плитка, с которой его открыли (ей вернём фокус).
+  const [zoomed, setZoomed] = useState<number | null>(null);
+  const zoomTriggerRef = useRef<HTMLElement | null>(null);
 
-  // Esc закрывает; Tab держим в пределах модалки (минимальный фокус-трап, §9).
+  const closeZoom = useCallback(() => {
+    setZoomed(null);
+    zoomTriggerRef.current?.focus();
+  }, []);
+
+  // Первичный фокус — один раз на маунте: переоткрытие кадра не должно уводить фокус в шапку.
   useEffect(() => {
     closeRef.current?.focus();
+  }, []);
+
+  // Esc закрывает верхний слой; Tab держим в его пределах (минимальный фокус-трап, §9).
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        if (zoomed !== null) closeZoom();
+        else onClose();
         return;
       }
       if (e.key !== "Tab") return;
-      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+      const trap = lightboxRef.current ?? panelRef.current;
+      const focusable = trap?.querySelectorAll<HTMLElement>(
         'button, a[href], [tabindex]:not([tabindex="-1"])',
       );
       if (!focusable || focusable.length === 0) return;
@@ -60,62 +87,124 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, zoomed, closeZoom]);
+
+  return (
+    <>
+      <div
+        className="modal-scale fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
+        style={{ background: "rgba(33, 26, 22, 0.55)" }}
+        onClick={onClose}
+      >
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className="pixel-tile my-auto w-full max-w-4xl p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
+              панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
+          <span className="pixel-slab" aria-hidden />
+          <span className="pixel-lid" aria-hidden />
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>{title}</span>
+              {monthLabel && (
+                <span style={{ ...monoTertiary }}>{monthLabel}</span>
+              )}
+            </div>
+            <button
+              ref={closeRef}
+              type="button"
+              className="tap-target"
+              onClick={onClose}
+              aria-label="Закрыть"
+              style={{ ...monoTertiary, cursor: "pointer", background: "none", border: "none", display: "inline-flex" }}
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+
+          {phase === "loading" && <p style={monoTertiary}>загрузка…</p>}
+          {phase === "error" && <p style={monoTertiary}>не удалось загрузить дроп</p>}
+          {phase === "loaded" && photos.length === 0 && (
+            <p style={monoTertiary}>в этом дропе пока нет кадров</p>
+          )}
+          {phase === "loaded" && photos.length > 0 && (
+            // Плотная masonry: CSS-колонки пакуют кадры разной ориентации без фиксированной сетки.
+            <div style={{ columnGap: 6, columns: "3 160px" }}>
+              {photos.map((p, i) => (
+                <BlurUpPhoto
+                  key={p.imageUrl}
+                  photo={p}
+                  index={i}
+                  onOpen={(el) => {
+                    zoomTriggerRef.current = el;
+                    setZoomed(i);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {zoomed !== null && photos[zoomed] && (
+        <PhotoLightbox
+          ref={lightboxRef}
+          photo={photos[zoomed]}
+          index={zoomed}
+          total={photos.length}
+          onClose={closeZoom}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Кадр во весь экран — слой ПОВЕРХ галереи (не замена): под ним остаётся набор дропа, и
+ * закрытие возвращает ровно то, что было. Картинка вписывается целиком (`object-fit: contain`) —
+ * плёночный кадр смотрят целиком, обрезать его на просмотре бессмысленно. Закрытие: фон, `×`,
+ * `Esc`; клик по самой картинке НЕ закрывает — промах мимо фона не должен стоить просмотра.
+ */
+const PhotoLightbox = forwardRef<
+  HTMLDivElement,
+  { photo: FilmPhotoView; index: number; total: number; onClose: () => void }
+>(function PhotoLightbox({ photo, index, total, onClose }, ref) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => closeRef.current?.focus(), []);
 
   return (
     <div
-      className="modal-scale fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
-      style={{ background: "rgba(33, 26, 22, 0.55)" }}
+      ref={ref}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`кадр ${index + 1} из ${total}`}
+      className="modal-scale fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: "rgba(20, 15, 12, 0.92)" }}
       onClick={onClose}
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="pixel-tile my-auto w-full max-w-4xl p-4"
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="lightbox-photo"
+        src={mediaUrl(photo.imageUrl)}
+        alt=""
         onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        ref={closeRef}
+        type="button"
+        className="tap-target lightbox-close"
+        onClick={onClose}
+        aria-label="Закрыть кадр"
       >
-        {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
-            панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
-        <span className="pixel-slab" aria-hidden />
-        <span className="pixel-lid" aria-hidden />
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex flex-col">
-            <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>{title}</span>
-            {monthLabel && (
-              <span style={{ ...monoTertiary }}>{monthLabel}</span>
-            )}
-          </div>
-          <button
-            ref={closeRef}
-            type="button"
-            className="tap-target"
-            onClick={onClose}
-            aria-label="Закрыть"
-            style={{ ...monoTertiary, cursor: "pointer", background: "none", border: "none", display: "inline-flex" }}
-          >
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-
-        {phase === "loading" && <p style={monoTertiary}>загрузка…</p>}
-        {phase === "error" && <p style={monoTertiary}>не удалось загрузить дроп</p>}
-        {phase === "loaded" && photos.length === 0 && (
-          <p style={monoTertiary}>в этом дропе пока нет кадров</p>
-        )}
-        {phase === "loaded" && photos.length > 0 && (
-          // Плотная masonry: CSS-колонки пакуют кадры разной ориентации без фиксированной сетки.
-          <div style={{ columnGap: 6, columns: "3 160px" }}>
-            {photos.map((p) => (
-              <BlurUpPhoto key={p.imageUrl} photo={p} />
-            ))}
-          </div>
-        )}
-      </div>
+        <Icon name="close" size={22} />
+      </button>
     </div>
   );
-}
+});
 
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
@@ -130,56 +219,98 @@ const monoTertiary = {
  * размеров нет, обёртка просто обнимает контент. Уважает `prefers-reduced-motion` (без анимации
  * переходов — кадр появляется сразу по готовности).
  */
-function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
+function BlurUpPhoto({
+  photo,
+  index,
+  onOpen,
+}: {
+  photo: FilmPhotoView;
+  index: number;
+  onOpen: (trigger: HTMLElement) => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   const ratio = photo.width && photo.height ? `${photo.width} / ${photo.height}` : undefined;
+  const boxes = photo.artifacts ?? [];
+  // Какие находки сейчас под курсором. Считаем по точке, а не по :hover самой рамки: рамки
+  // пересекаются (футболка и очки на одном человеке), а :hover достаётся только верхней.
+  const [under, setUnder] = useState<number[]>([]);
+
+  const trackPointer = (e: ReactMouseEvent<HTMLElement>) => {
+    if (boxes.length === 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const ids = boxesAt(boxes, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
+      .map((b) => b.artifactId);
+    setUnder((cur) => {
+      // Держим ПОРЯДОК НАВЕДЕНИЯ, а не порядок находок: кто вошёл под курсор позже, того
+      // карточка и лежит сверху. Иначе в пересечении рамок одна и та же плашка всегда была бы
+      // верхней, и к нижней находке подвести мышь было бы нельзя — её карточку не увидеть.
+      const kept = cur.filter((id) => ids.includes(id));
+      const next = [...kept, ...ids.filter((id) => !kept.includes(id))];
+      // Мышь шлёт события пачками — перерисовываемся только когда набор реально сменился.
+      return cur.length === next.length && cur.every((v, i) => v === next[i]) ? cur : next;
+    });
+  };
 
   return (
-    <div
-      className="mb-1.5"
-      style={{
-        position: "relative",
-        breakInside: "avoid",
-        // Клип обязателен: `filter: blur()` на thumb расплывается ЗА границы элемента, и без
-        // него кадры «светятся» ореолом по всему периметру. Подпись артефакта поэтому живёт
-        // внутри рамки, а не под ней — обрезаться ей нечем.
-        overflow: "hidden",
-        background: "var(--bg-surface-muted)",
-        borderRadius: "var(--radius-sm)",
-        aspectRatio: ratio,
-      }}
+    <button
+      type="button"
+      className="drop-frame mb-1.5"
+      aria-label={`открыть кадр ${index + 1} на весь экран`}
+      onClick={(e) => onOpen(e.currentTarget)}
+      onMouseMove={trackPointer}
+      onMouseLeave={() => setUnder([])}
+      style={{ position: "relative", breakInside: "avoid" }}
     >
-      {/* Размытое превью — непрозрачная подложка: держит цвет/композицию всё время, пока
-          проявляется полный кадр (не гасим, иначе в кросс-фейде мелькнёт фон тайла). */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={mediaUrl(photo.thumbUrl)}
-        alt=""
-        aria-hidden
-        className="blur-up-thumb w-full"
-        style={{ display: "block", borderRadius: "var(--radius-sm)" }}
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={mediaUrl(photo.imageUrl)}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onLoad={() => setLoaded(true)}
-        className="blur-up-full"
-        data-loaded={loaded}
+      {/* Клипует ИМЕННО картинку, а не весь кадр: `filter: blur()` на thumb расплывается за
+          границы элемента, и без клипа кадры «светятся» ореолом по всему периметру. Клип на
+          самом кадре был бы шире нужного — он резал бы и подписи артефактов, которым надо
+          выходить за кадр целиком (имя предмета длиннее рамки — обычное дело). */}
+      <span
         style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
+          position: "relative",
+          display: "block",
+          overflow: "hidden",
+          background: "var(--bg-surface-muted)",
           borderRadius: "var(--radius-sm)",
+          aspectRatio: ratio,
         }}
-      />
+      >
+        {/* Размытое превью — непрозрачная подложка: держит цвет/композицию всё время, пока
+            проявляется полный кадр (не гасим, иначе в кросс-фейде мелькнёт фон тайла). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaUrl(photo.thumbUrl)}
+          alt=""
+          aria-hidden
+          className="blur-up-thumb w-full"
+          style={{ display: "block", borderRadius: "var(--radius-sm)" }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaUrl(photo.imageUrl)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          className="blur-up-full"
+          data-loaded={loaded}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            borderRadius: "var(--radius-sm)",
+          }}
+        />
+        {/* Затемнение по наведению — сигнал «кадр кликабелен». Лежит внутри клипа, чтобы не
+            вылезать за скруглённый край картинки. */}
+        <span className="drop-frame__scrim" aria-hidden />
+      </span>
       {/* Найденные артефакты (§5.12). Позиция — в процентах: координаты приходят долями кадра,
           и кадр рендерится в разном размере, так что множитель задаёт вёрстка. */}
-      {photo.artifacts?.map((a) => {
+      {boxes.map((a) => {
         // Рамка намеренно шире находки: показываем область, а не обводим предмет по краю.
         const r = padHighlight(a);
         return (
@@ -191,16 +322,35 @@ function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
             top: `${r.y0 * 100}%`,
             width: `${r.width * 100}%`,
             height: `${r.height * 100}%`,
-            // Сколько места от левого края рамки до правого края кадра — в долях ширины
-            // рамки, потому что max-width подписи считается от неё. Дальше подпись
-            // усекается многоточием и потому никогда не упирается в край кадра.
-            ["--label-max" as string]: `${((1 - r.x0) / r.width) * 100}%`,
           }}
         >
-          <span className="artifact-box__label">{a.name}</span>
+          {/* Имя — в разметке ВСЕГДА: подсказка живёт по наведению, а ховера у скринридера
+              нет, и без этого находка для него просто не существовала бы. */}
+          <span className="sr-only">{a.name}</span>
+          {under.includes(a.artifactId) && (
+            // Карточка предмета: сам предмет картинкой + имя под ней. Имя словами не объясняет,
+            // что это за надпись на фото, — знакомый вырезанный предмет объясняет сразу.
+            <span
+              className="artifact-card"
+              aria-hidden
+              // Позиция в очереди наведения = высота слоя: последняя наведённая — сверху.
+              style={{ zIndex: under.indexOf(a.artifactId) + 1 }}
+            >
+              {a.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={a.imageUrl} alt="" className="artifact-card__img" />
+              )}
+              <span className="artifact-card__name">{a.name}</span>
+            </span>
+          )}
         </span>
         );
       })}
-    </div>
+      {/* Значок «крупнее» — последним в дереве, чтобы лежать поверх всего кадра. Он декор:
+          что кадр открывается, скринридеру говорит доступное имя кнопки. */}
+      <span className="drop-frame__zoom" aria-hidden>
+        <Icon name="zoom" size={16} />
+      </span>
+    </button>
   );
 }

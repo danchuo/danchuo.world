@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-export type IconName = "close" | "rotate" | "help" | "external" | "star";
+export type IconName = "close" | "rotate" | "help" | "external" | "star" | "zoom";
 
 /**
  * Символьный набор волны 01 (DESIGN §12): чистые line-глифы, красятся `currentColor` —
@@ -35,6 +35,18 @@ const RENDER: Record<IconName, { stroked: boolean; body: ReactNode }> = {
         <path d="M15 4h5v5" />
         <path d="M20 4l-8 8" />
         <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+      </>
+    ),
+  },
+  // Лупа с плюсом: «открыть крупнее». Плюс — короткий крест внутри линзы, на 14–16px он ещё
+  // читается, а без него глиф путается с поиском.
+  zoom: {
+    stroked: true,
+    body: (
+      <>
+        <circle cx="11" cy="11" r="6" />
+        <path d="M15.5 15.5L20 20" />
+        <path d="M11 8.6v4.8M8.6 11h4.8" />
       </>
     ),
   },

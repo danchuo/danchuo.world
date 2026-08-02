@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactView } from "@/lib/api/types";
 import { ArtifactMarquee } from "./ArtifactMarquee";
-import { artifactBox } from "@/lib/artifactBox";
+import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
 
 vi.mock("@/lib/api/client", () => ({ getArtifacts: vi.fn() }));
 import { getArtifacts } from "@/lib/api/client";
@@ -204,6 +204,33 @@ describe("ArtifactMarquee", () => {
     getArtifactsMock.mockResolvedValue([]);
     render(<ArtifactMarquee />);
     expect(await screen.findByText("нет артефактов")).toBeInTheDocument();
+  });
+
+  it("подписи стоят на одной высоте: слот картинки одинаков у любого предмета", async () => {
+    // Предметы разной пропорции дают разную высоту картинки (вес считается по площади), и
+    // подпись под ними прыгала вверх-вниз от предмета к предмету. Слот держит поперечный
+    // габарит ленты независимо от того, что в нём лежит, — строка подписей ровная.
+    getArtifactsMock.mockResolvedValue([
+      { name: "Очки", imageUrl: "/assets/artifacts/glasses.png", firstMentionedOn: "2026-03-10" },
+      { name: "Ракетка", imageUrl: "/assets/artifacts/racket.png", firstMentionedOn: "2026-04-01" },
+    ]);
+    render(<ArtifactMarquee />);
+
+    const load = async (alt: string, w: number, h: number) => {
+      const img = await screen.findByAltText(alt);
+      Object.defineProperty(img, "naturalWidth", { configurable: true, value: w });
+      Object.defineProperty(img, "naturalHeight", { configurable: true, value: h });
+      fireEvent.load(img);
+      return img;
+    };
+
+    const glasses = await load("Очки", 922, 318);
+    const racket = await load("Ракетка", 330, 1257);
+
+    expect(glasses.parentElement!.style.height).toBe(`${ARTIFACT_SIZE}px`);
+    expect(racket.parentElement!.style.height).toBe(`${ARTIFACT_SIZE}px`);
+    // Место ВДОЛЬ ленты остаётся за самим предметом — слот равняет только поперечник.
+    expect(glasses.parentElement!.style.width).not.toBe(racket.parentElement!.style.width);
   });
 
   it("артефакт без картинки → плейсхолдер вместо img, подпись на месте", async () => {

@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PhotoDropModal } from "./PhotoDropModal";
-import { padHighlight } from "@/lib/artifactHighlight";
 
 vi.mock("@/lib/api/client", () => ({ getDrop: vi.fn() }));
 import { getDrop } from "@/lib/api/client";
@@ -68,6 +67,79 @@ describe("PhotoDropModal — blur-up загрузка", () => {
   });
 });
 
+describe("PhotoDropModal — кадр на весь экран", () => {
+  const twoFrames = [
+    { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 300, height: 400 },
+    { imageUrl: "/api/film-media/1/1/web", thumbUrl: "/api/film-media/1/1/thumb", width: 400, height: 300 },
+  ];
+
+  const openFirst = async (onClose = () => {}) => {
+    getDropMock.mockResolvedValue(twoFrames);
+    const view = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={onClose} />,
+    );
+    const frames = await screen.findAllByRole("button", { name: /открыть кадр/ });
+    fireEvent.click(frames[0]);
+    return view;
+  };
+
+  it("каждый кадр — кнопка, клик открывает его во весь экран", async () => {
+    const { container } = await openFirst();
+
+    const lightbox = screen.getByRole("dialog", { name: "кадр 1 из 2" });
+    expect(lightbox).toBeInTheDocument();
+    // Показываем именно тот кадр, по которому кликнули, и в полном размере (web, не thumb).
+    expect(container.querySelector(".lightbox-photo")).toHaveAttribute(
+      "src",
+      "/api/film-media/1/0/web",
+    );
+  });
+
+  it("Esc закрывает только кадр — галерея дропа остаётся", async () => {
+    const onClose = vi.fn();
+    const { container } = await openFirst(onClose);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(container.querySelector(".lightbox-photo")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    // Набор кадров на месте.
+    expect(screen.getAllByRole("button", { name: /открыть кадр/ })).toHaveLength(2);
+
+    // Второй Esc — уже про саму галерею.
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("клик по фону и по ✕ закрывает кадр, но не галерею", async () => {
+    const onClose = vi.fn();
+    const { container } = await openFirst(onClose);
+
+    fireEvent.click(screen.getByRole("dialog", { name: "кадр 1 из 2" }));
+    expect(container.querySelector(".lightbox-photo")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /открыть кадр/ })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть кадр" }));
+    expect(container.querySelector(".lightbox-photo")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("клик по самой картинке кадр не закрывает", async () => {
+    // Промах мимо фона не должен стоить просмотра — закрытие это решение (фон/✕/Esc).
+    const { container } = await openFirst();
+    fireEvent.click(container.querySelector(".lightbox-photo")!);
+    expect(container.querySelector(".lightbox-photo")).not.toBeNull();
+  });
+
+  it("закрытый кадр возвращает фокус на свою плитку", async () => {
+    await openFirst();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(document.activeElement).toBe(
+      screen.getAllByRole("button", { name: /открыть кадр/ })[0],
+    );
+  });
+});
+
 describe("PhotoDropModal — подсветка артефактов (§5.12)", () => {
   it("рисует рамку долями кадра, а не пикселями", async () => {
     getDropMock.mockResolvedValue([
@@ -124,6 +196,116 @@ describe("PhotoDropModal — подсветка артефактов (§5.12)", 
   });
 });
 
+describe("PhotoDropModal — подсказка о предмете по наведению на рамку", () => {
+  const twoFinds = [
+    {
+      imageUrl: "/api/film-media/1/0/web",
+      thumbUrl: "/api/film-media/1/0/thumb",
+      width: 400,
+      height: 400,
+      artifacts: [
+        { artifactId: 6, name: "Очки", imageUrl: "/api/artifact-media/6", x0: 0.05, y0: 0.05, x1: 0.35, y1: 0.35 },
+        { artifactId: 9, name: "Футболка", imageUrl: null, x0: 0.25, y0: 0.25, x1: 0.9, y1: 0.9 },
+      ],
+    },
+  ];
+
+  /** Курсор в долях кадра: в jsdom размеров нет, поэтому рамку кадра задаём сами. */
+  const hoverAt = (frame: HTMLElement, x: number, y: number) => {
+    frame.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+    fireEvent.mouseMove(frame, { clientX: x * 200, clientY: y * 200 });
+  };
+
+  const renderFrame = async () => {
+    getDropMock.mockResolvedValue(twoFinds);
+    const view = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
+    );
+    await waitFor(() => expect(view.container.querySelector(".artifact-box")).not.toBeNull());
+    return { ...view, frame: view.container.querySelector<HTMLElement>(".drop-frame")! };
+  };
+
+  it("на пустом месте кадра подсказки нет", async () => {
+    const { container, frame } = await renderFrame();
+    hoverAt(frame, 0.95, 0.02);
+    expect(container.querySelectorAll(".artifact-card")).toHaveLength(0);
+  });
+
+  it("подсказка показывает картинку предмета и его имя", async () => {
+    const { container, frame } = await renderFrame();
+    hoverAt(frame, 0.1, 0.1);
+
+    const cards = container.querySelectorAll(".artifact-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveTextContent("Очки");
+    expect(cards[0].querySelector("img")).toHaveAttribute("src", "/api/artifact-media/6");
+    // Подсказка привязана к своей рамке, а не к кадру: находок бывает несколько.
+    expect(cards[0].parentElement).toHaveClass("artifact-box");
+  });
+
+  it("две находки на кадре: показывается та, под которой курсор", async () => {
+    const { container, frame } = await renderFrame();
+    hoverAt(frame, 0.8, 0.8);
+    const cards = container.querySelectorAll(".artifact-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveTextContent("Футболка");
+  });
+
+  it("на пересечении рамок показываются обе подсказки", async () => {
+    const { container, frame } = await renderFrame();
+    hoverAt(frame, 0.3, 0.3);
+    const cards = container.querySelectorAll(".artifact-card");
+    expect(cards).toHaveLength(2);
+    expect([...cards].map((c) => c.textContent)).toEqual(["Очки", "Футболка"]);
+  });
+
+  it("на пересечении верхняя плашка — та, на которую навели ПОЗЖЕ", async () => {
+    // Иначе порядок диктует разметка: одна и та же плашка всегда сверху, и подвести мышь
+    // к нижней находке нельзя вовсе — её карточку не увидеть.
+    const { container, frame } = await renderFrame();
+
+    const zOf = (name: string) =>
+      Number(
+        [...container.querySelectorAll<HTMLElement>(".artifact-card")]
+          .find((c) => c.textContent === name)!.style.zIndex,
+      );
+
+    // Сперва только футболка, затем въезжаем в пересечение ⇒ очки пришли позже.
+    hoverAt(frame, 0.8, 0.8);
+    hoverAt(frame, 0.3, 0.3);
+    expect(zOf("Очки")).toBeGreaterThan(zOf("Футболка"));
+
+    // Тем же курсором в обратном порядке — сверху уже футболка.
+    fireEvent.mouseLeave(frame);
+    hoverAt(frame, 0.1, 0.1);
+    hoverAt(frame, 0.3, 0.3);
+    expect(zOf("Футболка")).toBeGreaterThan(zOf("Очки"));
+  });
+
+  it("предмет без картинки — подсказка остаётся, просто без картинки", async () => {
+    const { container, frame } = await renderFrame();
+    hoverAt(frame, 0.8, 0.8);
+    expect(container.querySelector(".artifact-card")!.querySelector("img")).toBeNull();
+  });
+
+  it("курсор ушёл с кадра — подсказка гаснет", async () => {
+    const { container, frame } = await renderFrame();
+    hoverAt(frame, 0.1, 0.1);
+    expect(container.querySelectorAll(".artifact-card")).toHaveLength(1);
+    fireEvent.mouseLeave(frame);
+    expect(container.querySelectorAll(".artifact-card")).toHaveLength(0);
+  });
+
+  it("имя предмета доступно скринридеру и без наведения", async () => {
+    // Подсказка живёт по ховеру, а ховера у скринридера нет — имя обязано быть в разметке
+    // всегда, иначе находка для него просто не существует.
+    await renderFrame();
+    expect(screen.getByText("Очки")).toBeInTheDocument();
+    expect(screen.getByText("Футболка")).toBeInTheDocument();
+  });
+});
+
 describe("PhotoDropModal — подпись артефакта не обрезается", () => {
   const frameWith = (box: { x0: number; y0: number; x1: number; y1: number }) => [
     {
@@ -135,11 +317,11 @@ describe("PhotoDropModal — подпись артефакта не обреза
     },
   ];
 
-  it("обёртка кадра клипует — иначе размытие thumb светится за краем", async () => {
-    // Регрессионный якорь на два бага сразу. Клип снимали, чтобы подпись под рамкой не
-    // срезалась краем кадра, — и получили ореол: filter: blur() расплывается ЗА границы
-    // элемента, так что кадры засветились по всему периметру. Клип вернули, а подпись
-    // перенесли внутрь рамки (кейс ниже) — там ей обрезаться не обо что.
+  it("клипует картинку, а не весь кадр — ореола нет, подписи есть куда выйти", async () => {
+    // Регрессионный якорь на два бага сразу. Клип со всего кадра снимали, чтобы подпись не
+    // срезалась, — и получили ореол: filter: blur() расплывается ЗА границы элемента, и клип
+    // был единственным, что его держало. Ответ — клипует ровно то, что размывается: обёртка
+    // картинок. Сам кадр не клипует, поэтому подпись вправе выйти за него целиком.
     getDropMock.mockResolvedValue(frameWith({ x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }));
 
     const { container } = render(
@@ -147,25 +329,18 @@ describe("PhotoDropModal — подпись артефакта не обреза
     );
 
     await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
+    const media = container.querySelector<HTMLElement>(".blur-up-thumb")!.parentElement!;
+    expect(media.style.overflow).toBe("hidden");
+
     const frame = container.querySelector<HTMLElement>(".artifact-box")!.parentElement!;
-    expect(frame.style.overflow).toBe("hidden");
+    expect(frame).toHaveClass("drop-frame");
+    expect(frame.style.overflow === "" || frame.style.overflow === "visible").toBe(true);
   });
 
-  it("подпись лежит внутри рамки, а не под ней", async () => {
-    getDropMock.mockResolvedValue(frameWith({ x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }));
-
-    const { container } = render(
-      <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
-    );
-
-    await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
-    const label = container.querySelector<HTMLElement>(".artifact-box__label")!;
-    expect(label.parentElement).toHaveClass("artifact-box");
-  });
-
-  it("подпись длиннее рамки упирается в правый край кадра, но не заходит за него", async () => {
-    // Узкая рамка у правого края — худший случай: подписи тесно внутри рамки, и без потолка
-    // она вылезла бы за кадр (а кадр теперь клипует, значит подпись бы срезало).
+  it("рамке не назначается потолок ширины подписи — имя предмета видно целиком", async () => {
+    // Узкая рамка у правого края — худший случай: раньше подпись упиралась в край кадра и
+    // усекалась многоточием («2YK Su…»), потому что кадр клипует. Теперь клипует только
+    // картинка, и подпись выходит за кадр целиком — потолок ей больше не нужен.
     const raw = { x0: 0.65, y0: 0.1, x1: 0.85, y1: 0.4 };
     getDropMock.mockResolvedValue(frameWith(raw));
 
@@ -175,12 +350,7 @@ describe("PhotoDropModal — подпись артефакта не обреза
 
     await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
     const box = container.querySelector<HTMLElement>(".artifact-box")!;
-    const r = padHighlight({ artifactId: 7, name: "Ракетка", ...raw });
-    const labelMax = parseFloat(box.style.getPropertyValue("--label-max")) / 100;
 
-    // Потолок задан в долях ШИРИНЫ РАМКИ, поэтому он больше 100% — подпись вправе выйти
-    // за рамку. Проверяем то, ради чего он введён: во всю ширину она встаёт ровно в край кадра.
-    expect(labelMax).toBeGreaterThan(1);
-    expect(r.x0 + labelMax * r.width).toBeCloseTo(1, 5);
+    expect(box.style.getPropertyValue("--label-max")).toBe("");
   });
 });

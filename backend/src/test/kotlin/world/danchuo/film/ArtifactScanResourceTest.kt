@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured.given
 import org.junit.jupiter.api.AfterEach
 import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.hasKey
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.Test
 import java.awt.Color
@@ -86,6 +87,9 @@ class ArtifactScanResourceTest {
             .body("[0].artifacts[0].artifactId", equalTo(artifactId.toInt()))
             .body("[0].artifacts[0].x0", equalTo(0.1f))
             .body("[0].artifacts[0].y1", equalTo(0.8f))
+            // Картинка предмета едет вместе с рамкой: подсказка у рамки показывает сам
+            // предмет, а не одно имя, и второго запроса за каталогом для этого не делает.
+            .body("[0].artifacts[0]", hasKey("imageUrl"))
 
         given().header("Authorization", "Bearer $token")
             .delete("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")

@@ -24,6 +24,8 @@ export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
   return (
     <div
       className="weekend-scene"
+      // Все слои сцены — absolute, своего контента по высоте у неё нет: в бенто высоту даёт
+      // flex-рост, в стеке (§8) — aspect-ratio класса `.weekend-scene` (иначе схлопывается в ноль).
       style={{ position: "relative", flex: 1, minHeight: 0, overflow: "hidden" }}
       role="img"
       aria-label={`Выходной — отдых. ${monsterDone ? "монстр выпит" : "монстр не пил"}`}

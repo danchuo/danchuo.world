@@ -136,7 +136,9 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
                 ref={boxRef}
                 type="button"
                 onClick={() => setOpen(true)}
-                className="flex min-h-0 flex-1 flex-col items-center justify-center"
+                // drop-mosaic: своя высота там, где родитель её не задаёт (мобильный стек, §8) —
+                // без неё boxH=0, раскладка не строится и кадры не появляются вовсе.
+                className="drop-mosaic flex min-h-0 flex-1 flex-col items-center justify-center"
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: GAP }}
                 aria-label={`Открыть дроп «${latest.title}»`}
               >

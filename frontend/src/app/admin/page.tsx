@@ -237,24 +237,32 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl p-6">
-      {/* No page heading by design — the wave switcher and logout are the whole header. */}
-      <header className="mb-6 flex flex-wrap items-center justify-end gap-4">
-        {/* Same wave switcher tile as the board — the admin follows waves too. */}
-        <WaveSwitcher style={{ width: 190 }} />
-        <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
-          выйти
-        </button>
-      </header>
+      {/* Одна шапка на всё: разделы слева, служебное справа (свитчер волн + выход). Заголовка
+          страницы нет намеренно. Раньше вкладки шли отдельной полосой ПОД шапкой — верх экрана
+          занимали две линии подряд, а навигация начиналась со второй; теперь ряд разделов и есть
+          шапка, а служебные кнопки прижаты к её правому краю. */}
+      <header
+        className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-4"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
+        {/* Смена раздела гасит ошибку: она принадлежит покинутому экрану, на новом читалась бы
+            как его собственная поломка. */}
+        <AdminTabs
+          active={tab}
+          onSelect={(next) => {
+            setError(null);
+            setTab(next);
+          }}
+        />
 
-      {/* Смена раздела гасит ошибку: она принадлежит покинутому экрану, на новом читалась бы
-          как его собственная поломка. */}
-      <AdminTabs
-        active={tab}
-        onSelect={(next) => {
-          setError(null);
-          setTab(next);
-        }}
-      />
+        <div className="flex items-center gap-4">
+          {/* Same wave switcher tile as the board — the admin follows waves too. */}
+          <WaveSwitcher style={{ width: 110 }} />
+          <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
+            выйти
+          </button>
+        </div>
+      </header>
 
       {/* Ошибка — над разделом: её ставят все секции, и на любой из них она должна быть видна. */}
       {error && <p className="mb-4" style={{ ...mono, color: "var(--accent)" }}>{error}</p>}

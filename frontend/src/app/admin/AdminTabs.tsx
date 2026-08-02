@@ -21,12 +21,10 @@ export function AdminTabs({
   onSelect: (id: AdminTabId) => void;
 }) {
   return (
-    <nav
-      role="tablist"
-      aria-label="разделы админки"
-      className="mb-6 flex flex-wrap items-center gap-1 pb-3"
-      style={{ borderBottom: "1px solid var(--border)" }}
-    >
+    // Ни отступов, ни разделительной линии: ряд лежит в шапке страницы вместе со служебными
+    // кнопками (свитчер волн, выход), и рамку с воздухом задаёт она — своя линия резала бы
+    // шапку пополам.
+    <nav role="tablist" aria-label="разделы админки" className="flex flex-wrap items-center gap-1">
       {ADMIN_TABS.map((tab) => (
         <button
           key={tab.id}

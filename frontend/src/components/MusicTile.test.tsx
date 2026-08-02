@@ -187,6 +187,22 @@ describe("MusicTile", () => {
     expect(await screen.findByTestId("recent-track")).toHaveTextContent("Ghosts 'n' Stuff");
   });
 
+  it("список недавних лежит в обёртке .music-recent — свою высоту ей даёт CSS", async () => {
+    // Список позиционирован absolute inset-0 (чтобы его clientHeight равнялся доступному месту,
+    // а не контенту), поэтому вся высота обёртки приходит от родителя. В мобильном стеке родитель
+    // её не даёт ⇒ обёртка нулевая, треки есть в DOM, но не видны — «виджет без наполнения».
+    // Пиксели проверяет CSS-контракт `app/styles/stackHeights.test.ts`.
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue([
+      { track: track({ title: "Ghosts 'n' Stuff" }), playedAt: "2026-06-18T10:00:00Z" },
+    ]);
+
+    render(<MusicTile />);
+
+    const row = await screen.findByTestId("recent-track");
+    expect(row.closest(".music-recent")).not.toBeNull();
+  });
+
   it("уход вкладки в фон не дёргает опрос, возврат — обновляет немедленно", async () => {
     getNowPlayingMock.mockResolvedValue(nowView());
     getRecentMock.mockResolvedValue([]);

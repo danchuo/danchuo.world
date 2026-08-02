@@ -2,16 +2,19 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
+  cancelArtifactScan,
   createArtifact,
   deleteArtifact,
+  getArtifactScanRun,
   listArtifactsAdmin,
   scanArtifactsEverywhere,
   suggestArtifactHint,
   updateArtifact,
   uploadArtifactImage,
 } from "@/lib/api/admin";
-import type { AdminArtifactView, ArtifactInput } from "@/lib/api/types";
+import type { AdminArtifactView, ArtifactInput, ArtifactScanRunView } from "@/lib/api/types";
 import {
+  artifactRunLabel,
   btnStyle,
   describe,
   fieldStyle,
@@ -60,9 +63,12 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
   const [form, setForm] = useState<ArtifactInput>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [run, setRun] = useState<ArtifactScanRunView | null>(null);
 
   /** Картинка редактируемой записи — берётся из списка, чтобы форма показывала актуальную. */
   const editingImage = items.find((a) => a.id === editingId)?.imageUrl ?? null;
+  const scanning = run?.state === "running";
+  const runLabel = run ? artifactRunLabel(run) : "";
 
   const load = useCallback(async () => {
     try {
@@ -75,6 +81,26 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Прогон архива длинный (кадр × все дропы) и переживает перезагрузку страницы — поэтому
+  // сводку спрашиваем при входе, а потом поллим, пока он идёт.
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const fresh = await getArtifactScanRun(token);
+        if (alive) setRun(fresh);
+      } catch {
+        // Сводка — справочная: её недоступность не повод показывать ошибку поверх формы.
+      }
+    };
+    void tick();
+    const id = setInterval(tick, 3000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [token]);
 
   function startEdit(a: AdminArtifactView) {
     setEditingId(a.id);
@@ -155,18 +181,31 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
     }
   }
 
-  async function onScanAll() {
-    if (!confirm("искать артефакты во всех дропах? это обращение к платной модели на каждый кадр")) {
+  /**
+   * [only] — искать один предмет: цена та же (вызов на кадр, а не на артефакт), но находки
+   * остальных предметов остаются нетронутыми, и модели задаётся один вопрос вместо списка.
+   */
+  async function onScan(only?: AdminArtifactView) {
+    const what = only ? `«${only.name}»` : "все артефакты";
+    if (!confirm(`искать ${what} во всех дропах? это обращение к платной модели на каждый кадр`)) {
       return;
     }
     setBusy(true);
     try {
-      const started = await scanArtifactsEverywhere(token);
-      setNotice(`прогон запущен по ${started.length} дропам — идёт в фоне`);
+      setRun(await scanArtifactsEverywhere(token, only?.id));
+      setNotice(null);
     } catch (e) {
       onError(describe(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onCancelScan() {
+    try {
+      setRun(await cancelArtifactScan(token));
+    } catch (e) {
+      onError(describe(e));
     }
   }
 
@@ -175,10 +214,24 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
         <h2 style={sectionTitleStyle}>артефакты</h2>
         <span style={mono}>{items.length} шт</span>
-        <button type="button" style={secondaryBtnStyle} onClick={onScanAll} disabled={busy}>
-          искать во всех дропах
+        <button type="button" style={secondaryBtnStyle} onClick={() => void onScan()} disabled={busy || scanning}>
+          искать все во всех дропах
         </button>
       </div>
+
+      {/* Сводка прогона: без неё прогон по архиву был непрозрачен — единственным следом
+          оставалась строчка «запущен по N дропам», а остановить его можно было только
+          рестартом бэкенда. */}
+      {run && runLabel && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={mono}>{runLabel}</span>
+          {scanning && (
+            <button type="button" style={secondaryBtnStyle} onClick={() => void onCancelScan()}>
+              остановить
+            </button>
+          )}
+        </div>
+      )}
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10, maxWidth: 560 }}>
         <label style={{ display: "grid", gap: 4 }}>
@@ -250,6 +303,9 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
                   hidden
                   onChange={(e) => {
                     const f = e.target.files?.[0];
+                    // Сбрасываем значение: иначе повторный выбор ТОГО ЖЕ файла не поднимет
+                    // onChange вовсе, и замена картинки молча не сработает.
+                    e.target.value = "";
                     if (f) void onImage(editingId, f);
                   }}
                 />
@@ -327,6 +383,7 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
                 hidden
                 onChange={(e) => {
                   const f = e.target.files?.[0];
+                  e.target.value = "";
                   if (f) void onImage(a.id, f);
                 }}
               />
@@ -339,6 +396,22 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
               title={a.imageUrl ? "описать картинку моделью" : "сначала загрузи картинку"}
             >
               предложить
+            </button>
+            {/* Свой прогон у каждого предмета: обычный путь — «завёл артефакт, ищу его».
+                Отдельная кнопка не ради цены (вызов один на кадр в любом случае), а ради
+                того, чтобы находки остальных предметов остались как есть. */}
+            <button
+              type="button"
+              style={secondaryBtnStyle}
+              onClick={() => void onScan(a)}
+              disabled={busy || scanning}
+              title={
+                a.detectionHint
+                  ? "искать этот предмет во всех дропах"
+                  : "без описания для поиска модель будет искать по названию"
+              }
+            >
+              искать
             </button>
             <button type="button" style={secondaryBtnStyle} onClick={() => startEdit(a)}>
               править

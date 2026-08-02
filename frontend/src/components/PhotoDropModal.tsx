@@ -140,8 +140,10 @@ function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
       style={{
         position: "relative",
         breakInside: "avoid",
-        // Клипа тут намеренно НЕТ: подпись артефакта висит под рамкой и у кадра с находкой
-        // внизу обрезалась бы краем обёртки. Скругление углов переехало на сами картинки.
+        // Клип обязателен: `filter: blur()` на thumb расплывается ЗА границы элемента, и без
+        // него кадры «светятся» ореолом по всему периметру. Подпись артефакта поэтому живёт
+        // внутри рамки, а не под ней — обрезаться ей нечем.
+        overflow: "hidden",
         background: "var(--bg-surface-muted)",
         borderRadius: "var(--radius-sm)",
         aspectRatio: ratio,
@@ -189,6 +191,10 @@ function BlurUpPhoto({ photo }: { photo: FilmPhotoView }) {
             top: `${r.y0 * 100}%`,
             width: `${r.width * 100}%`,
             height: `${r.height * 100}%`,
+            // Сколько места от левого края рамки до правого края кадра — в долях ширины
+            // рамки, потому что max-width подписи считается от неё. Дальше подпись
+            // усекается многоточием и потому никогда не упирается в край кадра.
+            ["--label-max" as string]: `${((1 - r.x0) / r.width) * 100}%`,
           }}
         >
           <span className="artifact-box__label">{a.name}</span>

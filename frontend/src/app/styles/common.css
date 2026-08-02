@@ -850,11 +850,16 @@ body {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-base) 45%, transparent);
 }
 
+/* Подпись живёт ВНУТРИ рамки, у её левого-верхнего угла, а не под рамкой.
+   Так она не может выйти за кадр — а значит, кадру можно вернуть клип (см. .blur-up-thumb:
+   без клипа размытие thumb расплывалось за край и кадры «светились» по всему периметру).
+   Ширину сверху ограничивает инлайновый --label-max: сколько места остаётся от левого края
+   рамки до правого края кадра, в долях ширины самой рамки. */
 .artifact-box__label {
   position: absolute;
-  left: 0;
-  top: 100%;
-  margin-top: 3px;
+  left: 2px;
+  top: 2px;
+  max-width: var(--label-max, 100%);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   background: var(--accent);
@@ -863,11 +868,10 @@ body {
   font-size: 11px;
   line-height: 1.5;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   opacity: 0;
   transition: opacity 0.18s ease;
-  /* Поверх соседних кадров: обёртка кадра больше не клипует, и подпись у нижней рамки
-     выходит за его край — пусть перекрывает соседа, а не обрезается. */
-  z-index: 2;
 }
 
 /* Подпись проступает, когда курсор на кадре — постоянные подписи на 36 кадрах были бы шумом. */

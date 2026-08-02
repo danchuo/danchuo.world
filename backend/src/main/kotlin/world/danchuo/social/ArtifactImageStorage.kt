@@ -41,8 +41,20 @@ class ArtifactImageStorage(
         Files.deleteIfExists(fileOf(artifactId))
     }
 
-    /** Публичный URL картинки — под ним её раздаёт [ArtifactMediaResource]. */
-    fun urlOf(artifactId: Long): String = "/api/artifact-media/$artifactId"
+    /**
+     * Публичный URL картинки — под ним её раздаёт [ArtifactMediaResource].
+     *
+     * Имя файла от содержимого не зависит (это всегда `{id}.png`), поэтому замена картинки
+     * оставила бы URL прежним, и браузер честно показывал бы кэшированную копию. Отсюда
+     * версия `?v=` от времени файла: тот же приём, что у перевёрнутых кадров (`FilmService`).
+     * Заметно это было так: первая замена срабатывала (URL появлялся впервые), вторая — нет.
+     */
+    fun urlOf(artifactId: Long): String {
+        val base = "/api/artifact-media/$artifactId"
+        val version = runCatching { Files.getLastModifiedTime(fileOf(artifactId)).toMillis() }
+            .getOrNull() ?: return base
+        return "$base?v=$version"
+    }
 
     private fun fileOf(artifactId: Long): Path = root.resolve("$artifactId.png")
 }

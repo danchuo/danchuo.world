@@ -195,6 +195,8 @@ export interface FilmPhotoView {
 export interface ArtifactBoxView {
   artifactId: number;
   name: string;
+  /** Картинка предмета из каталога для подсказки у рамки; `null` — предмет без картинки. */
+  imageUrl?: string | null;
   x0: number;
   y0: number;
   x1: number;

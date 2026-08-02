@@ -36,6 +36,12 @@ function formatFirstMentioned(iso: string): string {
  * Предмет в самой ленте. Пропорцию берём с картинки (`naturalWidth/Height`) на её загрузке —
  * до замера предмет считается квадратным по потолку ленты. Поворот не двигает место в потоке,
  * поэтому габарит держит обёртка, а у самой картинки стороны меняются местами.
+ *
+ * **Поперёк ленты слот всегда одного размера** (`ARTIFACT_SIZE`), а предмет центрируется в
+ * нём. Предметы равняются по оптическому весу, то есть по площади, — значит высота у них
+ * разная (очки 28px против почти квадратной мыльницы 40), и подпись под ними скакала
+ * вверх-вниз от предмета к предмету. Вдоль ленты слот по-прежнему по предмету: там разница
+ * ширин это и есть честное «каждый предмет своей формы», строку подписей она не ломает.
  */
 function ArtifactThumb({
   src,
@@ -56,8 +62,8 @@ function ArtifactThumb({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: box.width,
-        height: box.height,
+        width: vertical ? ARTIFACT_SIZE : box.width,
+        height: vertical ? box.height : ARTIFACT_SIZE,
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -174,7 +180,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                   tabIndex={dup ? -1 : 0}
                   onFocus={dup ? undefined : () => setActive(idx)}
                   onClick={() => setActive((cur) => (cur === idx ? null : idx))}
-                  className={`${vertical ? "my-3" : "mx-4"} inline-flex flex-col items-center gap-1 align-middle`}
+                  /* Зазор картинка↔подпись — крупнее прежних 4px: на волне 01 подпись липла
+                     к предмету и читалась его частью, а не отдельной строкой. */
+                  className={`${vertical ? "my-3" : "mx-4"} inline-flex flex-col items-center gap-2 align-middle`}
                   style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
                   {a.imageUrl ? (

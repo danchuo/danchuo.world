@@ -41,6 +41,12 @@ data class FilmPhotoView(
 data class ArtifactBoxView(
     val artifactId: Long,
     val name: String,
+    /**
+     * Картинка предмета из каталога — та же, что едет в ленте артефактов; `null` у предмета
+     * без картинки. Нужна подсказке у рамки: имя словами не объясняет, что за надпись на фото,
+     * а знакомый вырезанный предмет объясняет сразу (DESIGN §7.5).
+     */
+    val imageUrl: String?,
     val x0: Double,
     val y0: Double,
     val x1: Double,

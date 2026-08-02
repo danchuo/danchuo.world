@@ -182,7 +182,8 @@ class FilmService(
         // Находки и имена артефактов — двумя запросами на весь дроп, а не по кадру (N+1).
         val boxes = detections.listVisibleByPhotos(frames.mapNotNull { it.id })
             .groupBy { it.photoId }
-        val names = artifacts.listAll().associate { it.id to it.name }
+        // Не только имя: подсказке у рамки нужна и картинка предмета из каталога.
+        val known = artifacts.listAll().associateBy { it.id }
         return frames.map { p ->
             FilmPhotoView(
                 imageUrl = mediaUrl(p, PhotoVariant.WEB),
@@ -190,8 +191,8 @@ class FilmService(
                 width = p.width,
                 height = p.height,
                 artifacts = boxes[p.id].orEmpty().mapNotNull { d ->
-                    names[d.artifactId]?.let { name ->
-                        ArtifactBoxView(d.artifactId, name, d.x0, d.y0, d.x1, d.y1)
+                    known[d.artifactId]?.let { a ->
+                        ArtifactBoxView(d.artifactId, a.name, a.imageUrl, d.x0, d.y0, d.x1, d.y1)
                     }
                 },
             )
@@ -209,7 +210,8 @@ class FilmService(
         // Находки нужны админке, чтобы показать, что нашлось на кадре, и дать снять лишнее.
         val boxes = detections.listVisibleByPhotos(frames.mapNotNull { it.id })
             .groupBy { it.photoId }
-        val names = artifacts.listAll().associate { it.id to it.name }
+        // Не только имя: подсказке у рамки нужна и картинка предмета из каталога.
+        val known = artifacts.listAll().associateBy { it.id }
         return frames.map { p ->
             AdminPhotoView(
                 id = p.id!!,
@@ -217,8 +219,8 @@ class FilmService(
                 isCover = p.id == drop.coverPhotoId,
                 orientation = p.orientationApplied,
                 artifacts = boxes[p.id].orEmpty().mapNotNull { d ->
-                    names[d.artifactId]?.let { name ->
-                        ArtifactBoxView(d.artifactId, name, d.x0, d.y0, d.x1, d.y1)
+                    known[d.artifactId]?.let { a ->
+                        ArtifactBoxView(d.artifactId, a.name, a.imageUrl, d.x0, d.y0, d.x1, d.y1)
                     }
                 },
             )

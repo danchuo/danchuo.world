@@ -261,7 +261,14 @@ export default function AdminPage() {
 
       {tab === "drops" && (
         <>
-          <DropUploadForm token={token} onUploaded={onUploaded} onError={setError} />
+          <DropUploadForm
+            token={token}
+            onUploaded={onUploaded}
+            onError={setError}
+            activeDropId={selected?.id ?? null}
+            artifactScan={artifactScan}
+            onScanArtifacts={onScanArtifacts}
+          />
           <div className="flex flex-col gap-6 md:flex-row">
             <DropList drops={drops} selectedId={selected?.id ?? null} onSelect={selectDrop} onDelete={onDelete} />
             <PhotoGrid

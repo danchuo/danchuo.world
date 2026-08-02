@@ -119,6 +119,31 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("weekend-monster-mark")).toHaveTextContent(/^пил$/);
   });
 
+  it("«пил» и «не пил» красятся РАЗНЫМИ токенами, а не оттенками тревоги", () => {
+    // Регрессионный якорь: раньше «не пил» шёл --accent, а на волне 01 это #e2604c —
+    // почти тот же тон, что --danger #d2553f. Состояния различались одним словом,
+    // а цвет в обоих случаях говорил «плохо».
+    const mark = (drunk: boolean) => {
+      const { unmount } = render(
+        <TodayTile
+          // Вкус выбран ⇒ монстр выпит; null ⇒ чисто (dayFixture по умолчанию ставит вкус).
+          day={dayFixture({ date: "2026-06-21", ...(drunk ? {} : { monster: null }) })}
+          today="2026-06-21"
+          state="loaded"
+          wave="wave-01"
+        />,
+      );
+      const style = screen.getByTestId("weekend-monster-mark").getAttribute("style") ?? "";
+      unmount();
+      return style;
+    };
+
+    expect(mark(false)).toContain("--accent-clean");
+    expect(mark(true)).toContain("--danger");
+    // И зелёный не одолжен у чужой роли: --accent-code это канал вкладов GitHub.
+    expect(mark(false)).not.toContain("--accent-code");
+  });
+
   it("будний день держит карту-тропу даже на волне со сценой", () => {
     render(
       <TodayTile day={dayFixture({ date: "2026-06-18" })} today="2026-06-18" state="loaded" wave="wave-01" />,

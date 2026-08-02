@@ -18,7 +18,7 @@ const pixelated: CSSProperties = { imageRendering: "pixelated" };
  *
  * The single carry-over is the **monster**, tracked every day — but on weekends there are **no
  * streaks**, just a one-line checklist centered at the bottom, spelled out in words (a tick was
- * ambiguous): **«монстр — не пил»** (clean, `--accent`) or **«монстр — пил»** (drunk, `--danger`).
+ * ambiguous): **«монстр — не пил»** (clean, `--accent-clean`) or **«монстр — пил»** (drunk, `--danger`).
  */
 export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
   return (
@@ -58,7 +58,13 @@ export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
         монстр —{" "}
         <span
           data-testid="weekend-monster-mark"
-          style={{ fontWeight: 700, color: monsterDone ? "var(--danger, #d1553b)" : "var(--accent)" }}
+          style={{
+            fontWeight: 700,
+            // «Пил» остаётся тревожным, «не пил» — зелёный. Раньше тут стоял --accent, но на
+            // волне 01 он (#e2604c) почти совпадает по тону с --danger (#d2553f): состояния
+            // различались одним словом, а цвет говорил «плохо» в обоих случаях.
+            color: monsterDone ? "var(--danger, #d1553b)" : "var(--accent-clean, #5f9e52)",
+          }}
         >
           {monsterDone ? "пил" : "не пил"}
         </span>

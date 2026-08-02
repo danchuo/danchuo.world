@@ -4,7 +4,6 @@ import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 
 /**
  * Байты картинок артефактов, заведённых через `/admin` (PRD §5.8).
@@ -23,15 +22,19 @@ class ArtifactImageStorage(
 
     private val root: Path get() = Path.of(dir)
 
+    /**
+     * Положить картинку предмета. Прозрачные поля срезаются на входе ([ArtifactImageTrim]):
+     * лента считает оптический вес от пропорции картинки, поэтому широкие поля показывали бы
+     * предмет мельче — и вдобавок врали бы про его пропорцию.
+     */
     fun put(artifactId: Long, bytes: ByteArray) {
         Files.createDirectories(root)
-        Files.write(fileOf(artifactId), bytes)
+        Files.write(fileOf(artifactId), ArtifactImageTrim.trim(bytes))
     }
 
     /** Переложить загруженный временный файл (multipart отдаёт путь, а не байты). */
     fun putFile(artifactId: Long, source: Path) {
-        Files.createDirectories(root)
-        Files.copy(source, fileOf(artifactId), StandardCopyOption.REPLACE_EXISTING)
+        put(artifactId, Files.readAllBytes(source))
     }
 
     fun get(artifactId: Long): ByteArray? =

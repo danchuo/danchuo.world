@@ -90,6 +90,9 @@ class ArtifactScanResourceTest {
             // Картинка предмета едет вместе с рамкой: подсказка у рамки показывает сам
             // предмет, а не одно имя, и второго запроса за каталогом для этого не делает.
             .body("[0].artifacts[0]", hasKey("imageUrl"))
+            // …и вместе с ней — флаг «можно набок»: карточка у рамки держит лежачий слот, и без
+            // флага вытянутый предмет (ракетка) вырождался бы в нитку, как когда-то в ленте.
+            .body("[0].artifacts[0]", hasKey("rotatable"))
 
         given().header("Authorization", "Bearer $token")
             .delete("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")

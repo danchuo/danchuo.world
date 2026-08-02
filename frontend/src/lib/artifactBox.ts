@@ -18,6 +18,24 @@ const ARTIFACT_PRESENCE = 48;
 /** Со скольких раз «длинная сторона / короткая» предмет считается вытянутым. */
 const ELONGATED = 2;
 
+/**
+ * Класть ли предмет набок в слоте, вытянутом вдоль [vertical] (`false` — слот лежачий).
+ *
+ * **Флаг только разрешает — решает геометрия картинки.** Отсюда следствие, которое легко
+ * принять за неработающий флаг: если у картинки широкие прозрачные поля, пропорция считается
+ * от холста, предмет не признаётся вытянутым и набок не ложится (см. обрезку полей, PRD §5.8).
+ *
+ * Живёт отдельно от [artifactBox], потому что нужен не только ленте: карточка предмета у рамки
+ * находки (DESIGN §7.5) держит тот же лежачий слот, а габариты ленты ей ни к чему.
+ */
+export function laysOnSide(ratio: number, rotatable: boolean, vertical: boolean): boolean {
+  // Картинка ещё не измерилась / битая — считаем предмет квадратным (значит не вытянутым).
+  const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+  const elongated = r >= ELONGATED || r <= 1 / ELONGATED;
+  const longIsWidth = r >= 1;
+  return rotatable && elongated && (vertical ? longIsWidth : !longIsWidth);
+}
+
 export interface ArtifactBox {
   width: number;
   height: number;
@@ -46,9 +64,7 @@ export function artifactBox(
 ): ArtifactBox {
   // Картинка ещё не измерилась / битая — считаем предмет квадратным (упрётся в потолок).
   const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
-  const elongated = r >= ELONGATED || r <= 1 / ELONGATED;
-  const longIsWidth = r >= 1;
-  const rotate = rotatable && elongated && (vertical ? longIsWidth : !longIsWidth);
+  const rotate = laysOnSide(ratio, rotatable, vertical);
   // Экранная пропорция (после поворота стороны меняются местами).
   const eff = rotate ? 1 / r : r;
 

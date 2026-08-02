@@ -69,8 +69,17 @@ export function PhotoGrid({
             {checking ? "проверяю поворот…" : "проверить поворот"}
           </button>
           {orientation && <span aria-live="polite" style={mono}>{orientationLabel(orientation)}</span>}
-          <button type="button" onClick={onScanArtifacts} disabled={scanning} style={secondaryBtnStyle}>
-            {scanning ? "ищу артефакты…" : "искать артефакты"}
+          {/* Название кнопки называет ОХВАТ: прогон берёт весь каталог предметов разом, но
+              только по кадрам этого дропа. Прежнее «искать артефакты» об охвате молчало, и
+              рядом с кнопкой «искать все во всех дропах» читалось как её половина. */}
+          <button
+            type="button"
+            onClick={onScanArtifacts}
+            disabled={scanning}
+            style={secondaryBtnStyle}
+            title="весь каталог предметов разом: вызов к платной модели на каждый кадр"
+          >
+            {scanning ? "ищу артефакты…" : "искать все предметы в этом дропе"}
           </button>
           {artifactScan && (
             <span aria-live="polite" style={mono}>{artifactScanLabel(artifactScan)}</span>

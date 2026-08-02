@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { WaveSwitcher } from "@/components/WaveSwitcher";
 import { AdminLogin } from "./AdminLogin";
+import { AdminTabs } from "./AdminTabs";
 import { ArtifactSection } from "./ArtifactSection";
 import { BikeImportSection } from "./BikeImportSection";
 import { DropList } from "./DropList";
@@ -10,6 +11,7 @@ import { DropUploadForm } from "./DropUploadForm";
 import { HeatmapSection } from "./HeatmapSection";
 import { PhotoGrid } from "./PhotoGrid";
 import { TOKEN_KEY, describe, mono } from "./adminUi";
+import type { AdminTabId } from "./adminUi";
 import {
   deleteDrop,
   deletePhoto,
@@ -31,20 +33,23 @@ import type {
 } from "@/lib/api/types";
 
 /**
- * Админка (B1+B2, PRD §5.11–5.12, §9 п.8) — один скроллящийся экран под общим bearer-токеном
- * ingest: сверху фото-дропы (zip ≈36 кадров с названием/датой, клик по кадру — обложка,
- * удаление), ниже — артефакты [ArtifactSection], импорт поездок Велобайка и секция хитмапы
- * кликов [HeatmapSection].
+ * Админка (B1+B2, PRD §5.11–5.12, §5.14) под общим bearer-токеном ingest: **экран на раздел**,
+ * переключаются рядом вкладок [AdminTabs] — дропы (zip ≈36 кадров с названием/датой, клик по
+ * кадру — обложка, удаление) · артефакты [ArtifactSection] · велопоездки [BikeImportSection] ·
+ * статистика [HeatmapSection]. Одной простынёй это было до реестра I-64: длина страницы росла
+ * с каждой фичей, и до нижнего блока надо было скроллить мимо всей сетки кадров.
  * Токен хранится в sessionStorage. Дизайн следует волнам (токены из корневого layout,
  * свитчер в шапке). Не SSR/SEO.
  *
- * Страница держит только то, что секции **делят между собой**: токен, список дропов с
- * выбранным, его кадры и статус проверки поворота (их меняют сразу несколько действий), плюс
- * одну строку ошибки на весь экран. Состояние форм живёт внутри своих секций.
+ * Страница держит только то, что секции **делят между собой**: токен, выбранный раздел, список
+ * дропов с выбранным, его кадры и статус проверки поворота (их меняют сразу несколько
+ * действий), плюс одну строку ошибки на весь экран. Состояние форм живёт внутри своих секций.
+ * Поллинги фоновых прогонов живут тут же — уход на другой раздел их не прерывает.
  */
 export default function AdminPage() {
   const [token, setToken] = useState("");
   const [authed, setAuthed] = useState(false);
+  const [tab, setTab] = useState<AdminTabId>("drops");
   const [drops, setDrops] = useState<AdminDropView[]>([]);
   const [selected, setSelected] = useState<AdminDropView | null>(null);
   const [photos, setPhotos] = useState<AdminPhotoView[]>([]);
@@ -241,36 +246,47 @@ export default function AdminPage() {
         </button>
       </header>
 
-      <DropUploadForm token={token} onUploaded={onUploaded} onError={setError} />
+      {/* Смена раздела гасит ошибку: она принадлежит покинутому экрану, на новом читалась бы
+          как его собственная поломка. */}
+      <AdminTabs
+        active={tab}
+        onSelect={(next) => {
+          setError(null);
+          setTab(next);
+        }}
+      />
 
+      {/* Ошибка — над разделом: её ставят все секции, и на любой из них она должна быть видна. */}
       {error && <p className="mb-4" style={{ ...mono, color: "var(--accent)" }}>{error}</p>}
 
-      <div className="flex flex-col gap-6 md:flex-row">
-        <DropList drops={drops} selectedId={selected?.id ?? null} onSelect={selectDrop} onDelete={onDelete} />
-        <PhotoGrid
-          selected={selected}
-          photos={photos}
-          orientation={orientation}
-          onCheckOrientation={onCheckOrientation}
-          artifactScan={artifactScan}
-          onScanArtifacts={onScanArtifacts}
-          onSetCover={onSetCover}
-          onRotate={onRotate}
-          onDeletePhoto={onDeletePhoto}
-          onDeleteArtifact={onDeleteArtifact}
-        />
-      </div>
+      {tab === "drops" && (
+        <>
+          <DropUploadForm token={token} onUploaded={onUploaded} onError={setError} />
+          <div className="flex flex-col gap-6 md:flex-row">
+            <DropList drops={drops} selectedId={selected?.id ?? null} onSelect={selectDrop} onDelete={onDelete} />
+            <PhotoGrid
+              selected={selected}
+              photos={photos}
+              orientation={orientation}
+              onCheckOrientation={onCheckOrientation}
+              artifactScan={artifactScan}
+              onScanArtifacts={onScanArtifacts}
+              onSetCover={onSetCover}
+              onRotate={onRotate}
+              onDeletePhoto={onDeletePhoto}
+              onDeleteArtifact={onDeleteArtifact}
+            />
+          </div>
+        </>
+      )}
 
       {/* Артефакты (§5.8): раньше новый предмет означал миграцию, теперь — форма. */}
-      <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
-      <ArtifactSection token={token} onError={setError} />
+      {tab === "artifacts" && <ArtifactSection token={token} onError={setError} />}
 
-      <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
-      <BikeImportSection token={token} onError={setError} />
+      {tab === "rides" && <BikeImportSection token={token} onError={setError} />}
 
-      {/* Хитмапа кликов — ниже дропов, на одном скроллящемся экране (B2). */}
-      <hr className="my-8" style={{ border: "none", borderTop: "1px solid var(--border)" }} />
-      <HeatmapSection token={token} />
+      {/* Хитмапа кликов (B2). */}
+      {tab === "stats" && <HeatmapSection token={token} />}
     </main>
   );
 }

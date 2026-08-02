@@ -107,6 +107,39 @@ export const ambiguousBadgeStyle: CSSProperties = {
 /** Заголовок панели — один кегль на все секции админки. */
 export const sectionTitleStyle: CSSProperties = { fontSize: 16, color: "var(--text-primary)" };
 
+/**
+ * Разделы админки (§5.14, реестр I-64): экран на раздел вместо одной простыни. Порядок тут —
+ * порядок кнопок в ряду, добавление раздела = строка в этом списке плюс ветка рендера.
+ * Список здесь, а не в компоненте: его делят ряд вкладок и сама страница.
+ */
+export const ADMIN_TABS = [
+  { id: "drops", label: "дропы" },
+  { id: "artifacts", label: "артефакты" },
+  { id: "rides", label: "велопоездки" },
+  { id: "stats", label: "статистика" },
+] as const;
+
+export type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
+
+/** Кнопка раздела. Невыбранная — прозрачная: ряд читается строкой надписей, а не полосой плашек. */
+export const tabBtnStyle: CSSProperties = {
+  border: "1px solid transparent",
+  borderRadius: "var(--radius-sm)",
+  background: "none",
+  color: "var(--text-secondary)",
+  padding: "6px 12px",
+  fontSize: 14,
+  cursor: "pointer",
+};
+
+/** Выбранный раздел — заливка акцентом (то же решение, что у главной кнопки формы). */
+export const activeTabBtnStyle: CSSProperties = {
+  ...tabBtnStyle,
+  border: "1px solid var(--accent)",
+  background: "var(--accent)",
+  color: "var(--bg-base)",
+};
+
 /** Сегодняшняя дата в формате input[type=date] (`yyyy-MM-dd`), локальная. */
 export function todayIso(): string {
   const d = new Date();

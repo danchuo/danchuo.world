@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Две правки вида, обе через токены (DESIGN §2.1): в компонентах цветов не бывает.
+
+      1) accent-clean - "монстр не выпит" в сцене выходного (DESIGN §4.2).
+         Там стоял accent, а на волне 01 это #e2604c - почти тот же тон, что danger
+         #d2553f. То есть "пил" и "не пил" различались одним словом, а цвет в обоих
+         случаях говорил "тревога". Нужен зелёный.
+         Почему НЕ accent-code: тот назван по роли "другой канал активности" (гит), и
+         одалживать его сюда значит повторить ошибку, от которой предостерегает его
+         собственный комментарий в 0270. Почему НЕ success: он держит связи тропы
+         дисциплины, и "не пил" звучал бы как ещё один пройденный пункт - а монстр на
+         выходных живёт отдельно от дисциплины, в этом весь смысл сцены.
+         Оттенок волна выбирает сама: 01 - мшистый (рядом с персиком читается как
+         "хорошо"), 02 - её холодный аркадный зелёный.
+
+      2) cal-weekend / cal-othermonth - выходные в сетке календаря (DESIGN §5).
+         Выходной был СВЕТЛЕЕ будущего дня (bg-surface-muted), поэтому в будущей
+         половине окна колонки сб/вс выглядели светлее будних и не читались вовсе -
+         разница оставалась заметна только в шапке, где ярлыки лежат на фоне плитки.
+         Выходной опущен ниже будущего дня, а соседний месяц - ниже выходного, чтобы
+         лестница светлот осталась однозначной:
+           обычный день > будущий будний > выходной > соседний месяц.
+
+      UPDATE поверх применённого 0080-theme-seed (checksum сида трогать нельзя); `||`
+      перезаписывает существующие ключи и добавляет новый. Те же значения лежат
+      CSS-фолбэком в wave-01.css - борд не белеет, если БД недоступна.
+    -->
+    <changeSet id="0290-wave-01-clean-and-weekend" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${
+  "accent-clean": "#5f9e52",
+  "cal-weekend": "#f0e1d8",
+  "cal-othermonth": "#e3d1c4"
+}$J$::jsonb WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = (tokens - 'accent-clean') || $J${
+  "cal-weekend": "#f7ece8",
+  "cal-othermonth": "#ece0d7"
+}$J$::jsonb WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+
+    <!--
+      Волна 02 сцену выходного не рендерит (капабилити hasWeekendScene пока только у 01),
+      но токен ей всё равно нужен: без него она унаследовала бы мшистый зелёный волны 01
+      из :root, а он чужой холодной палитре Obscura. Календарь у 02 голубой - там та же
+      правка лестницы, только в её тонах.
+    -->
+    <changeSet id="0290-wave-02-clean-and-weekend" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${
+  "accent-clean": "#2e9e6e",
+  "cal-weekend": "#c8e0f7",
+  "cal-othermonth": "#b6d3ee"
+}$J$::jsonb WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = (tokens - 'accent-clean') || $J${
+  "cal-weekend": "#d8ebfd",
+  "cal-othermonth": "#cbe1f6"
+}$J$::jsonb WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

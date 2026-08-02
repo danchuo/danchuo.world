@@ -30,6 +30,35 @@ function buildWindow(today: string = TODAY): DaySummary[] {
 
 const STRETCH_LENS = { key: "stretch", occurrence: 1, label: "растяжка" };
 
+describe("Calendar — колонка выходных", () => {
+  it("будущий выходной остаётся выходным, а не будущим днём", () => {
+    // Приоритет заливки: соседний месяц → выходной → будущее. Окно наполовину состоит из
+    // будущего, и без этого правила половина колонки сб/вс красилась бы «будущим» —
+    // колонка выходных обрывалась бы на сегодняшнем дне.
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    // 20 и 21 июня 2026 — суббота и воскресенье, обе позже TODAY (18-е, четверг).
+    for (const date of ["2026-06-20", "2026-06-21"]) {
+      const cell = screen.getByTestId(`day-${date}`).getAttribute("style") ?? "";
+      expect(cell).toContain("var(--cal-weekend)");
+      expect(cell).not.toContain("var(--bg-surface-muted)");
+    }
+  });
+
+  it("прошедший выходной красится тем же токеном, что и будущий", () => {
+    // Колонка обязана читаться сплошной сверху донизу — иначе «выходной» превращается
+    // в оттенок «когда», а это уже занятый канал.
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    const past = screen.getByTestId("day-2026-06-13").getAttribute("style") ?? "";
+    const future = screen.getByTestId("day-2026-06-20").getAttribute("style") ?? "";
+    expect(past).toContain("var(--cal-weekend)");
+    expect(future).toContain("var(--cal-weekend)");
+  });
+});
+
 describe("Calendar (окно целыми неделями)", () => {
   it("рисует непрерывную сетку из 4 целых недель = 28 ячеек с числами дней", () => {
     render(

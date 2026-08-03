@@ -26,16 +26,14 @@ class ArtifactAdminService(
 
     private val log = Logger.getLogger(ArtifactAdminService::class.java)
 
-    fun list(): List<AdminArtifactView> = artifacts.listAll()
-        .sortedBy { it.sortOrder }
-        .map(::view)
+    /** Тот же порядок, что и в ленте (хроника, старое первым) — список правится «как видно». */
+    fun list(): List<AdminArtifactView> = artifacts.listOrdered().map(::view)
 
     fun create(input: ArtifactInput): AdminArtifactView = tx {
         val a = Artifact().apply {
             name = input.name.trim()
             firstMentionedOn = input.parsedDate
             rotatable = input.rotatable
-            sortOrder = input.sortOrder
             detectionHint = input.detectionHint?.trim()?.ifBlank { null }
             imageUrl = null
         }
@@ -49,7 +47,6 @@ class ArtifactAdminService(
         a.name = input.name.trim().ifEmpty { a.name }
         a.firstMentionedOn = input.parsedDate
         a.rotatable = input.rotatable
-        a.sortOrder = input.sortOrder
         a.detectionHint = input.detectionHint?.trim()?.ifBlank { null }
         view(a)
     }
@@ -101,7 +98,6 @@ class ArtifactAdminService(
         imageUrl = a.imageUrl,
         firstMentionedOn = a.firstMentionedOn.toString(),
         rotatable = a.rotatable,
-        sortOrder = a.sortOrder,
         detectionHint = a.detectionHint,
     )
 
@@ -113,7 +109,6 @@ data class ArtifactInput(
     val name: String = "",
     val firstMentionedOn: String = "",
     val rotatable: Boolean = false,
-    val sortOrder: Int = 0,
     /** Как предмет выглядит — для поиска на кадрах (§5.12). Пусто ⇒ в ход идёт имя. */
     val detectionHint: String? = null,
 ) {

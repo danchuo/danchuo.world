@@ -4,6 +4,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -13,6 +14,13 @@ import { getDrop } from "@/lib/api/client";
 import { boxesAt, padHighlight } from "@/lib/artifactHighlight";
 import { laysOnSide } from "@/lib/artifactBox";
 import { mediaUrl } from "@/lib/api/media";
+import {
+  MOSAIC_NARROW_PX,
+  MOSAIC_UNITS,
+  MOSAIC_UNITS_NARROW,
+  columnMajorMosaic,
+  type MosaicCell,
+} from "@/lib/dropMosaic";
 import type { ArtifactBoxView, FilmPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
 import { useCoarsePointer } from "./useCoarsePointer";
@@ -28,8 +36,9 @@ interface PhotoDropModalProps {
 /**
  * Модалка-галерея фото-дропа (PRD §5.12, DESIGN §7.5) — большое всплывающее окно (НЕ новая
  * вкладка). Затемнённый фон, закрытие по `×`/`Esc`/клику по фону, фокус-трап, вертикальный
- * скролл (≈36 кадров длиннее экрана). Композиция — плотная masonry по реальным размерам кадров
- * (CSS-колонки; точный justified-алгоритм — дизайн-TODO). До B1 кадров нет — пустое состояние.
+ * скролл (≈36 кадров длиннее экрана). Композиция — квантованная мозаика: кадр занимает целое
+ * число клеток сетки (лежачий 3×2, стоячий 2×3 — по шесть клеток у обоих), кадры идут по полосам
+ * сверху вниз (`dropMosaic.ts`). Кадров нет — пустое состояние.
  *
  * Загрузка кадров — **blur-up**: сразу виден крошечный `thumbUrl` (размытый, он лёгкий и обычно
  * уже в кэше борда), полноразмерный `imageUrl` грузится `loading="lazy"` (только видимое) и по
@@ -52,6 +61,14 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
   // Кадр, открытый во весь экран, и плитка, с которой его открыли (ей вернём фокус).
   const [zoomed, setZoomed] = useState<number | null>(null);
   const zoomTriggerRef = useRef<HTMLElement | null>(null);
+
+  // Клеток по ширине — не медиазапросом: раскладку считает JS, и число полос ему нужно тем же
+  // числом, каким сетка объявлена, иначе кадры уехали бы за её край.
+  const units = useMosaicUnits();
+  const cells = useMemo(
+    () => columnMajorMosaic(photos.map(isPortrait), units),
+    [photos, units],
+  );
 
   const closeZoom = useCallback(() => {
     setZoomed(null);
@@ -103,7 +120,9 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          className="pixel-tile my-auto w-full max-w-4xl p-4"
+          // Панель шире прежних 56rem: при четырёх кадрах в ряду её ширина и есть размер кадра,
+          // и на 56rem горизонтальный кадр выходил 212px — мелко для просмотра плёнки.
+          className="pixel-tile my-auto w-full max-w-[64rem] p-4"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
@@ -135,13 +154,21 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
             <p style={monoTertiary}>в этом дропе пока нет кадров</p>
           )}
           {phase === "loaded" && photos.length > 0 && (
-            // Плотная masonry: CSS-колонки пакуют кадры разной ориентации без фиксированной сетки.
-            <div style={{ columnGap: 6, columns: "3 160px" }}>
+            // Квантованная мозаика: кадр занимает целое число клеток базовой сетки — горизонтальный
+            // 3×2, вертикальный 2×3. Площади равны по построению (6 клеток у обоих), поэтому
+            // вертикальный кадр не выходит вдвое мельче соседа, как это было бы у justified
+            // (тот равняет высоту ряда, а при равной высоте площадь идёт за пропорцией).
+            // Пропорция округляется до 3:2 — на живых дропах это 0.3% обрезки, глазом не видно.
+            <div
+              className="drop-gallery"
+              style={{ gridTemplateColumns: `repeat(${units}, 1fr)` }}
+            >
               {photos.map((p, i) => (
                 <BlurUpPhoto
                   key={p.imageUrl}
                   photo={p}
                   index={i}
+                  cell={cells[i]}
                   onOpen={(el) => {
                     zoomTriggerRef.current = el;
                     setZoomed(i);
@@ -305,22 +332,24 @@ function ArtifactCardImage({ src, rotatable }: { src: string; rotatable: boolean
 
 /**
  * Один кадр с blur-up-загрузкой: размытый `thumbUrl` виден сразу, полноразмерный `imageUrl`
- * грузится лениво и по готовности проступает поверх (кросс-фейд, thumb гаснет). `aspect-ratio`
- * из реальных `width/height` держит место кадра до загрузки — колонки не «прыгают». Если
- * размеров нет, обёртка просто обнимает контент. Уважает `prefers-reduced-motion` (без анимации
- * переходов — кадр появляется сразу по готовности).
+ * грузится лениво и по готовности проступает поверх (кросс-фейд, thumb гаснет). Место кадра
+ * держит его клетка мозаики ([cell]) — до загрузки сетка уже стоит и не «прыгает». Уважает
+ * `prefers-reduced-motion` (без анимации переходов — кадр появляется сразу по готовности).
  */
 function BlurUpPhoto({
   photo,
   index,
+  cell,
   onOpen,
 }: {
   photo: FilmPhotoView;
   index: number;
+  /** Клетка мозаики; `undefined` — раскладка ещё не посчитана, кадр идёт автопотоком. */
+  cell?: MosaicCell;
   onOpen: (trigger: HTMLElement) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
-  const ratio = photo.width && photo.height ? `${photo.width} / ${photo.height}` : undefined;
+  const portrait = isPortrait(photo);
   const boxes = photo.artifacts ?? [];
   // Какие находки сейчас под курсором. Считаем по точке, а не по :hover самой рамки: рамки
   // пересекаются (футболка и очки на одном человеке), а :hover достаётся только верхней.
@@ -346,12 +375,18 @@ function BlurUpPhoto({
   return (
     <button
       type="button"
-      className="drop-frame mb-1.5"
+      className="drop-frame"
       aria-label={`открыть кадр ${index + 1} на весь экран`}
       onClick={(e) => onOpen(e.currentTarget)}
       onMouseMove={trackPointer}
       onMouseLeave={() => setUnder([])}
-      style={{ position: "relative", breakInside: "avoid" }}
+      // Пропорцию клетки задаёт CSS по этому хуку, место в сетке — расчёт раскладки.
+      data-portrait={portrait ? "true" : undefined}
+      style={{
+        position: "relative",
+        gridColumn: cell && `${cell.col + 1} / span ${cell.w}`,
+        gridRow: cell && `${cell.row + 1} / span ${cell.h}`,
+      }}
     >
       {/* Клипует ИМЕННО картинку, а не весь кадр: `filter: blur()` на thumb расплывается за
           границы элемента, и без клипа кадры «светятся» ореолом по всему периметру. Клип на
@@ -364,7 +399,9 @@ function BlurUpPhoto({
           overflow: "hidden",
           background: "var(--bg-surface-muted)",
           borderRadius: "var(--radius-sm)",
-          aspectRatio: ratio,
+          // Форму задаёт клетка мозаики, а не пропорция кадра: картинка её заполняет
+          // (`cover`), обрезая свои же 0.3% — округление 1.495 до 3:2.
+          height: "100%",
         }}
       >
         {/* Размытое превью — непрозрачная подложка: держит цвет/композицию всё время, пока
@@ -374,8 +411,14 @@ function BlurUpPhoto({
           src={mediaUrl(photo.thumbUrl)}
           alt=""
           aria-hidden
-          className="blur-up-thumb w-full"
-          style={{ display: "block", borderRadius: "var(--radius-sm)" }}
+          className="blur-up-thumb"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            borderRadius: "var(--radius-sm)",
+          }}
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -407,4 +450,28 @@ function BlurUpPhoto({
       </span>
     </button>
   );
+}
+
+/**
+ * Стоячий ли кадр. Размеров нет (кадр залит до того, как их стали хранить) — считаем лежачим:
+ * это форма большинства кадров плёнки, и мозаика от одной догадки не разъедется.
+ */
+function isPortrait(photo: FilmPhotoView): boolean {
+  const w = photo.width ?? 0;
+  const h = photo.height ?? 0;
+  return w > 0 && h > 0 && h > w;
+}
+
+/** Клеток по ширине мозаики: на узком окне полос две, а не четыре (иначе кадр мельче пальца). */
+function useMosaicUnits(): number {
+  const [units, setUnits] = useState(MOSAIC_UNITS);
+  useEffect(() => {
+    const mql = window.matchMedia?.(`(max-width: ${MOSAIC_NARROW_PX}px)`);
+    if (!mql) return;
+    const sync = () => setUnits(mql.matches ? MOSAIC_UNITS_NARROW : MOSAIC_UNITS);
+    sync();
+    mql.addEventListener?.("change", sync);
+    return () => mql.removeEventListener?.("change", sync);
+  }, []);
+  return units;
 }

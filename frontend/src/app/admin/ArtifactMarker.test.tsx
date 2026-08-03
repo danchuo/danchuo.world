@@ -18,7 +18,6 @@ const CATALOGUE: AdminArtifactView[] = [
     imageUrl: "/api/artifact-media/6",
     firstMentionedOn: "2026-01-01",
     rotatable: false,
-    sortOrder: 0,
     detectionHint: null,
   },
   {
@@ -27,7 +26,6 @@ const CATALOGUE: AdminArtifactView[] = [
     imageUrl: null,
     firstMentionedOn: "2026-02-01",
     rotatable: false,
-    sortOrder: 1,
     detectionHint: null,
   },
 ];

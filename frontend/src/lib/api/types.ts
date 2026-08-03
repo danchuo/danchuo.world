@@ -361,17 +361,18 @@ export interface AdminArtifactView {
   imageUrl: string | null;
   firstMentionedOn: string;
   rotatable: boolean;
-  sortOrder: number;
   /** Как предмет выглядит — описание для поиска на кадрах дропов (§5.12). */
   detectionHint: string | null;
 }
 
-/** Тело формы заведения/правки артефакта. */
+/**
+ * Тело формы заведения/правки артефакта. Места в ленте тут нет: порядок — хроника,
+ * его задаёт `firstMentionedOn` (старое первым).
+ */
 export interface ArtifactInput {
   name: string;
   firstMentionedOn: string;
   rotatable: boolean;
-  sortOrder: number;
   detectionHint: string | null;
 }
 

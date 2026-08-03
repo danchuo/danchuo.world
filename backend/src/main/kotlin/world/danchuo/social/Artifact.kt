@@ -13,7 +13,8 @@ import java.time.LocalDate
  *
  * [firstMentionedOn] **хранится всегда**, но в UI выводится только в ховер-поповере (не в
  * самой marquee). [model3dUrl] — задел бэклога (3D-артефакты, §9), M4 не заполняет.
- * Data-driven: новый артефакт = запись; порядок — [sortOrder].
+ * Data-driven: новый артефакт = запись; порядок ленты — **хроника**, то есть сам
+ * [firstMentionedOn] по возрастанию (старое слева), а не отдельное поле.
  */
 @Entity
 @Table(name = "artifact")
@@ -45,9 +46,6 @@ class Artifact {
      */
     @Column(name = "rotatable", nullable = false)
     var rotatable: Boolean = false
-
-    @Column(name = "sort_order", nullable = false)
-    var sortOrder: Int = 0
 
     /**
      * Как предмет выглядит — описание для поиска артефактов на кадрах фото-дропов (PRD §5.12).

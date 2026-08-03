@@ -14,6 +14,7 @@ import {
   artifactChipStyle,
   coverBtnStyle,
   deletePhotoBtnStyle,
+  markBtnStyle,
   mono,
   artifactScanLabel,
   orientationLabel,
@@ -35,6 +36,8 @@ interface PhotoGridProps {
   onDeletePhoto: (photoId: number) => void;
   /** Снять с кадра рамку конкретного предмета — на кадре их может быть несколько. */
   onDeleteArtifact: (photoId: number, artifactId: number) => void;
+  /** Открыть кадр в разметчике артефактов: там предмет выбирают и обводят мышью (§5.12). */
+  onMarkPhoto: (photoId: number) => void;
 }
 
 /**
@@ -53,6 +56,7 @@ export function PhotoGrid({
   onRotate,
   onDeletePhoto,
   onDeleteArtifact,
+  onMarkPhoto,
 }: PhotoGridProps) {
   const checking = orientation?.state === "running";
   const scanning = artifactScan?.state === "running";
@@ -92,58 +96,83 @@ export function PhotoGrid({
           <p className="mb-3" style={mono}>кликни кадр, чтобы сделать его обложкой (она показывается в архиве); ↻ поворачивает кадр на 90°, ✕ удаляет кадр без возврата</p>
           <ul className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))" }}>
             {photos.map((p) => (
-              <li key={p.id} style={{ position: "relative" }}>
-                <button
-                  type="button"
-                  onClick={() => onSetCover(p.id)}
-                  aria-label={p.isCover ? "Текущая обложка" : "Сделать обложкой"}
-                  aria-pressed={p.isCover}
-                  style={{
-                    ...coverBtnStyle,
-                    outline: p.isCover ? "3px solid var(--accent)" : "1px solid var(--border)",
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={mediaUrl(p.thumbUrl)} alt="" className="h-full w-full object-cover" />
-                </button>
-                {/* Ручная стрелка поворота — поверх угла кадра, отдельная от клика-обложки
-                    (stopPropagation не нужен: это соседний элемент, а не вложенный). */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRotate(p.id);
-                  }}
-                  disabled={checking}
-                  aria-label="Повернуть кадр на 90° по часовой"
-                  title="повернуть на 90°"
-                  style={rotateBtnStyle}
-                >
-                  <Icon name="rotate" size={15} />
-                </button>
-                {/* Удаление одного кадра — верхний-правый угол (напротив ↻), отдельно от клика-обложки. */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeletePhoto(p.id);
-                  }}
-                  disabled={checking}
-                  aria-label="Удалить кадр"
-                  title="удалить кадр"
-                  style={deletePhotoBtnStyle}
-                >
-                  <Icon name="close" size={15} />
-                </button>
-                {/* LLM не определилась с верхом — кадр ждёт ручной стрелки. */}
-                {p.orientation === "ambiguous" && (
-                  <span
-                    title="LLM не определилась с верхом — проверь кадр"
-                    style={{ ...ambiguousBadgeStyle, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              <li key={p.id}>
+                {/* Углы отсчитываются от САМОГО кадра, а не от строки списка: подписи находок
+                    лежат ниже, и с общим контекстом позиционирования кнопки уезжали на них —
+                    а у кадра без находок скатывались вниз за компанию (ряд грида тянется по
+                    самому высокому соседу). */}
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => onSetCover(p.id)}
+                    aria-label={p.isCover ? "Текущая обложка" : "Сделать обложкой"}
+                    aria-pressed={p.isCover}
+                    style={{
+                      ...coverBtnStyle,
+                      outline: p.isCover ? "3px solid var(--accent)" : "1px solid var(--border)",
+                    }}
                   >
-                    <Icon name="help" size={12} />
-                  </span>
-                )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={mediaUrl(p.thumbUrl)} alt="" className="h-full w-full object-cover" />
+                  </button>
+                  {/* Ручная стрелка поворота — поверх угла кадра, отдельная от клика-обложки
+                      (stopPropagation не нужен: это соседний элемент, а не вложенный). */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRotate(p.id);
+                    }}
+                    disabled={checking}
+                    aria-label="Повернуть кадр на 90° по часовой"
+                    title="повернуть на 90°"
+                    style={rotateBtnStyle}
+                  >
+                    <Icon name="rotate" size={15} />
+                  </button>
+                  {/* Удаление одного кадра — верхний-правый угол (напротив ↻), отдельно от клика-обложки. */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeletePhoto(p.id);
+                    }}
+                    disabled={checking}
+                    aria-label="Удалить кадр"
+                    title="удалить кадр"
+                    style={deletePhotoBtnStyle}
+                  >
+                    <Icon name="close" size={15} />
+                  </button>
+                  {/* Разметка руками — нижний-левый угол, единственный свободный (остальные три
+                      заняты «?», ✕ и ↻). Занята прогоном: рамки, поставленные во время поиска,
+                      тот же прогон и перезаписал бы. */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkPhoto(p.id);
+                    }}
+                    disabled={scanning}
+                    aria-label="Разметить артефакты на кадре"
+                    title="обвести предмет руками"
+                    style={markBtnStyle}
+                  >
+                    {/* Ракетка, а не абстрактная рамка: глиф выделения на 15px читался пустой
+                        плашкой, а ракетка — первый предмет каталога, и по ней сразу понятно,
+                        что кнопка про артефакты (решение владельца). */}
+                    <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>🏸</span>
+                  </button>
+                  {/* LLM не определилась с верхом — кадр ждёт ручной стрелки. */}
+                  {p.orientation === "ambiguous" && (
+                    <span
+                      title="LLM не определилась с верхом — проверь кадр"
+                      style={{ ...ambiguousBadgeStyle, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Icon name="help" size={12} />
+                    </span>
+                  )}
+                </div>
                 {/* Что нашлось на кадре (§5.12). Чипами, а не одной кнопкой: находок может быть
                     несколько, и выбирать нужную удобнее по имени, чем по порядку. */}
                 {p.artifacts && p.artifacts.length > 0 && (

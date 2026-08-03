@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { HIGHLIGHT_MIN, HIGHLIGHT_PAD, boxesAt, padHighlight } from "./artifactHighlight";
+import {
+  DRAG_DEADZONE,
+  HIGHLIGHT_MIN,
+  HIGHLIGHT_PAD,
+  boxFromDrag,
+  boxesAt,
+  padHighlight,
+} from "./artifactHighlight";
 
 const box = (x0: number, y0: number, x1: number, y1: number) => ({
   artifactId: 1,
@@ -87,6 +94,71 @@ describe("padHighlight — минимальный размер рамки", () =
   it("минимум отключаем нулём — данные не подменяются молча", () => {
     const r = padHighlight(box(0.5, 0.5, 0.52, 0.52), 0, 0);
     expect(r.width).toBeCloseTo(0.02, 6);
+  });
+});
+
+describe("boxFromDrag — рамка из протяжки мышью", () => {
+  it("протяжка становится рамкой независимо от направления", () => {
+    const forward = boxFromDrag({ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.8 });
+    // Тянуть можно из любого угла — рамка одна и та же.
+    expect(boxFromDrag({ x: 0.6, y: 0.8 }, { x: 0.2, y: 0.3 })).toEqual(forward);
+    expect(forward).toEqual({ x0: 0.2, y0: 0.3, x1: 0.6, y1: 0.8 });
+  });
+
+  it("курсор, ушедший за край кадра, рамку за кадр не уводит", () => {
+    // Мышь легко выезжает за картинку — бэк такую рамку отверг бы (координаты вне 0..1).
+    const r = boxFromDrag({ x: -0.4, y: 0.5 }, { x: 1.9, y: 1.4 })!;
+    expect(r.x0).toBe(0);
+    expect(r.y0).toBe(0.5);
+    expect(r.x1).toBe(1);
+    expect(r.y1).toBe(1);
+  });
+
+  it("крошечная протяжка дорастает до минимума вокруг своего центра", () => {
+    const r = boxFromDrag({ x: 0.5, y: 0.5 }, { x: 0.53, y: 0.52 })!;
+    expect(r.x1 - r.x0).toBeCloseTo(HIGHLIGHT_MIN, 4);
+    expect(r.y1 - r.y0).toBeCloseTo(HIGHLIGHT_MIN, 4);
+    expect((r.x0 + r.x1) / 2).toBeCloseTo(0.515, 4);
+    expect((r.y0 + r.y1) / 2).toBeCloseTo(0.51, 4);
+  });
+
+  it("минимум у края кадра сдвигает рамку внутрь, а не режет её", () => {
+    const r = boxFromDrag({ x: 0, y: 0 }, { x: 0.02, y: 0.02 })!;
+    expect(r.x0).toBe(0);
+    expect(r.x1).toBeCloseTo(HIGHLIGHT_MIN, 4);
+    const far = boxFromDrag({ x: 0.99, y: 0.99 }, { x: 1, y: 1 })!;
+    expect(far.x1).toBeCloseTo(1, 4);
+    expect(far.x1 - far.x0).toBeCloseTo(HIGHLIGHT_MIN, 4);
+  });
+
+  it("минимум работает по каждой оси отдельно", () => {
+    // Плоская протяжка вдоль очков: ширины хватает, высоту поднимаем.
+    const r = boxFromDrag({ x: 0.2, y: 0.5 }, { x: 0.8, y: 0.505 })!;
+    expect(r.x1 - r.x0).toBeCloseTo(0.6, 4);
+    expect(r.y1 - r.y0).toBeCloseTo(HIGHLIGHT_MIN, 4);
+  });
+
+  it("клик без протяжки рамкой не становится", () => {
+    // Иначе любое случайное касание кадра заводило бы находку размером с минимум.
+    expect(boxFromDrag({ x: 0.4, y: 0.4 }, { x: 0.4, y: 0.4 })).toBeNull();
+    const jitter = DRAG_DEADZONE / 2;
+    expect(boxFromDrag({ x: 0.4, y: 0.4 }, { x: 0.4 + jitter, y: 0.4 + jitter })).toBeNull();
+  });
+
+  it("протяжка по одной оси — намеренная, рамка получается", () => {
+    // Тонкая полоса вдоль предмета: по X ушли далеко, по Y почти не двигались.
+    const r = boxFromDrag({ x: 0.1, y: 0.4 }, { x: 0.7, y: 0.4 });
+    expect(r).not.toBeNull();
+    expect(r!.y1 - r!.y0).toBeCloseTo(HIGHLIGHT_MIN, 4);
+  });
+
+  it("крупную протяжку не трогает вовсе", () => {
+    expect(boxFromDrag({ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.7 })).toEqual({
+      x0: 0.1,
+      y0: 0.1,
+      x1: 0.9,
+      y1: 0.7,
+    });
   });
 });
 

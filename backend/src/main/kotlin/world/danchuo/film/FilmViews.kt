@@ -77,6 +77,12 @@ data class AdminDropView(
 data class AdminPhotoView(
     val id: Long,
     val thumbUrl: String,
+    /**
+     * web-вариант — для ручной разметки артефактов (§5.12): рамку тянут мышью прямо по кадру,
+     * а координаты считаются долями его нарисованного размера. На превью в 96px промах в один
+     * пиксель это процент кадра, поэтому разметчик открывает большой кадр, а не сетку.
+     */
+    val imageUrl: String,
     // Runtime Jackson has no Kotlin module (test-only dep) and strips the "is" prefix from
     // boolean getters — pin the wire name to what the frontend type expects.
     @get:JsonProperty("isCover")

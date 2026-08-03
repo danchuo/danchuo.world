@@ -103,6 +103,19 @@ class ArtifactScanResourceTest {
     }
 
     @Test
+    fun `admin frame carries the web variant — thumb is too coarse to mark on`() {
+        val dropId = upload()
+
+        given().header("Authorization", "Bearer $token")
+            .get("/api/ingest/drops/$dropId/photos")
+            .then().statusCode(200)
+            // Рамку тянут мышью по кадру, а доли считаются от нарисованного размера: на
+            // превью 96px промах в один пиксель это процент кадра. Разметчику нужен web.
+            .body("[0].imageUrl", org.hamcrest.Matchers.containsString("/web"))
+            .body("[0].thumbUrl", org.hamcrest.Matchers.containsString("/thumb"))
+    }
+
+    @Test
     fun `snatched box stays gone after a rerun`() {
         // Удаление помечает находку отклонённой, а не стирает строку: иначе следующий прогон
         // нашёл бы предмет заново и рамка вернулась бы — снятие руками должно быть решением.

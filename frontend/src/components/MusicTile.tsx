@@ -31,9 +31,15 @@ interface MusicTileProps {
 /** Сколько недавних показывать в простое (когда нет играющего трека). */
 const RECENT_WHEN_IDLE = 5;
 
-/** Запас (px) для подгонки списка недавних: строка с низом ближе этого к краю считается
- *  подрезанной и не показывается (лучше на одну меньше, чем нижнюю обрезанную, §7.1). */
-const FIT_MARGIN = 4;
+/**
+ * Запас (px) у нижнего края списка недавних: строка обязана кончиться выше него, иначе гасим
+ * её целиком — лучше на одну песню меньше, чем нижняя обрезанная (§7.1).
+ *
+ * 4px хватало ровно до тех пор, пока метрики строки совпадали с расчётом высоты списка. На
+ * устройстве строка оказывается чуть выше расчётной, и нижняя вылезала на пару пикселей —
+ * из-под края виджета торчала половина букв (замечание владельца с прода).
+ */
+const FIT_MARGIN = 6;
 
 /* Геометрия сжатия-к-контенту (см. [useIsomorphicLayoutEffect] в компоненте). */
 const COVER = 44; // сторона обложки now-playing
@@ -76,10 +82,12 @@ function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
       if (kids.length === 0) return;
       // Требуем, чтобы строка влезала ЦЕЛИКОМ с небольшим запасом: строка, чей низ лишь на
       // пару пикселей заходит за край, визуально «подрезается» по тексту — лучше показать на
-      // одну меньше, чем нижнюю обрезанную (§7.1). В jsdom всё по нулям ⇒ запас не применяем
-      // (clientHeight==0), иначе бы прятали всё; там ничего не гасим.
-      const ch = el.clientHeight;
-      const limit = el.getBoundingClientRect().top + (ch > 0 ? ch - FIT_MARGIN : 1);
+      // одну меньше, чем нижнюю обрезанную (§7.1). Край берём из `getBoundingClientRect`, а не
+      // из `clientHeight`: тот целый, и на дробной высоте (кегль считается в `cqw`) округление
+      // играло в пользу «влезает». В jsdom всё по нулям ⇒ запас не применяем (clientHeight==0),
+      // иначе бы прятали всё; там ничего не гасим.
+      const box = el.getBoundingClientRect();
+      const limit = el.clientHeight > 0 ? visibleBottom(el) - FIT_MARGIN : box.top + 1;
       let overflow = false;
       for (const kid of kids) {
         if (!overflow && kid.getBoundingClientRect().bottom <= limit) {
@@ -91,12 +99,50 @@ function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
       }
     };
     apply();
+    // Пересчитываем не только на ресайзе списка, но и когда меняются САМИ строки: список
+    // абсолютный (inset-0), его размер от содержимого не зависит, поэтому подросшая строка
+    // наблюдателю на контейнере не видна вовсе — а именно она и вылезает за край.
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
     ro?.observe(el);
-    return () => ro?.disconnect();
+    Array.from(el.children).forEach((kid) => ro?.observe(kid));
+    // Первый замер идёт по метрикам того шрифта, что нарисован сейчас: пока веб-шрифт не
+    // приехал, строки меряются фолбэком и «влезают». Приехал — строки подросли, и без этого
+    // пересчёта нижняя остаётся наполовину за краем (видно на телефоне, не видно в тестах).
+    let alive = true;
+    document.fonts?.ready.then(() => {
+      if (alive) apply();
+    });
+    return () => {
+      alive = false;
+      ro?.disconnect();
+    };
   }, [signature]);
 
   return ref;
+}
+
+/**
+ * До какой линии содержимое [el] вообще **видно**: его собственный низ либо низ ближайшего
+ * предка, который его срезает, — что выше.
+ *
+ * Своего низа мало. Замер на живом борде: колонка плитки кончалась на 119.6px, а список висел
+ * до 150.3 — его `min-height` (заведённый ради мобильного стека, где высоты не даёт никто) в
+ * бенто перебивал `min-h-0` и не давал flex-элементу сжаться. Подгонка мерила свой низ, решала
+ * «всё влезло», и нижнюю строку срезала сама плитка. Считаем по клипу — и тогда неважно, кто
+ * именно и почему оказался короче: строку либо видно целиком, либо её нет.
+ *
+ * Скроллящиеся предки (`auto`/`scroll`) не считаются: их содержимое не потеряно, до него
+ * доскроллят.
+ */
+function visibleBottom(el: HTMLElement): number {
+  let bottom = el.getBoundingClientRect().bottom;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const overflowY = getComputedStyle(p).overflowY;
+    if (overflowY === "hidden" || overflowY === "clip") {
+      bottom = Math.min(bottom, p.getBoundingClientRect().bottom);
+    }
+  }
+  return bottom;
 }
 
 /** Mono-стиль — статичен, держим вне компонента. */

@@ -6,7 +6,11 @@ vi.mock("@/lib/api/client", () => ({ getDrop: vi.fn() }));
 import { getDrop } from "@/lib/api/client";
 const getDropMock = vi.mocked(getDrop);
 
-afterEach(() => vi.clearAllMocks());
+// restore — не косметика: подмена `matchMedia` в одном кейсе иначе делает «тачем» весь файл.
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+});
 
 describe("PhotoDropModal — blur-up загрузка", () => {
   it("кадр стоит из размытого thumb, полный проступает по onLoad", async () => {
@@ -244,23 +248,50 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(cards[0].parentElement).toHaveClass("artifact-box");
   });
 
-  it("в полноэкранном кадре находки подписаны сразу — без наведения", async () => {
+  /** Тач-устройство: у указателя нет ховера. В jsdom `matches` всегда false — подменяем. */
+  const pretendTouch = () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: true,
+          media: query,
+          onchange: null,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    );
+  };
+
+  const openLightbox = async () => {
+    getDropMock.mockResolvedValue(twoFinds);
+    render(<PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} onClose={() => {}} />);
+    const frames = await screen.findAllByRole("button", { name: /открыть кадр/ });
+    fireEvent.click(frames[0]);
+    return screen.getByRole("dialog", { name: "кадр 1 из 1" });
+  };
+
+  it("на телефоне полноэкранный кадр подписывает находки сразу — без наведения", async () => {
     // Тач-флоу (§7.5): ховера на телефоне нет, а тап по кадру уже занят открытием на весь
     // экран. Поэтому объясняет находку сам полноэкранный кадр: рамки те же, но карточки видны
     // без жеста. Довод «постоянные подписи — шум» тут не работает: кадр ровно один, не 36.
-    getDropMock.mockResolvedValue(twoFinds);
-    const { container } = render(
-      <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} onClose={() => {}} />,
-    );
-    const frames = await screen.findAllByRole("button", { name: /открыть кадр/ });
-    fireEvent.click(frames[0]);
-
-    const lightbox = screen.getByRole("dialog", { name: "кадр 1 из 1" });
+    pretendTouch();
+    const lightbox = await openLightbox();
     // Ни одного mouseMove не было — карточки обеих находок всё равно на месте.
     expect(lightbox.querySelectorAll(".artifact-box")).toHaveLength(2);
     expect(lightbox.querySelectorAll(".artifact-card")).toHaveLength(2);
     expect(lightbox).toHaveTextContent("Очки");
     expect(lightbox).toHaveTextContent("Футболка");
+  });
+
+  it("на компьютере полноэкранный кадр не несёт ни рамок, ни карточек", async () => {
+    // Решение владельца: мышью находку показывает наведение в самой галерее, поэтому в полном
+    // экране объяснять нечего — а рамки поверх снимка мешают смотреть сам снимок.
+    const lightbox = await openLightbox();
+    expect(lightbox.querySelectorAll(".artifact-box")).toHaveLength(0);
+    expect(lightbox.querySelectorAll(".artifact-card")).toHaveLength(0);
   });
 
   it("рамки в полноэкранном кадре не перехватывают закрытие по фону", async () => {

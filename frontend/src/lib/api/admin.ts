@@ -1,3 +1,4 @@
+import type { BoxRect } from "@/lib/artifactHighlight";
 import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /**
@@ -322,6 +323,32 @@ export async function getArtifactScanStatus(
   });
   if (!res.ok) return parseError(res);
   return (await res.json()) as ArtifactScanStatusView;
+}
+
+/**
+ * Поставить/подвинуть рамку артефакта руками (§5.12). Возвращает свежие кадры дропа.
+ *
+ * Пара «кадр + предмет» и есть ключ: повторное сохранение перезаписывает прежнюю рамку, а не
+ * заводит вторую, — поэтому перерисовать находку модели и снять с неё отклонение можно тем же
+ * жестом. Рамка приезжает уже нормализованной (`boxFromDrag`): доли 0..1 и `x1 > x0`.
+ */
+export async function saveArtifactBox(
+  token: string,
+  dropId: number,
+  photoId: number,
+  artifactId: number,
+  box: BoxRect,
+): Promise<AdminPhotoView[]> {
+  const res = await fetch(
+    `${BASE}/api/ingest/drops/${dropId}/photos/${photoId}/artifacts/${artifactId}`,
+    {
+      method: "PUT",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify(box),
+    },
+  );
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminPhotoView[];
 }
 
 /** Снять рамку артефакта с кадра (ошибка модели или передумали). Возвращает свежие кадры. */

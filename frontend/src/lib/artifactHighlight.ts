@@ -25,6 +25,56 @@ export const HIGHLIGHT_PAD = 0.15;
  */
 export const HIGHLIGHT_MIN = 0.12;
 
+/**
+ * Насколько курсор должен уехать, чтобы это считалось протяжкой, а не кликом (доля кадра).
+ *
+ * Без порога любое случайное касание кадра в разметчике заводило бы находку: точка сама по
+ * себе рамкой быть не может, а пол [HIGHLIGHT_MIN] честно раздул бы её до заметного размера —
+ * то есть промах мышью выглядел бы как осознанная разметка. Порог берётся по **любой** оси:
+ * тонкая полоса вдоль плоского предмета (очки, надпись) — намеренный жест, а не дрожь.
+ */
+export const DRAG_DEADZONE = 0.01;
+
+/** Рамка находки в долях кадра — то, что уезжает на бэк (зеркало `BoxInput`). */
+export interface BoxRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * Собрать рамку из протяжки мышью: две точки в долях кадра → готовая к отправке рамка
+ * (PRD §5.12). `null` — жест был кликом, а не протяжкой.
+ *
+ * Три вещи делаются тут, а не в компоненте, потому что каждая — правило, а не вёрстка.
+ * **Порядок углов** — тянуть можно из любого угла, бэк принимает только `x1 > x0`.
+ * **Клампинг** — курсор легко выезжает за картинку, а координаты вне `0..1` бэк отвергает.
+ * **Пол по каждой оси** — вокруг мелкого предмета рамку мышью не обвести, да и незачем:
+ * подсветка отвечает на вопрос «куда смотреть», и меньше [HIGHLIGHT_MIN] она этого не делает.
+ *
+ * Пол здесь тот же, что на отрисовке, и это осознанно: рисуется всё равно не меньше него,
+ * поэтому сохранять более мелкую рамку значило бы хранить число, которого никто не увидит.
+ * Расширение на [HIGHLIGHT_PAD] тут **не** применяется — запас добавляет отрисовка, и учесть
+ * его дважды значило бы раздувать ручную рамку на каждом пересохранении.
+ */
+export function boxFromDrag(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  min: number = HIGHLIGHT_MIN,
+  deadzone: number = DRAG_DEADZONE,
+): BoxRect | null {
+  const ax = clamp01(from.x);
+  const ay = clamp01(from.y);
+  const bx = clamp01(to.x);
+  const by = clamp01(to.y);
+  if (Math.abs(bx - ax) < deadzone && Math.abs(by - ay) < deadzone) return null;
+
+  const [x0, x1] = atLeast(Math.min(ax, bx), Math.max(ax, bx), min);
+  const [y0, y1] = atLeast(Math.min(ay, by), Math.max(ay, by), min);
+  return { x0: round5(x0), y0: round5(y0), x1: round5(x1), y1: round5(y1) };
+}
+
 /** Рамка в долях кадра, готовая к отрисовке: начало + размеры. */
 export interface HighlightRect {
   x0: number;
@@ -53,10 +103,19 @@ export function padHighlight(
   const dy = (box.y1 - box.y0) * pad;
   const [x0, x1] = atLeast(Math.max(0, box.x0 - dx), Math.min(1, box.x1 + dx), min);
   const [y0, y1] = atLeast(Math.max(0, box.y0 - dy), Math.min(1, box.y1 + dy), min);
-  // Округляем: сырая арифметика долей даёт в CSS значения вроде `2.500000000000001%`.
-  // Тысячных долей процента с запасом хватает на любой размер кадра.
-  const round = (v: number) => Math.round(v * 1e5) / 1e5;
-  return { x0: round(x0), y0: round(y0), width: round(x1 - x0), height: round(y1 - y0) };
+  return { x0: round5(x0), y0: round5(y0), width: round5(x1 - x0), height: round5(y1 - y0) };
+}
+
+/**
+ * Округление долей до тысячных процента: сырая арифметика даёт в CSS значения вроде
+ * `2.500000000000001%`, а на любой размер кадра этой точности с запасом хватает.
+ */
+function round5(v: number): number {
+  return Math.round(v * 1e5) / 1e5;
+}
+
+function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v));
 }
 
 /**

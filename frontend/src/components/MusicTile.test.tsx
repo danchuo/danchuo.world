@@ -35,8 +35,85 @@ function recentOf(over: Partial<TrackView>, playedAt: string): RecentTrackView {
   return { track: track(over), playedAt };
 }
 
+/** Пять недавних треков — столько запрашивает плитка, когда ничего не играет. */
+function fiveRecent(): RecentTrackView[] {
+  return ["A", "B", "C", "D", "E"].map((t, i) =>
+    recentOf({ title: t, url: `u:${t}` }, `2026-06-18T10:0${5 - i}:00Z`),
+  );
+}
+
+const restore: Array<() => void> = [];
+
+/**
+ * Геометрия списка недавних: в jsdom всё по нулям, а подгонка [useFitOverflow] решает как раз
+ * по ней. Задаём высоту списка и строк сами — так проверяется само правило, а не «в тестах
+ * ничего не прячем». Строки идут встык, индекс берётся из позиции в родителе.
+ */
+function stubRowGeometry({
+  listHeight,
+  rowHeight,
+  clipBottom,
+}: {
+  listHeight: number;
+  rowHeight: number;
+  /** Низ клипующего предка (колонка плитки): ниже него содержимое просто срезается. */
+  clipBottom?: number;
+}) {
+  let h = rowHeight;
+  if (clipBottom !== undefined) {
+    const real = window.getComputedStyle;
+    const spy = vi
+      .spyOn(window, "getComputedStyle")
+      .mockImplementation((el: Element, pseudo?: string | null) =>
+          el instanceof HTMLElement &&
+        el.tagName !== "UL" &&
+        el.className.includes("overflow-hidden")
+          ? ({ overflowY: "hidden" } as CSSStyleDeclaration)
+          : real(el, pseudo),
+      );
+    restore.push(() => spy.mockRestore());
+  }
+  const rect = (top: number, bottom: number) =>
+    ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON: () => "" }) as DOMRect;
+
+  // Обе геометрии живут на Element.prototype (не на HTMLElement) — иначе подмена шла бы
+  // мимо, а восстановление падало на undefined-дескрипторе.
+  const bcr = Object.getOwnPropertyDescriptor(Element.prototype, "getBoundingClientRect")!;
+  const ch = Object.getOwnPropertyDescriptor(Element.prototype, "clientHeight")!;
+  restore.push(
+    () => Object.defineProperty(Element.prototype, "getBoundingClientRect", bcr),
+    () => Object.defineProperty(Element.prototype, "clientHeight", ch),
+  );
+
+  Object.defineProperty(Element.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value(this: Element) {
+      if (this.tagName === "LI" && this.parentElement?.tagName === "UL") {
+        const i = Array.prototype.indexOf.call(this.parentElement.children, this);
+        return rect(i * h, (i + 1) * h);
+      }
+      // Сам список — всегда своей высоты: он тоже несёт `overflow-hidden`, и без этой
+      // проверки раньше клипа тест «проходил» из-за подмены его собственного низа.
+      if (this.tagName === "UL") return rect(0, listHeight);
+      if (clipBottom !== undefined && this instanceof HTMLElement && this.className.includes("overflow-hidden")) {
+        return rect(0, clipBottom);
+      }
+      return rect(0, 0);
+    },
+  });
+  Object.defineProperty(Element.prototype, "clientHeight", {
+    configurable: true,
+    get(this: Element) {
+      return this.tagName === "UL" ? listHeight : 0;
+    },
+  });
+
+  return { setRowHeight: (next: number) => (h = next) };
+}
+
 afterEach(() => {
   vi.clearAllMocks();
+  restore.splice(0).forEach((undo) => undo());
 });
 
 describe("collapseConsecutiveRecent", () => {
@@ -185,6 +262,66 @@ describe("MusicTile", () => {
     render(<MusicTile />);
 
     expect(await screen.findByTestId("recent-track")).toHaveTextContent("Ghosts 'n' Stuff");
+  });
+
+  it("трек, не влезающий по высоте, гасится целиком — обрезанной строки не бывает", async () => {
+    // Возврат старой беды: нижний трек «срезался на половине» краем виджета, и полстроки букв
+    // читались как мусор. В jsdom геометрия нулевая, поэтому задаём её сами: список 100px,
+    // строка 30px ⇒ влезают три (запас FIT_MARGIN), остальные обязаны быть погашены.
+    stubRowGeometry({ listHeight: 100, rowHeight: 30 });
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue(fiveRecent());
+
+    render(<MusicTile />);
+
+    const rows = await screen.findAllByTestId("recent-track");
+    await waitFor(() => expect(rows[3].style.visibility).toBe("hidden"));
+    expect(rows.slice(0, 3).map((r) => r.style.visibility)).toEqual(["", "", ""]);
+    expect(rows[4].style.visibility).toBe("hidden");
+  });
+
+  it("список, свисающий ниже края плитки, режется по КРАЮ ПЛИТКИ, а не по своему низу", async () => {
+    // Замер на живом борде: колонка плитки кончалась на 119.6px, а список (его min-height
+    // задан ради мобильного стека) висел до 150.3 — то есть на 30px ниже видимого края.
+    // Подгонка мерила свой низ, считала, что всё влезло, и нижнюю строку срезала сама плитка.
+    stubRowGeometry({ listHeight: 100, rowHeight: 20, clipBottom: 62 });
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue(fiveRecent());
+
+    render(<MusicTile />);
+
+    const rows = await screen.findAllByTestId("recent-track");
+    // Клип на 62 ⇒ с запасом влезают две строки (40 ≤ 56), третья (60) уже нет.
+    await waitFor(() => expect(rows[2].style.visibility).toBe("hidden"));
+    expect(rows.slice(0, 2).map((r) => r.style.visibility)).toEqual(["", ""]);
+  });
+
+  it("строки, подросшие после загрузки шрифта, пересчитываются", async () => {
+    // Замер идёт по метрикам ТОГО шрифта, что нарисован сейчас: пока веб-шрифт не приехал,
+    // строки меряются фолбэком и все влезают. Приехал — строки подросли, и без пересчёта
+    // нижняя остаётся наполовину за краем (ровно то, что видно на проде, а не в jsdom).
+    const geometry = stubRowGeometry({ listHeight: 100, rowHeight: 18 });
+    let fontsReady: () => void = () => {};
+    Object.defineProperty(document, "fonts", {
+      configurable: true,
+      value: { ready: new Promise<void>((resolve) => (fontsReady = () => resolve())) },
+    });
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue(fiveRecent());
+
+    render(<MusicTile />);
+
+    const rows = await screen.findAllByTestId("recent-track");
+    // Фолбэк-шрифт: 5 × 18 = 90 ≤ 96 — влезают все.
+    await waitFor(() => expect(rows[4].style.visibility).toBe(""));
+
+    geometry.setRowHeight(25); // веб-шрифт приехал, строки выросли
+    await act(async () => {
+      fontsReady();
+      await Promise.resolve();
+    });
+    // 4-я строка кончается на 100 — за пределами списка; гасим её и всё, что ниже.
+    await waitFor(() => expect(rows[3].style.visibility).toBe("hidden"));
   });
 
   it("список недавних лежит в обёртке .music-recent — свою высоту ей даёт CSS", async () => {

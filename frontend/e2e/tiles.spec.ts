@@ -4,7 +4,7 @@ import { FIXED_TIME, stubApi } from "./fixtures";
 /**
  * Пер-тайл визуальная регрессия (PRD §12 M5). Снимаем каждую плитку по её `aria-label`
  * (а не борд целиком) — так диффы локальны и не шумят на соседях. Состав плиток разный по
- * вьюпортам: desktop — полный bento, mobile — `MOBILE_ORDER` (календарь → недельная полоса).
+ * вьюпортам: desktop — полный bento, mobile — `MOBILE_ORDER` (тот же календарь-сетка).
  * Один проход на проект с soft-ассертами: одна разошедшаяся плитка не прячет остальные.
  */
 
@@ -30,10 +30,10 @@ const DESKTOP: Tile[] = [
   { label: "Переключатель волн", slug: "waveSwitcher" },
 ];
 
-/** Мобайл: стек MOBILE_ORDER (календарь — недельной полосой). */
+/** Мобайл: стек MOBILE_ORDER (календарь — та же сетка недель, что в бенто). */
 const MOBILE: Tile[] = [
   { label: "Сегодня", slug: "today" },
-  { label: "Календарь (полоса)", slug: "calendar" },
+  { label: "Календарь", slug: "calendar" },
   { label: "Статы — активность", slug: "stats" },
   { label: "Сон", slug: "sleep" },
   { label: "Музыка", slug: "music" },

@@ -299,6 +299,16 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("calendar-lens-label")).toHaveTextContent("календарь — не пил монстр");
   });
 
+  it("сетка несёт собственную пропорцию — в мобильном стеке высоты ей никто не даёт", () => {
+    // DESIGN §8: в бенто высота приходит от прибитого к вьюпорту борда, а в стеке её нет
+    // вовсе — блок, выведенный из родителя (`flex-1` + строки `1fr`), схлопнулся бы в полоску
+    // цифр. Пропорция считается от числа недель окна, а не зашита: окно — параметр борда.
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    expect(screen.getByRole("grid").style.aspectRatio).toBe("7 / 4");
+  });
+
   it("в состоянии error показывает тихий ретрай", async () => {
     const onRetry = vi.fn();
     render(

@@ -130,6 +130,11 @@ export function Calendar({
           style={{
             gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
             gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))`,
+            // Своя высота — там, где её не даёт родитель (DESIGN §8): в мобильном стеке у тайла
+            // высоты нет, и сетка из `flex-1` + строк `1fr` схлопнулась бы в полоску цифр.
+            // В бенто высота у родителя есть, и flex-раскладка эту пропорцию перебивает.
+            // Считаем от числа недель окна: сколько их — решает борд, а не компонент.
+            aspectRatio: `7 / ${weeks}`,
           }}
         >
           {Array.from({ length: pad }, (_, i) => (

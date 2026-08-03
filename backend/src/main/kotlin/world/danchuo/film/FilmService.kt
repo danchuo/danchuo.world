@@ -146,6 +146,7 @@ class FilmService(
             AdminPhotoView(
                 id = p.id!!,
                 thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
+                imageUrl = mediaUrl(p, PhotoVariant.WEB),
                 isCover = p.id == drop.coverPhotoId,
                 orientation = p.orientationApplied,
             )
@@ -216,6 +217,7 @@ class FilmService(
             AdminPhotoView(
                 id = p.id!!,
                 thumbUrl = mediaUrl(p, PhotoVariant.THUMB),
+                imageUrl = mediaUrl(p, PhotoVariant.WEB),
                 isCover = p.id == drop.coverPhotoId,
                 orientation = p.orientationApplied,
                 artifacts = boxes[p.id].orEmpty().mapNotNull { d ->

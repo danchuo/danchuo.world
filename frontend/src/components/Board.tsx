@@ -23,10 +23,8 @@ import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
 import { useWave } from "./WaveProvider";
 import { WaveSwitcher } from "./WaveSwitcher";
-import { WeekStrip } from "./WeekStrip";
 
 type Status = "loading" | "error" | "loaded";
-type TileVariant = "grid" | "stack" | "strip";
 
 /**
  * Окно календаря — целые недели вокруг сегодня (PRD §5.3): две прошлые + текущая + следующая.
@@ -231,7 +229,6 @@ export function Board() {
             <div key={id} data-tile-id={id} style={{ gridArea: gridArea(span), minHeight: 0 }}>
               <BoardTile
                 id={id}
-                variant="grid"
                 data={data}
                 orientation={span.orientation}
                 style={{ height: "100%", width: "100%" }}
@@ -241,23 +238,16 @@ export function Board() {
         })}
       </div>
 
-      {/* Тач-устройства (и аварийно — очень узкие окна): одноколоночный стек. Календарь
-          меняется на недельную полосу по ШИРИНЕ (<640px) — здесь это правильный сигнал:
-          вопрос в том, влезает ли сетка на 7 колонок, а не чем по ней тыкают. */}
+      {/* Тач-устройства (и аварийно — очень узкие окна): одноколоночный стек. Календарь тут
+          такой же, как в бенто, — полная сетка недель (решение владельца). Раньше на узких
+          экранах его подменяла недельная полоса, потому что «влезут ли 7 колонок» считалось
+          открытым вопросом; замер показал, что влезают: ячейка на 360px это ~44px — ровно
+          тач-таргет. А полоса показывала одну неделю, то есть отвечала на другой вопрос. */}
       <div data-testid="stack" className="board-stack flex-col gap-4">
         {layout.mobileOrder.map((id) =>
-          layout.tiles[id]?.hidden ? null : id === "calendar" ? (
+          layout.tiles[id]?.hidden ? null : (
             <div key={id} data-tile-id={id}>
-              <div className="hidden sm:block">
-                <BoardTile id={id} variant="grid" data={data} />
-              </div>
-              <div className="sm:hidden">
-                <BoardTile id={id} variant="strip" data={data} />
-              </div>
-            </div>
-          ) : (
-            <div key={id} data-tile-id={id}>
-              <BoardTile id={id} variant="stack" data={data} />
+              <BoardTile id={id} data={data} />
             </div>
           ),
         )}
@@ -268,19 +258,16 @@ export function Board() {
 
 /**
  * Один тайл реестра как полноценный компонент (а не inline-функция в рендере —
- * иначе React терял бы идентичность поддерева). [variant] управляет тем, чем заменить
- * календарь на узких экранах: сетка (`grid`/`stack`) или недельная полоса (`strip`).
+ * иначе React терял бы идентичность поддерева).
  */
 function BoardTile({
   id,
-  variant,
   data,
   orientation,
   style,
   className,
 }: {
   id: TileId;
-  variant: TileVariant;
   data: BoardData;
   /** Ориентация контента из layout волны (DESIGN §10.1) — только bento; в стеке всё full-width. */
   orientation?: TileOrientation;
@@ -325,20 +312,7 @@ function BoardTile({
         />
       );
     case "calendar":
-      return variant === "strip" ? (
-        <WeekStrip
-          days={data.summaries}
-          selected={data.selected}
-          today={data.today}
-          onSelect={data.selectDay}
-          state={data.rangeStatus}
-          onRetry={data.retryRange}
-          lens={data.lens}
-          onLensChange={data.setLens}
-          style={style}
-          className={className}
-        />
-      ) : (
+      return (
         <Calendar
           days={data.summaries}
           selected={data.selected}

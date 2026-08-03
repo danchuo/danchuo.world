@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { WaveSwitcher } from "@/components/WaveSwitcher";
 import { AdminLogin } from "./AdminLogin";
 import { AdminTabs } from "./AdminTabs";
+import { ArtifactMarker } from "./ArtifactMarker";
 import { ArtifactSection } from "./ArtifactSection";
 import { BikeImportSection } from "./BikeImportSection";
 import { DropList } from "./DropList";
@@ -19,6 +20,7 @@ import {
   deleteArtifactBox,
   getArtifactScanStatus,
   getOrientationStatus,
+  listArtifactsAdmin,
   listDropsAdmin,
   startArtifactScan,
   rotatePhoto,
@@ -26,6 +28,7 @@ import {
   startOrientationCheck,
 } from "@/lib/api/admin";
 import type {
+  AdminArtifactView,
   AdminDropView,
   AdminPhotoView,
   ArtifactScanStatusView,
@@ -55,6 +58,10 @@ export default function AdminPage() {
   const [photos, setPhotos] = useState<AdminPhotoView[]>([]);
   const [orientation, setOrientation] = useState<OrientationStatusView | null>(null);
   const [artifactScan, setArtifactScan] = useState<ArtifactScanStatusView | null>(null);
+  // Ручная разметка (§5.12): размечаемый кадр и каталог предметов. Каталог живёт тут, а не в
+  // разметчике, — открывать его на каждый кадр значило бы ходить за одним и тем же списком.
+  const [markingId, setMarkingId] = useState<number | null>(null);
+  const [catalogue, setCatalogue] = useState<AdminArtifactView[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const loadDrops = useCallback(async (t: string) => {
@@ -95,6 +102,7 @@ export default function AdminPage() {
     async (drop: AdminDropView) => {
       setSelected(drop);
       setPhotos([]);
+      setMarkingId(null); // разметчик принадлежит кадру покинутого дропа
       setOrientation(null);
       setArtifactScan(null);
       try {
@@ -148,6 +156,20 @@ export default function AdminPage() {
     setError(null);
     try {
       setArtifactScan(await startArtifactScan(token, selected.id));
+    } catch (err) {
+      setError(describe(err));
+    }
+  }
+
+  /**
+   * Открыть кадр в разметчике. Каталог тянем при первом открытии: он нужен только тут, а
+   * заводят предметы в соседнем разделе — свежий список важнее сэкономленного запроса.
+   */
+  async function onMarkPhoto(photoId: number) {
+    setError(null);
+    setMarkingId(photoId);
+    try {
+      setCatalogue(await listArtifactsAdmin(token));
     } catch (err) {
       setError(describe(err));
     }
@@ -235,6 +257,8 @@ export default function AdminPage() {
 
   if (!authed) return <AdminLogin onLogin={onLogin} />;
 
+  const marking = markingId === null ? null : (photos.find((p) => p.id === markingId) ?? null);
+
   return (
     <main className="mx-auto min-h-screen max-w-5xl p-6">
       {/* Одна шапка на всё: разделы слева, служебное справа (свитчер волн + выход). Заголовка
@@ -290,8 +314,23 @@ export default function AdminPage() {
               onRotate={onRotate}
               onDeletePhoto={onDeletePhoto}
               onDeleteArtifact={onDeleteArtifact}
+              onMarkPhoto={onMarkPhoto}
             />
           </div>
+          {/* Разметчик берёт кадр из общего списка, а не копию: сохранённая рамка возвращается
+              свежими кадрами и появляется и в нём, и в чипах под сеткой разом. Кадр удалили —
+              разметчик закрывается сам (кадра в списке больше нет). */}
+          {marking && selected && (
+            <ArtifactMarker
+              token={token}
+              dropId={selected.id}
+              photo={marking}
+              artifacts={catalogue}
+              onSaved={setPhotos}
+              onError={setError}
+              onClose={() => setMarkingId(null)}
+            />
+          )}
         </>
       )}
 

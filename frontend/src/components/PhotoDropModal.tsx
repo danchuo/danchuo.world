@@ -15,6 +15,7 @@ import { laysOnSide } from "@/lib/artifactBox";
 import { mediaUrl } from "@/lib/api/media";
 import type { ArtifactBoxView, FilmPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
+import { useCoarsePointer } from "./useCoarsePointer";
 import { useTileData } from "./useTileData";
 
 interface PhotoDropModalProps {
@@ -176,6 +177,7 @@ const PhotoLightbox = forwardRef<
 >(function PhotoLightbox({ photo, index, total, onClose }, ref) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);
+  const coarse = useCoarsePointer();
   const boxes = photo.artifacts ?? [];
   const ratio = photo.width && photo.height ? `${photo.width} / ${photo.height}` : undefined;
 
@@ -202,8 +204,10 @@ const PhotoLightbox = forwardRef<
         <img className="lightbox-photo" src={mediaUrl(photo.imageUrl)} alt="" />
         {/* Тач-флоу (DESIGN §7.5): на телефоне ховера нет, а тап по кадру занят открытием на
             весь экран — поэтому находки объясняет сам полноэкранный кадр, показывая карточки
-            сразу. «Постоянные подписи — шум» тут не применимо: кадр ровно один, а не 36. */}
-        {ratio && <ArtifactBoxes boxes={boxes} shown={boxes.map((a) => a.artifactId)} />}
+            сразу. «Постоянные подписи — шум» тут не применимо: кадр ровно один, а не 36.
+            На мыши полный экран не несёт находок вовсе (решение владельца): там их показывает
+            наведение в самой галерее, а поверх открытого снимка объяснять уже нечего. */}
+        {ratio && coarse && <ArtifactBoxes boxes={boxes} shown={boxes.map((a) => a.artifactId)} />}
       </span>
       <button
         ref={closeRef}

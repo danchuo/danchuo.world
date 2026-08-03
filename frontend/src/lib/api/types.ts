@@ -221,6 +221,8 @@ export interface AdminDropView {
 export interface AdminPhotoView {
   id: number;
   thumbUrl: string;
+  /** web-вариант — крупный кадр для ручной разметки артефактов (§5.12); в сетке не нужен. */
+  imageUrl: string;
   isCover: boolean;
   /** Что нашлось на кадре (§5.12) — админка даёт снять лишнее. */
   artifacts?: ArtifactBoxView[];

@@ -104,6 +104,80 @@ export const ambiguousBadgeStyle: CSSProperties = {
   fontFamily: "var(--font-mono)",
 };
 
+/* ── Ручная разметка артефактов (§5.12) ── */
+
+/** Рамка на кадре разметчика: позицию задаёт компонент долями, тут только вид. */
+export const markerBoxStyle: CSSProperties = {
+  position: "absolute",
+  border: "2px solid var(--border)",
+  // Заливка нужна: на пёстром кадре одна линия теряется, а сплошная закрывала бы предмет.
+  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+  pointerEvents: "none",
+};
+
+/**
+ * Подпись рамки. Указатель ловит только крестик — сама подпись прозрачна для мыши, иначе
+ * протяжка, начатая на подписи, не начиналась бы вовсе.
+ */
+export const markerBoxLabelStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: -18,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  padding: "0 4px",
+  background: "var(--bg-surface)",
+  color: "var(--text-secondary)",
+  fontFamily: "var(--font-mono)",
+  fontSize: 11,
+  lineHeight: 1.5,
+  whiteSpace: "nowrap",
+  pointerEvents: "auto",
+};
+
+/** Строка каталога в разметчике: картинка предмета + имя. */
+export const markerArtifactBtnStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  padding: "6px 8px",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--bg-surface)",
+  color: "var(--text-primary)",
+  fontSize: 13,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+/** Выбранный предмет — заливка акцентом (тот же язык, что у вкладок разделов). */
+export const markerSelectedArtifactBtnStyle: CSSProperties = {
+  ...markerArtifactBtnStyle,
+  border: "1px solid var(--accent)",
+  background: "var(--accent)",
+  color: "var(--bg-base)",
+};
+
+/* Кнопка «разметить» в свободном (нижнем-левом) углу кадра: остальные три заняты «?», ✕ и ↻. */
+export const markBtnStyle: CSSProperties = {
+  position: "absolute",
+  left: 4,
+  bottom: 4,
+  width: 28,
+  height: 28,
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--bg-surface)",
+  color: "var(--text-primary)",
+  cursor: "pointer",
+  fontSize: 14,
+  lineHeight: 1,
+};
+
 /** Заголовок панели — один кегль на все секции админки. */
 export const sectionTitleStyle: CSSProperties = { fontSize: 16, color: "var(--text-primary)" };
 

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      The marquee is a chronicle, so its order is a fact of the data, not a knob: artifacts run
+      oldest first by first_mentioned_on. The hand-kept sort_order said the same thing in a second
+      place (every seed simply numbered the items in the order they were acquired) and could drift
+      away from it, so the column goes. Only the artifact table is touched: social_link keeps its
+      sort_order, where the order really is a choice.
+    -->
+    <changeSet id="0330-artifact-drop-sort-order" author="danchuo">
+        <dropColumn tableName="artifact" columnName="sort_order"/>
+    </changeSet>
+</databaseChangeLog>

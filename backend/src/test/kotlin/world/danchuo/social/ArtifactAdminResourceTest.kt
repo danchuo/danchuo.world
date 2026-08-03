@@ -5,6 +5,7 @@ import io.restassured.RestAssured.given
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.notNullValue
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.awt.Color
 import java.awt.image.BufferedImage
@@ -53,14 +54,29 @@ class ArtifactAdminResourceTest {
             .contentType("application/json")
             .body(
                 """{"name":"Переименованный","firstMentionedOn":"2026-03-04",
-                   "rotatable":true,"sortOrder":7,"detectionHint":"a big red cube"}""",
+                   "rotatable":true,"detectionHint":"a big red cube"}""",
             )
             .put("/api/ingest/artifacts/$id")
             .then().statusCode(200)
             .body("name", equalTo("Переименованный"))
             .body("rotatable", equalTo(true))
-            .body("sortOrder", equalTo(7))
             .body("detectionHint", equalTo("a big red cube"))
+    }
+
+    /**
+     * Порядок ленты — хроника, а не ручной список: старое слева. Заводим сперва поздний предмет,
+     * чтобы порядок вставки был обратен ожидаемому — иначе тест прошёл бы и на сортировке по id.
+     */
+    @Test
+    fun `artifacts come oldest-first, whatever the order they were entered in`() {
+        val later = create("Поздний предмет", date = "2026-05-05")
+        val earlier = create("Ранний предмет", date = "2026-04-04")
+
+        listOf("/api/artifacts", "/api/ingest/artifacts").forEach { path ->
+            val req = given().let { if (path.startsWith("/api/ingest")) it.header("Authorization", "Bearer $token") else it }
+            val ids = req.get(path).then().statusCode(200).extract().jsonPath().getList("id", Long::class.java)
+            assertTrue(ids.indexOf(earlier) < ids.indexOf(later), "старое идёт первым в $path")
+        }
     }
 
     @Test
@@ -106,12 +122,12 @@ class ArtifactAdminResourceTest {
 
     // ── Помощники ──
 
-    private fun create(name: String, hint: String? = null): Long = given()
+    private fun create(name: String, hint: String? = null, date: String = "2026-02-03"): Long = given()
         .header("Authorization", "Bearer $token")
         .contentType("application/json")
         .body(
-            """{"name":"$name","firstMentionedOn":"2026-02-03","rotatable":false,
-               "sortOrder":99,"detectionHint":${hint?.let { "\"$it\"" } ?: "null"}}""",
+            """{"name":"$name","firstMentionedOn":"$date","rotatable":false,
+               "detectionHint":${hint?.let { "\"$it\"" } ?: "null"}}""",
         )
         .post("/api/ingest/artifacts")
         .then().statusCode(201)

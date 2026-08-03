@@ -33,7 +33,6 @@ const EMPTY: ArtifactInput = {
   name: "",
   firstMentionedOn: todayIso(),
   rotatable: false,
-  sortOrder: 0,
   detectionHint: null,
 };
 
@@ -42,7 +41,6 @@ function toInput(a: AdminArtifactView): ArtifactInput {
     name: a.name,
     firstMentionedOn: a.firstMentionedOn,
     rotatable: a.rotatable,
-    sortOrder: a.sortOrder,
     detectionHint: a.detectionHint,
   };
 }
@@ -245,22 +243,13 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label style={{ display: "grid", gap: 4 }}>
-            <span style={mono}>первое упоминание</span>
+            {/* Она же задаёт место в ленте: порядок — хроника, отдельного поля нет. */}
+            <span style={mono}>первое упоминание — им же лента и сортируется</span>
             <input
               style={fieldStyle}
               type="date"
               value={form.firstMentionedOn}
               onChange={(e) => setForm({ ...form, firstMentionedOn: e.target.value })}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            {/* Без подписи это поле читалось как загадочный счётчик — оно про место в ленте. */}
-            <span style={mono}>порядок в ленте</span>
-            <input
-              style={{ ...fieldStyle, width: 120 }}
-              type="number"
-              value={form.sortOrder}
-              onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
             />
           </label>
           <label
@@ -370,7 +359,11 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
               <span style={{ ...mono, width: 40, textAlign: "center" }}>—</span>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14 }}>{a.name}</div>
+              {/* Дата видна в строке, потому что именно она задаёт порядок списка и ленты —
+                  иначе сортировка шла бы по невидимому полю. */}
+              <div style={{ fontSize: 14 }}>
+                {a.name} <span style={mono}>{a.firstMentionedOn}</span>
+              </div>
               <div style={{ ...mono, overflow: "hidden", textOverflow: "ellipsis" }}>
                 {a.detectionHint ?? "без описания для поиска"}
               </div>

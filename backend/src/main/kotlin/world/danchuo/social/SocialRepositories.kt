@@ -10,8 +10,11 @@ class SocialLinkRepository : PanacheRepository<SocialLink> {
     fun listOrdered(): List<SocialLink> = listAll(Sort.by("sortOrder"))
 }
 
-/** Доступ к артефактам marquee — в порядке [Artifact.sortOrder]. */
+/**
+ * Доступ к артефактам marquee — хроникой: старое первым, по [Artifact.firstMentionedOn].
+ * Одна дата у двух предметов — разводит `id`, иначе порядок ленты гулял бы между запросами.
+ */
 @ApplicationScoped
 class ArtifactRepository : PanacheRepository<Artifact> {
-    fun listOrdered(): List<Artifact> = listAll(Sort.by("sortOrder"))
+    fun listOrdered(): List<Artifact> = listAll(Sort.by("firstMentionedOn").and("id"))
 }

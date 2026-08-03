@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { readCache, writeCache } from "@/lib/api/cache";
-import { getDay, getDays } from "@/lib/api/client";
+import { getDays } from "@/lib/api/client";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { addDays, mskToday, weekWindowAround } from "@/lib/date";
 import type { DisciplineLens } from "@/lib/disciplineLens";
@@ -21,6 +21,7 @@ import { SleepTile } from "./SleepTile";
 import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
+import { useSelectedDay } from "./useSelectedDay";
 import { useWave } from "./WaveProvider";
 import { WaveSwitcher } from "./WaveSwitcher";
 
@@ -85,11 +86,9 @@ export function Board() {
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
   const [statsStatus, setStatsStatus] = useState<Status>("loading");
   const [statsHistory, setStatsHistory] = useState<DaySummary[]>([]);
-  const [dayStatus, setDayStatus] = useState<Status>("loading");
-  const [day, setDay] = useState<DayView | null>(null);
-  // Кэш загруженных дней — это накопитель ответов сети, не отображаемое состояние:
-  // держим в ref, чтобы запись в кэш не вызывала лишний рендер.
-  const dayCache = useRef<Record<string, DayView>>({});
+  // Дневной слой — свой шов ([useSelectedDay]): у него, в отличие от окна календаря и истории
+  // статов, есть чем занять экран на время загрузки — предыдущий выбранный день.
+  const { day, status: dayStatus, retry: retryDay } = useSelectedDay(selected);
 
   // Stale-while-revalidate (как у [useTileData]): сразу показываем последнюю удачную копию из
   // localStorage, чтобы серия F5 при сработавшем рейтлимите не обнуляла дневной слой борда.
@@ -138,37 +137,6 @@ export function Board() {
 
   useEffect(loadStats, [loadStats]);
 
-  const loadDay = useCallback((date: string) => {
-    const memo = dayCache.current[date];
-    if (memo) {
-      setDay(memo);
-      setDayStatus("loaded");
-      return;
-    }
-    // Перед сетью — последняя удачная копия дня с прошлой сессии (переживает F5/рейтлимит).
-    const key = `day:${date}`;
-    const persisted = readCache<DayView>(key);
-    if (persisted) {
-      setDay(persisted);
-      setDayStatus("loaded");
-    } else {
-      setDayStatus("loading");
-      setDay(null);
-    }
-    getDay(date)
-      .then((d) => {
-        dayCache.current[date] = d;
-        setDay(d);
-        setDayStatus("loaded");
-        writeCache(key, d);
-      })
-      .catch(() => {
-        if (!persisted) setDayStatus("error");
-      });
-  }, []);
-
-  useEffect(() => loadDay(selected), [selected, loadDay]);
-
   // Esc снимает линзу — привычный выход из «режима просмотра», и единственный клавиатурный.
   // Вешаем слушатель только когда линза включена: без неё борд событий не слушает.
   useEffect(() => {
@@ -192,7 +160,7 @@ export function Board() {
     selectDay: setSelected,
     lens,
     setLens,
-    retryDay: () => loadDay(selected),
+    retryDay,
     retryRange: loadRange,
     retryStats: loadStats,
     // null (деградированный SSR) ⇒ фолбэк-скин волны 01, поэтому и её спрайт-набор.

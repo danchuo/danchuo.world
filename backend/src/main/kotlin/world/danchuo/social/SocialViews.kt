@@ -31,7 +31,6 @@ data class AdminArtifactView(
     val imageUrl: String?,
     val firstMentionedOn: String,
     val rotatable: Boolean,
-    val sortOrder: Int,
     val detectionHint: String?,
 )
 

@@ -3,11 +3,11 @@ import {
   addDays,
   datesInRange,
   dayOfMonth,
+  monthNameRu,
   mskToday,
   startOfWeek,
   weekWindowAround,
   weekdayMondayIndex,
-  weekdayShortRu,
 } from "./date";
 
 describe("date (канон MSK)", () => {
@@ -55,9 +55,13 @@ describe("date (канон MSK)", () => {
     expect(range.at(-1)).toBe("2026-07-03");
   });
 
-  it("dayOfMonth и weekdayShortRu", () => {
+  it("dayOfMonth", () => {
     expect(dayOfMonth("2026-06-18")).toBe(18);
-    expect(weekdayShortRu("2026-06-18")).toMatch(/чт/i); // 18 июня 2026 — четверг
+  });
+
+  it("monthNameRu добавляет год только у чужого года", () => {
+    expect(monthNameRu("2026-06-18", "2026-08-04")).toBe("июнь");
+    expect(monthNameRu("2025-12-10", "2026-08-04")).toBe("декабрь 2025");
   });
 
   it("отвергает не-ISO вход", () => {

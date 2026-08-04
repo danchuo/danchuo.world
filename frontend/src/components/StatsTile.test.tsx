@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
 import { StatsTile } from "./StatsTile";
 
@@ -107,5 +107,77 @@ describe("StatsTile — чип вкладов GitHub", () => {
 
     expect(screen.queryByTestId("stats-contributions")).toBeNull();
     expect(screen.getByText("нет данных")).toBeTruthy();
+  });
+});
+
+describe("StatsTile — выходные на оси графика", () => {
+  /**
+   * Ось графика — россыпь дат, по которой не видно ритма недели, и провалы выходных читались
+   * случайными (§7.4). Метим их **подписью на оси**, а не заливкой поля: заливка выделяла
+   * выходные слишком темно, а подпись занимает слот, который у выходного всё равно был бы
+   * занят датой (решение владельца).
+   */
+  const week = (dates: string[]) => history(dates.map((date) => ({ date })));
+
+  // Графики рисуются только по ЗАМЕРУ контейнера, а в jsdom нет `ResizeObserver` — без него
+  // SVG не появляется вовсе и проверять нечего. Подставляем наблюдателя, сразу отдающего
+  // размер: полоса живёт в пиксельной геометрии, `aspect-ratio` её тут не заменит.
+  const realRO = globalThis.ResizeObserver;
+  beforeAll(() => {
+    globalThis.ResizeObserver = class {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe() {
+        this.cb(
+          [{ contentRect: { width: 320, height: 160 } } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+  });
+  afterAll(() => {
+    globalThis.ResizeObserver = realRO;
+  });
+
+  it("подписывает субботу и воскресенье, и только их", () => {
+    // 2026-08-01 — суббота, 02 — воскресенье; 03 — понедельник, 31.07 — пятница.
+    render(
+      <StatsTile
+        history={week(["2026-07-31", "2026-08-01", "2026-08-02", "2026-08-03"])}
+        selected="2026-08-03"
+        state="loaded"
+      />,
+    );
+    expect(screen.getByTestId("stats-weekday-2026-08-01")).toHaveTextContent("сб");
+    expect(screen.getByTestId("stats-weekday-2026-08-02")).toHaveTextContent("вс");
+    expect(screen.queryByTestId("stats-weekday-2026-07-31")).toBeNull();
+    expect(screen.queryByTestId("stats-weekday-2026-08-03")).toBeNull();
+  });
+
+  it("подпись выходного занимает слот даты, а не встаёт рядом с ней", () => {
+    // Главное требование владельца: подписи не должны пересекаться. Слот на оси один,
+    // поэтому у выходного дата не рисуется вовсе — накладываться нечему по построению.
+    render(
+      <StatsTile
+        history={week(["2026-07-31", "2026-08-01", "2026-08-02", "2026-08-03"])}
+        selected="2026-08-03"
+        state="loaded"
+      />,
+    );
+    expect(screen.queryByTestId("stats-tick-2026-08-01")).toBeNull();
+    expect(screen.queryByTestId("stats-tick-2026-08-02")).toBeNull();
+  });
+
+  it("заливки поля у выходных больше нет", () => {
+    // Регрессионный якорь: полосу пробовали и сняли — выходные выделялись слишком темно.
+    render(
+      <StatsTile
+        history={week(["2026-07-31", "2026-08-01", "2026-08-02"])}
+        selected="2026-07-31"
+        state="loaded"
+      />,
+    );
+    expect(document.querySelector('[data-testid^="stats-weekend-"]')).toBeNull();
   });
 });

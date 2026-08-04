@@ -14,7 +14,11 @@ PW_VERSION="$(node -p "require('@playwright/test/package.json').version")"
 IMAGE="mcr.microsoft.com/playwright:v${PW_VERSION}-noble"
 MODE="${1:-run}"
 ARGS=""
-[ "$MODE" = "update" ] && ARGS="--update-snapshots"
+# Именно `=all`, а не голый `--update-snapshots`: голый флаг работает в режиме `changed` и
+# переписывает только те эталоны, что НЕ сошлись. Расхождение мельче допуска
+# `maxDiffPixelRatio` (0.01) сходится — и эталон остаётся со старым рендером, хотя команду
+# «переснять» уже дали. Так десктопный календарь пережил появление ряда навигации.
+[ "$MODE" = "update" ] && ARGS="--update-snapshots=all"
 BASE_URL="${PW_BASE_URL:-http://host.docker.internal:3000}"
 
 # Путь-источник тома: на git-bash (Windows) берём Windows-форму (pwd -W → C:/...),

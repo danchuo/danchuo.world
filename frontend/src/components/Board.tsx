@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { readCache, writeCache } from "@/lib/api/cache";
-import { getDays } from "@/lib/api/client";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { DaySummary, DayView } from "@/lib/api/types";
-import { addDays, mskToday, weekWindowAround } from "@/lib/date";
+import { shiftAnchor } from "@/lib/calendarWindow";
+import { mskToday } from "@/lib/date";
 import type { DisciplineLens } from "@/lib/disciplineLens";
+import { statsWindow, type StatsRange } from "@/lib/statsWindow";
 import { gridArea, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
@@ -21,6 +21,8 @@ import { SleepTile } from "./SleepTile";
 import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
+import { useCalendarWindow } from "./useCalendarWindow";
+import { useDayRange } from "./useDayRange";
 import { useSelectedDay } from "./useSelectedDay";
 import { useWave } from "./WaveProvider";
 import { WaveSwitcher } from "./WaveSwitcher";
@@ -35,12 +37,6 @@ type Status = "loading" | "error" | "loaded";
 const WEEKS_BEFORE = 2;
 const WEEKS_AFTER = 1;
 
-/**
- * Глубина истории для графиков статов (§7.4): окно календаря в четыре недели мало под скролл-в-прошлое,
- * поэтому статы тянут свою выборку [сегодня−(N−1), сегодня]. Ограничена 30 днями — дальше
- * листать пустоту смысла нет (при WINDOW=10 отлистывается максимум 20 дней назад).
- */
-const STATS_HISTORY = 30;
 
 /** Данные/хендлеры борда, прокидываемые в каждый тайл. */
 interface BoardData {
@@ -54,6 +50,14 @@ interface BoardData {
   statsHistory: DaySummary[];
   statsStatus: Status;
   selectDay: (date: string) => void;
+  /** Опора окна календаря (§5.3): день, вокруг недели которого собрано `summaries`. */
+  anchor: string;
+  /** Листание окна календаря на N недель (−1 назад, +1 вперёд). */
+  shiftWeeks: (weeks: number) => void;
+  /** Возврат окна календаря к сегодня. */
+  resetWindow: () => void;
+  /** Упёрлось ли окно в генезис — дальше назад листать нечего. */
+  canGoBack: boolean;
   /** Линза дисциплины (§5.3): выбранная на карте-тропе остановка, по которой размечен календарь. */
   lens: DisciplineLens | null;
   setLens: (lens: DisciplineLens | null) => void;
@@ -68,74 +72,48 @@ interface BoardData {
  * Борд danchuo.world (PRD §12 M2). Тянет данные на клиенте с независимыми per-tile
  * состояниями (DESIGN §7 — общего спиннера нет). Раскладка — из data-driven реестра
  * тайлов ([TILE_LAYOUT]): на десктопе (мышь/трекпад) bento 40×28, на тач-устройствах —
- * одноколоночный стек, в нём при <640px календарь заменяется недельной полосой (DESIGN §8).
+ * одноколоночный стек с той же сеткой календаря, что в бенто (DESIGN §8).
  */
 export function Board() {
   // Раскладка активной волны (мерж волны с дефолтом, DESIGN §3, §10). Своп волны
   // переключателем меняет её вживую — борд перерисовывается в новой сетке без перезагрузки.
   const { layout, activeKey } = useWave();
   const today = useMemo(() => mskToday(), []);
-  const { from, to } = useMemo(() => weekWindowAround(today, WEEKS_BEFORE, WEEKS_AFTER), [today]);
-  const statsFrom = useMemo(() => addDays(today, -(STATS_HISTORY - 1)), [today]);
+  // Опора окна календаря (§5.3). Домашнее положение — «сегодня»; листание двигает её неделями,
+  // и только её: выбранный день листание не трогает — это просмотр истории, а не выбор дня.
+  const [anchor, setAnchor] = useState(today);
 
   const [selected, setSelected] = useState(today);
   // Линза живёт на борде, а не в плитке: её ставит карта-тропа «Сегодня», а читает календарь.
   // Смену выбранного дня она переживает намеренно — это взгляд на историю, а не состояние дня.
   const [lens, setLens] = useState<DisciplineLens | null>(null);
-  const [rangeStatus, setRangeStatus] = useState<Status>("loading");
-  const [summaries, setSummaries] = useState<DaySummary[]>([]);
-  const [statsStatus, setStatsStatus] = useState<Status>("loading");
-  const [statsHistory, setStatsHistory] = useState<DaySummary[]>([]);
-  // Дневной слой — свой шов ([useSelectedDay]): у него, в отличие от окна календаря и истории
-  // статов, есть чем занять экран на время загрузки — предыдущий выбранный день.
+  // Дневной слой — свой шов ([useSelectedDay]): у него есть чем занять экран на время загрузки —
+  // предыдущий выбранный день.
   const { day, status: dayStatus, retry: retryDay } = useSelectedDay(selected);
+  // Оконный слой календаря — тоже свой шов ([useCalendarWindow]) и по той же причине: пока
+  // едет отлистанное окно, на экране остаётся предыдущее вместе со своей опорой.
+  const {
+    days: summaries,
+    status: rangeStatus,
+    shownAnchor,
+    canGoBack,
+    retry: retryRange,
+  } = useCalendarWindow(anchor, WEEKS_BEFORE, WEEKS_AFTER);
 
-  // Stale-while-revalidate (как у [useTileData]): сразу показываем последнюю удачную копию из
-  // localStorage, чтобы серия F5 при сработавшем рейтлимите не обнуляла дневной слой борда.
-  const loadRange = useCallback(() => {
-    const key = `days:${from}:${to}`;
-    const cached = readCache<DaySummary[]>(key);
-    if (cached) {
-      setSummaries(cached);
-      setRangeStatus("loaded");
-    } else {
-      setRangeStatus("loading");
-    }
-    getDays(from, to)
-      .then((data) => {
-        setSummaries(data);
-        setRangeStatus("loaded");
-        writeCache(key, data);
-      })
-      .catch(() => {
-        if (!cached) setRangeStatus("error");
-      });
-  }, [from, to]);
+  // Выборка графиков — своя (шире окна календаря) и **следует за выбранным днём**: борд это
+  // машина времени, и уехав в июнь, читатель ждёт июньских графиков (§7.4). Переносится лениво,
+  // только когда выбранный день вышел за края, — иначе клик по соседнему дню гонял бы запрос.
+  const [statsRange, setStatsRange] = useState<StatsRange>(() => statsWindow(today, today, null));
+  useEffect(() => {
+    // `statsWindow` возвращает тот же объект, когда двигать нечего, — состояние не меняется.
+    setStatsRange((cur) => statsWindow(selected, today, cur));
+  }, [selected, today]);
 
-  useEffect(loadRange, [loadRange]);
-
-  // История статов — своя выборка (шире окна календаря), тот же stale-while-revalidate.
-  const loadStats = useCallback(() => {
-    const key = `days:${statsFrom}:${today}`;
-    const cached = readCache<DaySummary[]>(key);
-    if (cached) {
-      setStatsHistory(cached);
-      setStatsStatus("loaded");
-    } else {
-      setStatsStatus("loading");
-    }
-    getDays(statsFrom, today)
-      .then((rows) => {
-        setStatsHistory(rows);
-        setStatsStatus("loaded");
-        writeCache(key, rows);
-      })
-      .catch(() => {
-        if (!cached) setStatsStatus("error");
-      });
-  }, [statsFrom, today]);
-
-  useEffect(loadStats, [loadStats]);
+  const {
+    days: statsHistory,
+    status: statsStatus,
+    retry: retryStats,
+  } = useDayRange(statsRange.from, statsRange.to, null);
 
   // Esc снимает линзу — привычный выход из «режима просмотра», и единственный клавиатурный.
   // Вешаем слушатель только когда линза включена: без неё борд событий не слушает.
@@ -158,11 +136,15 @@ export function Board() {
     statsHistory,
     statsStatus,
     selectDay: setSelected,
+    anchor: shownAnchor,
+    shiftWeeks: (weeks: number) => setAnchor((cur) => shiftAnchor(cur, today, weeks)),
+    resetWindow: () => setAnchor(today),
+    canGoBack,
     lens,
     setLens,
     retryDay,
-    retryRange: loadRange,
-    retryStats: loadStats,
+    retryRange,
+    retryStats,
     // null (деградированный SSR) ⇒ фолбэк-скин волны 01, поэтому и её спрайт-набор.
     wave: activeKey ?? "wave-01",
   };
@@ -285,9 +267,13 @@ function BoardTile({
           days={data.summaries}
           selected={data.selected}
           today={data.today}
+          anchor={data.anchor}
           onSelect={data.selectDay}
           state={data.rangeStatus}
           onRetry={data.retryRange}
+          onShiftWeeks={data.shiftWeeks}
+          onResetWindow={data.resetWindow}
+          canGoBack={data.canGoBack}
           lens={data.lens}
           onLensChange={data.setLens}
           style={style}

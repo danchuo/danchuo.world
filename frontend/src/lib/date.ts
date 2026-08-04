@@ -9,6 +9,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Intl-форматтеры строятся один раз на модуль (создание дорогое — не повторяем на каждый вызов).
 const MSK_TODAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: MSK_ZONE });
+const MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
+const MONTH_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "short", timeZone: "UTC" });
 const WEEKDAY_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "UTC" });
 
 /** Сегодня в каноне MSK (`YYYY-MM-DD`), независимо от зоны посетителя. */
@@ -66,7 +68,19 @@ export function dayOfMonth(iso: string): number {
   return Number(iso.slice(8, 10));
 }
 
-/** Короткий день недели в RU (`пн`..`вс`) — для недельной полосы на мобиле (§8). */
+/**
+ * Месяц даты словом (`июнь`), с годом — только если он не совпадает с [today] (`декабрь 2025`).
+ * Подпись отлистанного окна календаря (§5.3): по одним числам дней месяц не опознать, а год
+ * добавлять всегда значит шуметь им все двенадцать месяцев из тринадцати.
+ */
+export function monthNameRu(iso: string, today: string): string {
+  assertIso(iso);
+  const name = MONTH_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
+  const year = iso.slice(0, 4);
+  return year === today.slice(0, 4) ? name : `${name} ${year}`;
+}
+
+/** Короткий день недели в RU (`пн`..`вс`) — подпись выходного на оси графиков активности (§7.4). */
 export function weekdayShortRu(iso: string): string {
   assertIso(iso);
   return WEEKDAY_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
@@ -78,7 +92,17 @@ export function weekdayMondayIndex(iso: string): number {
   return (new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7;
 }
 
-/** Месяц даты как `YYYY-MM` — для сравнения «этот месяц / соседний» (§5). */
+/**
+ * Месяц сокращённо (`июл`) — подпись на первом числе месяца в сетке календаря (§5.3).
+ * Точку, которую ru-RU ставит у части месяцев (`июл.`), снимаем: в клетке рядом с числом
+ * она читается как мусор, а не как сокращение.
+ */
+export function monthShortRu(iso: string): string {
+  assertIso(iso);
+  return MONTH_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`)).replace(".", "");
+}
+
+/** Месяц даты как `YYYY-MM` — для сравнения соседних дней в сетке (§5.3). */
 export function monthOf(iso: string): string {
   assertIso(iso);
   return iso.slice(0, 7);

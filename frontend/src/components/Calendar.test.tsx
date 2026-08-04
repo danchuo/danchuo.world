@@ -118,9 +118,10 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId(`day-${TODAY}`)).not.toHaveAttribute("data-gap");
   });
 
-  it("помечает дни соседнего месяца, когда окно ложится на стык", () => {
-    // 2026-07-02 — четверг, понедельник её недели 29 июня ⇒ окно 15.06 → 12.07 (стык месяцев).
-    const stride = "2026-07-02";
+  it("месяц не метится заливкой вовсе — ни у своих дней, ни у чужих", () => {
+    // Заливка «чужого месяца» снята (§5.3): она зависела от того, где стоит окно, поэтому
+    // на листании целое полотно инвертировалось разом. Месяц метит граница, а не тон.
+    const stride = "2026-07-02"; // окно 15.06 → 12.07 — стык месяцев
     render(
       <Calendar
         days={buildWindow(stride)}
@@ -130,35 +131,14 @@ describe("Calendar (окно целыми неделями)", () => {
         state="loaded"
       />,
     );
-    expect(screen.getByTestId("day-2026-06-15")).toHaveAttribute("data-other-month", "true");
-    expect(screen.getByTestId("day-2026-07-02")).not.toHaveAttribute("data-other-month");
-  });
-
-  it("выходной соседнего месяца красится своим токеном, а не заливкой чужого месяца", () => {
-    // В начале месяца соседний месяц занимает большую часть окна, и колонка сб/вс внутри него
-    // обрывалась: «чужой месяц» перебивал «выходной», и весь блок был одного тона.
-    const stride = "2026-07-02"; // окно 15.06 → 12.07: июнь целиком в соседнем месяце
-    render(
-      <Calendar
-        days={buildWindow(stride)}
-        selected={stride}
-        today={stride}
-        onSelect={() => {}}
-        state="loaded"
-      />,
-    );
-    for (const date of ["2026-06-20", "2026-06-21", "2026-06-27"]) {
-      const cell = screen.getByTestId(`day-${date}`).getAttribute("style") ?? "";
-      expect(cell).toContain("var(--cal-othermonth-weekend)");
+    for (const date of ["2026-06-15", "2026-06-20", "2026-06-22", "2026-07-02"]) {
+      expect(screen.getByTestId(`day-${date}`).getAttribute("style") ?? "").not.toContain(
+        "othermonth",
+      );
     }
-    // Будни соседнего месяца остаются на прежней заливке — потемнел не весь блок, а его сб/вс.
-    const weekday = screen.getByTestId("day-2026-06-22").getAttribute("style") ?? "";
-    expect(weekday).toContain("var(--cal-othermonth)");
-    expect(weekday).not.toContain("var(--cal-othermonth-weekend)");
   });
 
-  it("выходной текущего месяца свой токен не меняет", () => {
-    // Регрессионный якорь: правка касается только чужого месяца.
+  it("цифра чужого месяца не приглушается — это тот же сигнал, что и снятая заливка", () => {
     const stride = "2026-07-02";
     render(
       <Calendar
@@ -169,9 +149,126 @@ describe("Calendar (окно целыми неделями)", () => {
         state="loaded"
       />,
     );
-    const cell = screen.getByTestId("day-2026-07-04").getAttribute("style") ?? "";
-    expect(cell).toContain("var(--cal-weekend)");
-    expect(cell).not.toContain("othermonth");
+    const june = screen.getByTestId("day-2026-06-22").getAttribute("style") ?? "";
+    const july = screen.getByTestId("day-2026-07-01").getAttribute("style") ?? "";
+    expect(june).toContain("var(--text-primary)");
+    expect(july).toContain("var(--text-primary)");
+  });
+
+  it("выходной остаётся выходным в любом месяце окна", () => {
+    // Регрессионный якорь: снятие заливки месяца не должно задеть колонку сб/вс, которая
+    // раньше внутри чужого месяца обрывалась и ради которой заводился отдельный токен.
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    for (const date of ["2026-06-20", "2026-06-21", "2026-07-04"]) {
+      expect(screen.getByTestId(`day-${date}`).getAttribute("style") ?? "").toContain(
+        "var(--cal-weekend)",
+      );
+    }
+  });
+
+  it("граница месяца рисуется отрезками в своём слое, а не кусками внутри клеток", () => {
+    // Окно 15.06 → 12.07, 1 июля — среда (колонка 2 ряда 2). Ступенька: вертикаль слева от
+    // 1-го, горизонталь по хвосту ряда 2 (ср…вс) и по началу ряда 3 (пн…вт).
+    // Куски внутри клеток лезли в жёлоб внахлёст и зависели от толщины рамки клетки —
+    // отсюда и линия, читавшаяся толще у выходных, и её просадка над выбранным днём.
+    // `today` в августе: значит июль — прошлый месяц, и его стык метится (см. кейс ниже).
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today="2026-08-04"
+        anchor={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    expect(screen.getByTestId("month-edge-h-2-2-7")).toBeInTheDocument();
+    expect(screen.getByTestId("month-edge-h-3-0-2")).toBeInTheDocument();
+    expect(screen.getByTestId("month-edge-v-2-2")).toBeInTheDocument();
+    // Ровно три отрезка — прогон не рассыпан по клеткам.
+    expect(document.querySelectorAll(".cal-month-edge")).toHaveLength(3);
+    // Внутри клеток границы нет вовсе.
+    expect(screen.getByTestId("day-2026-07-01").querySelector(".cal-month-edge")).toBeNull();
+  });
+
+  it("слой границ не перехватывает клики по дням", () => {
+    // Слой накрывает всю сетку, поэтому без `pointer-events: none` он съел бы всю навигацию.
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    const layer = document.querySelector(".cal-month-edges");
+    expect(layer).toHaveAttribute("aria-hidden");
+    expect(layer?.className).toContain("cal-month-edges");
+  });
+
+  it("первое число месяца названо словом — граница говорит «где», подпись «какой»", () => {
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today="2026-08-04"
+        anchor={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    expect(screen.getByTestId("month-mark-2026-07-01")).toHaveTextContent(/июл/i);
+    // У обычного дня подписи нет — иначе сетка превратилась бы в перечисление месяцев.
+    expect(screen.queryByTestId("month-mark-2026-07-02")).toBeNull();
+  });
+
+  it("стык с ТЕКУЩИМ месяцем молчит — ни линии, ни подписи", () => {
+    // Решение владельца: в домашнем окне граница была бы постоянным шумом — месяц и так
+    // назван плиткой «Сегодня». Метка набирает смысл в истории, где месяцы сливаются.
+    // Окно 20.07 → 16.08 при «сегодня» 4 августа: стык 01.08 — начало текущего месяца.
+    const stride = "2026-08-04";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    expect(document.querySelectorAll(".cal-month-edge")).toHaveLength(0);
+    expect(screen.queryByTestId("month-mark-2026-08-01")).toBeNull();
+  });
+
+  it("верхний край окна границей не метится — там не стык месяцев, а обрез выборки", () => {
+    // Окно 15.06 → 12.07: первая строка начинается 15 июня, над ней ничего нет.
+    const stride = "2026-07-02";
+    render(
+      <Calendar
+        days={buildWindow(stride)}
+        selected={stride}
+        today="2026-08-04"
+        anchor={stride}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    // Стык июля при этом нарисован — значит проверка про первый ряд не вырождена.
+    expect(screen.getByTestId("month-edge-v-2-2")).toBeInTheDocument();
+    expect(document.querySelector('[data-testid^="month-edge-h-0-"]')).toBeNull();
   });
 
   it("клик по дню перефокусирует (onSelect с датой)", async () => {
@@ -316,5 +413,188 @@ describe("Calendar (окно целыми неделями)", () => {
     );
     await userEvent.click(screen.getByText("повторить"));
     expect(onRetry).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Calendar — листание прошлых недель (§5.3)", () => {
+  /** Окно вокруг [anchor] при живущем отдельно «сегодня» — материал для сдвинутого окна. */
+  function windowAround(anchor: string, today: string): DaySummary[] {
+    const { from, to } = weekWindowAround(anchor, 2, 1);
+    return datesInRange(from, to).map((date) => ({
+      date,
+      title: null,
+      hasData: date <= today,
+      steps: null,
+      sleepMinutes: null,
+      contributions: null,
+      disciplineDone: 0,
+      disciplineTotal: 5,
+      disciplineCounts: { stretch: 0, reading: 0 },
+      monster: null,
+    }));
+  }
+
+  it("без обработчика листания в календаре нет ни одной стрелки", () => {
+    // Регрессионный якорь: домашняя плитка не обросла хромом там, где листать нечем.
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    expect(screen.queryByTestId("calendar-prev")).toBeNull();
+    expect(screen.queryByTestId("calendar-next")).toBeNull();
+  });
+
+  it("в домашнем положении видна только стрелка назад", () => {
+    // Вперёд от сегодня идти некуда, и возвращаться неоткуда — обе кнопки были бы мёртвыми.
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+        onResetWindow={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("calendar-prev")).toBeInTheDocument();
+    expect(screen.queryByTestId("calendar-next")).toBeNull();
+    expect(screen.queryByTestId("calendar-home")).toBeNull();
+  });
+
+  it("стрелка назад листает ровно на неделю", async () => {
+    const onShiftWeeks = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("calendar-prev"));
+    expect(onShiftWeeks).toHaveBeenCalledWith(-1);
+  });
+
+  it("сдвинутое окно даёт шаг вперёд и возврат к сегодня", async () => {
+    const onShiftWeeks = vi.fn();
+    const onResetWindow = vi.fn();
+    const anchor = "2026-06-11";
+    render(
+      <Calendar
+        days={windowAround(anchor, "2026-07-02")}
+        selected={"2026-07-02"}
+        today="2026-07-02"
+        anchor={anchor}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+        onResetWindow={onResetWindow}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("calendar-next"));
+    expect(onShiftWeeks).toHaveBeenCalledWith(1);
+    await userEvent.click(screen.getByTestId("calendar-home"));
+    expect(onResetWindow).toHaveBeenCalledOnce();
+  });
+
+  it("на границе генезиса стрелки назад нет", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+        canGoBack={false}
+      />,
+    );
+    expect(screen.queryByTestId("calendar-prev")).toBeNull();
+  });
+
+  it("сдвинутое окно называет свой месяц, а не «сегодня»", () => {
+    render(
+      <Calendar
+        days={windowAround("2026-06-11", "2026-07-02")}
+        selected="2026-07-02"
+        today="2026-07-02"
+        anchor="2026-06-11"
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("calendar-window-month")).toHaveTextContent("июнь");
+  });
+
+  it("месяц чужого года назван вместе с годом", () => {
+    render(
+      <Calendar
+        days={windowAround("2025-12-10", "2026-07-02")}
+        selected="2026-07-02"
+        today="2026-07-02"
+        anchor="2025-12-10"
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("calendar-window-month")).toHaveTextContent("декабрь 2025");
+  });
+
+  it("вид дня не зависит от положения окна — листание ничего не перекрашивает", () => {
+    // Главный контракт этой правки. Пока месяц метился заливкой «свой/чужой», опора двигала
+    // тон КАЖДОЙ клетки: раз в 4–5 кликов она пересекала границу месяца, и полотно
+    // инвертировалось разом — движения на неделю не читалось, читалось перелистывание.
+    const days = windowAround("2026-06-25", "2026-07-02");
+    const first = render(
+      <Calendar
+        days={days}
+        selected="2026-07-02"
+        today="2026-07-02"
+        anchor="2026-06-25"
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+      />,
+    );
+    const before = screen.getByTestId("day-2026-06-15").getAttribute("style");
+    first.unmount();
+
+    // То же окно, но опора уехала в другой месяц — клетка обязана выглядеть ровно так же.
+    render(
+      <Calendar
+        days={days}
+        selected="2026-07-02"
+        today="2026-07-02"
+        anchor="2026-07-02"
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("day-2026-06-15").getAttribute("style")).toBe(before);
+  });
+
+  it("«сегодня» и «будущее» остаются привязанными к настоящей дате, а не к якорю", () => {
+    // Якорь двигает только окно и опору месяца. Рамка сегодня, приглушение будущего и
+    // пропуск в записи считаются от настоящего дня — иначе отлистанное окно начало бы врать.
+    // Якорь на неделю назад: окно 08.06 → 05.07, «сегодня» (2 июля) ещё в кадре.
+    render(
+      <Calendar
+        days={windowAround("2026-06-25", "2026-07-02")}
+        selected="2026-07-02"
+        today="2026-07-02"
+        anchor="2026-06-25"
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("day-2026-07-02")).toHaveAttribute("data-today", "true");
+    expect(screen.getByTestId("day-2026-07-03")).toHaveAttribute("data-future", "true");
+    expect(screen.getByTestId("day-2026-06-15")).not.toHaveAttribute("data-future");
   });
 });

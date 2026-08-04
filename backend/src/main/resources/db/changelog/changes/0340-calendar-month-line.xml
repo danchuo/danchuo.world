@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Месяц в календаре метится ГРАНИЦЕЙ, а не заливкой блока дней (DESIGN §5, PRD 5.3).
+      Заводим cal-month-line, удаляем cal-othermonth и cal-othermonth-weekend - у них
+      больше нет читателя.
+
+      Почему заливку сняли. Она отвечала на вопрос "свой месяц или чужой", то есть
+      зависела от того, где стоит окно. С появлением листания недель окно поехало, и
+      опора стала пересекать границу месяца раз в 4-5 кликов - в этот момент до 28 клеток
+      из 28 меняли тон РАЗОМ, от шага в одну неделю. Движения на неделю не читалось,
+      читалось перелистывание страниц (замечено владельцем на живом борде: "нет ощущения,
+      что это единое полотно, уходящее назад").
+
+      Почему граница этой беды не имеет: она принадлежит СТЫКУ двух дней и едет вместе с
+      ним. Вид отдельного дня перестал зависеть от положения окна вообще - это и есть
+      "единое полотно".
+
+      Той же правкой снято приглушение цифры у чужого месяца (text-secondary): это был тот
+      же сигнал и инвертировался бы ровно так же, просто тише. Отдельный токен для
+      выходного чужого месяца (0310) вместе с ним теряет смысл - выходной теперь ровно
+      один во всех месяцах окна.
+
+      Оттенок линии: берём кант плитки (border-tile у волны 01) - календарь и край виджета
+      говорят одним языком линии, и это не новый цвет на борде, а уже принятый. Волна 02
+      рисует свой край сама (облачные карты), поэтому ей задан графит её же чернил.
+
+      NB: surface-othermonth НЕ трогаем - он красит плитку "Сегодня" при выборе дня чужого
+      месяца (§4), считается от сегодня и на листании не меняется (листание не меняет
+      выбранный день).
+    -->
+    <changeSet id="0340-wave-01-month-line" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'cal-othermonth' - 'cal-othermonth-weekend')
+             || $J${"cal-month-line": "#d58b69"}$J$::jsonb
+WHERE key = 'wave-01';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'cal-month-line')
+             || $J${"cal-othermonth": "#ece0d7", "cal-othermonth-weekend": "#e3d2c5"}$J$::jsonb
+WHERE key = 'wave-01';
+        ]]></rollback>
+    </changeSet>
+
+    <changeSet id="0340-wave-02-month-line" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'cal-othermonth' - 'cal-othermonth-weekend')
+             || $J${"cal-month-line": "#8fa8bd"}$J$::jsonb
+WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET tokens = (tokens - 'cal-month-line')
+             || $J${"cal-othermonth": "#cbe1f6", "cal-othermonth-weekend": "#bed6ed"}$J$::jsonb
+WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+
+</databaseChangeLog>

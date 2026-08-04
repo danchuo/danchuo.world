@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { DaySummary } from "@/lib/api/types";
+import { weekdayMondayIndex, weekdayShortRu } from "@/lib/date";
 import { formatSleepAxis, formatSleepShort, formatSteps, formatStepsAxis } from "@/lib/format";
 import {
   average,
@@ -337,11 +338,18 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
               </g>
             ))}
 
-            {/* Ось дат снизу — реже, чтобы `16.07` не наезжали; крайняя слева якорится по началу. */}
-            {dates.map((d, i) =>
-              i % LABEL_EVERY === 0 || i === selIdx ? (
+            {/* Ось дат снизу — реже, чтобы `16.07` не наезжали; крайняя слева якорится по началу.
+                Выходной **занимает слот даты**, а не встаёт рядом: слот один, поэтому наложиться
+                нечему по построению. Заливку поля пробовали и сняли — выходные от неё выделялись
+                слишком темно, а подписи на оси и так хватает, чтобы провал перестал быть
+                случайным. Выходной подписан всегда, дата — по своему разрежённому ритму. */}
+            {dates.map((d, i) => {
+              const weekend = weekdayMondayIndex(d) >= 5;
+              if (!weekend && i % LABEL_EVERY !== 0 && i !== selIdx) return null;
+              return (
                 <text
                   key={`d-${d}`}
+                  data-testid={weekend ? `stats-weekday-${d}` : `stats-tick-${d}`}
                   x={i === 0 ? 2 : x(i)}
                   y={plotH + AXIS_H - 3}
                   className="t-stats-tick"
@@ -349,10 +357,10 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
                   fill={d === selected ? "var(--accent)" : "var(--text-tertiary)"}
                   style={{ fontFamily: "var(--font-mono)" }}
                 >
-                  {shortDate(d)}
+                  {weekend ? weekdayShortRu(d) : shortDate(d)}
                 </text>
-              ) : null,
-            )}
+              );
+            })}
           </svg>
         )}
 

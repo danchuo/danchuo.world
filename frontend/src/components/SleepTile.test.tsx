@@ -53,7 +53,7 @@ async function openBand() {
 
 describe("SleepTile — ночь как она была (I-23)", () => {
   it("по умолчанию показывает сумму и за полосой не ходит", () => {
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
 
     expect(screen.getByText("7ч 40м")).toBeInTheDocument();
     expect(getSleepNightMock).not.toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("по переключателю показывает полосу ночи и запрашивает её один раз", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
 
     await openBand();
 
@@ -78,7 +78,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("переключатель не помечен мета-подписью — скин волны прячет их целиком", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
 
     // Волна 02 скрывает `.tile-label` (это параметр волны). Управление и цифры не подписи:
     // попав в этот класс, переключатель исчезал с борда вместе с ними.
@@ -92,7 +92,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("во сколько лёг и встал — в шапке, а не отдельной строкой под полосой", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
     await openBand();
 
     // Одной подписью «23:20–07:20»: вертикаль плитки уходит полосе, а не тексту.
@@ -101,7 +101,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("подписывает дорожки фаз — они же и есть вечная легенда", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
     await openBand();
 
     const band = await screen.findByTestId("night-band");
@@ -114,7 +114,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("кладёт фазу на свою дорожку: глубокий сон ниже, чем пробуждение", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
     await openBand();
 
     const parts = await screen.findAllByTestId("night-band-part");
@@ -128,7 +128,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("сравнения со средней ночью не показывает — среднее уже есть в «активности»", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
     await openBand();
 
     const band = await screen.findByTestId("night-band");
@@ -139,7 +139,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("ночь без сохранённых кусков показывает ту же пустоту, что и день без сна", async () => {
     getSleepNightMock.mockResolvedValue({ ...night, band: null });
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
     await openBand();
 
     // Для зрителя это один и тот же случай «показать нечего» — картинка одна на оба.
@@ -150,9 +150,16 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByText(/не записана по минутам/i)).not.toBeInTheDocument();
   });
 
+  it("не повторяет в шапке, какой день выбран — это уже сказано в «Сегодня»", () => {
+    render(<SleepTile day={day({ date: "2026-07-21" })} state="loaded" />);
+
+    // Выбор дня общий для борда: подпись живёт в плитке дня и в календаре, а не в каждой плитке.
+    expect(screen.queryByText(/сегодня|вчера|позавчера|^в (прошл|следующ)|назад$/i)).not.toBeInTheDocument();
+  });
+
   it("возврат к сумме не требует нового запроса", async () => {
     getSleepNightMock.mockResolvedValue(night);
-    render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
+    render(<SleepTile day={day()} state="loaded" />);
     await openBand();
     await waitFor(() =>
       expect(screen.getByTestId("night-band")).toBeInTheDocument(),
@@ -169,7 +176,6 @@ describe("SleepTile — ночь как она была (I-23)", () => {
         day={day({
           health: { steps: 100, sleepMinutes: null, sleepStages: null },
         })}
-        today="2026-07-28"
         state="loaded"
       />,
     );

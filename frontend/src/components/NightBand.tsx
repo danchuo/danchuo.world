@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { getSleepNight } from "@/lib/api/client";
 import { clockLabel, LANES, nightBandGeometry, STAGE_COLOR } from "./nightGeometry";
+import { SleepNoData } from "./SleepNoData";
 import { useTileData } from "./useTileData";
 
 /**
@@ -42,11 +43,7 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
 
   const geometry = nightBandGeometry(data?.band, data?.axisStartHour);
   if (!geometry || !data?.band) {
-    return (
-      <div className="flex h-full items-center text-xs" style={{ color: "var(--text-tertiary)" }}>
-        эта ночь не записана по минутам
-      </div>
-    );
+    return <SleepNoData />;
   }
 
   const laneTop = (i: number) => `${(i * 100) / LANES.length}%`;

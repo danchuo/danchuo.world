@@ -6,8 +6,9 @@ import { formatSleep, formatSleepShort } from "@/lib/format";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { NightBand } from "./NightBand";
 import { STAGE_COLOR } from "./nightGeometry";
+import { SleepNoData } from "./SleepNoData";
 import { sleepPhases } from "./sleepPhases";
-import { BedIcon, SleepBigIcon } from "./StatsIcons";
+import { SleepBigIcon } from "./StatsIcons";
 import { TileShell, type TileState } from "./TileShell";
 
 interface SleepTileProps {
@@ -72,14 +73,7 @@ export function SleepTile({ day, today, state, onRetry, style, className }: Slee
       style={style}
       className={className}
     >
-      {showEmpty && (
-        <div className="flex h-full items-center justify-center gap-4">
-          <BedIcon height={62} />
-          <span className="text-sm" style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>
-            нет данных о сне
-          </span>
-        </div>
-      )}
+      {showEmpty && <SleepNoData />}
       {hasData && (
         <div className="tile-frame flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
           {/* «сон» и день — одной строкой сверху (день сразу за «сон»), чтобы не тратить вертикаль. */}

@@ -137,14 +137,17 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(within(band).queryByText(/\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}/)).not.toBeInTheDocument();
   });
 
-  it("ночь без сохранённых кусков честно об этом говорит", async () => {
+  it("ночь без сохранённых кусков показывает ту же пустоту, что и день без сна", async () => {
     getSleepNightMock.mockResolvedValue({ ...night, band: null });
     render(<SleepTile day={day()} today="2026-07-28" state="loaded" />);
     await openBand();
 
+    // Для зрителя это один и тот же случай «показать нечего» — картинка одна на оба.
     await waitFor(() =>
-      expect(screen.getByText(/не записана по минутам/i)).toBeInTheDocument(),
+      expect(screen.getByTestId("sleep-empty")).toBeInTheDocument(),
     );
+    expect(screen.getByText("нет данных о сне")).toBeInTheDocument();
+    expect(screen.queryByText(/не записана по минутам/i)).not.toBeInTheDocument();
   });
 
   it("возврат к сумме не требует нового запроса", async () => {
@@ -171,6 +174,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
       />,
     );
 
+    expect(screen.getByTestId("sleep-empty")).toBeInTheDocument();
     expect(screen.getByText("нет данных о сне")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /по часам/i }),

@@ -254,7 +254,6 @@ function BoardTile({
       return (
         <SleepTile
           day={data.day}
-          today={data.today}
           state={data.dayStatus}
           onRetry={data.retryDay}
           style={style}

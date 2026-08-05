@@ -3,7 +3,6 @@
 import { useState, type CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
 import { formatSleep, formatSleepShort } from "@/lib/format";
-import { relativeDayRu } from "@/lib/relativeDay";
 import { NightBand } from "./NightBand";
 import { STAGE_COLOR } from "./nightGeometry";
 import { SleepNoData } from "./SleepNoData";
@@ -14,7 +13,6 @@ import { TileShell, type TileState } from "./TileShell";
 interface SleepTileProps {
   /** Выбранный день (перефокус календаря) — источник длительности и фаз. */
   day: DayView | null;
-  today: string;
   state: TileState;
   onRetry?: () => void;
   style?: CSSProperties;
@@ -52,7 +50,7 @@ function PixelBar({ pct, color }: { pct: number; color: string }) {
  * второй тайл: это один и тот же вопрос «как я спал», заданный с разной точностью, — и место
  * в бенто у него одно. Сумма остаётся видом по умолчанию, полоса приезжает по запросу.
  */
-export function SleepTile({ day, today, state, onRetry, style, className }: SleepTileProps) {
+export function SleepTile({ day, state, onRetry, style, className }: SleepTileProps) {
   const [showBand, setShowBand] = useState(false);
   // «Лёг–встал» приезжает из загруженной ночи (см. NightBand): в шапке ему тесно по смыслу,
   // но там оно не тратит отдельной строки под полосой — вертикаль в этой плитке дороже.
@@ -63,7 +61,6 @@ export function SleepTile({ day, today, state, onRetry, style, className }: Slee
   const showEmpty = state === "loaded" && !hasData;
   const phases = sleepPhases(day?.health.sleepStages);
   const awake = day?.health.sleepStages?.awake ?? null;
-  const dateLabel = day ? relativeDayRu(day.date, today) : "";
 
   return (
     <TileShell
@@ -76,10 +73,11 @@ export function SleepTile({ day, today, state, onRetry, style, className }: Slee
       {showEmpty && <SleepNoData />}
       {hasData && (
         <div className="tile-frame flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
-          {/* «сон» и день — одной строкой сверху (день сразу за «сон»), чтобы не тратить вертикаль. */}
+          {/* Шапка — одна строка: подпись, время ночи и переключатель вида. Какой день выбран,
+              подписано в плитке «Сегодня» и в календаре; повторять это здесь незачем — выбор дня
+              общий для всего борда, и каждой плитке своя копия подписи не нужна. */}
           <div className="mb-1 flex items-baseline gap-3">
             <span className="tile-label">сон</span>
-            <span className="tile-label">{dateLabel}</span>
             {/* Время сна — данные, а не мета-подпись: класс `tile-chrome`, иначе скин волны,
                 прячущий `.tile-label`, унёс бы цифры вместе с подписями. */}
             {showBand && nightTimes && <span className="tile-chrome">{nightTimes}</span>}

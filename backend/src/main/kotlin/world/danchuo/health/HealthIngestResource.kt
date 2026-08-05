@@ -33,6 +33,7 @@ import java.time.LocalDate
 class HealthIngestResource(
     private val dayRecordService: DayRecordService,
     private val workoutRepository: WorkoutRepository,
+    private val sleepSegmentRepository: SleepSegmentRepository,
     private val journalMarker: JournalMarker,
     private val timeConfig: TimeConfig,
     private val journalConfig: JournalConfig,
@@ -94,12 +95,10 @@ class HealthIngestResource(
             }
         }
 
+        val zone = timeConfig.zoneId()
         val segments = req.sleepSegments
-        val sleep = if (segments != null) {
-            // Куски пришли — считаем ночь сами: только так вечернее начало (уснул до полуночи)
-            // попадает в день пробуждения независимо от того, каким окном их выбрал шорткат.
-            val zone = timeConfig.zoneId()
-            val parsed = ArrayList<SleepSegment>(segments.size)
+        val parsed: List<SleepSegment>? = if (segments != null) {
+            val out = ArrayList<SleepSegment>(segments.size)
             segments.forEachIndexed { i, dto ->
                 // Незнакомая фаза (в т.ч. `In Bed` — это не сон) молча пропускается: имена фаз
                 // задаёт Apple, новое имя не должно ронять весь приём. Битая дата — наоборот,
@@ -109,8 +108,16 @@ class HealthIngestResource(
                     ?: return badRequest("bad_field", "sleepSegments[$i].start")
                 val end = SleepSessionizer.parseInstant(dto.end, zone)
                     ?: return badRequest("bad_field", "sleepSegments[$i].end")
-                parsed += SleepSegment(stage, start, end)
+                out += SleepSegment(stage, start, end)
             }
+            out
+        } else {
+            null
+        }
+
+        val sleep = if (parsed != null) {
+            // Куски пришли — считаем ночь сами: только так вечернее начало (уснул до полуночи)
+            // попадает в день пробуждения независимо от того, каким окном их выбрал шорткат.
             SleepSessionizer.summarize(parsed, date, zone)
         } else {
             val stages = req.sleepStages
@@ -130,7 +137,7 @@ class HealthIngestResource(
         // Куски пришли, но ночи из них не собралось — это почти всегда пустой прогон (телефон был
         // заблокирован, окно поиска промахнулось), а не «не спал»: отличить по данным нельзя,
         // поэтому сон не трогаем. Стереть ночь по-прежнему можно явным `sleepMinutes = 0`.
-        val blankRun = segments != null && sleep.minutes == null
+        val blankRun = parsed != null && sleep.minutes == null
 
         // «Осознанность» = время в приложении «Журнал». День выбирает бэк, как и у сна, но
         // по другому правилу: не по пробуждению, а по вечерней корзине (§5.6). Поэтому один
@@ -139,16 +146,15 @@ class HealthIngestResource(
         val journalMinutes = if (mindful == null) {
             emptyMap()
         } else {
-            val zone = timeConfig.zoneId()
-            val parsed = ArrayList<MindfulSegment>(mindful.size)
+            val parsedMindful = ArrayList<MindfulSegment>(mindful.size)
             mindful.forEachIndexed { i, dto ->
                 val start = SleepSessionizer.parseInstant(dto.start, zone)
                     ?: return badRequest("bad_field", "mindfulSegments[$i].start")
                 val end = SleepSessionizer.parseInstant(dto.end, zone)
                     ?: return badRequest("bad_field", "mindfulSegments[$i].end")
-                parsed += MindfulSegment(start, end)
+                parsedMindful += MindfulSegment(start, end)
             }
-            JournalDetector.minutesByDay(parsed, journalConfig.windowStart(), journalConfig.windowEnd(), zone)
+            JournalDetector.minutesByDay(parsedMindful, journalConfig.windowStart(), journalConfig.windowEnd(), zone)
         }
 
         dayRecordService.applyHealth(
@@ -162,6 +168,19 @@ class HealthIngestResource(
             overwriteSleep = !blankRun,
         )
         workoutRepository.replaceForDate(date, workouts)
+
+        // Сырые куски ночи (I-23) — их же и храним, чтобы полосу ночи можно было показать
+        // позже и задать ей новые вопросы. Права те же, что у суммы: пустой прогон ночь не
+        // трогает, а единственный канал стереть её — явный `sleepMinutes = 0`.
+        if (parsed != null) {
+            if (!blankRun) {
+                // Куски сессий этого дня как есть — без разбора перекрытий: он делается на чтении.
+                val nightChunks = SleepSessionizer.sessionsEndingOn(parsed, date, zone).flatten()
+                sleepSegmentRepository.replaceForWakeDate(date, nightChunks)
+            }
+        } else if (req.sleepMinutes == 0) {
+            sleepSegmentRepository.replaceForWakeDate(date, emptyList())
+        }
 
         // Минуты — измерение, отметка — решение, и пишутся они независимо. Измерение идёт
         // за каждый день с кусками (в т.ч. ниже порога: борд ими отвечает «почему не

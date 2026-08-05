@@ -11,6 +11,7 @@ import type {
   RideMonthSummaryView,
   RideStatsView,
   RideView,
+  SleepNightView,
   SocialLinkView,
   ThemeView,
 } from "./types";
@@ -43,6 +44,14 @@ export function getDay(date: string, init?: RequestInit): Promise<DayView> {
 export function getDays(from: string, to: string, init?: RequestInit): Promise<DaySummary[]> {
   const qs = new URLSearchParams({ from, to }).toString();
   return getJson<DaySummary[]>(`/api/days?${qs}`, init);
+}
+
+/**
+ * Деталь ночи (`GET /api/sleep/night/{date}`) — полоса ночи и «обычная ночь» за 30 дней.
+ * Тайл «Сон» ходит сюда, только когда полосу попросили показать: борду она не нужна.
+ */
+export function getSleepNight(date: string, init?: RequestInit): Promise<SleepNightView> {
+  return getJson<SleepNightView>(`/api/sleep/night/${date}`, init);
 }
 
 /** Текущий трек Spotify (`GET /api/spotify/now-playing`). IDLE, если ничего не играет. */

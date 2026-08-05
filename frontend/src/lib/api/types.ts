@@ -19,6 +19,35 @@ export interface HealthView {
   sleepStages: SleepStagesView | null;
 }
 
+/**
+ * Деталь ночи (`GET /api/sleep/night/{date}`, зеркало `world.danchuo.health.SleepNightView`) —
+ * ночь как она была вместо одной суммы. Минуты во всех полях считаются от `axisStartHour`
+ * кануна: ночь лежит по обе стороны полуночи, и на оси-сутках она бы рвалась пополам.
+ */
+export interface SleepBandPartView {
+  stage: "light" | "deep" | "rem" | "awake";
+  fromMinute: number;
+  toMinute: number;
+}
+
+export interface SleepBandView {
+  /** Лёг (первый кусок ночи, возможно ещё не сон). */
+  onsetMinute: number;
+  wakeMinute: number;
+  /** Сон без пробуждений — то же число, что в `sleepMinutes` дня. */
+  asleepMinutes: number;
+  /** Уснул (первый кусок настоящего сна). */
+  asleepFromMinute: number;
+  parts: SleepBandPartView[];
+}
+
+export interface SleepNightView {
+  date: string;
+  axisStartHour: number;
+  /** `null` = кусков за эту ночь нет. */
+  band: SleepBandView | null;
+}
+
 export interface WorkoutView {
   type: string;
   durationMinutes: number;

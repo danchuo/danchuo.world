@@ -68,9 +68,7 @@ object SleepSessionizer {
      * Сессии, закончившиеся в другой день, отбрасываются; ночь без сна ⇒ «нет данных» (§5.4).
      */
     fun summarize(segments: List<SleepSegment>, wakeDate: LocalDate, zone: ZoneId): SleepInput {
-        val ofWakeDate = sessions(segments).filter { session ->
-            session.maxOf { it.end }.atZone(zone).toLocalDate() == wakeDate
-        }.flatten()
+        val ofWakeDate = sessionsEndingOn(segments, wakeDate, zone).flatten()
         if (ofWakeDate.isEmpty()) return NONE
 
         val seconds = secondsByStage(ofWakeDate)
@@ -103,6 +101,47 @@ object SleepSessionizer {
         }
     }
 
+    /**
+     * Сессии, ЗАКОНЧИВШИЕСЯ в [wakeDate] — то, что по правилу §4 и есть сон этого дня.
+     * Их может быть больше одной: дневной сон — такая же сессия того же дня.
+     */
+    internal fun sessionsEndingOn(
+        segments: List<SleepSegment>,
+        wakeDate: LocalDate,
+        zone: ZoneId,
+    ): List<List<SleepSegment>> = sessions(segments).filter { session ->
+        session.maxOf { it.end }.atZone(zone).toLocalDate() == wakeDate
+    }
+
+    /**
+     * Куски, разложенные во времени без перекрытий. Время режется границами всех кусков, и
+     * каждый элементарный отрезок достаётся ровно одной фазе (явная бьёт
+     * [SleepStage.UNSPECIFIED], равные — по порядку объявления): поэтому ни дубли источников,
+     * ни разметка часов поверх записи телефона не удлиняют ночь сверх реально проведённого
+     * времени. Соседние куски одной фазы склеиваются; **дырка в семплах дыркой и остаётся** —
+     * полоса ночи (I-23) обязана показать провал, а не замазать его.
+     */
+    internal fun flatten(segments: List<SleepSegment>): List<SleepSegment> {
+        val valid = segments.filter { it.end.isAfter(it.start) }
+        val edges = valid.flatMap { listOf(it.start, it.end) }.distinct().sorted()
+        val out = mutableListOf<SleepSegment>()
+        for (i in 0 until edges.size - 1) {
+            val from = edges[i]
+            val to = edges[i + 1]
+            val winner = valid
+                .filter { !it.start.isAfter(from) && !it.end.isBefore(to) }
+                .minWithOrNull(compareBy({ -it.stage.priority }, { it.stage.ordinal }))
+                ?.stage ?: continue
+            val last = out.lastOrNull()
+            if (last != null && last.stage == winner && last.end == from) {
+                out[out.size - 1] = last.copy(end = to)
+            } else {
+                out += SleepSegment(winner, from, to)
+            }
+        }
+        return out
+    }
+
     /** Куски, разложенные по сессиям: новая начинается там, где разрыв больше [SESSION_GAP]. */
     private fun sessions(segments: List<SleepSegment>): List<List<SleepSegment>> {
         val valid = segments.filter { it.end.isAfter(it.start) }.sortedBy { it.start }
@@ -120,23 +159,11 @@ object SleepSessionizer {
         return sessions
     }
 
-    /**
-     * Секунды по фазам с разбором перекрытий: время режется границами всех кусков, и каждый
-     * элементарный отрезок достаётся ровно одной фазе (явная бьёт [SleepStage.UNSPECIFIED],
-     * равные — по порядку объявления). Поэтому ни дубли источников, ни разметка часов поверх
-     * записи телефона не удлиняют ночь сверх реально проведённого времени.
-     */
+    /** Секунды по фазам: разложенная во времени ночь ([flatten]), сложенная по фазам. */
     private fun secondsByStage(segments: List<SleepSegment>): Map<SleepStage, Long> {
-        val edges = segments.flatMap { listOf(it.start, it.end) }.distinct().sorted()
         val totals = mutableMapOf<SleepStage, Long>()
-        for (i in 0 until edges.size - 1) {
-            val from = edges[i]
-            val to = edges[i + 1]
-            val winner = segments
-                .filter { !it.start.isAfter(from) && !it.end.isBefore(to) }
-                .minWithOrNull(compareBy({ -it.stage.priority }, { it.stage.ordinal }))
-                ?.stage ?: continue
-            totals.merge(winner, Duration.between(from, to).seconds, Long::plus)
+        flatten(segments).forEach { part ->
+            totals.merge(part.stage, Duration.between(part.start, part.end).seconds, Long::plus)
         }
         return totals
     }

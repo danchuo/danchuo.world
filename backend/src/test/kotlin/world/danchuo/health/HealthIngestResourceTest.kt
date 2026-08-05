@@ -27,6 +27,9 @@ class HealthIngestResourceTest {
     lateinit var workoutRepository: WorkoutRepository
 
     @Inject
+    lateinit var sleepSegmentRepository: SleepSegmentRepository
+
+    @Inject
     lateinit var checklistItemRepository: ChecklistItemRepository
 
     @Inject
@@ -379,6 +382,93 @@ class HealthIngestResourceTest {
     private fun journalCount(date: LocalDate): Int? = QuarkusTransaction.requiringNew().call {
         val item = checklistItemRepository.findByKey("journal")!!
         checklistEntryRepository.listByDate(date).firstOrNull { it.itemId == item.id }?.count
+    }
+
+    // --- сырые куски ночи доживают до базы (I-23) ---
+
+    @Test
+    fun `sleep chunks are stored, not just summed away`() {
+        val date = LocalDate.of(2026, 8, 20)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","sleepSegments":[
+                    {"stage":"Core","start":"2026-08-19T23:20:00+03:00","end":"2026-08-20T02:00:00+03:00"},
+                    {"stage":"Awake","start":"2026-08-20T03:40:00+03:00","end":"2026-08-20T04:00:00+03:00"},
+                    {"stage":"REM","start":"2026-08-20T04:00:00+03:00","end":"2026-08-20T07:00:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            val stored = sleepSegmentRepository.listByWakeDate(date)
+            assertEquals(3, stored.size)
+            // Ровно то, что прислали: пробуждение в 03:40 сохранилось как пробуждение.
+            assertEquals(1, stored.count { it.stage == SleepStage.AWAKE })
+        }
+    }
+
+    @Test
+    fun `repeat ingest replaces the chunks instead of piling them up`() {
+        val date = LocalDate.of(2026, 8, 21)
+        val body = """
+            {"date":"$date","sleepSegments":[
+              {"stage":"Core","start":"2026-08-20T23:00:00+03:00","end":"2026-08-21T06:00:00+03:00"}]}
+        """.trimIndent()
+
+        repeat(2) {
+            given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
+                .post("/api/ingest/health")
+                .then().statusCode(200)
+        }
+
+        QuarkusTransaction.requiringNew().call {
+            assertEquals(1, sleepSegmentRepository.listByWakeDate(date).size)
+        }
+    }
+
+    @Test
+    fun `a blank run does not wipe the stored chunks either`() {
+        val date = LocalDate.of(2026, 8, 22)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","sleepSegments":[
+                    {"stage":"Core","start":"2026-08-21T23:00:00+03:00","end":"2026-08-22T06:00:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","steps":800,"sleepSegments":[]}""")
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            // Та же защита, что у суммы: пустой прогон неотличим от «не спал», ночь остаётся.
+            assertEquals(1, sleepSegmentRepository.listByWakeDate(date).size)
+        }
+    }
+
+    @Test
+    fun `the explicit zero-minute wipe clears the chunks too`() {
+        val date = LocalDate.of(2026, 8, 23)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body(
+                """{"date":"$date","sleepSegments":[
+                    {"stage":"Core","start":"2026-08-22T23:00:00+03:00","end":"2026-08-23T06:00:00+03:00"}]}""",
+            )
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","sleepMinutes":0}""")
+            .post("/api/ingest/health")
+            .then().statusCode(200)
+
+        QuarkusTransaction.requiringNew().call {
+            // Стереть ночь можно по-прежнему одним явным каналом — и он стирает её целиком.
+            assertNull(dayRecordRepository.findByDate(date)!!.sleepMinutes)
+            assertEquals(0, sleepSegmentRepository.listByWakeDate(date).size)
+        }
     }
 
     @Test

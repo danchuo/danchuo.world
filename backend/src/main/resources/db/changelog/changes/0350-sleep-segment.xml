@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Raw sleep chunks as HealthKit sent them (PRD 5.4, idea I-23). Until now the night was
+      summed at ingest and the chunks were dropped, so "how the night actually went" was
+      unanswerable - and unlike the weather, it cannot be backfilled from anywhere later.
+
+      N rows per day, linked by wake_date only (flat link, no FK to day_record - slices stay
+      decoupled, the shared axis is the MSK date). Ingest per date is a full replacement of
+      the set, so the index on wake_date carries both the read and the delete.
+    -->
+    <changeSet id="0350-sleep-segment-table" author="danchuo">
+        <createTable tableName="sleep_segment">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="wake_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="stage" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ended_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="sleep_segment" indexName="idx_sleep_segment_wake_date">
+            <column name="wake_date"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

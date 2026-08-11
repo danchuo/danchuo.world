@@ -23,12 +23,24 @@ function buildWindow(today: string = TODAY): DaySummary[] {
     disciplineTotal: 5,
     // Растяжка сделана по чётным числам — материал для линзы.
     disciplineCounts: { stretch: Number(date.slice(8)) % 2 === 0 ? 1 : 0, reading: 2 },
+    // Монстра отмечали в каждый день с записью — иначе линза молчала бы всюду.
+    monsterReported: date <= today && date !== GAP,
     monster:
       date === "2026-06-20" ? { key: "mango-loco", name: "Mango Loco", accentColor: "#F4A52A" } : null,
   }));
 }
 
 const STRETCH_LENS = { key: "stretch", occurrence: 1, label: "растяжка" };
+const MONSTER_LENS = { key: "monster", occurrence: 1, label: "монстр" };
+
+/** Пил 16-го, чист 17-го; GAP по-прежнему без ответа — материал для линзы монстра. */
+function buildMonsterWindow(): DaySummary[] {
+  return buildWindow().map((d) =>
+    d.date === "2026-06-16"
+      ? { ...d, monster: { key: "mango-loco", name: "Mango Loco", accentColor: "#F4A52A" } }
+      : d,
+  );
+}
 
 describe("Calendar — колонка выходных", () => {
   it("будущий выходной остаётся выходным, а не будущим днём", () => {
@@ -382,18 +394,94 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(onLensChange).toHaveBeenCalledWith(null);
   });
 
-  it("ярлык линзы монстра разворачивает полярность: «не пил монстр», а не «монстр»", () => {
+  it("ярлык линзы монстра называет предмет линзы: полярность теперь несут сами ячейки", () => {
+    // Разворот «не пил монстр» был костылём под одностороннюю отметку — см. `lensTitle`.
     render(
       <Calendar
-        days={buildWindow()}
+        days={buildMonsterWindow()}
         selected={TODAY}
         today={TODAY}
         onSelect={() => {}}
         state="loaded"
-        lens={{ key: "monster", occurrence: 1, label: "монстр" }}
+        lens={MONSTER_LENS}
       />,
     );
-    expect(screen.getByTestId("calendar-lens-label")).toHaveTextContent("календарь — не пил монстр");
+    expect(screen.getByTestId("calendar-lens-label")).toHaveTextContent("календарь — монстр");
+  });
+
+  it("линза монстра метит ТОЛЬКО «пил» — чистые дни остаются обычными ячейками", () => {
+    render(
+      <Calendar
+        days={buildMonsterWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={MONSTER_LENS}
+      />,
+    );
+    // 16-е — пил: тревожная отметка. Раньше день просто гас, и «пил» было неотличимо от
+    // «не читал» у любой другой линзы — именно этого сигнала на сетке и не хватало.
+    const drunk = screen.getByTestId("lens-frame-2026-06-16");
+    expect(drunk.getAttribute("class")).toContain("cal-lens-digit--drunk");
+    // 17-е — чист: отметки НЕТ. Зелёная рамка на чистых днях пробовалась и снята — их
+    // подавляющее большинство, и сетка заливалась зелёным сплошь (решение владельца).
+    expect(screen.queryByTestId("lens-frame-2026-06-17")).toBeNull();
+    // Дырка в записи ответа не даёт тем более.
+    expect(screen.queryByTestId(`lens-frame-${GAP}`)).toBeNull();
+  });
+
+  it("день без запуска шортката не считается чистым: ни отметки, ни строки «не пил»", () => {
+    // Запись за день есть (её создаёт health-ingest), монстра никто не отмечал.
+    const days = buildWindow().map((d) =>
+      d.date === "2026-06-17" ? { ...d, monsterReported: false } : d,
+    );
+    render(
+      <Calendar
+        days={days}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={MONSTER_LENS}
+      />,
+    );
+    const cell = screen.getByTestId("day-2026-06-17");
+    expect(cell).toHaveAttribute("data-lens", "unknown");
+    expect(cell.getAttribute("title")).not.toContain("не пил");
+  });
+
+  it("отмеченный «пил» не гаснет заодно: приглушение и отметка — взаимоисключающие каналы", () => {
+    render(
+      <Calendar
+        days={buildMonsterWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={MONSTER_LENS}
+      />,
+    );
+    // У обычной линзы «не совпал» гасит цифру — это отсутствие. У монстра это событие,
+    // и гасить его, одновременно отмечая, значило бы говорить о нём двумя голосами сразу.
+    expect(screen.getByTestId("day-2026-06-16").getAttribute("style")).toContain(
+      "var(--text-primary)",
+    );
+  });
+
+  it("ховер-сводка монстра говорит тем же вердиктом, что карта-тропа", () => {
+    render(
+      <Calendar
+        days={buildMonsterWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={MONSTER_LENS}
+      />,
+    );
+    expect(screen.getByTestId("day-2026-06-16").getAttribute("title")).toContain("пил монстр");
+    expect(screen.getByTestId("day-2026-06-17").getAttribute("title")).toContain("не пил монстр");
   });
 
   it("сетка несёт собственную пропорцию — в мобильном стеке высоты ей никто не даёт", () => {

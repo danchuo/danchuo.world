@@ -98,6 +98,42 @@ class DaysResourceTest {
     }
 
     @Test
+    fun `monsterReported separates a clean day from a day nobody reported`() {
+        // Только health-ingest: запись за день ЕСТЬ (hasData=true), но дисциплину и монстра
+        // никто не отмечал. Это НЕ «не пил» — на борде такой день обязан быть серым.
+        val healthOnly = today.minusDays(24)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$healthOnly","steps":4200}""")
+            .post("/api/ingest/health").then().statusCode(200)
+
+        given().get("/api/days/$healthOnly")
+            .then().statusCode(200)
+            .body("hasData", equalTo(true))
+            .body("monster", nullValue())
+            .body("monsterReported", equalTo(false))
+
+        // Тот же день после интерактивного шортката без вкуса — уже честное «не пил».
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$healthOnly","title":"чистый","items":{"stretch":1}}""")
+            .post("/api/ingest/daily").then().statusCode(200)
+
+        given().get("/api/days/$healthOnly")
+            .then().statusCode(200)
+            .body("monster", nullValue())
+            .body("monsterReported", equalTo(true))
+    }
+
+    @Test
+    fun `monsterReported is true when a flavor is set`() {
+        val date = today.minusDays(25)
+        seedDay("$date", "выпил", 6000, "mango-loco")
+        given().get("/api/days/$date")
+            .then().statusCode(200)
+            .body("monster.name", notNullValue())
+            .body("monsterReported", equalTo(true))
+    }
+
+    @Test
     fun `missing day is a well-formed empty projection, not an error`() {
         given().get("/api/days/${today.plusDays(30)}")
             .then().statusCode(200)
@@ -105,6 +141,8 @@ class DaysResourceTest {
             .body("title", nullValue())
             .body("health.steps", nullValue())
             .body("monster", nullValue())
+            // пустого дня никто не отмечал — «не пил» тут утверждать нечем
+            .body("monsterReported", equalTo(false))
             // каркас дисциплины присутствует с прогрессом 0
             .body("discipline.size()", greaterThan(0))
             .body("discipline.find { it.key == 'reading' }.count", equalTo(0))

@@ -33,6 +33,7 @@ const DAY_VIEW = {
   discipline: DISCIPLINE,
   monster: { key: "ultra", name: "Ultra Paradise", imageUrl: null, accentColor: "#6ec1e4" },
   // Монстр выпит сегодня, но «чисто» держит вчерашнюю серию (правило «сегодня не роняет», §5.6).
+  monsterReported: true,
   monsterCleanStreak: 5,
 };
 
@@ -58,6 +59,8 @@ function summaries(from: string, to: string) {
       disciplineDone: has ? (i % 6) : 0,
       disciplineTotal: 6,
       monster: has && i % 3 === 0 ? { key: "ultra", name: "Ultra", accentColor: "#6ec1e4" } : null,
+      // Монстра отмечали в каждый день с записью (шорткат отработал), §5.6.
+      monsterReported: has,
     });
     d.setUTCDate(d.getUTCDate() + 1);
     i++;
@@ -139,7 +142,12 @@ export async function stubApi(page: Page): Promise<void> {
     const path = url.pathname;
     const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
 
-    if (path.startsWith("/api/days/")) return json(DAY_VIEW);
+    // Проекция дня отдаётся ПОД ЗАПРОШЕННУЮ дату, а не всегда под «сегодня»: борд — это
+    // навигация по дням, и с константной датой любой клик по календарю возвращал бы ту же
+    // проекцию (плитка так и оставалась бы воскресеньем, чем бы её ни просили).
+    if (path.startsWith("/api/days/")) {
+      return json({ ...DAY_VIEW, date: path.slice("/api/days/".length) });
+    }
     if (path === "/api/days") return json(summaries(url.searchParams.get("from") ?? TODAY, url.searchParams.get("to") ?? TODAY));
     if (path === "/api/spotify/now-playing") return json(NOW_PLAYING);
     if (path === "/api/spotify/recent") return json(RECENT);

@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
+import { monsterVerdict } from "@/lib/monster";
 
 interface WeekendSceneProps {
   wave: string;
-  /** Whether the monster was drunk that day — the one discipline event kept on weekends. */
-  monsterDone: boolean;
+  /** Был ли монстр выпит — единственное дело будней, оставленное на выходной. `null` — за
+   *  день записи нет, и тогда вердикта тоже нет (отсутствие записи не выдаём за «не пил»). */
+  monsterDrunk: boolean | null;
 }
 
 const pixelated: CSSProperties = { imageRendering: "pixelated" };
@@ -19,8 +21,12 @@ const pixelated: CSSProperties = { imageRendering: "pixelated" };
  * The single carry-over is the **monster**, tracked every day — but on weekends there are **no
  * streaks**, just a one-line checklist centered at the bottom, spelled out in words (a tick was
  * ambiguous): **«монстр — не пил»** (clean, `--accent-clean`) or **«монстр — пил»** (drunk, `--danger`).
+ *
+ * Wording and colors come from [monsterVerdict] — the same source the weekday quest map now uses,
+ * so the board says «пил»/«не пил» in one voice regardless of which day you land on.
  */
-export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
+export function WeekendScene({ wave, monsterDrunk }: WeekendSceneProps) {
+  const monster = monsterVerdict(monsterDrunk);
   return (
     <div
       className="weekend-scene"
@@ -28,7 +34,7 @@ export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
       // flex-рост, в стеке (§8) — aspect-ratio класса `.weekend-scene` (иначе схлопывается в ноль).
       style={{ position: "relative", flex: 1, minHeight: 0, overflow: "hidden" }}
       role="img"
-      aria-label={`Выходной — отдых. ${monsterDone ? "монстр выпит" : "монстр не пил"}`}
+      aria-label={`Выходной — отдых. ${monster.phrase}`}
       data-testid="weekend-scene"
     >
       {/* Сцена — прозрачный пиксель-рассвет волны, прижат к низу (солнце низко, небо-плитка сверху). */}
@@ -39,11 +45,14 @@ export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "auto", ...pixelated }}
       />
       {/* Монстр на выходной — без стриков: короткий чеклист словами снизу по центру
-          («пил»/«не пил» — галочка была неоднозначной). Только текст, читается сразу. */}
+          («пил»/«не пил» — галочка была неоднозначной). Только текст, читается сразу.
+          Без записи за день вердикта нет: строка становится тихим «нет данных» третичным
+          цветом, а не утверждает «не пил» — отсутствие записи это не чистый день. */}
       <div
         className="weekend-monster"
         data-testid="weekend-monster"
-        data-done={monsterDone}
+        data-tone={monster.tone}
+        data-done={monsterDrunk ?? false}
         style={{
           position: "absolute",
           bottom: "5%",
@@ -60,15 +69,10 @@ export function WeekendScene({ wave, monsterDone }: WeekendSceneProps) {
         монстр —{" "}
         <span
           data-testid="weekend-monster-mark"
-          style={{
-            fontWeight: 700,
-            // «Пил» остаётся тревожным, «не пил» — зелёный. Раньше тут стоял --accent, но на
-            // волне 01 он (#e2604c) почти совпадает по тону с --danger (#d2553f): состояния
-            // различались одним словом, а цвет говорил «плохо» в обоих случаях.
-            color: monsterDone ? "var(--danger, #d1553b)" : "var(--accent-clean, #5f9e52)",
-          }}
+          // Вердикт жирный; «нет данных» остаётся обычным весом — это не ответ, а его отсутствие.
+          style={{ fontWeight: monster.verb ? 700 : 400, color: monster.color }}
         >
-          {monsterDone ? "пил" : "не пил"}
+          {monster.verb ?? "нет данных"}
         </span>
       </div>
     </div>

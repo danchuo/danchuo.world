@@ -1,11 +1,14 @@
 import type { KeyboardEvent } from "react";
 import type { DisciplineItemView } from "@/lib/api/types";
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
+import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
  * «утро → ночь» из 7 остановок. Пункты с target=2 (чтение/подкасты) дают ДВЕ остановки
- * в разных местах дня; «монстр» — тупиковое ответвление-детур от «офиса».
+ * в разных местах дня; «монстр» стоит РЯДОМ с маршрутом и ни с чем не соединён — он не этап
+ * дня, а факт про день, и говорит о себе сам: вердикт словами («не пил» / «пил») в своём
+ * цвете под фигурой.
  *
  * Состояния выводятся из счётчиков (времени в модели нет; данные вносятся раз в день, PRD §5.6):
  * - остановка done — count пункта ≥ её порядкового номера (occurrence);
@@ -21,9 +24,11 @@ import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplin
 
 interface QuestMapProps {
   items: DisciplineItemView[];
-  /** Whether the monster was drunk (detour stop). The map is the only place monster shows
-   *  up on the today tile; flavor-specific art (can, name) is backlogged to land here too. */
-  monsterDone: boolean;
+  /** Был ли монстр выпит; `null` — за день записи нет вовсе, и вердикта у нас тоже нет.
+   *  Третье состояние обязательно: без него отсутствие записи выдавалось за чистый день
+   *  (будущие дни и дырки в записи молча читались как «не пил», DESIGN §4.1).
+   *  Карта — единственное место монстра на плитке; арт вкуса (банка, название) — бэклог. */
+  monsterDrunk: boolean | null;
   /** Inverse "clean" streak: consecutive days the monster was NOT drunk (§5.6). Shield badge ≥2. */
   monsterCleanStreak?: number;
   /** Active wave key (Board → TodayTile). Waves in [QUEST_SPRITE_WAVES] swap the hand-drawn
@@ -78,9 +83,24 @@ const SEGMENTS = [
  *  Полярность отметки в календаре обратная (подсвечиваются ЧИСТЫЕ дни) — см. `lensMatch`. */
 const MONSTER_LENS: DisciplineLens = { key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" };
 
-/** Детур на монстра: от «офиса» (S3) вниз-влево к тупиковому узлу. */
+/** Формулировка «чисто» — подпись огонька-стрика монстра (он считает дни БЕЗ него всегда). */
+const CLEAN_PHRASE = monsterVerdict(false).phrase;
+
+/**
+ * Класс фигуры монстра по тону вердикта. «Нет данных» намеренно берёт `--pending` — тот же
+ * серый пунктир, что у любой незакрытой остановки маршрута (решение владельца): день, за
+ * который ничего не приходило, обязан выглядеть НЕзаполненным, а не чистым. Своего вида у
+ * этого состояния нет и не нужно — «как все остальные картинки» здесь и есть ответ.
+ */
+const MONSTER_STOP_CLASS: Record<MonsterTone, string> = {
+  clean: "quest-stop--clean",
+  drunk: "quest-stop--drunk",
+  unknown: "quest-stop--pending",
+};
+
+/** Монстр стоит ОТДЕЛЬНО от маршрута — в пустой полосе между рядами тропы, без связи с ней
+ *  (сегмент-детур от «офиса» снят, см. рендер). */
 const MONSTER_XY = [172, 110] as const;
-const MONSTER_SEGMENT = { d: "M226 57 Q200 78 184 98", ax: 203, ay: 78, deg: 136 } as const;
 
 /** Значок стрика показываем от 2: серия в 1 день (или 0) на карте — шум, не достижение. */
 const STREAK_MIN = 2;
@@ -234,9 +254,13 @@ function pluralDays(n: number): string {
  * авто-размер; и клампится в границы viewBox, чтобы не выпасть за карту у крайних остановок.
  */
 function StreakBadge({
-  cx, cy, value, testId, title,
+  cx, cy, value, testId, title, tone = "fire",
 }: {
   cx: number; cy: number; value: number; testId: string; title: string;
+  /** Цвет огонька: `fire` — акцент волны (пункты маршрута), `clean` — зелёный «чисто»
+   *  (монстр). Огонёк монстра считает ОБРАТНОЕ — дни без него, — и горит тем же цветом,
+   *  что вердикт под остановкой, иначе акцент читался бы как «сделал это N дней подряд». */
+  tone?: "fire" | "clean";
 }) {
   if (value < STREAK_MIN) return null;
   const tipW = title.length * 4.2 + 12;
@@ -248,7 +272,7 @@ function StreakBadge({
   if (cx - half + tipDX < 4) tipDX = 4 - (cx - half);
   return (
     <g
-      className="quest-streak quest-streak--fire"
+      className={`quest-streak quest-streak--${tone}`}
       transform={`translate(${cx} ${cy})`}
       data-testid={testId}
       role="img"
@@ -273,7 +297,7 @@ function StreakBadge({
 
 export function QuestMap({
   items,
-  monsterDone,
+  monsterDrunk,
   monsterCleanStreak = 0,
   wave,
   lens = null,
@@ -282,13 +306,19 @@ export function QuestMap({
   // Волна со своим спрайт-набором ⇒ рисуем растровые иконки; иначе — ручные пиксель-клетки.
   const spriteWave = wave && QUEST_SPRITE_WAVES.has(wave) ? wave : null;
   const interactive = onLensChange != null;
+  // Вердикт монстра — один на всю карту: подпись, цвет глагола, класс состояния и озвучка.
+  const monster = monsterVerdict(monsterDrunk);
 
   /**
    * Пропсы остановки-кнопки. Клик по уже выбранной снимает линзу (тоггл) — это единственный
    * способ выключить её прямо на карте; второй (крестик в ярлыке календаря) живёт там, потому
    * что в выходной карты на экране нет вовсе.
+   *
+   * [ariaName] подменяет подпись остановки в озвучке. Нужен монстру: `aria-label` кнопки
+   * ПЕРЕКРЫВАЕТ текст внутри группы, поэтому «пил/не пил» из подписи до скринридера иначе
+   * не доходит — он слышит только слово «монстр», ровно ту двусмысленность, что чиним.
    */
-  const stopProps = (candidate: DisciplineLens) => {
+  const stopProps = (candidate: DisciplineLens, ariaName: string = candidate.label) => {
     if (!interactive) return {};
     const focused = sameLens(lens, candidate);
     const toggle = () => onLensChange(focused ? null : candidate);
@@ -296,7 +326,7 @@ export function QuestMap({
       role: "button",
       tabIndex: 0,
       "aria-pressed": focused,
-      "aria-label": `${candidate.label}: показать в календаре`,
+      "aria-label": `${ariaName}: показать в календаре`,
       onClick: toggle,
       onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
         if (e.key !== "Enter" && e.key !== " ") return;
@@ -343,7 +373,9 @@ export function QuestMap({
       viewBox="0 0 400 210"
       className={`quest-map${perfect ? " quest-map--perfect" : ""}${spriteWave ? " quest-map--sprites" : ""}`}
       role="img"
-      aria-label={`Дисциплина: ${doneCount} из ${ROUTE.length}${monsterDone ? ", монстр выпит" : ""}`}
+      // Монстр назван ВСЕГДА, в т.ч. чистым днём: молчание про чистый день было неотличимо
+      // от «данных нет» — то же самое, чем плоха была немая подпись «монстр» на картинке.
+      aria-label={`Дисциплина: ${doneCount} из ${ROUTE.length}, ${monster.phrase}`}
       data-testid="quest-map"
     >
       {/* старт/финиш маршрута: растровые спрайты (волна со своим набором) или пиксель-флажки скина */}
@@ -400,11 +432,11 @@ export function QuestMap({
           <Chevron ax={s.ax} ay={s.ay} deg={s.deg} sprite={!!spriteWave} />
         </g>
       ))}
-      <g className={`quest-seg quest-seg--detour ${monsterDone ? "quest-seg--done" : "quest-seg--pending"}`}>
-        <path d={MONSTER_SEGMENT.d} />
-        <Chevron ax={MONSTER_SEGMENT.ax} ay={MONSTER_SEGMENT.ay} deg={MONSTER_SEGMENT.deg} sprite={!!spriteWave} />
-      </g>
-
+      {/* Тропы к монстру НЕТ — решение владельца. Ответвление-детур со стрелкой описывало его
+          как этап дня («свернул туда и сходил»), а покрасить эту тропу было нечем: пройденной
+          она хвалила за выпитое, непройденной — ругала за чистый день. Монстр не этап
+          маршрута, а факт рядом с ним, поэтому и стоит отдельной фигурой в пустой полосе
+          между рядами тропы. */}
       {/* остановки */}
       {ROUTE.map((s, i) => {
         const [cx, cy] = STOPS_XY[i];
@@ -463,13 +495,18 @@ export function QuestMap({
         );
       })}
 
-      {/* тупик-детур: монстр */}
+      {/* Монстр — отдельная фигура рядом с маршрутом. У него СВОЯ пара состояний
+          (clean/drunk), а не done/pending маршрута: монстр — событие, а не пункт дисциплины,
+          и «сделано» не подходит ни в одну сторону («выпил» — не достижение, «не выпил» — не
+          пропуск). Пока он делил состояния с маршрутом, выпитый монстр закрывал остановку
+          кольцом достижения. */}
       <g
-        className={`quest-stop quest-stop--monster ${monsterDone ? "quest-stop--done" : "quest-stop--pending"}${interactive ? " quest-stop--interactive" : ""}${sameLens(lens, MONSTER_LENS) ? " quest-stop--focused" : ""}`}
+        className={`quest-stop quest-stop--monster ${MONSTER_STOP_CLASS[monster.tone]}${interactive ? " quest-stop--interactive" : ""}${sameLens(lens, MONSTER_LENS) ? " quest-stop--focused" : ""}`}
         data-testid="quest-stop-monster"
-        data-done={monsterDone}
+        data-tone={monster.tone}
+        data-done={monsterDrunk ?? false}
         data-focused={sameLens(lens, MONSTER_LENS) || undefined}
-        {...stopProps(MONSTER_LENS)}
+        {...stopProps(MONSTER_LENS, monster.phrase)}
       >
         <Cloud cx={MONSTER_XY[0]} cy={MONSTER_XY[1] + 10} cell={2.1} />
         {interactive && (
@@ -481,23 +518,40 @@ export function QuestMap({
         ) : (
           <PixelIcon cells={ICONS.monster} cell={2.1} cx={MONSTER_XY[0]} cy={MONSTER_XY[1]} />
         )}
-        <text className="quest-label" x={MONSTER_XY[0]} y={MONSTER_XY[1] + 26}>
-          монстр
-        </text>
+        {/* Подпись-вердикт вместо голого слова «монстр»: глагол ПЕРЕД именем и в своём
+            цвете — та же формулировка и та же пара цветов, что в сцене выходного (§4.2).
+            Слово «монстр» одно отвечало на вопрос «что это», но не на «пил или нет», а
+            единственным ответом был ховер по огоньку-стрику — и то у серии от 2 дней.
+            Дроби `1/1` под подписью больше нет: она читалась как закрытый пункт.
+            Неразрывный пробел — SVG схлопывает пробельные узлы между tspan-ами. */}
         <text
-          className="quest-frac"
+          className="quest-label"
           x={MONSTER_XY[0]}
-          y={MONSTER_XY[1] + 38}
-          data-testid="quest-frac-monster"
+          y={MONSTER_XY[1] + 26}
+          data-testid="quest-monster-verdict"
         >
-          {monsterDone ? "1/1" : "0/1"}
+          {monster.verb && (
+            <tspan
+              className="quest-monster-verb"
+              data-testid="quest-monster-verb"
+              style={{ fill: monster.color }}
+            >
+              {monster.verb}
+            </tspan>
+          )}
+          {/* Без вердикта подпись — просто «монстр»: ведущий пробел тогда не нужен,
+              иначе строка съехала бы влево от центра на его ширину. */}
+          <tspan>{monster.verb ? " монстр" : "монстр"}</tspan>
         </text>
         <StreakBadge
           cx={MONSTER_XY[0] + 16}
           cy={MONSTER_XY[1] - 15}
           value={monsterCleanStreak}
           testId="quest-streak-monster"
-          title={`без монстра: ${monsterCleanStreak} ${pluralDays(monsterCleanStreak)} подряд`}
+          tone="clean"
+          // Огонёк считает ЧИСТЫЕ дни всегда — его подпись не зависит от сегодняшнего
+          // вердикта, поэтому берётся «чистая» формулировка, а не `monster.phrase`.
+          title={`${CLEAN_PHRASE}: ${monsterCleanStreak} ${pluralDays(monsterCleanStreak)} подряд`}
         />
       </g>
 

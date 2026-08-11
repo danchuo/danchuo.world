@@ -2,7 +2,14 @@ import { useMemo, type CSSProperties } from "react";
 import type { DaySummary } from "@/lib/api/types";
 import { monthEdges } from "@/lib/calendarWindow";
 import { dayOfMonth, monthNameRu, monthOf, monthShortRu, weekdayMondayIndex } from "@/lib/date";
-import { lensMatch, lensNote, lensTitle, type DisciplineLens, type LensMatch } from "@/lib/disciplineLens";
+import {
+  lensMatch,
+  lensNote,
+  lensTitle,
+  lensTone,
+  type DisciplineLens,
+  type LensMatch,
+} from "@/lib/disciplineLens";
 import { formatSleep, formatSteps } from "@/lib/format";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { TileShell, type TileState } from "./TileShell";
@@ -297,13 +304,18 @@ export function Calendar({
                 ? "var(--bg-surface-muted)"
                 : "var(--bg-surface)";
 
-            // Линза заливку НЕ трогает: совпавший день несёт рамку со скошенными углами в чистом
-            // акценте (`.cal-lens-frame`). Подмес акцента в заливку пробовали — тон выходил мутный.
+            // Линза заливку НЕ трогает: отмеченный день несёт рамку вокруг цифры
+            // (`.cal-lens-digit--marked`). Подмес акцента в заливку пробовали — тон выходил мутный.
             const match: LensMatch | null = lens ? lensMatch(d, lens) : null;
             const lensLine = lens && match ? lensNote(match, lens) : null;
+            // Тон отметки решает линза (§5.1): у обычного пункта отмечается только «да», у
+            // монстра — ОБА ответа, разными цветами (зелёный «не пил» / тревожный «пил»).
+            const tone = lens && match ? lensTone(match, lens) : null;
             // Несовпавший день гасим цифрой — это единственный свободный канал: рамка занята
-            // «сегодня/выбран/пропуск», нижняя точка — именем дня.
-            const dimmedByLens = match === "no";
+            // «сегодня/выбран/пропуск», нижняя точка — именем дня. Но гасим только то, что НЕ
+            // отмечено: приглушить и обвести разом значило бы сказать про день два разных
+            // слова сразу («этого тут нет» и «вот оно»).
+            const dimmedByLens = match === "no" && tone == null;
 
             return (
               <button
@@ -336,10 +348,11 @@ export function Calendar({
                   opacity: isFuture ? 0.7 : 1,
                 }}
               >
-                {/* Отметка линзы — скруглённая рамка на самой цифре (§5.1 DESIGN). */}
+                {/* Отметка линзы — скруглённая рамка на самой цифре (§5.1 DESIGN); цвет
+                    рамки даёт тон линзы. */}
                 <span
-                  data-testid={match === "yes" ? `lens-frame-${d.date}` : undefined}
-                  className={`cal-lens-digit${match === "yes" ? " cal-lens-digit--marked" : ""}`}
+                  data-testid={tone ? `lens-frame-${d.date}` : undefined}
+                  className={`cal-lens-digit${tone ? ` cal-lens-digit--marked cal-lens-digit--${tone}` : ""}`}
                 >
                   {dayOfMonth(d.date)}
                 </span>

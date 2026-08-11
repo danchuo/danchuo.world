@@ -13,9 +13,16 @@ interface Tile {
   slug: string;
 }
 
+/**
+ * Плитку «Сегодня» снимает ОТДЕЛЬНЫЙ тест (ниже), а не общий цикл: зафиксированное «сейчас»
+ * фикстур — воскресенье, и в общем проходе эталон захватывал бы сцену выходного, оставляя
+ * карту-тропу — доминанту борда и его самый живой элемент — вообще без визуальной регрессии.
+ * Отдельный тест кликает будний день и снимает ОБА состояния.
+ */
+const TODAY_TILE = "Сегодня";
+
 /** Десктоп: полный bento (см. layout.ts TILE_LAYOUT). */
 const DESKTOP: Tile[] = [
-  { label: "Сегодня", slug: "today" },
   { label: "Статы — активность", slug: "stats" },
   { label: "Сон", slug: "sleep" },
   { label: "Календарь", slug: "calendar" },
@@ -32,7 +39,6 @@ const DESKTOP: Tile[] = [
 
 /** Мобайл: стек MOBILE_ORDER (календарь — та же сетка недель, что в бенто). */
 const MOBILE: Tile[] = [
-  { label: "Сегодня", slug: "today" },
   { label: "Календарь", slug: "calendar" },
   { label: "Статы — активность", slug: "stats" },
   { label: "Сон", slug: "sleep" },
@@ -67,6 +73,34 @@ test("per-tile visual regression", async ({ page }, testInfo) => {
     await expect.soft(tile, `tile «${t.label}» виден`).toBeVisible();
     await expect.soft(tile).toHaveScreenshot(`${t.slug}.png`);
   }
+});
+
+/**
+ * Плитка «Сегодня» — оба тела (§4.1/§4.2), потому что они принципиально разные картинки.
+ *
+ * `today.png` — **будний день**: карта-тропа с остановками, стриками и вердиктом монстра.
+ * Это основной вид плитки (5 дней из 7) и самая живая часть борда, но общий цикл снимал её
+ * никогда: зафиксированное «сейчас» фикстур — воскресенье 2026-06-21, то есть в эталон
+ * попадала сцена отдыха. Будний день выбираем кликом по календарю — борд это и есть
+ * навигация по дням, отдельного шва для «покажи другой день» не нужно.
+ *
+ * `todayWeekend.png` — воскресенье (дефолт фикстур): сцена отдыха со строкой монстра.
+ */
+test("плитка «Сегодня»: будни (карта-тропа) и выходной (сцена отдыха)", async ({ page }, testInfo) => {
+  const isMobile = testInfo.project.name === "mobile";
+  const container = page.locator(isMobile ? '[data-testid="stack"]' : '[data-testid="bento"]');
+  const tile = container.locator(`section[aria-label="${TODAY_TILE}"]`).first();
+
+  // 2026-06-18 — четверг: карта-тропа. Ждём саму карту, а не таймаут: клик перерисовывает
+  // тело плитки, и снимок до перерисовки поймал бы ещё сцену выходного.
+  await container.locator('[data-testid="day-2026-06-18"]').first().click();
+  await expect(tile.locator('[data-testid="quest-map"]')).toBeVisible();
+  await expect.soft(tile).toHaveScreenshot("today.png");
+
+  // Назад на воскресенье — сцена отдыха.
+  await container.locator('[data-testid="day-2026-06-21"]').first().click();
+  await expect(tile.locator('[data-testid="weekend-scene"]')).toBeVisible();
+  await expect.soft(tile).toHaveScreenshot("todayWeekend.png");
 });
 
 /**

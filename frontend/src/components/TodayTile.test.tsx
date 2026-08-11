@@ -14,6 +14,8 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
       { key: "reading", label: "чтение", icon: null, count: 2, target: 2 },
       { key: "stretch", label: "растяжка", icon: null, count: 0, target: 1 },
     ],
+    // Монстра за день отмечали — иначе вердикта нет вовсе (см. `monsterReported`).
+    monsterReported: true,
     monster: { key: "mango-loco", name: "Mango Loco", imageUrl: "/m.png", accentColor: "#F4A52A" },
     ...over,
   };
@@ -56,6 +58,7 @@ describe("TodayTile", () => {
       hasData: false,
       health: { steps: null, sleepMinutes: null, sleepStages: null },
       workouts: [],
+      monsterReported: false,
       monster: null,
     });
     render(<TodayTile day={empty} today="2026-06-18" state="loaded" />);
@@ -66,6 +69,9 @@ describe("TodayTile", () => {
     expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "false");
+    // Ни «не пил», ни «пил» — за пустой день монстра никто не отмечал.
+    expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-tone", "unknown");
+    expect(screen.queryByTestId("quest-monster-verb")).toBeNull();
     expect(screen.queryByTestId("monster-none")).not.toBeInTheDocument();
   });
 
@@ -149,6 +155,46 @@ describe("TodayTile", () => {
     expect(mark(true)).toContain("--danger");
     // И зелёный не одолжен у чужой роли: --accent-code это канал вкладов GitHub.
     expect(mark(false)).not.toContain("--accent-code");
+  });
+
+  it("день без записи: монстр серый и молчит — отсутствие данных не выдаём за чистый день", () => {
+    // Будущий день / дырка в истории: `hasData: false`. Раньше сюда ехал голый
+    // `monster != null`, то есть любой такой день молча объявлялся «не пил».
+    render(
+      <TodayTile
+        day={dayFixture({ date: "2026-06-18", hasData: false, monsterReported: false, monster: null })}
+        today="2026-06-18"
+        state="loaded"
+      />,
+    );
+    expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-tone", "unknown");
+    expect(screen.queryByTestId("quest-monster-verb")).toBeNull();
+    expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent(/^монстр$/);
+  });
+
+  it("запись за день есть, вкус пустой — честное «не пил» (шорткат прислал пустого монстра)", () => {
+    render(
+      <TodayTile
+        day={dayFixture({ date: "2026-06-18", hasData: true, monsterReported: true, monster: null })}
+        today="2026-06-18"
+        state="loaded"
+      />,
+    );
+    expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-tone", "clean");
+    expect(screen.getByTestId("quest-monster-verb")).toHaveTextContent("не пил");
+  });
+
+  it("выходной без записи: сцена не утверждает «не пил», а говорит «нет данных»", () => {
+    render(
+      <TodayTile
+        day={dayFixture({ date: "2026-06-21", hasData: false, monsterReported: false, monster: null })}
+        today="2026-06-21"
+        state="loaded"
+        wave="wave-01"
+      />,
+    );
+    expect(screen.getByTestId("weekend-monster")).toHaveAttribute("data-tone", "unknown");
+    expect(screen.getByTestId("weekend-monster-mark")).toHaveTextContent("нет данных");
   });
 
   it("будний день держит карту-тропу даже на волне со сценой", () => {

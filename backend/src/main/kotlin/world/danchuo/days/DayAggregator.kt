@@ -73,6 +73,14 @@ class DayAggregator(
             ?.let { monsterFlavors.findById(it) }
             ?.let { MonsterView(it.key, it.name, it.imageUrl, it.accentColor) }
 
+        // Отмечали ли монстра за день (см. DayView.monsterReported): `ingest/daily` пишет отметку
+        // пункта ВСЕГДА — 1 при вкусе, 0 при «не пил», — поэтому наличие строки и есть признак
+        // «шорткат отработал». Выбранный вкус засчитываем сам по себе: он без шортката не берётся,
+        // и так флаг переживёт возможную деактивацию пункта.
+        val monsterItemId = items.firstOrNull { it.key == MONSTER_ITEM_KEY }?.id
+        val monsterReported = monster != null ||
+            (monsterItemId != null && history.hasEntry(date, monsterItemId))
+
         // Инверсный стрик «чистоты»: день «чист», если запись за него есть И вкус не выбран
         // (нет записи = «неизвестно» ⇒ разрыв, как и день, когда монстр выпит). В ОТЛИЧИЕ от
         // дисциплины монстр считается КАЖДЫЙ день, включая выходные (isNeutral по умолчанию пуст).
@@ -95,6 +103,7 @@ class DayAggregator(
             },
             discipline = discipline,
             monster = monster,
+            monsterReported = monsterReported,
             monsterCleanStreak = monsterCleanStreak,
         )
     }
@@ -110,6 +119,7 @@ class DayAggregator(
         val records = days.listByDateRange(from, to).associateBy { it.date }
         val entriesByDate = checklistEntries.listByDateRange(from, to).groupBy { it.date }
         val flavorsById = monsterFlavors.listAll().associateBy { it.id }
+        val monsterItemId = items.firstOrNull { it.key == MONSTER_ITEM_KEY }?.id
 
         return generateSequence(from) { if (it < to) it.plusDays(1) else null }
             .map { date ->
@@ -133,6 +143,11 @@ class DayAggregator(
                     // «пункт есть, не сделан» от «пункта нет». Тот же набор, что у disciplineTotal.
                     disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
                     monster = monster,
+                    // Отметка есть ⇒ шорткат за день отработал; выбранный вкус засчитываем сам
+                    // по себе (без шортката он не берётся). `counts` тут — карта только по
+                    // РЕАЛЬНЫМ строкам, поэтому containsKey отличает «отмечено нулём» от «нет».
+                    monsterReported = monster != null ||
+                        (monsterItemId != null && counts.containsKey(monsterItemId)),
                 )
             }
             .toList()
@@ -155,6 +170,9 @@ class DayAggregator(
     private companion object {
         /** Единственный пункт с измерением: минуты в приложении «Журнал» (§5.6). */
         const val JOURNAL_ITEM_KEY = "journal"
+
+        /** Производный пункт монстра: его отметка — признак «шорткат дня отработал» (§5.6). */
+        const val MONSTER_ITEM_KEY = "monster"
     }
 }
 
@@ -198,6 +216,16 @@ private class DayHistory(
     fun count(date: LocalDate, itemId: Long): Int {
         ensure(date)
         return counts[date]?.get(itemId) ?: 0
+    }
+
+    /**
+     * Есть ли ОТМЕТКА пункта за день — в отличие от [count], которая схлопывает «отметки нет»
+     * и «отмечено нулём» в один и тот же `0`. Ровно это различие и отделяет «не пил» от
+     * «шорткат за день не запускали» (см. `DayView.monsterReported`).
+     */
+    fun hasEntry(date: LocalDate, itemId: Long): Boolean {
+        ensure(date)
+        return counts[date]?.containsKey(itemId) == true
     }
 
     private companion object {

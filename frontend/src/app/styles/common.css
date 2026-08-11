@@ -680,6 +680,53 @@ body {
   dominant-baseline: central;
 }
 
+/* ── Тот же тултип, но в HTML (компонент [HoverTip], DESIGN §4) ───────────────────────
+   Носитель подсказок вне SVG: заменил нативный `title`, который рисовала ОС — системным
+   шрифтом, своей палитрой и своим курсором `help` поверх пиксельного борда. Токены и
+   пропорции повторяют .quest-tip выше: один язык подсказок на всём борде.
+
+   Всплывает ПОД якорем и прижат к его левому краю: плитка режет содержимое (overflow: hidden),
+   а шапка «Сегодня» стоит у верхнего края — сверху тултип срезало бы. */
+.hover-tip-anchor {
+  position: relative;
+  display: inline-block;
+}
+.hover-tip {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 2;
+  /* Поля вымерены по SVG-собрату: у него подложка 14 единиц высоты вокруг 7-пиксельного
+     текста и по 6 единиц по бокам — в пересчёте на масштаб карты это и есть 3px/8px. */
+  padding: 3px 8px;
+  /* Скругление вслед за rx=1.5 у SVG-собрата, а не --radius-sm: 6px на 20-пиксельной
+     подложке дают пилюлю, которая с ним уже не рифмуется. */
+  border-radius: 2px;
+  border: 1px solid var(--border-tile, var(--border));
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  /* Фиксированный кегль, а не cqw: якорь бывает и вне container-контекста, и тогда
+     контейнерные единицы меряли бы вьюпорт — подсказка вырастала бы больше самой даты. */
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 1px 1.5px color-mix(in srgb, #000 22%, transparent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  /* Событий не ловит: наведение держит якорь, иначе подсказка мигала бы под курсором. */
+  pointer-events: none;
+}
+.hover-tip-anchor:hover > .hover-tip,
+.hover-tip-anchor:focus-visible > .hover-tip {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hover-tip {
+    transition: none;
+  }
+}
+
 /* ── Плитка соцсетей: пропорциональный контент (DESIGN §8.1) ─────────────────────────
    Пилот подхода «содержимое — доля своей плитки, а не фикс в пикселях». Было: иконка 18/28px
    намертво, а карточка тянется за экраном ⇒ на 1512px иконка занимала 85% карточки (тесно),

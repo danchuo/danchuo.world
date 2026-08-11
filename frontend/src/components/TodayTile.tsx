@@ -4,6 +4,7 @@ import type { DisciplineLens } from "@/lib/disciplineLens";
 import { lifeDayLabel } from "@/lib/lifeDay";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { hasWeekendScene, isWeekend } from "@/lib/weekend";
+import { HoverTip } from "./HoverTip";
 import { QuestMap } from "./QuestMap";
 import { WeekendScene } from "./WeekendScene";
 import { TileShell, type TileState } from "./TileShell";
@@ -122,19 +123,15 @@ export function TodayTile({
           >
             <div
               data-testid="today-date"
-              // Подсказка — нативный title (как у остановок карты-тропы): своего слоя тултипов
-              // на борде нет, а браузерный переживает и тач (long-press), и клавиатуру.
-              title={lifeDay ?? undefined}
               style={day.title ? { ...mono, fontSize: dateFontSize(longDateRu(day.date)) } : mono}
-              className={[
-                day.title ? "w-2/5 whitespace-nowrap" : "whitespace-nowrap",
-                // Курсор-подсказка только когда подсказка есть (до рождения номера дня нет).
-                lifeDay ? "cursor-help" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              className={day.title ? "w-2/5 whitespace-nowrap" : "whitespace-nowrap"}
             >
-              {longDateRu(day.date)}
+              {/* Номер дня жизни — подсказкой волны ([HoverTip]), а не нативным `title`: тот
+                  рисовался системой мимо всей визуальной системы борда и тащил за собой курсор
+                  `help`, обещавший на неинтерактивной дате больше, чем там есть. Обёртка — по
+                  тексту, а не по всей ячейке: дата занимает 2/5 строки, и ховер в пустоте
+                  справа от неё подсказку выдавать не должен. */}
+              <HoverTip text={lifeDay}>{longDateRu(day.date)}</HoverTip>
             </div>
             {day.title && (
               <div

@@ -45,11 +45,24 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
-  it("дата подсказывает номер дня жизни при наведении", () => {
+  it("дата подсказывает номер дня жизни своим тултипом, а не системным", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     // 2002-06-06 (день №1) → 2026-06-18.
-    expect(screen.getByTestId("today-date")).toHaveAttribute("title", "8779-й день жизни");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("8779-й день жизни");
+    // Системного тултипа на дате нет — вместе с ним ушёл и курсор-подсказка.
+    const date = screen.getByTestId("today-date");
+    expect(date).not.toHaveAttribute("title");
+    expect(date.className).not.toContain("cursor-help");
+    expect(date.querySelector(".cursor-help")).toBeNull();
+  });
+
+  it("до рождения владельца подсказки на дате нет вовсе", () => {
+    render(
+      <TodayTile day={dayFixture({ date: "2002-06-05" })} today="2002-06-05" state="loaded" />,
+    );
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
   it("пустой день: null → «нет данных», детур монстра не закрыт, пометки «не пил» нет", () => {

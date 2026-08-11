@@ -43,6 +43,13 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
+  it("дата подсказывает номер дня жизни при наведении", () => {
+    render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
+
+    // 2002-06-06 (день №1) → 2026-06-18.
+    expect(screen.getByTestId("today-date")).toHaveAttribute("title", "8779-й день жизни");
+  });
+
   it("пустой день: null → «нет данных», детур монстра не закрыт, пометки «не пил» нет", () => {
     const empty = dayFixture({
       title: null,

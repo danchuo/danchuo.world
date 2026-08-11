@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
 import type { DisciplineLens } from "@/lib/disciplineLens";
+import { lifeDayLabel } from "@/lib/lifeDay";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { hasWeekendScene, isWeekend } from "@/lib/weekend";
 import { QuestMap } from "./QuestMap";
@@ -79,6 +80,8 @@ export function TodayTile({
   const label = day ? relativeDayRu(day.date, today) : "сегодня";
   // Выбран день соседнего месяца → фон плитки чуть меняется (§4), как и ячейка в календаре.
   const otherMonth = day != null && day.date.slice(0, 7) !== today.slice(0, 7);
+  // Номер дня жизни — подсказкой на дате: дата остаётся датой, счёт всплывает по наведению.
+  const lifeDay = day ? lifeDayLabel(day.date) : null;
   const tileStyle = otherMonth ? { ...style, background: "var(--surface-othermonth)" } : style;
   return (
     <TileShell
@@ -108,8 +111,17 @@ export function TodayTile({
           >
             <div
               data-testid="today-date"
+              // Подсказка — нативный title (как у остановок карты-тропы): своего слоя тултипов
+              // на борде нет, а браузерный переживает и тач (long-press), и клавиатуру.
+              title={lifeDay ?? undefined}
               style={day.title ? { ...mono, fontSize: dateFontSize(longDateRu(day.date)) } : mono}
-              className={day.title ? "w-2/5 whitespace-nowrap" : "whitespace-nowrap"}
+              className={[
+                day.title ? "w-2/5 whitespace-nowrap" : "whitespace-nowrap",
+                // Курсор-подсказка только когда подсказка есть (до рождения номера дня нет).
+                lifeDay ? "cursor-help" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               {longDateRu(day.date)}
             </div>

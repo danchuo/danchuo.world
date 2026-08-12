@@ -7,6 +7,9 @@ import world.danchuo.checklist.ChecklistItemRepository
 import world.danchuo.core.config.MskTime
 import world.danchuo.health.WorkoutRepository
 import world.danchuo.monster.MonsterFlavorRepository
+import world.danchuo.spotify.PodcastDayRollup
+import world.danchuo.spotify.PodcastListen
+import world.danchuo.spotify.PodcastListenService
 import java.time.LocalDate
 
 /**
@@ -25,6 +28,7 @@ class DayAggregator(
     private val checklistItems: ChecklistItemRepository,
     private val checklistEntries: ChecklistEntryRepository,
     private val monsterFlavors: MonsterFlavorRepository,
+    private val podcasts: PodcastListenService,
     private val mskTime: MskTime,
 ) {
 
@@ -45,6 +49,11 @@ class DayAggregator(
         val history = DayHistory(date, mskTime.genesis, days, checklistEntries)
         val record = history.record(date)
 
+        // Прослушанное за день читаем ОДИН раз на проекцию: минуты и карточки — свёртки одного
+        // и того же набора сессий, а пункт подкастов в списке ровно один.
+        val podcastListens = podcasts.listensOn(date)
+        val podcastMinutes = PodcastDayRollup.listenedMinutes(podcastListens.sumOf { it.listenedMs })
+
         val discipline = items.map { item ->
             val itemId = item.id!!
             // Стрик по КАЖДОЙ остановке пункта: occurrence k (1..target) закрыт днями с count ≥ k.
@@ -62,10 +71,20 @@ class DayAggregator(
                 count = history.count(date, itemId),
                 target = item.target,
                 occurrenceStreaks = occurrenceStreaks,
-                // Пока измеряется только дневник (минуты в приложении «Журнал», §5.6). Ключ
-                // известен здесь так же, как `monster` известен приёму: производные пункты
-                // знают себя по ключу, остальной список остаётся data-driven.
-                measuredMinutes = if (item.key == JOURNAL_ITEM_KEY) record?.journalMinutes else null,
+                // Измеряются два пункта: дневник — минутами «Журнала», подкасты — поллером
+                // плеера (§5.6). Ключи известны здесь так же, как `monster` известен приёму:
+                // производные пункты знают себя по ключу, остальной список остаётся data-driven.
+                measuredMinutes = when (item.key) {
+                    JOURNAL_ITEM_KEY -> record?.journalMinutes
+                    // Ноль минут — это «не слушал», а не измерение: пусть молчит, как остальные.
+                    PODCAST_ITEM_KEY -> podcastMinutes.takeIf { it > 0 }
+                    else -> null
+                },
+                episodes = if (item.key == PODCAST_ITEM_KEY) {
+                    PodcastDayRollup.cards(podcastListens, item.target).map(::episodeViewOf)
+                } else {
+                    emptyList()
+                },
             )
         }
 
@@ -158,6 +177,17 @@ class DayAggregator(
             .toList()
     }
 
+    /** Карточка эпизода: миллисекунды свёртки переводим в минуты уже на выходе. */
+    private fun episodeViewOf(listen: PodcastListen) = PodcastEpisodeView(
+        episodeName = listen.episodeName,
+        episodeUrl = listen.episodeUrl,
+        showName = listen.showName,
+        showUrl = listen.showUrl,
+        imageUrl = listen.imageUrl,
+        listenedMinutes = PodcastDayRollup.listenedMinutes(listen.listenedMs),
+        durationMinutes = listen.episodeDurationMs?.let { PodcastDayRollup.listenedMinutes(it) },
+    )
+
     /** Выходной MSK (даты оси уже в MSK): суббота/воскресенье — нейтральны для стрика дисциплины. */
     private fun isWeekend(d: LocalDate): Boolean =
         d.dayOfWeek == java.time.DayOfWeek.SATURDAY || d.dayOfWeek == java.time.DayOfWeek.SUNDAY
@@ -178,6 +208,9 @@ class DayAggregator(
 
         /** Производный пункт монстра: его отметка — признак «шорткат дня отработал» (§5.6). */
         const val MONSTER_ITEM_KEY = "monster"
+
+        /** Производный пункт подкастов: минуты и карточки считает поллер плеера (§5.6). */
+        const val PODCAST_ITEM_KEY = "podcasts"
     }
 }
 

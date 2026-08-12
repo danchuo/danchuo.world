@@ -22,11 +22,28 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 @RegisterRestClient(configKey = "spotify-api")
 interface SpotifyApiClient {
 
-    /** Текущий трек; при «ничего не играет» Spotify отдаёт 204 ⇒ тело `null`. */
+    /**
+     * Текущее воспроизведение; при «ничего не играет» Spotify отдаёт 204 ⇒ тело `null`.
+     *
+     * [additionalTypes] — типы сверх дефолтного `track`, которые клиент готов принять
+     * (`track,episode`). Без него подкаст не приезжает вовсе: эпизоды скрыты ради обратной
+     * совместимости со старыми интеграциями. Скоупов параметр не требует — хватает того же
+     * `user-read-currently-playing`.
+     *
+     * [market] обязателен по смыслу: без него (и без страны в токене) Spotify считает контент
+     * недоступным и молча отдаёт пустой ответ.
+     *
+     * Дефолты параметров тут не котлиновские, а на каждой точке вызова: REST-клиент
+     * MicroProfile значения по умолчанию не поддерживает.
+     */
     @GET
     @Path("/v1/me/player/currently-playing")
     @Produces(MediaType.APPLICATION_JSON)
-    fun currentlyPlaying(@HeaderParam("Authorization") bearer: String): SpotifyCurrentlyPlaying?
+    fun currentlyPlaying(
+        @HeaderParam("Authorization") bearer: String,
+        @QueryParam("additional_types") additionalTypes: String,
+        @QueryParam("market") market: String,
+    ): SpotifyCurrentlyPlaying?
 
     @GET
     @Path("/v1/me/player/recently-played")
@@ -80,6 +97,9 @@ data class SpotifyCurrentlyPlaying(
     @param:JsonProperty("item") val item: SpotifyTrack? = null,
     // Откуда играет: плейлист/альбом/артист/подкаст/«любимое». Бывает null (вне контекста).
     @param:JsonProperty("context") val context: SpotifyContext? = null,
+    // «track» либо «episode» — дискриминатор союза в [item]. Дублирует item.type, но приезжает
+    // даже тогда, когда сам item пуст, поэтому решение по нему надёжнее.
+    @param:JsonProperty("currently_playing_type") val currentlyPlayingType: String? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -91,7 +111,7 @@ data class SpotifyContext(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyRecentlyPlayed(
-    @param:JsonProperty("items") val items: List<SpotifyPlayHistory> = emptyList(),
+    @param:JsonProperty("items") val items: List<SpotifyPlayHistory>? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -102,16 +122,42 @@ data class SpotifyPlayHistory(
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyPaging(
-    @param:JsonProperty("items") val items: List<SpotifyTrack> = emptyList(),
+    @param:JsonProperty("items") val items: List<SpotifyTrack>? = null,
 )
 
+/**
+ * Проекция поля `item` — оно СОЮЗ трека и эпизода подкаста, различаемый по [type]
+ * (и по `currently_playing_type` снаружи). Общее у них — имя, длительность и ссылка; дальше
+ * расходятся: у трека артисты и альбом, у эпизода [show] и собственные [images].
+ *
+ * Одним типом, а не двумя, — потому что Jackson разбирает одно и то же поле, и разводить союз
+ * пришлось бы кастомным десериализатором ради двух полей. Пустая половина остаётся пустой.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyTrack(
+    @param:JsonProperty("id") val id: String? = null,
+    @param:JsonProperty("type") val type: String? = null,
     @param:JsonProperty("name") val name: String? = null,
-    @param:JsonProperty("artists") val artists: List<SpotifyArtist> = emptyList(),
+    @param:JsonProperty("artists") val artists: List<SpotifyArtist>? = null,
     @param:JsonProperty("album") val album: SpotifyAlbum? = null,
     @param:JsonProperty("duration_ms") val durationMs: Long? = null,
     @param:JsonProperty("external_urls") val externalUrls: SpotifyExternalUrls? = null,
+    // Обложка эпизода: у трека картинка лежит в альбоме, у эпизода — прямо на нём.
+    @param:JsonProperty("images") val images: List<SpotifyImage>? = null,
+    @param:JsonProperty("show") val show: SpotifyShow? = null,
+)
+
+/**
+ * Шоу подкаста внутри эпизода. Издателя (`publisher`) во вложенном объекте нет — «автором»
+ * карточки служит [name]; за настоящим издателем пришлось бы ходить в `/v1/shows/{id}`
+ * (рассмотрено и отклонено: владельцу достаточно названия шоу).
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class SpotifyShow(
+    @param:JsonProperty("id") val id: String? = null,
+    @param:JsonProperty("name") val name: String? = null,
+    @param:JsonProperty("external_urls") val externalUrls: SpotifyExternalUrls? = null,
+    @param:JsonProperty("images") val images: List<SpotifyImage>? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -124,7 +170,7 @@ data class SpotifyArtist(
 data class SpotifyAlbum(
     @param:JsonProperty("name") val name: String? = null,
     @param:JsonProperty("album_type") val albumType: String? = null,
-    @param:JsonProperty("images") val images: List<SpotifyImage> = emptyList(),
+    @param:JsonProperty("images") val images: List<SpotifyImage>? = null,
     @param:JsonProperty("external_urls") val externalUrls: SpotifyExternalUrls? = null,
 )
 

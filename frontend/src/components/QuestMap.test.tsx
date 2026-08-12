@@ -259,6 +259,149 @@ describe("QuestMap", () => {
   });
 });
 
+describe("QuestMap — карточки прослушанных подкастов", () => {
+  const episode = (name: string, listened: number, duration: number | null = 48) => ({
+    episodeName: name,
+    episodeUrl: `https://open.spotify.com/episode/${name}`,
+    showName: `шоу ${name}`,
+    showUrl: `https://open.spotify.com/show/${name}`,
+    imageUrl: "https://i.scdn.co/image/cover.jpg",
+    listenedMinutes: listened,
+    durationMinutes: duration,
+  });
+
+  const withEpisodes = (episodes: ReturnType<typeof episode>[]): DisciplineItemView[] => [
+    { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
+  ];
+
+  it("вешает по карточке на остановку и подписывает эпизод, шоу и время", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
+
+    expect(screen.getByText("Утро")).toBeInTheDocument();
+    expect(screen.getByText("шоу Утро")).toBeInTheDocument();
+    expect(screen.getByText("47 из 48 мин")).toBeInTheDocument();
+  });
+
+  it("ведёт ссылками на эпизод и на шоу", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
+
+    expect(screen.getByText("Утро").closest("a")).toHaveAttribute(
+      "href",
+      "https://open.spotify.com/episode/Утро",
+    );
+    expect(screen.getByText("шоу Утро").closest("a")).toHaveAttribute(
+      "href",
+      "https://open.spotify.com/show/Утро",
+    );
+  });
+
+  it("один длинный эпизод закрывает обе остановки, но карточка остаётся одна", () => {
+    render(<QuestMap items={withEpisodes([episode("Длинный", 120)])} monsterDrunk={false} />);
+
+    expect(screen.getAllByTestId("quest-card")).toHaveLength(1);
+  });
+
+  it("два эпизода дают две карточки", () => {
+    render(
+      <QuestMap items={withEpisodes([episode("Утро", 40), episode("Вечер", 40)])} monsterDrunk={false} />,
+    );
+
+    expect(screen.getAllByTestId("quest-card")).toHaveLength(2);
+    expect(screen.getByText("Вечер")).toBeInTheDocument();
+  });
+
+  it("карточки — последний слой карты, поверх монстра и всего остального", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро", 40)])} monsterDrunk />);
+
+    // В SVG нет z-index: кто нарисован позже, тот и сверху. Монстр идёт после остановок, и
+    // внутри своей остановки карточку перекрывал именно он.
+    const svg = document.querySelector("svg.quest-map")!;
+    const nodes = Array.from(svg.children);
+    const cards = nodes.findIndex((n) => n.classList.contains("quest-cards"));
+    const monster = nodes.findIndex((n) => n.classList.contains("quest-stop--monster"));
+
+    expect(cards).toBeGreaterThan(-1);
+    expect(cards).toBeGreaterThan(monster);
+    expect(cards).toBe(nodes.length - 1);
+  });
+
+  it("у верхнего ряда карточка падает ПОД остановку, у нижнего — встаёт над ней", () => {
+    render(
+      <QuestMap items={withEpisodes([episode("Утро", 40), episode("Вечер", 40)])} monsterDrunk={false} />,
+    );
+
+    // Остановки подкаста стоят на y=45 (верхний ряд) и y=160 (нижний). Сверху у первой места
+    // нет — карточка вылезала бы за viewBox и её срезало бы краем карты и датой в шапке.
+    const [first, second] = screen.getAllByTestId("quest-card").map((card) =>
+      Number(card.querySelector("foreignObject")?.getAttribute("y")),
+    );
+
+    expect(first).toBeGreaterThan(45);
+    expect(second).toBeLessThan(160);
+    // И обе — внутри viewBox по вертикали.
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(second).toBeGreaterThanOrEqual(0);
+  });
+
+  it("под каждой остановкой стоят минуты ЕЁ эпизода, а не сумма за сутки", () => {
+    render(
+      <QuestMap
+        items={[
+          {
+            key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2,
+            measuredMinutes: 62,
+            episodes: [episode("Утро", 30), episode("Вечер", 28)],
+          },
+        ]}
+        monsterDrunk={false}
+      />,
+    );
+
+    expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("30 мин");
+    expect(screen.getByTestId("quest-minutes-podcasts-2")).toHaveTextContent("28 мин");
+    // Сумма за сутки под кружками не показывается — она спорила бы с карточкой над ней.
+    expect(screen.queryByText("62 мин")).toBeNull();
+  });
+
+  it("без карточки остановка возвращается к сумме за сутки у первой и к дроби у второй", () => {
+    render(
+      <QuestMap
+        items={[
+          {
+            key: "podcasts", label: "подкаст", icon: null, count: 0, target: 2,
+            measuredMinutes: 12,
+            episodes: [],
+          },
+        ]}
+        monsterDrunk={false}
+      />,
+    );
+
+    // «12 мин» под незакрытым кружком отвечает, почему порог не взят.
+    expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("12 мин");
+    expect(screen.getByTestId("quest-frac-podcasts-2")).toHaveTextContent("0/2");
+  });
+
+  it("без прослушанного карточек нет вовсе", () => {
+    render(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
+
+    expect(screen.queryByTestId("quest-card")).toBeNull();
+  });
+
+  it("ссылки карточки лежат ВНЕ кнопки-остановки (вложенная интерактивность недоступна)", () => {
+    render(
+      <QuestMap
+        items={withEpisodes([episode("Утро", 47)])}
+        monsterDrunk={false}
+        onLensChange={vi.fn()}
+      />,
+    );
+
+    const link = screen.getByText("Утро").closest("a");
+    expect(link?.closest('[role="button"]')).toBeNull();
+  });
+});
+
 describe("QuestMap — линза календаря", () => {
   it("без обработчика остановки не интерактивны (карта прежняя)", () => {
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} />);

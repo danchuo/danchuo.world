@@ -9,10 +9,8 @@
 сделанных веток и не «последняя / перед этим / ещё раньше». Что сделала ветка, живёт в её
 PR и сообщении коммита; правило — в PRD/DESIGN; архив первого года — `docs/journal.md`.
 
-- Версии: **бэк 1.16.3, фронт 1.23.7**.
-- Оговорка по данным: график ночи есть только у ночей, пришедших после появления
-  `sleep_segment` (I-23) — у прошлых сырых кусков не сохранено, они добираются
-  пересылкой широкого окна шорткатом.
+- Версии: **бэк 1.17.0, фронт 1.24.0**.
+- Оговорки «с какого дня у нас есть эти данные» живут в PRD, рядом со своей фичей.
 
 ## Документы — кто за что отвечает
 
@@ -38,7 +36,7 @@ PRD и DESIGN — разделённые источники правды, не �
 | `health` | приём с iOS-шортката: шаги, сессионизация сна (`SleepSessionizer`), дневник (`JournalDetector`) | `POST /api/ingest/health` |
 | `checklist` | пункты дисциплины и отметки | `POST /api/ingest/daily` |
 | `monster` | вкусы монстра (data-driven); пункт `monster` — производная от вкуса | — |
-| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш | `GET /api/spotify/{now-playing,recent,top}` |
+| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш; поллер подкастов (`@Scheduled` 60с → `podcast_session`, пункт `podcasts` — производная от минут) | `GET /api/spotify/{now-playing,recent,top}` |
 | `github` | вклады из HTML-фрагмента профиля, `@Scheduled`; не двигает лампу свежести | едут в `DaySummary` |
 | `bike` | Велобайк: поездки, покупки тарифов, геокодинг станций (Nominatim) | `GET /api/rides`, `/api/rides/stats` |
 | `film` | фото-дропы: zip → web+thumb, поворот кадров через LLM, поиск артефактов | `GET /api/drops`, `/api/film-media/…` |

@@ -29,18 +29,39 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
      */
     fun upsertIfAbsent(date: LocalDate, item: ChecklistItem, count: Int): Boolean {
         if (findByDateAndItem(date, item.id!!) != null) return false
-        upsert(date, item, count)
+        write(date, item, count, ChecklistEntry.DERIVED)
         return true
     }
 
-    /** Записать прогресс пункта за дату; [count] зажимается в `0..target`. */
-    fun upsert(date: LocalDate, item: ChecklistItem, count: Int) {
+    /**
+     * Записать прогресс из производного канала, который правит свою отметку ПОВТОРНО, — поллер
+     * подкастов дописывает минуты весь день (см. `PodcastMarker`). От [upsertIfAbsent] отличается
+     * тем, что своя же строка не блокирует запись: пустой слот занимаем, свою строку правим,
+     * ручную — не трогаем никогда. `true` — записали.
+     *
+     * Отдельный метод, а не флаг у [upsert]: у ручного ввода приоритет безусловный, и смешивать
+     * эти две записи в одну ветку значит однажды перепутать, кто кого перекрывает.
+     */
+    fun upsertDerived(date: LocalDate, item: ChecklistItem, count: Int): Boolean {
+        val existing = findByDateAndItem(date, item.id!!)
+        if (existing != null && existing.source != ChecklistEntry.DERIVED) return false
+        write(date, item, count, ChecklistEntry.DERIVED)
+        return true
+    }
+
+    /** Записать прогресс пункта за дату; [count] зажимается в `0..target`. Ручной ввод. */
+    fun upsert(date: LocalDate, item: ChecklistItem, count: Int) =
+        write(date, item, count, ChecklistEntry.MANUAL)
+
+    private fun write(date: LocalDate, item: ChecklistItem, count: Int, source: String) {
         val clamped = count.coerceIn(0, item.target)
         val entry = findByDateAndItem(date, item.id!!) ?: ChecklistEntry().apply {
             this.date = date
             itemId = item.id!!
+            // IDENTITY-генерация вставляет строку немедленно — not-null поля заполнены выше.
             persist(this)
         }
         entry.count = clamped
+        entry.source = source
     }
 }

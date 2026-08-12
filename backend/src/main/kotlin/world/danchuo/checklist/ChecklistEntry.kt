@@ -31,4 +31,18 @@ class ChecklistEntry {
 
     @Column(nullable = false)
     var count: Int = 0
+
+    /**
+     * Кто владеет отметкой: [MANUAL] — ручной ввод шорткатом, [DERIVED] — производный канал
+     * (минуты «Журнала», поллер подкастов). Ручной ввод перекрывает производный всегда, а
+     * производный правит только СВОЮ строку — иначе поллер, дописывающий минуты весь день,
+     * затирал бы присланное с телефона.
+     */
+    @Column(nullable = false, length = 16)
+    var source: String = MANUAL
+
+    companion object {
+        const val MANUAL = "manual"
+        const val DERIVED = "derived"
+    }
 }

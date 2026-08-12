@@ -18,12 +18,19 @@ class SpotifyService(
     @param:RestClient private val api: SpotifyApiClient,
     private val tokenService: SpotifyTokenService,
     private val sources: SpotifySourceResolver,
+    private val config: SpotifyConfig,
 ) {
 
     @CacheResult(cacheName = "spotify-now-playing")
     fun nowPlaying(): NowPlayingView {
+        // Просим и эпизоды: плитка показывает, что играет СЕЙЧАС, и подкаст — такой же ответ на
+        // этот вопрос, как трек. Без `episode` в списке Spotify его просто не отдаёт, и плитка
+        // молчала «ничего не играет» посреди часового эпизода.
+        // Запись прослушанного этим не занимается — у неё свой такт ([PodcastPoller]): здешний
+        // опрос будит зритель, и как логгер он бесполезен.
         // 204 (ничего не играет) ⇒ тело null ⇒ единый «тихий» IDLE.
-        val current = api.currentlyPlaying(tokenService.bearer()) ?: return NowPlayingView.IDLE
+        val current = api.currentlyPlaying(tokenService.bearer(), "track,episode", config.podcast().market())
+            ?: return NowPlayingView.IDLE
         return NowPlayingView(
             isPlaying = current.isPlaying,
             progressMs = current.progressMs,
@@ -41,10 +48,10 @@ class SpotifyService(
 
     @CacheResult(cacheName = "spotify-recent")
     fun recent(@CacheKey limit: Int): List<RecentTrackView> =
-        api.recentlyPlayed(tokenService.bearer(), limit).items
+        api.recentlyPlayed(tokenService.bearer(), limit).items.orEmpty()
             .mapNotNull { history -> TrackView.from(history.track)?.let { RecentTrackView(it, history.playedAt) } }
 
     @CacheResult(cacheName = "spotify-top")
     fun top(@CacheKey limit: Int, @CacheKey timeRange: String): List<TrackView> =
-        api.topTracks(tokenService.bearer(), limit, timeRange).items.mapNotNull { TrackView.from(it) }
+        api.topTracks(tokenService.bearer(), limit, timeRange).items.orEmpty().mapNotNull { TrackView.from(it) }
 }

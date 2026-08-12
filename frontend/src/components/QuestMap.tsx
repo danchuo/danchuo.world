@@ -1,7 +1,11 @@
-import type { KeyboardEvent } from "react";
-import type { DisciplineItemView } from "@/lib/api/types";
+"use client";
+
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import type { DisciplineItemView, PodcastEpisodeView, TrackView } from "@/lib/api/types";
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
+import { NowPlayingCard } from "./NowPlayingCard";
+import { episodeForStop, listenedLabel } from "@/lib/podcastCard";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -295,6 +299,112 @@ function StreakBadge({
   );
 }
 
+/** Ключ пункта, у остановок которого всплывают карточки прослушанного (§5.6). */
+const PODCAST_KEY = "podcasts";
+
+// Геометрия карточки в единицах viewBox (400×210), как и вся остальная карта.
+const CARD_W = 214;
+const CARD_H = 54;
+const CARD_COVER = 40;
+/** Насколько край карточки заходит под площадку нажатия (r=22) — чтобы ховер не срывался. */
+const CARD_LIFT = 20;
+/** Запас до края viewBox: ближе — считаем, что карточка не помещается. */
+const VIEWBOX_MARGIN = 2;
+
+/**
+ * Кегли карточки в единицах viewBox. Штатные `--fs-music-*` заданы в `cqw` и настроены на
+ * плитку в CSS-пикселях; внутри `foreignObject` единица другая, и без переопределения текст
+ * приехал бы вместе с двойным масштабом.
+ *
+ * Подобраны так, чтобы три строки плюс поля выбирали высоту карточки целиком: при мелких кеглях
+ * снизу оставалась пустая полоса в треть высоты, и карточка читалась незаполненной. На экране
+ * это выходит около 14/12/11 CSS-пикселей — в размер самой плитки «сейчас играет».
+ */
+const CARD_TYPE_SCALE = {
+  "--fs-music-title": "11px",
+  "--fs-music-artists": "9px",
+  "--fs-music-meta": "8.5px",
+} as CSSProperties;
+
+/**
+ * Карточка прослушанного эпизода у остановки подкастов (§5.6): обложка, эпизод и шоу со
+ * ссылками, сколько слушали. Тот же язык, что у [StreakBadge] — поверхность и кант волны,
+ * всплывает по наведению.
+ *
+ * Два отличия от `.quest-tip`, и оба вынужденные. Во-первых, карточка ЛОВИТ события: в ней живые
+ * ссылки, и указатель должен доехать до них, не погасив её, — поэтому нижний край заходит под
+ * площадку нажатия остановки, чтобы между ними не было щели, на которой ховер срывается.
+ * Во-вторых, она рендерится СОСЕДОМ кнопки-остановки, а не внутри: ссылка внутри `role="button"`
+ * — вложенная интерактивность, которую скринридер разобрать не может.
+ *
+ * Внутри — ТОТ ЖЕ [NowPlayingCard], что рисует музыкальная плитка, а не похожая на неё вёрстка:
+ * вопрос один и тот же («что это было»), и ответ обязан выглядеть одинаково. Отсюда
+ * `foreignObject`: карта — SVG, а виджет живёт в HTML, где есть и перенос строк, и бегущая
+ * строка, и `text-overflow`. Ручная резка подписей по ширине после этого не нужна.
+ * Снизу добавлена строка, которой у плитки нет и быть не может, — сколько из скольких минут.
+ */
+function PodcastCard({
+  cx,
+  cy,
+  episode,
+  open,
+  onOpen,
+  onClose,
+}: {
+  cx: number;
+  cy: number;
+  episode: PodcastEpisodeView;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const half = CARD_W / 2;
+  // Сдвиг, чтобы карточка целиком осталась в пределах viewBox [0,400] — как у тултипа стрика.
+  let dx = 0;
+  if (cx + half > 396) dx = 396 - (cx + half);
+  if (cx - half < 4) dx = 4 - (cx - half);
+
+  // Над остановкой, а если там не помещается — под ней. У верхнего ряда тропы места сверху нет
+  // вовсе: карточка вылезала за viewBox, и её срезало краем карты, а следом датой в шапке
+  // плитки. Тот же ход, что у подсказки дня жизни (HoverTip), и по той же причине.
+  const above = cy - CARD_LIFT - CARD_H;
+  const top = above >= VIEWBOX_MARGIN ? above : cy + CARD_LIFT;
+
+  return (
+    <g
+      className={`quest-card${open ? " quest-card--open" : ""}`}
+      data-testid="quest-card"
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+    >
+      <foreignObject x={cx + dx - half} y={top} width={CARD_W} height={CARD_H}>
+        <div className="quest-card__box" style={CARD_TYPE_SCALE}>
+          <NowPlayingCard track={trackOf(episode)} coverSize={CARD_COVER}>
+            <div className="quest-card__time">{listenedLabel(episode)}</div>
+          </NowPlayingCard>
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
+
+/**
+ * Эпизод в форму карточки плеера: «исполнитель» — это шоу со своей ссылкой, обложка эпизода
+ * встаёт на место обложки альбома, альбома нет (виджет эту строку просто не рисует). Ровно то
+ * же приведение делает бэкенд для плитки «сейчас играет» — здесь оно повторено на готовых
+ * данных дня, без похода в Spotify.
+ */
+function trackOf(episode: PodcastEpisodeView): TrackView {
+  return {
+    title: episode.episodeName,
+    url: episode.episodeUrl,
+    artists: [{ name: episode.showName, url: episode.showUrl }],
+    album: null,
+    albumImageUrl: episode.imageUrl,
+    durationMs: null,
+  };
+}
+
 export function QuestMap({
   items,
   monsterDrunk,
@@ -335,8 +445,50 @@ export function QuestMap({
       },
     };
   };
+  /**
+   * Какая карточка подкаста раскрыта. Через состояние, а не через CSS `:hover` у предка:
+   * карточки рисуются ОТДЕЛЬНЫМ слоем в самом конце SVG (см. ниже), то есть живут вне
+   * поддерева своей остановки, и descendant-селектор до них не дотягивается.
+   */
+  const [openCard, setOpenCard] = useState<string | null>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  const open = useCallback((key: string) => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpenCard(key);
+  }, []);
+
+  /**
+   * Закрытие отложено на такт. Указатель, переезжающий с остановки на карточку, сперва
+   * покидает одну (mouseleave) и лишь потом входит в другую (mouseenter) — без отсрочки
+   * карточка успевала бы мигнуть и погасить себе `pointer-events`, не дав дойти до ссылок.
+   */
+  const close = useCallback(() => {
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      setOpenCard(null);
+    }, 0);
+  }, []);
+
+  useEffect(() => () => {
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+  }, []);
+
   const byKey = new Map(items.map((i) => [i.key, i]));
   const done = ROUTE.map((s) => (byKey.get(s.key)?.count ?? 0) >= s.occurrence);
+  // Карточки собираем заранее — рисуются они последним слоем, отдельно от своих остановок.
+  const podcastCards = ROUTE.flatMap((s, i) => {
+    if (s.key !== PODCAST_KEY) return [];
+    const episode = episodeForStop(byKey.get(s.key)?.episodes, s.occurrence);
+    if (!episode) return [];
+    const [cx, cy] = STOPS_XY[i];
+    return [{ key: `${s.key}-${s.occurrence}`, cx, cy, episode }];
+  });
+
   const doneCount = done.filter(Boolean).length;
   const perfect = doneCount === ROUTE.length;
   // «Пропущено» = не сделано, а день уже ушёл дальше (более поздняя остановка закрыта).
@@ -363,6 +515,13 @@ export function QuestMap({
    * Только у первой остановки пункта: измерение принадлежит дню, а не конкретному вхождению.
    */
   const minutesOf = (key: string, occurrence: number) => {
+    // Есть карточка ⇒ измерение принадлежит ЭПИЗОДУ, и под остановкой стоят ЕЁ минуты.
+    // Иначе подпись спорила бы с тултипом прямо над ней: в карточке «30 из 128 мин»,
+    // а под кружком — сумма за сутки «62 мин». Заодно вторая остановка перестаёт молчать.
+    const episode = episodeForStop(byKey.get(key)?.episodes, occurrence);
+    if (episode) return `${episode.listenedMinutes} мин`;
+    // Дневник (и подкасты, не набравшие ни одной карточки) — измерение дня, только у первой
+    // остановки: «6 мин» под незакрытым кружком отвечает «почему не засчиталось».
     if (occurrence !== 1) return null;
     const measured = byKey.get(key)?.measuredMinutes;
     return typeof measured === "number" ? `${measured} мин` : null;
@@ -444,9 +603,20 @@ export function QuestMap({
         const streak = byKey.get(s.key)?.occurrenceStreaks?.[s.occurrence - 1] ?? 0;
         const candidate: DisciplineLens = { key: s.key, occurrence: s.occurrence, label: s.label };
         const focused = sameLens(lens, candidate);
+        // Карточка есть только у подкастов и только пока эпизодов хватает на эту остановку.
+        const episode = s.key === PODCAST_KEY
+          ? episodeForStop(byKey.get(s.key)?.episodes, s.occurrence)
+          : null;
         return (
           <g
             key={`${s.key}-${s.occurrence}`}
+            className="quest-slot"
+            onMouseEnter={episode ? () => open(`${s.key}-${s.occurrence}`) : undefined}
+            onMouseLeave={episode ? close : undefined}
+            onFocus={episode ? () => open(`${s.key}-${s.occurrence}`) : undefined}
+            onBlur={episode ? close : undefined}
+          >
+          <g
             className={`quest-stop ${stopClass(i)}${interactive ? " quest-stop--interactive" : ""}${focused ? " quest-stop--focused" : ""}`}
             data-testid={`quest-stop-${s.key}-${s.occurrence}`}
             data-done={done[i]}
@@ -491,6 +661,7 @@ export function QuestMap({
               testId={`quest-streak-${s.key}-${s.occurrence}`}
               title={`${s.label}: ${streak} ${pluralDays(streak)} подряд`}
             />
+          </g>
           </g>
         );
       })}
@@ -559,6 +730,26 @@ export function QuestMap({
           самой тропой — закрытые кружки против пустых, — а цифра поверх картинки читалась
           как оценка за день. Число остаётся в `aria-label` карты: скринридеру тропу не видно,
           и для него это единственный способ узнать прогресс. */}
+      {/* Карточки подкастов — ПОСЛЕДНИЙ слой карты. В SVG нет z-index: кто нарисован позже,
+          тот и сверху, а внутри своей остановки карточку перекрывал монстр (он идёт ниже по
+          разметке). Отдельный слой в конце держит их поверх всего и не сломается, когда после
+          остановок добавят ещё один декор. Ценой этого раскрытие переехало в состояние: из
+          чужого поддерева CSS-ховер до карточки не достаёт. */}
+      {podcastCards.length > 0 && (
+        <g className="quest-cards">
+          {podcastCards.map((c) => (
+            <PodcastCard
+              key={c.key}
+              cx={c.cx}
+              cy={c.cy}
+              episode={c.episode}
+              open={openCard === c.key}
+              onOpen={() => open(c.key)}
+              onClose={close}
+            />
+          ))}
+        </g>
+      )}
     </svg>
   );
 }

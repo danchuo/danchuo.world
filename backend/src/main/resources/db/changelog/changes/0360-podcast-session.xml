@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Podcast listening, written by us (PRD 5.6). Spotify has no channel that answers "what did
+      I listen to, when, and for how long": the recently-played endpoint refuses episodes outright,
+      and resume_point only knows a playhead and a fully_played flag. So the backend polls the
+      player and stores the sessions itself.
+
+      One row per uninterrupted stretch of one episode, so an episode taken there and back is two
+      rows on the same date. last_progress_ms is the poller's own state and lives HERE rather than
+      in memory: a backend restart must not lose the count mid session.
+
+      Episode metadata is denormalised on purpose. The board shows history, and a catalogue entry
+      may move or vanish later; re resolving it at read time would rewrite the past.
+    -->
+    <changeSet id="0360-podcast-session-table" author="danchuo">
+        <createTable tableName="podcast_session">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- MSK date the listening belongs to; a session never crosses midnight. -->
+            <column name="date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="episode_id" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="episode_name" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="episode_url" type="VARCHAR(512)"/>
+            <column name="show_id" type="VARCHAR(64)"/>
+            <!-- Show name doubles as the card's author: the player does not return a publisher. -->
+            <column name="show_name" type="VARCHAR(256)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="show_url" type="VARCHAR(512)"/>
+            <column name="image_url" type="VARCHAR(512)"/>
+            <column name="episode_duration_ms" type="BIGINT"/>
+            <column name="started_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ended_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Credited listening, not wall clock: pauses and skips never reach it. -->
+            <column name="listened_ms" type="BIGINT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_progress_ms" type="BIGINT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="podcast_session" indexName="idx_podcast_session_date">
+            <column name="date"/>
+        </createIndex>
+    </changeSet>
+
+    <!--
+      Who owns a discipline mark. The podcast poller rewrites its own row all day as minutes add
+      up, so "write only into an empty slot" (what the journal marker does) is not enough on its
+      own - it needs to tell its own earlier write apart from a hand entered one.
+
+      Existing rows default to 'manual', which is what they are: the interactive shortcut wrote
+      them. That also makes the poller inert over history - it will never touch a past day.
+      Owner's decision: the shortcut stays as a channel and always wins.
+    -->
+    <changeSet id="0360-checklist-entry-source" author="danchuo">
+        <addColumn tableName="checklist_entry">
+            <column name="source" type="VARCHAR(16)" defaultValue="manual">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

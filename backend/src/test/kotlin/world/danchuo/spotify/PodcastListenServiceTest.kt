@@ -1,0 +1,141 @@
+package world.danchuo.spotify
+
+import io.quarkus.narayana.jta.QuarkusTransaction
+import io.quarkus.test.junit.QuarkusTest
+import jakarta.inject.Inject
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import world.danchuo.checklist.ChecklistEntryRepository
+import world.danchuo.checklist.ChecklistItemRepository
+import java.time.Instant
+import java.time.LocalDate
+
+/**
+ * Сшивка отсчётов плеера в сессии и производная отметка пункта (PRD §5.6).
+ *
+ * Чистая арифметика проверена отдельно ([PodcastListenMathTest], [PodcastDayRollupTest]) — здесь
+ * ровно то, что без БД не проверить: когда сессия тянется дальше, а когда начинается новая, и
+ * кто выигрывает спор за отметку с интерактивным шорткатом.
+ *
+ * Тесты делят одну БД с соседями, поэтому дата своя и всё записанное убирается в [cleanup].
+ */
+@QuarkusTest
+class PodcastListenServiceTest {
+
+    @Inject
+    lateinit var service: PodcastListenService
+
+    @Inject
+    lateinit var sessions: PodcastSessionRepository
+
+    @Inject
+    lateinit var checklistItems: ChecklistItemRepository
+
+    @Inject
+    lateinit var checklistEntries: ChecklistEntryRepository
+
+    /** Своя дата: соседние тесты сеют дни фикстурами и не должны видеть чужие сессии. */
+    private val date: LocalDate = LocalDate.of(2026, 3, 3)
+    private val start: Instant = Instant.parse("2026-03-03T05:00:00Z")
+
+    @AfterEach
+    fun cleanup() {
+        QuarkusTransaction.requiringNew().run {
+            sessions.delete("date", date)
+            val podcasts = checklistItems.findByKey(PODCAST_KEY)
+            if (podcasts != null) {
+                checklistEntries.delete("date = ?1 and itemId = ?2", date, podcasts.id!!)
+            }
+        }
+    }
+
+    private fun sample(episodeId: String, progressMinutes: Long) = EpisodeSample(
+        episodeId = episodeId,
+        progressMs = progressMinutes * 60_000,
+        episodeName = "эпизод $episodeId",
+        episodeUrl = "https://open.spotify.com/episode/$episodeId",
+        showId = "show-$episodeId",
+        showName = "шоу $episodeId",
+        showUrl = "https://open.spotify.com/show/$episodeId",
+        imageUrl = null,
+        episodeDurationMs = 60L * 60_000,
+    )
+
+    /** Прослушать [minutes] шагами по 10 минут — внутри порога разрыва, значит одной сессией. */
+    private fun listen(episodeId: String, minutes: Long, from: Instant): Instant {
+        service.record(sample(episodeId, 0), date, from)
+        var elapsed = 0L
+        while (elapsed < minutes) {
+            elapsed = minOf(elapsed + 10, minutes)
+            service.record(sample(episodeId, elapsed), date, from.plusSeconds(elapsed * 60))
+        }
+        return from.plusSeconds(minutes * 60)
+    }
+
+    private fun markedCount(): Int? = QuarkusTransaction.requiringNew().call {
+        val item = checklistItems.findByKey(PODCAST_KEY)!!
+        checklistEntries.listByDate(date).firstOrNull { it.itemId == item.id }?.count
+    }
+
+    private fun sessionCount(): Int = QuarkusTransaction.requiringNew().call { sessions.listByDate(date).size }
+
+    @Test
+    fun `the same episode playing on keeps one session`() {
+        listen("A", 30, start)
+
+        assertEquals(1, sessionCount())
+        assertEquals(30, service.minutesOn(date))
+    }
+
+    @Test
+    fun `a long silence starts a new session but the day still sums both`() {
+        listen("A", 20, start)
+        // Час тишины — пауза больше порога разрыва: это уже другое прослушивание.
+        listen("A", 20, start.plusSeconds(3600 + 20 * 60))
+
+        assertEquals(2, sessionCount())
+        assertEquals(40, service.minutesOn(date))
+        // Эпизод один ⇒ карточка одна, хотя сессий было две.
+        assertEquals(listOf("A"), service.cardsOn(date, 2).map { it.episodeId })
+    }
+
+    @Test
+    fun `switching episodes gives two cards ordered by when they started`() {
+        val afterFirst = listen("A", 30, start)
+        listen("B", 30, afterFirst.plusSeconds(600))
+
+        assertEquals(60, service.minutesOn(date))
+        assertEquals(listOf("A", "B"), service.cardsOn(date, 2).map { it.episodeId })
+    }
+
+    @Test
+    fun `the mark grows with the minutes as the day goes on`() {
+        listen("A", 20, start)
+        assertEquals(0, markedCount(), "20 минут — порог ещё не взят")
+
+        val afterFirst = listen("A", 10, start.plusSeconds(20 * 60))
+        assertEquals(1, markedCount(), "30 минут — первая остановка закрыта")
+
+        listen("B", 30, afterFirst.plusSeconds(600))
+        assertEquals(2, markedCount(), "60 минут — закрыты обе")
+    }
+
+    @Test
+    fun `a mark sent from the shortcut wins and the poller stops touching it`() {
+        // Шорткат отработал первым: строка становится ручной.
+        QuarkusTransaction.requiringNew().run {
+            checklistEntries.upsert(date, checklistItems.findByKey(PODCAST_KEY)!!, 1)
+        }
+
+        listen("A", 60, start)
+
+        assertEquals(1, markedCount(), "поллер насчитал две остановки, но ручной ввод главнее")
+        // Сессии при этом пишутся как обычно — карточки от спора за отметку не страдают.
+        assertEquals(60, service.minutesOn(date))
+    }
+
+    private companion object {
+        const val PODCAST_KEY = "podcasts"
+    }
+}

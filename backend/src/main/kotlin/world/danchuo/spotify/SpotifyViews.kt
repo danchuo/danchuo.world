@@ -46,6 +46,25 @@ data class TrackView(
         /** Сжать сырой [SpotifyTrack] в проекцию; `null`, если трека по сути нет. */
         fun from(track: SpotifyTrack?): TrackView? {
             val title = track?.name?.takeIf { it.isNotBlank() } ?: return null
+
+            // Эпизод подкаста укладывается в ту же форму без единого нового поля: «исполнитель» —
+            // это шоу (со своей ссылкой), обложка у эпизода собственная, альбома нет вовсе.
+            // Плитка уже умеет молчать про отсутствующий альбом, поэтому рисуется как есть.
+            track.show?.let { show ->
+                return TrackView(
+                    title = title,
+                    artists = listOfNotNull(
+                        show.name
+                            ?.takeIf(String::isNotBlank)
+                            ?.let { ArtistRef(it, show.externalUrls?.spotify) },
+                    ),
+                    album = null,
+                    albumImageUrl = track.images.largest() ?: show.images.largest(),
+                    url = track.externalUrls?.spotify,
+                    durationMs = track.durationMs,
+                )
+            }
+
             val album = track.album
             // Альбом не показываем, если это сингл или его имя совпадает с названием трека
             // (одноимённый релиз — дубль ни к чему).
@@ -56,18 +75,22 @@ data class TrackView(
                 ?.let { AlbumRef(it, album.externalUrls?.spotify) }
             return TrackView(
                 title = title,
-                artists = track.artists.mapNotNull { artist ->
+                artists = track.artists.orEmpty().mapNotNull { artist ->
                     artist.name?.takeIf(String::isNotBlank)?.let { ArtistRef(it, artist.externalUrls?.spotify) }
                 },
                 album = albumRef,
                 // Берём самую большую обложку (Spotify сортирует по убыванию, но не полагаемся).
-                albumImageUrl = album?.images?.maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }?.url,
+                albumImageUrl = album?.images.largest(),
                 url = track.externalUrls?.spotify,
                 durationMs = track.durationMs,
             )
         }
     }
 }
+
+/** Самая крупная обложка из отданных; Spotify сортирует по убыванию, но не полагаемся. */
+private fun List<SpotifyImage>?.largest(): String? =
+    orEmpty().maxByOrNull { (it.width ?: 0) * (it.height ?: 0) }?.url
 
 /**
  * Источник воспроизведения (PRD §M3): откуда играет трек. Альбом сюда НЕ кладём —

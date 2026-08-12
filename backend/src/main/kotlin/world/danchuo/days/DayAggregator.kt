@@ -78,15 +78,20 @@ class DayAggregator(
         // «шорткат отработал». Выбранный вкус засчитываем сам по себе: он без шортката не берётся,
         // и так флаг переживёт возможную деактивацию пункта.
         val monsterItemId = items.firstOrNull { it.key == MONSTER_ITEM_KEY }?.id
-        val monsterReported = monster != null ||
-            (monsterItemId != null && history.hasEntry(date, monsterItemId))
+        fun reportedOn(d: LocalDate) = history.record(d)?.monsterFlavorId != null ||
+            (monsterItemId != null && history.hasEntry(d, monsterItemId))
 
-        // Инверсный стрик «чистоты»: день «чист», если запись за него есть И вкус не выбран
-        // (нет записи = «неизвестно» ⇒ разрыв, как и день, когда монстр выпит). В ОТЛИЧИЕ от
-        // дисциплины монстр считается КАЖДЫЙ день, включая выходные (isNeutral по умолчанию пуст).
+        val monsterReported = reportedOn(date)
+
+        // Инверсный стрик «чистоты»: день «чист», только если монстра за него ОТМЕЧАЛИ и вкус
+        // не выбран. Разделитель — `monsterReported`, а НЕ наличие записи дня: запись создаёт
+        // авто-health-ingest (12/18/24 MSK), и по «есть запись, вкуса нет» стрик прибавлял
+        // сегодняшний день ещё до того, как шорткат отработал, — то же смешение, что чинил
+        // вердикт монстра (§5.6). Неотмеченный день = «неизвестно» ⇒ разрыв, как и выпитый.
+        // В ОТЛИЧИЕ от дисциплины монстр считается КАЖДЫЙ день, включая выходные
+        // (isNeutral по умолчанию пуст).
         val monsterCleanStreak = StreakCalculator.streak(date, today, mskTime.genesis) { d ->
-            val r = history.record(d)
-            r != null && r.monsterFlavorId == null
+            reportedOn(d) && history.record(d)?.monsterFlavorId == null
         }
 
         return DayView(

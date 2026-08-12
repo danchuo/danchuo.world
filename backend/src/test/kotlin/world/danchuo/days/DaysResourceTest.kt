@@ -21,7 +21,10 @@ import java.time.ZoneId
  *
  * Даты — относительные к «сегодня» MSK: ingest/daily принимает только окно
  * [сегодня − 31, сегодня] (§5.6). Смещения не пересекаются с DailyIngestResourceTest
- * (он занимает −1…−3 и −31) — тест-классы делят одну БД в прогоне.
+ * (он занимает −1…−3 и −31) — тест-классы делят одну БД в прогоне. Само «сегодня»
+ * делится с ним (там оно только в 401/422, которые ничего не пишут), поэтому стрик за
+ * сегодня проверяется **дельтой**, а не абсолютным числом: что лежит на −1…−3, зависит
+ * от порядка классов.
  */
 @QuarkusTest
 class DaysResourceTest {
@@ -95,6 +98,48 @@ class DaysResourceTest {
             .body("discipline.find { it.key == 'stretch' }.occurrenceStreaks[0]", equalTo(expectedDiscipline))
             // монстр не пит все 7 дней, до блока запись пуста ⇒ инверсный стрик «чисто» = 7 (выходные тоже)
             .body("monsterCleanStreak", equalTo(7))
+    }
+
+    /** Только автоматический health-ingest: запись за день есть, но монстра никто не отмечал. */
+    private fun seedHealthOnlyDay(date: String) {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","steps":5100}""")
+            .post("/api/ingest/health").then().statusCode(200)
+    }
+
+    @Test
+    fun `a day nobody reported breaks the clean streak, it is not a clean day`() {
+        // Health-ingest приезжает сам по расписанию — наличие записи не значит «не пил».
+        // Блок: −29 чист, −28 чист, −27 только health (никто не отмечал), −26 чист; −30 пусто.
+        seedCleanDay("${today.minusDays(29)}")
+        seedCleanDay("${today.minusDays(28)}")
+        seedHealthOnlyDay("${today.minusDays(27)}")
+        seedCleanDay("${today.minusDays(26)}")
+
+        given().get("/api/days/${today.minusDays(26)}")
+            .then().statusCode(200)
+            // считается только сам −26: неотмеченный −27 обрывает серию, а не продолжает её
+            .body("monsterCleanStreak", equalTo(1))
+    }
+
+    @Test
+    fun `today without a monster report does not add to the clean streak — the report does`() {
+        // Ровно жалоба владельца: авто-health за сегодня приехал, шорткат ещё нет — и стрик
+        // уже вырос на день вперёд. Проверяем дельту, а не абсолют: история до сегодня общая
+        // с другими тест-классами, а правило звучит про «+1 за сегодня».
+        seedHealthOnlyDay("$today")
+
+        val beforeReport = given().get("/api/days/$today")
+            .then().statusCode(200).extract().path<Int>("monsterCleanStreak")
+
+        // Интерактивный шорткат без вкуса — честное «не пил» за сегодня.
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$today","title":"чистый","items":{"stretch":1}}""")
+            .post("/api/ingest/daily").then().statusCode(200)
+
+        given().get("/api/days/$today")
+            .then().statusCode(200)
+            .body("monsterCleanStreak", equalTo(beforeReport + 1))
     }
 
     @Test

@@ -241,17 +241,34 @@ jobs:
             cd /opt/danchuoworld
             export TAG=${{ github.sha }}
 
+            # Pin the rolled-out tag in .env, which compose reads on its own. Without it the
+            # images resolve as ${TAG:-latest}, so ANY hand-run `docker compose up -d` on this
+            # box (restarting one service, poking at the edge) silently rolls production back to
+            # whatever `:latest` is cached on disk — and that copy is ancient, because deploys
+            # only ever pull the sha tag. This is not hypothetical: a manual restart of caddy
+            # once dragged the backend back fifteen releases, and nothing anywhere said so.
+            sed -i '/^TAG=/d' .env
+            echo "TAG=${TAG}" >> .env
+
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
 
-            # The Caddyfile is a bind mount, so scp'ing a new one changes the file on disk but
-            # NOT the running edge: the caddy service definition is unchanged, compose keeps the
-            # container as is, and Caddy serves the config it parsed at startup. A new route
-            # therefore deployed green and 404'd in production until something restarted caddy.
-            # Reload explicitly — it is zero-downtime and validates first, so a broken Caddyfile
-            # fails here loudly instead of taking the edge down.
-            docker compose -f docker-compose.prod.yml exec -T caddy \
-              caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+            # The Caddyfile is bind-mounted as a single FILE, and that mount is pinned to the
+            # inode: scp replaces the file (new inode), the running container keeps the old one.
+            # So the edge kept serving a config nobody could see anymore — and `caddy reload`
+            # did NOT help, because it re-reads the path INSIDE the container and gets the stale
+            # file, which is still valid and reloads green. Only recreating the container
+            # re-resolves the mount. Validate first in a throwaway container so a broken
+            # Caddyfile fails the deploy instead of taking the edge down on restart.
+            docker run --rm -v /opt/danchuoworld/Caddyfile:/etc/caddy/Caddyfile:ro caddy:2 \
+              caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+            # Every service whose config arrives as a bind-mounted file has to be recreated for
+            # the same reason — webdav.yml is the other one. Recreating unconditionally is the
+            # cheap, boring guarantee: a second of downtime on a personal site beats a config
+            # that looks deployed and isn't. Rule for anything added later: bind-mount a config
+            # file, recreate that service here too.
+            docker compose -f docker-compose.prod.yml up -d --force-recreate caddy webdav
 
             # Backend health via its loopback port (8081; 8080 belongs to proxemics).
             # Green = Liquibase ran against the prod DB and the datasource is live.
@@ -272,18 +289,27 @@ jobs:
               && echo "site answers over HTTPS" \
               || echo "::warning::https://danchuo.world not reachable yet (DNS/certificate still settling?)"
 
-            # The reading shelf answers on the exact URL typed into Anx Reader — no trailing
-            # slash, no credentials — and must come back 401 from the WebDAV server. Anything
-            # else (404/308 with HTML) means the request reached Next.js instead: the edge route
-            # is missing or stale, and the phone's sync test fails with "failed to create test
-            # directory". Soft, like the check above: same DNS/ACME dependency.
-            dav=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
-              -X PROPFIND https://danchuo.world/dav || echo "000")
-            if [ "$dav" = "401" ]; then
-              echo "WebDAV shelf answers on /dav (401 = auth challenge, route is live)"
-            else
-              echo "::warning::https://danchuo.world/dav answered $dav, expected 401 — edge route for the reading shelf may not be live"
+            # Edge gate, and deliberately a HARD one. It probes the exact URL typed into Anx
+            # Reader — no trailing slash, no credentials — which must come back 401 from the
+            # WebDAV server. Anything else (404/308 with HTML) means the request reached Next.js
+            # instead, and the owner's phone answers "failed to create test directory".
+            # This is the check that turns a silently stale edge into a red deploy: the whole
+            # class of bug here is a rollout that reports success while serving the old config,
+            # so the last word belongs to a request that only passes on the new one.
+            dav=""
+            for i in $(seq 1 5); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+                -X PROPFIND https://danchuo.world/dav || echo "000")
+              if [ "$code" = "401" ]; then dav=ok; break; fi
+              sleep 3
+            done
+            if [ -z "$dav" ]; then
+              echo "::error::https://danchuo.world/dav answered $code, expected 401 — the edge is not serving the deployed Caddyfile (stale bind mount?) or the webdav container is down"
+              docker compose -f docker-compose.prod.yml ps
+              docker logs --tail 50 danchuoworld-caddy
+              exit 1
             fi
+            echo "WebDAV shelf answers on /dav (401 = auth challenge, route is live)"
 
             # Drop superseded images so old deploys don't fill the disk (dangling only —
             # never touches the proxemics stack's tagged images).

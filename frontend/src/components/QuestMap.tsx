@@ -5,7 +5,7 @@ import type { DisciplineItemView, PodcastEpisodeView, TrackView } from "@/lib/ap
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, NowPlayingCard } from "./NowPlayingCard";
-import { episodeForStop, listenedLabel } from "@/lib/podcastCard";
+import { cardTimeLines, episodeForStop } from "@/lib/podcastCard";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -305,6 +305,13 @@ const PODCAST_KEY = "podcasts";
 // Геометрия карточки в единицах viewBox (400×210), как и вся остальная карта.
 const CARD_W = 214;
 const CARD_H = 54;
+/**
+ * Высота карточки, у которой две строки времени (заход + итог эпизода за день): ровно на строку
+ * `--fs-music-meta` с её отступом больше. Фиксировать высоту приходится потому, что карточка
+ * живёт в `foreignObject` — SVG отводит окно заранее и по содержимому не растёт, а лишнее
+ * подрезает (`overflow: hidden` на боксе).
+ */
+const CARD_H_SPLIT = 68;
 const CARD_COVER = 40;
 /** Насколько край карточки заходит под площадку нажатия (r=22) — чтобы ховер не срывался. */
 const CARD_LIFT = 20;
@@ -421,7 +428,8 @@ function EpisodePreview({
  * вопрос один и тот же («что это было»), и ответ обязан выглядеть одинаково. Отсюда
  * `foreignObject`: карта — SVG, а виджет живёт в HTML, где есть и перенос строк, и бегущая
  * строка, и `text-overflow`. Ручная резка подписей по ширине после этого не нужна.
- * Снизу добавлена строка, которой у плитки нет и быть не может, — сколько из скольких минут.
+ * Снизу добавлены строки, которых у плитки нет и быть не может: сколько из скольких минут, а у
+ * эпизода, разложенного на несколько заходов, — ещё и когда был ИМЕННО ЭТОТ заход (§5.6).
  */
 function PodcastCard({
   cx,
@@ -444,12 +452,17 @@ function PodcastCard({
   if (cx + half > 396) dx = 396 - (cx + half);
   if (cx - half < 4) dx = 4 - (cx - half);
 
+  // Строк времени одна или две (§5.6) — от этого зависит окно foreignObject и точка, от которой
+  // карточка встаёт над превью.
+  const timeLines = cardTimeLines(episode);
+  const height = timeLines.length > 1 ? CARD_H_SPLIT : CARD_H;
+
   // Над ПРЕВЬЮ (а не просто над остановкой), иначе карточка накрывала бы собственную ручку:
   // превью висит сверху-слева от диска, и «над остановкой» приходилось ровно на него.
   // Не помещается сверху — падает под остановку: у верхнего ряда тропы места сверху нет вовсе,
   // карточка вылезала за viewBox и её срезало краем карты, а следом датой в шапке плитки.
   // Тот же ход, что у подсказки дня жизни (HoverTip), и по той же причине.
-  const above = cy - PREVIEW_TUCK - PREVIEW_SIZE - CARD_GAP - CARD_H;
+  const above = cy - PREVIEW_TUCK - PREVIEW_SIZE - CARD_GAP - height;
   const top = above >= VIEWBOX_MARGIN ? above : cy + CARD_LIFT;
 
   return (
@@ -459,10 +472,16 @@ function PodcastCard({
       onMouseEnter={onOpen}
       onMouseLeave={onClose}
     >
-      <foreignObject x={cx + dx - half} y={top} width={CARD_W} height={CARD_H}>
+      <foreignObject x={cx + dx - half} y={top} width={CARD_W} height={height}>
         <div className="quest-card__box" style={CARD_TYPE_SCALE}>
           <NowPlayingCard track={trackOf(episode)} coverSize={CARD_COVER}>
-            <div className="quest-card__time">{listenedLabel(episode)}</div>
+            {timeLines.map((line, i) => (
+              // Вторая строка (итог эпизода за день) — фоном к первой: карточка отвечает
+              // прежде всего за СВОЙ заход, день идёт справкой.
+              <div key={line} className={`quest-card__time${i > 0 ? " quest-card__time--day" : ""}`}>
+                {line}
+              </div>
+            ))}
           </NowPlayingCard>
         </div>
       </foreignObject>

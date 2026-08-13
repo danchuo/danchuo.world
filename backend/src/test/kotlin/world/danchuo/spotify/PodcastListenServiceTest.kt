@@ -89,14 +89,26 @@ class PodcastListenServiceTest {
     }
 
     @Test
-    fun `a long silence starts a new session but the day still sums both`() {
-        listen("A", 20, start)
-        // Час тишины — пауза больше порога разрыва: это уже другое прослушивание.
-        listen("A", 20, start.plusSeconds(3600 + 20 * 60))
+    fun `one episode taken there and back gives a card to each run`() {
+        listen("A", 30, start)
+        // Час тишины — пауза больше порога склейки: это уже другой заход.
+        listen("A", 30, start.plusSeconds(3600 + 30 * 60))
 
         assertEquals(2, sessionCount())
-        assertEquals(40, service.minutesOn(date))
-        // Эпизод один ⇒ карточка одна, хотя сессий было две.
+        assertEquals(60, service.minutesOn(date))
+        // Эпизод один, а карточки ДВЕ: обе остановки закрыты разными заходами.
+        assertEquals(listOf("A", "A"), service.cardsOn(date, 2).map { it.episodeId })
+        assertEquals(listOf(30, 30), service.cardsOn(date, 2).map { (it.listenedMs / 60_000).toInt() })
+    }
+
+    @Test
+    fun `a short break stays one run even though storage split the session`() {
+        listen("A", 30, start)
+        // 20 минут тишины: для хранения это новая сессия (порог 15), для борда — тот же заход.
+        listen("A", 30, start.plusSeconds(30 * 60 + 20 * 60))
+
+        assertEquals(2, sessionCount(), "хранение рвёт по своему порогу")
+        assertEquals(60, service.minutesOn(date))
         assertEquals(listOf("A"), service.cardsOn(date, 2).map { it.episodeId })
     }
 

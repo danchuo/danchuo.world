@@ -4,6 +4,7 @@ import {
   datesInRange,
   dayOfMonth,
   monthNameRu,
+  mskClock,
   mskToday,
   startOfWeek,
   weekWindowAround,
@@ -16,6 +17,13 @@ describe("date (канон MSK)", () => {
     expect(mskToday(new Date("2026-06-18T23:30:00Z"))).toBe("2026-06-19");
     // 2026-06-18 10:00 UTC = 13:00 MSK → тот же день.
     expect(mskToday(new Date("2026-06-18T10:00:00Z"))).toBe("2026-06-18");
+  });
+
+  it("mskClock отдаёт время суток по MSK, а не по зоне смотрящего", () => {
+    // 06:12 UTC — это 09:12 MSK: заход, подписанный утренним, остаётся утренним отовсюду.
+    expect(mskClock("2026-08-13T06:12:00Z")).toBe("09:12");
+    // Через полночь UTC: 21:40 UTC = 00:40 MSK следующих суток.
+    expect(mskClock("2026-08-13T21:40:00Z")).toBe("00:40");
   });
 
   it("addDays считает через границу месяца без дрейфа зоны", () => {

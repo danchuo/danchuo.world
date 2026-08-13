@@ -8,8 +8,8 @@ import world.danchuo.core.config.MskTime
 import world.danchuo.health.WorkoutRepository
 import world.danchuo.monster.MonsterFlavorRepository
 import world.danchuo.spotify.PodcastDayRollup
-import world.danchuo.spotify.PodcastListen
 import world.danchuo.spotify.PodcastListenService
+import world.danchuo.spotify.PodcastRun
 import java.time.LocalDate
 
 /**
@@ -50,9 +50,11 @@ class DayAggregator(
         val record = history.record(date)
 
         // Прослушанное за день читаем ОДИН раз на проекцию: минуты и карточки — свёртки одного
-        // и того же набора сессий, а пункт подкастов в списке ровно один.
-        val podcastListens = podcasts.listensOn(date)
-        val podcastMinutes = PodcastDayRollup.listenedMinutes(podcastListens.sumOf { it.listenedMs })
+        // и того же набора заходов, а пункт подкастов в списке ровно один.
+        val podcastRuns = podcasts.runsOn(date)
+        val podcastMinutes = PodcastDayRollup.listenedMinutes(podcastRuns.sumOf { it.listenedMs })
+        // Минуты эпизода за весь день — знаменатель строки «80 из 85 мин за день» на карточке.
+        val podcastEpisodeMinutes = PodcastDayRollup.episodeMinutes(podcastRuns)
 
         val discipline = items.map { item ->
             val itemId = item.id!!
@@ -81,7 +83,8 @@ class DayAggregator(
                     else -> null
                 },
                 episodes = if (item.key == PODCAST_ITEM_KEY) {
-                    PodcastDayRollup.cards(podcastListens, item.target).map(::episodeViewOf)
+                    PodcastDayRollup.cards(podcastRuns, item.target)
+                        .map { episodeViewOf(it, podcastEpisodeMinutes) }
                 } else {
                     emptyList()
                 },
@@ -177,16 +180,23 @@ class DayAggregator(
             .toList()
     }
 
-    /** Карточка эпизода: миллисекунды свёртки переводим в минуты уже на выходе. */
-    private fun episodeViewOf(listen: PodcastListen) = PodcastEpisodeView(
-        episodeName = listen.episodeName,
-        episodeUrl = listen.episodeUrl,
-        showName = listen.showName,
-        showUrl = listen.showUrl,
-        imageUrl = listen.imageUrl,
-        listenedMinutes = PodcastDayRollup.listenedMinutes(listen.listenedMs),
-        durationMinutes = listen.episodeDurationMs?.let { PodcastDayRollup.listenedMinutes(it) },
-    )
+    /** Карточка захода: миллисекунды свёртки переводим в минуты уже на выходе. */
+    private fun episodeViewOf(run: PodcastRun, episodeMinutes: Map<String, Int>): PodcastEpisodeView {
+        val listened = PodcastDayRollup.listenedMinutes(run.listenedMs)
+        return PodcastEpisodeView(
+            episodeName = run.episodeName,
+            episodeUrl = run.episodeUrl,
+            showName = run.showName,
+            showUrl = run.showUrl,
+            imageUrl = run.imageUrl,
+            startedAt = run.startedAt,
+            listenedMinutes = listened,
+            // Карточка всегда собрана из своего захода, поэтому эпизод в карте есть; фолбэк —
+            // чтобы «за день» никогда не оказалось меньше, чем уже показано за заход.
+            dayMinutes = maxOf(episodeMinutes[run.episodeId] ?: 0, listened),
+            durationMinutes = run.episodeDurationMs?.let { PodcastDayRollup.listenedMinutes(it) },
+        )
+    }
 
     /** Выходной MSK (даты оси уже в MSK): суббота/воскресенье — нейтральны для стрика дисциплины. */
     private fun isWeekend(d: LocalDate): Boolean =

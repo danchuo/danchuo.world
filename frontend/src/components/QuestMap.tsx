@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Keyb
 import type { DisciplineItemView, PodcastEpisodeView, TrackView } from "@/lib/api/types";
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
-import { NowPlayingCard } from "./NowPlayingCard";
+import { Cover, NowPlayingCard } from "./NowPlayingCard";
 import { episodeForStop, listenedLabel } from "@/lib/podcastCard";
 
 /**
@@ -310,6 +310,37 @@ const CARD_COVER = 40;
 const CARD_LIFT = 20;
 /** Запас до края viewBox: ближе — считаем, что карточка не помещается. */
 const VIEWBOX_MARGIN = 2;
+/** Зазор между карточкой и превью, над которым она встаёт. */
+const CARD_GAP = 3;
+
+/** Сторона превью обложки эпизода (единицы viewBox): ~26 CSS-пикселей на мобильной ширине. */
+const PREVIEW_SIZE = 30;
+/** Насколько близко к ЦЕНТРУ диска (r=17) подходит нижний-правый угол превью: чем меньше,
+ *  тем глубже картинка уходит под иконку остановки. 6 — угол скрыт больше чем наполовину
+ *  радиуса, картинка явно лежит ПОД остановкой, а не рядом с ней. */
+const PREVIEW_TUCK = 6;
+
+/**
+ * Отсрочка закрытия карточки. Указатель, переезжающий с превью на карточку, сперва покидает
+ * одно (pointerleave) и лишь потом входит в другое (mouseenter) — а между ними бывает и голый
+ * зазор карты. Без паузы карточка гасла бы на полпути к своим ссылкам.
+ */
+const CLOSE_DELAY_MS = 140;
+
+/** Левый-верхний угол превью у остановки в (cx, cy). */
+function previewXY(cx: number, cy: number): [number, number] {
+  return [cx - PREVIEW_TUCK - PREVIEW_SIZE, cy - PREVIEW_TUCK - PREVIEW_SIZE];
+}
+
+/**
+ * Мышиный ли это указатель. Тач и перо честно называют себя в `pointerType`; отсутствие типа
+ * (jsdom его не знает — PointerEvent там не реализован) считаем мышью.
+ *
+ * Разделение обязано быть именно на pointer-событиях: тач-тап досылает следом ЭМУЛИРОВАННЫЕ
+ * мышиные события (mouseenter/click), и на них ховер-ветка сработала бы вторым заходом, гася
+ * только что открытую тапом карточку.
+ */
+const isMouse = (e: { pointerType?: string }) => e.pointerType !== "touch" && e.pointerType !== "pen";
 
 /**
  * Кегли карточки в единицах viewBox. Штатные `--fs-music-*` заданы в `cqw` и настроены на
@@ -325,6 +356,55 @@ const CARD_TYPE_SCALE = {
   "--fs-music-artists": "9px",
   "--fs-music-meta": "8.5px",
 } as CSSProperties;
+
+/**
+ * Превью обложки эпизода у остановки подкаста (§5.6). Стоит СВЕРХУ-СЛЕВА от диска, и его
+ * нижний-правый угол уходит ПОД диск: перекрытие связывает картинку с остановкой (это её
+ * эпизод, а не отдельный кадр на карте) и даёт плоской тропе слой глубины. Отсюда же порядок
+ * разметки — превью рисуется ДО остановки, иначе в SVG (где нет z-index) угол лёг бы поверх.
+ *
+ * Оно же — единственная ручка карточки: раскрывает её наведение НА ПРЕВЬЮ, а не на всю
+ * остановку. Остановка — переключатель линзы календаря, и пока карточку звала она, любой проход
+ * указателя по маршруту вываливал тултип поверх карты.
+ *
+ * Обложку рисует [Cover] из карточки плеера, а не свой `<image>`: это одна и та же обложка
+ * одного и того же эпизода — и `null` (обложки нет) оба должны показывать одинаково. Отсюда
+ * `foreignObject`, как и у самой карточки. Рамки у превью НЕТ: кант в единицах viewBox
+ * приезжает на экран дробным пикселем и ложится неровно, а держать картинку и без него есть
+ * чему — её край и так очерчен диском остановки.
+ */
+function EpisodePreview({
+  cx,
+  cy,
+  episode,
+  occurrence,
+  onHover,
+  onTap,
+}: {
+  cx: number;
+  cy: number;
+  episode: PodcastEpisodeView;
+  occurrence: number;
+  onHover: () => void;
+  onTap: () => void;
+}) {
+  const [x, y] = previewXY(cx, cy);
+  return (
+    <g
+      className="quest-preview"
+      data-testid={`quest-preview-${PODCAST_KEY}-${occurrence}`}
+      onPointerEnter={(e) => isMouse(e) && onHover()}
+      onPointerDown={(e) => !isMouse(e) && onTap()}
+      aria-hidden
+    >
+      <foreignObject x={x} y={y} width={PREVIEW_SIZE} height={PREVIEW_SIZE}>
+        <div className="quest-preview__box">
+          <Cover url={episode.imageUrl} alt="" size={PREVIEW_SIZE} />
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
 
 /**
  * Карточка прослушанного эпизода у остановки подкастов (§5.6): обложка, эпизод и шоу со
@@ -364,10 +444,12 @@ function PodcastCard({
   if (cx + half > 396) dx = 396 - (cx + half);
   if (cx - half < 4) dx = 4 - (cx - half);
 
-  // Над остановкой, а если там не помещается — под ней. У верхнего ряда тропы места сверху нет
-  // вовсе: карточка вылезала за viewBox, и её срезало краем карты, а следом датой в шапке
-  // плитки. Тот же ход, что у подсказки дня жизни (HoverTip), и по той же причине.
-  const above = cy - CARD_LIFT - CARD_H;
+  // Над ПРЕВЬЮ (а не просто над остановкой), иначе карточка накрывала бы собственную ручку:
+  // превью висит сверху-слева от диска, и «над остановкой» приходилось ровно на него.
+  // Не помещается сверху — падает под остановку: у верхнего ряда тропы места сверху нет вовсе,
+  // карточка вылезала за viewBox и её срезало краем карты, а следом датой в шапке плитки.
+  // Тот же ход, что у подсказки дня жизни (HoverTip), и по той же причине.
+  const above = cy - PREVIEW_TUCK - PREVIEW_SIZE - CARD_GAP - CARD_H;
   const top = above >= VIEWBOX_MARGIN ? above : cy + CARD_LIFT;
 
   return (
@@ -452,27 +534,56 @@ export function QuestMap({
    */
   const [openCard, setOpenCard] = useState<string | null>(null);
   const closeTimer = useRef<number | null>(null);
+  /** Зеркало [openCard] для обработчиков: тап-переключатель и слушатель документа читают
+   *  состояние из замыканий, созданных один раз. */
+  const openRef = useRef<string | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current === null) return;
+    clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  }, []);
 
   const open = useCallback((key: string) => {
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
+    cancelClose();
+    openRef.current = key;
     setOpenCard(key);
-  }, []);
+  }, [cancelClose]);
+
+  const closeNow = useCallback(() => {
+    cancelClose();
+    openRef.current = null;
+    setOpenCard(null);
+  }, [cancelClose]);
+
+  /** Закрытие с отсрочкой [CLOSE_DELAY_MS] — см. комментарий у константы. */
+  const close = useCallback(() => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(closeNow, CLOSE_DELAY_MS);
+  }, [cancelClose, closeNow]);
+
+  /** Тач: тап по превью показывает карточку, повторный — прячет (ховера на пальце нет). */
+  const toggle = useCallback((key: string) => {
+    if (openRef.current === key) closeNow();
+    else open(key);
+  }, [closeNow, open]);
 
   /**
-   * Закрытие отложено на такт. Указатель, переезжающий с остановки на карточку, сперва
-   * покидает одну (mouseleave) и лишь потом входит в другую (mouseenter) — без отсрочки
-   * карточка успевала бы мигнуть и погасить себе `pointer-events`, не дав дойти до ссылок.
+   * Тап мимо — закрыть. На тач-устройстве «увести указатель» нечем, и без этого раскрытая
+   * карточка осталась бы висеть поверх карты навсегда. Слушаем на фазе перехвата и пропускаем
+   * тапы по самой карточке (в ней живые ссылки) и по превью (у него свой переключатель).
    */
-  const close = useCallback(() => {
-    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => {
-      closeTimer.current = null;
-      setOpenCard(null);
-    }, 0);
-  }, []);
+  useEffect(() => {
+    if (openCard === null) return;
+    const onDown = (e: Event) => {
+      const target = e.target as Element | null;
+      if (typeof target?.closest !== "function") return;
+      if (target.closest(".quest-card--open") || target.closest(".quest-preview")) return;
+      closeNow();
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [openCard, closeNow]);
 
   useEffect(() => () => {
     if (closeTimer.current !== null) clearTimeout(closeTimer.current);
@@ -607,15 +718,30 @@ export function QuestMap({
         const episode = s.key === PODCAST_KEY
           ? episodeForStop(byKey.get(s.key)?.episodes, s.occurrence)
           : null;
+        const cardKey = `${s.key}-${s.occurrence}`;
         return (
           <g
-            key={`${s.key}-${s.occurrence}`}
+            key={cardKey}
             className="quest-slot"
-            onMouseEnter={episode ? () => open(`${s.key}-${s.occurrence}`) : undefined}
-            onMouseLeave={episode ? close : undefined}
-            onFocus={episode ? () => open(`${s.key}-${s.occurrence}`) : undefined}
+            // Закрытие висит на ВСЁМ слоте, а раскрытие — только на превью: пока указатель
+            // ходит внутри остановки (диск, площадка нажатия, подписи), карточка не гаснет,
+            // и до её ссылок можно доехать через диск. Клавиатуре превью не досталось (оно
+            // aria-hidden — обложку уже несёт сама карточка), поэтому фокус остановки
+            // раскрывает карточку сам: иначе с клавиатуры до неё было бы не добраться.
+            onPointerLeave={episode ? (e) => isMouse(e) && close() : undefined}
+            onFocus={episode ? () => open(cardKey) : undefined}
             onBlur={episode ? close : undefined}
           >
+          {episode && (
+            <EpisodePreview
+              cx={cx}
+              cy={cy}
+              episode={episode}
+              occurrence={s.occurrence}
+              onHover={() => open(cardKey)}
+              onTap={() => toggle(cardKey)}
+            />
+          )}
           <g
             className={`quest-stop ${stopClass(i)}${interactive ? " quest-stop--interactive" : ""}${focused ? " quest-stop--focused" : ""}`}
             data-testid={`quest-stop-${s.key}-${s.occurrence}`}

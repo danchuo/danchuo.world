@@ -244,6 +244,15 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
 
+            # The Caddyfile is a bind mount, so scp'ing a new one changes the file on disk but
+            # NOT the running edge: the caddy service definition is unchanged, compose keeps the
+            # container as is, and Caddy serves the config it parsed at startup. A new route
+            # therefore deployed green and 404'd in production until something restarted caddy.
+            # Reload explicitly — it is zero-downtime and validates first, so a broken Caddyfile
+            # fails here loudly instead of taking the edge down.
+            docker compose -f docker-compose.prod.yml exec -T caddy \
+              caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
             # Backend health via its loopback port (8081; 8080 belongs to proxemics).
             # Green = Liquibase ran against the prod DB and the datasource is live.
             ok=""
@@ -262,6 +271,19 @@ jobs:
             curl -fsS --max-time 15 https://danchuo.world > /dev/null \
               && echo "site answers over HTTPS" \
               || echo "::warning::https://danchuo.world not reachable yet (DNS/certificate still settling?)"
+
+            # The reading shelf answers on the exact URL typed into Anx Reader — no trailing
+            # slash, no credentials — and must come back 401 from the WebDAV server. Anything
+            # else (404/308 with HTML) means the request reached Next.js instead: the edge route
+            # is missing or stale, and the phone's sync test fails with "failed to create test
+            # directory". Soft, like the check above: same DNS/ACME dependency.
+            dav=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+              -X PROPFIND https://danchuo.world/dav || echo "000")
+            if [ "$dav" = "401" ]; then
+              echo "WebDAV shelf answers on /dav (401 = auth challenge, route is live)"
+            else
+              echo "::warning::https://danchuo.world/dav answered $dav, expected 401 — edge route for the reading shelf may not be live"
+            fi
 
             # Drop superseded images so old deploys don't fill the disk (dangling only —
             # never touches the proxemics stack's tagged images).

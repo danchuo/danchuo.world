@@ -13,7 +13,12 @@ danchuo.world {
 	# Anx Reader sync target (PRD §5.16). The prefix is deliberately NOT stripped: PROPFIND
 	# replies carry absolute hrefs, so the WebDAV server is configured with the same /dav
 	# prefix and must keep seeing it. Auth is basic auth inside the WebDAV server itself.
-	handle /dav/* {
+	#
+	# Bare /dav must be matched too, not just /dav/*: Anx probes the base URL exactly as the
+	# owner typed it, and /dav/* alone lets that probe fall through to Next.js, which answers
+	# HTML 404 (or a 308 to the slashless path) — the client then reports a failed sync test.
+	@dav path /dav /dav/*
+	handle @dav {
 		reverse_proxy webdav:6065
 	}
 

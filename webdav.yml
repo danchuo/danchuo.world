@@ -1,0 +1,28 @@
+# danchuo.world — WebDAV endpoint for the Anx Reader sync (PRD §5.16, reading slice).
+#
+# This is the ONLY write channel the phone has into the reading data: Anx uploads its whole
+# SQLite database (anx/database7.db) plus book files and covers (anx/data/{file,cover}/…) here,
+# and the backend reads that volume read-only. Nothing else in the stack writes to it.
+#
+# Why a stock WebDAV server and not an endpoint of our own: Anx speaks the full verb set
+# (PROPFIND/MKCOL/MOVE/DELETE, not just GET/PUT), and a half-implemented server fails in ways
+# that look like lost reading sessions. Considered and rejected: hand-rolling WebDAV inside
+# Quarkus — saves a container, costs a protocol we would have to keep correct forever.
+#
+# The prefix must match the Caddy route (/dav/*) and must NOT be stripped by the proxy: PROPFIND
+# replies carry absolute hrefs, so the server has to know the path the client sees. Strip it and
+# the client walks off to /anx/… and finds nothing.
+
+address: 0.0.0.0
+port: 6065
+prefix: /dav
+directory: /data
+
+# Anx creates directories, uploads, overwrites and prunes — it needs the full set.
+permissions: CRUD
+
+# Single user, credentials from the environment (compose feeds them from .env; the local test
+# stack has open defaults on purpose, like the ingest token next to it).
+users:
+  - username: "{env}WEBDAV_USERNAME"
+    password: "{env}WEBDAV_PASSWORD"

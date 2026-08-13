@@ -86,15 +86,30 @@ export function Marquee({ children, style }: { children: ReactNode; style?: CSSP
   );
 }
 
-/** Обложка; [size] задаётся снаружи — в плитке это CSS-пиксели, в карте единицы viewBox. */
-export function Cover({ url, alt, size = 44 }: { url: string | null; alt: string; size?: number }) {
+/**
+ * Обложка; [size] задаётся снаружи — в плитке это CSS-пиксели, в карте единицы viewBox.
+ *
+ * [height] отдельно от [size] нужно книгам: обложка книги портретная (~2:3), и в квадрате
+ * подкаста она либо сминается, либо срезается по корешку. По умолчанию квадрат — как было.
+ */
+export function Cover({
+  url,
+  alt,
+  size = 44,
+  height = size,
+}: {
+  url: string | null;
+  alt: string;
+  size?: number;
+  height?: number;
+}) {
   if (!url) {
     return (
       <div
         aria-hidden
         style={{
           width: size,
-          height: size,
+          height,
           flexShrink: 0,
           background: "var(--bg-surface-muted)",
           borderRadius: "var(--radius-sm)",
@@ -108,8 +123,10 @@ export function Cover({ url, alt, size = 44 }: { url: string | null; alt: string
       src={url}
       alt={alt}
       width={size}
-      height={size}
-      style={{ flexShrink: 0, borderRadius: "var(--radius-sm)" }}
+      height={height}
+      // Кадрируем, а не мнём: пропорции обложки на экране должны остаться её собственными,
+      // даже если книга оказалась не ровно 2:3.
+      style={{ flexShrink: 0, borderRadius: "var(--radius-sm)", objectFit: "cover" }}
     />
   );
 }

@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import type { DisciplineItemView, PodcastEpisodeView, TrackView } from "@/lib/api/types";
+import type {
+  DisciplineItemView,
+  PodcastEpisodeView,
+  ReadingBookView,
+  TrackView,
+} from "@/lib/api/types";
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
-import { Cover, NowPlayingCard } from "./NowPlayingCard";
+import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
 import { cardTimeLines, episodeForStop } from "@/lib/podcastCard";
+import { bookForStop, progressLabel, readingTimeLine } from "@/lib/readingCard";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -339,6 +345,83 @@ function previewXY(cx: number, cy: number): [number, number] {
   return [cx - PREVIEW_TUCK - PREVIEW_SIZE, cy - PREVIEW_TUCK - PREVIEW_SIZE];
 }
 
+/** Ключ пункта чтения: его остановки несут обложки книг (§5.16). */
+const READING_KEY = "reading";
+
+/**
+ * Превью книги портретное: обложка книги — не квадрат подкаста, и приводить её к квадрату
+ * значило бы либо смять корешок, либо срезать половину названия.
+ */
+const BOOK_PREVIEW_W = 22;
+const BOOK_PREVIEW_H = 33;
+
+/** Обложка внутри карточки книги — та же пропорция, крупнее. */
+const BOOK_CARD_COVER_W = 30;
+const BOOK_CARD_COVER_H = 45;
+/**
+ * Высота карточки книги. Строк у неё **четыре** (название, автор, проценты, время) против трёх
+ * у подкаста — отсюда и разница с его 54/68, а не из-за обложки.
+ *
+ * ⚠️ Число обязано покрывать содержимое целиком: карточка живёт в `foreignObject`, а он отводит
+ * окно ЗАРАНЕЕ и по содержимому не растёт — не хватило, и `overflow: hidden` молча срежет нижнюю
+ * строку (ловилось владельцем: пропадало время захода). Замер на борде: четыре строки с полями
+ * просят 70 единиц.
+ */
+const BOOK_CARD_H = 72;
+
+/**
+ * Левый-верхний угол превью обложки книги. Стороны у двух остановок РАЗНЫЕ (решение владельца):
+ * у верхней книга выглядывает слева, у нижней — справа. Дело не в симметрии ради симметрии:
+ * остановки чтения стоят в разных рядах тропы, и две картинки с одной стороны читались бы как
+ * одна колонка, оторванная от своих кружков.
+ */
+function bookPreviewXY(cx: number, cy: number, side: "left" | "right"): [number, number] {
+  const x = side === "left" ? cx - PREVIEW_TUCK - BOOK_PREVIEW_W : cx + PREVIEW_TUCK;
+  return [x, cy - PREVIEW_TUCK - BOOK_PREVIEW_H];
+}
+
+/** Сторона превью по номеру остановки: первая — слева, вторая и дальше — справа. */
+const bookSide = (occurrence: number): "left" | "right" => (occurrence === 1 ? "left" : "right");
+
+/** Поля и зазор карточки книги — те же, что в её CSS; ширина считается по ним. */
+const BOOK_CARD_PAD = 6;
+const BOOK_CARD_GAP = 6;
+/** Запас к оценке ширины: дешевле пары лишних единиц, чем строка, ушедшая в многоточие. */
+const BOOK_CARD_SLACK = 4;
+/** Уже этого карточка не жмётся: у совсем короткого названия она перестала бы читаться карточкой. */
+const BOOK_CARD_MIN_W = 104;
+
+/**
+ * Ширина карточки книги — **по содержимому**, а не фиксированная.
+ *
+ * У подкаста карточка одной ширины на всё, и это оправдано: название эпизода почти всегда
+ * длинное. У книги наоборот — «Дюна» оставляла бы две трети карточки пустыми (замечено
+ * владельцем), а полоса пустоты справа читается как недогрузившийся виджет.
+ *
+ * Ширина строк **оценивается**, а не измеряется: карточка живёт в `foreignObject`, который
+ * отводит окно ЗАРАНЕЕ, — к моменту, когда что-то можно померить, окно уже назначено. Оценка
+ * идёт по числу знаков и кеглю; коэффициенты подобраны с запасом (кириллица шире латиницы),
+ * а ошибиться она может только в одну сторону: не хватило — название поедет бегущей строкой,
+ * ровно как у подкаста. Потолок — та же [CARD_W], чтобы карточки двух пунктов не расходились
+ * в разные габариты.
+ */
+function bookCardWidth(book: ReadingBookView): number {
+  // Доли кегля на знак — ЗАМЕРЕНЫ на борде, а не прикинуты: пропорциональный шрифт дал
+  // 0.58–0.70 em/знак (короткие слова из широкой кириллицы задирают долю), моноширинный —
+  // 0.60–0.71. Берём верх диапазона плюс запас ниже: ошибка в меньшую сторону стоит
+  // многоточия, в большую — только лишней пустоты, от которой мы и уходим.
+  const proportional = 0.65;
+  const mono = 0.7;
+  const titleW = book.title.length * 11 * proportional;
+  const authorW = (book.author?.length ?? 0) * 8.5 * proportional;
+  const progressW = (progressLabel(book)?.length ?? 0) * 8.5 * mono;
+  const timeW = readingTimeLine(book).length * 8.5 * mono;
+
+  const text = Math.max(titleW, authorW, progressW, timeW) + BOOK_CARD_SLACK;
+  const total = BOOK_CARD_PAD * 2 + BOOK_CARD_COVER_W + BOOK_CARD_GAP + text;
+  return Math.round(Math.min(CARD_W, Math.max(BOOK_CARD_MIN_W, total)));
+}
+
 /**
  * Мышиный ли это указатель. Тач и перо честно называют себя в `pointerType`; отсутствие типа
  * (jsdom его не знает — PointerEvent там не реализован) считаем мышью.
@@ -490,6 +573,120 @@ function PodcastCard({
 }
 
 /**
+ * Превью обложки книги, выглядывающее из-под остановки чтения (§5.16) — тот же приём, что у
+ * подкастов, и по той же причине: остановка отвечает «что именно ты читал», не дожидаясь ховера.
+ *
+ * Отличий от подкастового два, и оба от предмета. Пропорция портретная (обложка книги — не
+ * конверт), и сторона зависит от номера остановки ([bookPreviewXY]).
+ */
+function BookPreview({
+  cx,
+  cy,
+  book,
+  occurrence,
+  onHover,
+  onTap,
+}: {
+  cx: number;
+  cy: number;
+  book: ReadingBookView;
+  occurrence: number;
+  onHover: () => void;
+  onTap: () => void;
+}) {
+  const [x, y] = bookPreviewXY(cx, cy, bookSide(occurrence));
+  return (
+    <g
+      className="quest-preview"
+      data-testid={`quest-preview-${READING_KEY}-${occurrence}`}
+      onPointerEnter={(e) => isMouse(e) && onHover()}
+      onPointerDown={(e) => !isMouse(e) && onTap()}
+      aria-hidden
+    >
+      <foreignObject x={x} y={y} width={BOOK_PREVIEW_W} height={BOOK_PREVIEW_H}>
+        <div className="quest-preview__box">
+          <Cover url={book.coverUrl} alt="" size={BOOK_PREVIEW_W} height={BOOK_PREVIEW_H} />
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
+
+/**
+ * Карточка прочитанного у остановки чтения (§5.16): обложка, книга и автор, пройденный кусок и
+ * когда/сколько читали. Тот же язык и та же механика всплытия, что у [PodcastCard].
+ *
+ * Ссылок внутри нет — книга лежит на полке владельца, вести с неё некуда. Поэтому карточка не
+ * обязана ловить указатель ради своих ссылок, но события всё равно слушает: иначе она гасла бы,
+ * стоило указателю с превью заехать на неё саму.
+ *
+ * Строк текста три, и порядок в них по убыванию вопроса: что читал → сколько прошёл → когда и
+ * сколько. Пройденный кусок стоит выше времени, потому что именно он отвечает «а был ли толк»;
+ * его может не быть вовсе (импортированный день), и тогда строка просто не рисуется.
+ */
+function BookCard({
+  cx,
+  cy,
+  book,
+  occurrence,
+  open,
+  onOpen,
+  onClose,
+}: {
+  cx: number;
+  cy: number;
+  book: ReadingBookView;
+  occurrence: number;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const width = bookCardWidth(book);
+  const half = width / 2;
+  let dx = 0;
+  if (cx + half > 396) dx = 396 - (cx + half);
+  if (cx - half < 4) dx = 4 - (cx - half);
+
+  // Над своим превью, а не над остановкой: иначе карточка накрыла бы собственную ручку.
+  const above = cy - PREVIEW_TUCK - BOOK_PREVIEW_H - CARD_GAP - BOOK_CARD_H;
+  const top = above >= VIEWBOX_MARGIN ? above : cy + CARD_LIFT;
+  const progress = progressLabel(book);
+
+  return (
+    <g
+      className={`quest-card${open ? " quest-card--open" : ""}`}
+      data-testid="quest-card"
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+    >
+      <foreignObject x={cx + dx - half} y={top} width={width} height={BOOK_CARD_H}>
+        <div className="quest-card__box quest-card__box--book" style={CARD_TYPE_SCALE}>
+          <Cover
+            url={book.coverUrl}
+            alt=""
+            size={BOOK_CARD_COVER_W}
+            height={BOOK_CARD_COVER_H}
+          />
+          <div className="quest-book__text">
+            {/* Название — единственная строка, которой оценка ширины может не хватить (длинные
+                заголовки с подзаголовком). Не влезло — едет бегущей строкой, тем же механизмом,
+                что у подкаста, а не обрывается многоточием. */}
+            <Marquee>
+              <div className="quest-book__title" data-testid={`quest-book-title-${occurrence}`}>
+                {book.title}
+              </div>
+            </Marquee>
+            {book.author && <div className="quest-book__author">{book.author}</div>}
+            {progress && <div className="quest-book__progress">{progress}</div>}
+            <div className="quest-card__time">{readingTimeLine(book)}</div>
+          </div>
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
+
+/**
  * Эпизод в форму карточки плеера: «исполнитель» — это шоу со своей ссылкой, обложка эпизода
  * встаёт на место обложки альбома, альбома нет (виджет эту строку просто не рисует). Ровно то
  * же приведение делает бэкенд для плитки «сейчас играет» — здесь оно повторено на готовых
@@ -618,6 +815,13 @@ export function QuestMap({
     const [cx, cy] = STOPS_XY[i];
     return [{ key: `${s.key}-${s.occurrence}`, cx, cy, episode }];
   });
+  const readingCards = ROUTE.flatMap((s, i) => {
+    if (s.key !== READING_KEY) return [];
+    const book = bookForStop(byKey.get(s.key)?.books, s.occurrence);
+    if (!book) return [];
+    const [cx, cy] = STOPS_XY[i];
+    return [{ key: `${s.key}-${s.occurrence}`, cx, cy, book, occurrence: s.occurrence }];
+  });
 
   const doneCount = done.filter(Boolean).length;
   const perfect = doneCount === ROUTE.length;
@@ -650,6 +854,9 @@ export function QuestMap({
     // а под кружком — сумма за сутки «62 мин». Заодно вторая остановка перестаёт молчать.
     const episode = episodeForStop(byKey.get(key)?.episodes, occurrence);
     if (episode) return `${episode.listenedMinutes} мин`;
+    // У чтения ровно так же: под кружком стоят минуты СВОЕЙ сессии, а не сумма за сутки.
+    const book = bookForStop(byKey.get(key)?.books, occurrence);
+    if (book) return `${book.readMinutes} мин`;
     // Дневник (и подкасты, не набравшие ни одной карточки) — измерение дня, только у первой
     // остановки: «6 мин» под незакрытым кружком отвечает «почему не засчиталось».
     if (occurrence !== 1) return null;
@@ -737,6 +944,12 @@ export function QuestMap({
         const episode = s.key === PODCAST_KEY
           ? episodeForStop(byKey.get(s.key)?.episodes, s.occurrence)
           : null;
+        // То же у чтения: карточка есть, пока сессий хватает на эту остановку (§5.16).
+        const book = s.key === READING_KEY
+          ? bookForStop(byKey.get(s.key)?.books, s.occurrence)
+          : null;
+        // Ховер-механика общая: слот гасит карточку, превью её раскрывает.
+        const hasCard = !!episode || !!book;
         const cardKey = `${s.key}-${s.occurrence}`;
         return (
           <g
@@ -747,15 +960,25 @@ export function QuestMap({
             // и до её ссылок можно доехать через диск. Клавиатуре превью не досталось (оно
             // aria-hidden — обложку уже несёт сама карточка), поэтому фокус остановки
             // раскрывает карточку сам: иначе с клавиатуры до неё было бы не добраться.
-            onPointerLeave={episode ? (e) => isMouse(e) && close() : undefined}
-            onFocus={episode ? () => open(cardKey) : undefined}
-            onBlur={episode ? close : undefined}
+            onPointerLeave={hasCard ? (e) => isMouse(e) && close() : undefined}
+            onFocus={hasCard ? () => open(cardKey) : undefined}
+            onBlur={hasCard ? close : undefined}
           >
           {episode && (
             <EpisodePreview
               cx={cx}
               cy={cy}
               episode={episode}
+              occurrence={s.occurrence}
+              onHover={() => open(cardKey)}
+              onTap={() => toggle(cardKey)}
+            />
+          )}
+          {book && (
+            <BookPreview
+              cx={cx}
+              cy={cy}
+              book={book}
               occurrence={s.occurrence}
               onHover={() => open(cardKey)}
               onTap={() => toggle(cardKey)}
@@ -888,6 +1111,23 @@ export function QuestMap({
               cx={c.cx}
               cy={c.cy}
               episode={c.episode}
+              open={openCard === c.key}
+              onOpen={() => open(c.key)}
+              onClose={close}
+            />
+          ))}
+        </g>
+      )}
+      {/* Карточки книг — тем же последним слоем и по той же причине (§5.16). */}
+      {readingCards.length > 0 && (
+        <g className="quest-cards">
+          {readingCards.map((c) => (
+            <BookCard
+              key={c.key}
+              cx={c.cx}
+              cy={c.cy}
+              book={c.book}
+              occurrence={c.occurrence}
               open={openCard === c.key}
               onOpen={() => open(c.key)}
               onClose={close}

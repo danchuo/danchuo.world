@@ -44,13 +44,33 @@ services:
       # Каталог кадров фото-дропов (B1, PRD §5.12). В prod-профиле обязателен из env;
       # монтируем именованный том ниже, чтобы загруженные дропы переживали пересборку контейнера.
       DANCHUO_FILM_DIR: /data/film
+      # Корень полки Anx Reader (PRD §5.16): сюда телефон льёт свою базу по WebDAV, отсюда
+      # поллер чтения её читает. Том общий с сервисом webdav, но смонтирован :ro — бэкенд
+      # читатель, а не писатель; единственный канал записи — сам WebDAV.
+      DANCHUO_READING_DIR: /data/anx
     ports:
       - "8080:8080"
     volumes:
       - filmdata:/data/film
+      - anxdata:/data/anx:ro
     depends_on:
       postgres:
         condition: service_healthy
+
+  # WebDAV-приёмник синка Anx Reader. Наружу локально торчит портом (телефон в той же сети
+  # ходит на http://<ip-машины>:6065/dav); в проде тот же контейнер стоит за Caddy на /dav/*.
+  webdav:
+    image: ghcr.io/hacdias/webdav:v5
+    command: ["-c", "/config.yml"]
+    environment:
+      # Тестовый стек: креды открыты намеренно, как ingest-токен выше. Прод берёт их из .env.
+      WEBDAV_USERNAME: danchuo
+      WEBDAV_PASSWORD: dev-webdav-change-me
+    ports:
+      - "6065:6065"
+    volumes:
+      - ./webdav.yml:/config.yml:ro
+      - anxdata:/data
 
   frontend:
     build:
@@ -78,3 +98,4 @@ services:
 volumes:
   pgdata:
   filmdata:
+  anxdata:

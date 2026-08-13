@@ -7,6 +7,9 @@ import world.danchuo.checklist.ChecklistItemRepository
 import world.danchuo.core.config.MskTime
 import world.danchuo.health.WorkoutRepository
 import world.danchuo.monster.MonsterFlavorRepository
+import world.danchuo.reading.ReadingDayRollup
+import world.danchuo.reading.ReadingService
+import world.danchuo.reading.ReadingSession
 import world.danchuo.spotify.PodcastDayRollup
 import world.danchuo.spotify.PodcastListenService
 import world.danchuo.spotify.PodcastRun
@@ -29,6 +32,7 @@ class DayAggregator(
     private val checklistEntries: ChecklistEntryRepository,
     private val monsterFlavors: MonsterFlavorRepository,
     private val podcasts: PodcastListenService,
+    private val reading: ReadingService,
     private val mskTime: MskTime,
 ) {
 
@@ -56,6 +60,11 @@ class DayAggregator(
         // Минуты эпизода за весь день — знаменатель строки «80 из 85 мин за день» на карточке.
         val podcastEpisodeMinutes = PodcastDayRollup.episodeMinutes(podcastRuns)
 
+        // Прочитанное за день — так же одним чтением: минуты и карточки суть свёртки одного и
+        // того же набора сессий, а пункт чтения в списке ровно один.
+        val readingSessions = reading.sessionsOn(date)
+        val readingMinutes = ReadingDayRollup.minutes(readingSessions.sumOf { it.readSeconds })
+
         val discipline = items.map { item ->
             val itemId = item.id!!
             // Стрик по КАЖДОЙ остановке пункта: occurrence k (1..target) закрыт днями с count ≥ k.
@@ -80,11 +89,18 @@ class DayAggregator(
                     JOURNAL_ITEM_KEY -> record?.journalMinutes
                     // Ноль минут — это «не слушал», а не измерение: пусть молчит, как остальные.
                     PODCAST_ITEM_KEY -> podcastMinutes.takeIf { it > 0 }
+                    // Чтение измеряется так же — минутами с полки читалки (§5.16).
+                    READING_ITEM_KEY -> readingMinutes.takeIf { it > 0 }
                     else -> null
                 },
                 episodes = if (item.key == PODCAST_ITEM_KEY) {
                     PodcastDayRollup.cards(podcastRuns, item.target)
                         .map { episodeViewOf(it, podcastEpisodeMinutes) }
+                } else {
+                    emptyList()
+                },
+                books = if (item.key == READING_ITEM_KEY) {
+                    ReadingDayRollup.cards(readingSessions, item.target).map(::readingBookViewOf)
                 } else {
                     emptyList()
                 },
@@ -198,6 +214,20 @@ class DayAggregator(
         )
     }
 
+    /**
+     * Карточка сессии чтения. Обложка отдаётся ссылкой на наш бэкенд по id сессии, а не путём
+     * внутри полки: путь пришёл из чужой базы, и светить его наружу незачем ([ReadingResource]).
+     */
+    private fun readingBookViewOf(session: ReadingSession) = ReadingBookView(
+        title = session.bookTitle,
+        author = session.bookAuthor,
+        coverUrl = session.id?.takeIf { session.coverPath != null }?.let { "/api/reading/cover/$it" },
+        startedAt = session.startedAt,
+        readMinutes = ReadingDayRollup.minutes(session.readSeconds),
+        startPercent = session.startPercent,
+        endPercent = session.endPercent,
+    )
+
     /** Выходной MSK (даты оси уже в MSK): суббота/воскресенье — нейтральны для стрика дисциплины. */
     private fun isWeekend(d: LocalDate): Boolean =
         d.dayOfWeek == java.time.DayOfWeek.SATURDAY || d.dayOfWeek == java.time.DayOfWeek.SUNDAY
@@ -221,6 +251,9 @@ class DayAggregator(
 
         /** Производный пункт подкастов: минуты и карточки считает поллер плеера (§5.6). */
         const val PODCAST_ITEM_KEY = "podcasts"
+
+        /** Производный пункт чтения: минуты и карточки приезжают с полки читалки (§5.16). */
+        const val READING_ITEM_KEY = "reading"
     }
 }
 

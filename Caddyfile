@@ -10,6 +10,13 @@ danchuo.world {
 		reverse_proxy backend:8080
 	}
 
+	# Anx Reader sync target (PRD §5.16). The prefix is deliberately NOT stripped: PROPFIND
+	# replies carry absolute hrefs, so the WebDAV server is configured with the same /dav
+	# prefix and must keep seeing it. Auth is basic auth inside the WebDAV server itself.
+	handle /dav/* {
+		reverse_proxy webdav:6065
+	}
+
 	handle {
 		reverse_proxy frontend:3000
 	}

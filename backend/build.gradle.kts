@@ -54,6 +54,12 @@ dependencies {
     // живёт только в слайсе film (ядро о ней не знает).
     implementation("com.drewnoakes:metadata-extractor:2.19.0")
 
+    // Чтение полки Anx Reader (PRD §5.16, слайс reading): читалка синкает по WebDAV свою
+    // SQLite-базу целиком, и статистика чтения живёт только внутри неё. Драйвер нужен ровно
+    // для этого одного файла — в JDBC-датасорсы Quarkus не подключается, слайс открывает его
+    // сам, read-only. Живёт только в слайсе reading; ядро о нём не знает.
+    implementation("org.xerial:sqlite-jdbc:3.51.0.0")
+
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
     // Десериализация Kotlin-DTO в чистых юнит-тестах (рантайм-модуль quarkus не виден компилятору теста).
@@ -72,7 +78,7 @@ group = "world.danchuo"
 // 1.4.2 — GET /api/rides отдаёт поездки текущего года (фолбэк — последняя, если года пустой); лимит 67 снят.
 // 1.7.1 — сон в 0 минут при ingest'е нормализуется в «сна не было» (null + null-фазы).
 // 1.7.2 — перекомпоновка layout волны 02 «Obscura» (миграция 0170, данные): «аркадный автомат в небе».
-version = "1.17.1"
+version = "1.18.0"
 
 // Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
 java {

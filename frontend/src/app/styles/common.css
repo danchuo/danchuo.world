@@ -737,6 +737,59 @@ body {
   line-height: 0;
 }
 
+/* Карточка прочитанного (§5.16). Обложка книги портретная, поэтому строки текста встают
+   СПРАВА от неё колонкой, а не под ней: подписи книги короче подкастовых (название и автор
+   против названия эпизода), и ряд из четырёх строк рядом с высокой обложкой заполняет
+   карточку ровно, без пустой полосы снизу. */
+.quest-card__box--book {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.quest-book__text {
+  min-width: 0; /* иначе длинное название распирает флекс и режется правым краем карточки */
+  display: flex;
+  flex-direction: column;
+}
+.quest-book__author,
+.quest-book__progress {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Название многоточием НЕ режется: ширину карточка подбирает под содержимое, а что не влезло
+   даже в её потолок — едет бегущей строкой (обёртка `.marquee-inner` снаружи). */
+.quest-book__title {
+  font-size: var(--fs-music-title);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.quest-book__author {
+  font-size: var(--fs-music-meta);
+  color: var(--text-secondary);
+}
+/* Пройденный кусок книги («35% → 42%») — цифры данных, поэтому моноширинным и акцентом:
+   это ответ на «а был ли толк», и он не должен теряться между автором и временем. */
+.quest-book__progress {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-music-meta);
+  color: var(--text-primary);
+}
+/* Время у книги прижато к низу колонки: подвал остаётся подвалом, даже когда строки прогресса
+   нет вовсе (импортированный день).
+
+   ⚠️ `nowrap` здесь несущий, а не косметика. Ширину карточка подбирает ОЦЕНКОЙ (померить
+   нечего — `foreignObject` отводит окно заранее), и стоит оценке промахнуться, как строка
+   переносится на вторую, содержимое перестаёт влезать в фиксированную высоту и `overflow:
+   hidden` срезает подвал. С `nowrap` промах оценки стоит многоточия, а не пропавшей строки. */
+.quest-card__box--book .quest-card__time {
+  margin-top: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Подвал, которого у плитки нет и быть не может: она отвечает «что играет», а карточка —
    «что это БЫЛО и сколько его было». */
 .quest-card__time {

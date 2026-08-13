@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      What the poller last SAW on the shelf (PRD 5.16) - not what it recorded.
+
+      Sessions only exist where the counter grew. But the poller sees a book sitting on the shelf
+      long before any reading happens: it lies at 35% all morning, and every tick observes that and
+      throws it away. So the first session of a book that reached us with history behind it had no
+      start at all - the card read "42%" instead of "35% to 42%", while the answer was passing
+      right under our nose.
+
+      One row per book, keyed by the reader's own book id. Written AFTER a snapshot is absorbed,
+      never before: the start of a session is the percentage seen on the PREVIOUS tick. Update it
+      earlier and start would equal finish, giving an empty arrow.
+    -->
+    <changeSet id="0380-reading-book-state-table" author="danchuo">
+        <createTable tableName="reading_book_state">
+            <column name="book_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- Progress as the reader stores it: a 0..1 fraction. NULL where it never reported one. -->
+            <column name="last_percent" type="DOUBLE PRECISION"/>
+            <column name="observed_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

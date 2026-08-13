@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { DisciplineItemView } from "@/lib/api/types";
+import type { DisciplineItemView, ReadingBookView } from "@/lib/api/types";
 import { QuestMap } from "./QuestMap";
 
 function item(
@@ -664,5 +664,103 @@ describe("QuestMap — линза календаря", () => {
     stop.focus();
     await userEvent.keyboard("{Enter}");
     expect(onLensChange).toHaveBeenCalledWith({ key: "office", occurrence: 1, label: "офис" });
+  });
+});
+
+/**
+ * Обложки книг у остановок чтения (§5.16). Механика общая с подкастами, поэтому здесь только
+ * то, чем чтение от них ОТЛИЧАЕТСЯ: стороны у двух остановок разные, а карточка рассказывает
+ * про пройденный кусок книги, а не про длительность эпизода.
+ */
+describe("QuestMap · чтение", () => {
+  const book = (title: string, patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
+    title,
+    author: "Лавкрафт",
+    coverUrl: "/api/reading/cover/1",
+    startedAt: "2026-08-13T16:04:00Z",
+    readMinutes: 32,
+    startPercent: 0.35,
+    endPercent: 0.42,
+    ...patch,
+  });
+  const withBooks = (books: ReadingBookView[]): DisciplineItemView[] => [
+    { key: "reading", label: "чтение", icon: null, count: 2, target: 2, books },
+  ];
+
+  it("превью появляется ровно там, где есть что показать в карточке", () => {
+    render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
+
+    expect(screen.getByTestId("quest-preview-reading-1")).toBeInTheDocument();
+    // Второй остановке сессии не досталось — карточки нет, и превью тоже.
+    expect(screen.queryByTestId("quest-preview-reading-2")).toBeNull();
+  });
+
+  it("у верхней остановки обложка слева, у нижней справа", () => {
+    render(
+      <QuestMap items={withBooks([book("Первая"), book("Вторая")])} monsterDrunk={false} />,
+    );
+
+    const boxOf = (occurrence: number) =>
+      screen.getByTestId(`quest-preview-reading-${occurrence}`).querySelector("foreignObject")!;
+    const stopOf = (occurrence: number) =>
+      screen.getByTestId(`quest-stop-reading-${occurrence}`).querySelector("circle")!;
+
+    // Слева: правый край картинки не заходит правее центра диска. Справа — зеркально.
+    const first = Number(boxOf(1).getAttribute("x")) + Number(boxOf(1).getAttribute("width"));
+    expect(first).toBeLessThan(Number(stopOf(1).getAttribute("cx")));
+    expect(Number(boxOf(2).getAttribute("x"))).toBeGreaterThan(Number(stopOf(2).getAttribute("cx")));
+  });
+
+  it("карточка жмётся под короткое название и не тянет за собой пустоту", () => {
+    const widthOf = (title: string) => {
+      const { unmount } = render(
+        <QuestMap items={withBooks([book(title)])} monsterDrunk={false} />,
+      );
+      const fo = screen
+        .getAllByTestId("quest-card")[0]
+        .querySelector("foreignObject")!;
+      const w = Number(fo.getAttribute("width"));
+      unmount();
+      return w;
+    };
+
+    const short = widthOf("Дюна");
+    const long = widthOf("Хребты безумия и другие истории о невыразимом ужасе");
+
+    expect(short).toBeLessThan(long);
+    // Потолок общий с карточкой подкаста: габариты двух пунктов расходиться не должны.
+    expect(long).toBe(214);
+  });
+
+  it("карточка рассказывает книгу, пройденный кусок и время захода", () => {
+    render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
+
+    expect(screen.getByTestId("quest-book-title-1")).toHaveTextContent("Хребты безумия");
+    expect(screen.getByText("35% → 42%")).toBeInTheDocument();
+    expect(screen.getByText("19:04 · 32 мин")).toBeInTheDocument();
+  });
+
+  it("под остановкой стоят минуты своей сессии, а не сумма за сутки", () => {
+    render(
+      <QuestMap
+        items={[
+          {
+            key: "reading",
+            label: "чтение",
+            icon: null,
+            count: 2,
+            target: 2,
+            measuredMinutes: 58,
+            books: [book("Первая", { readMinutes: 32 }), book("Вторая", { readMinutes: 26 })],
+          },
+        ]}
+        monsterDrunk={false}
+      />,
+    );
+
+    // Иначе подпись спорила бы с карточкой прямо над ней (та же оговорка, что у подкастов).
+    expect(screen.getByText("32 мин")).toBeInTheDocument();
+    expect(screen.getByText("26 мин")).toBeInTheDocument();
+    expect(screen.queryByText("58 мин")).toBeNull();
   });
 });

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Reading, taken off the Anx Reader shelf (PRD 5.16). The reader has no API at all: the only
+      way its data leaves the phone is the WebDAV sync, which uploads the whole SQLite database.
+      The backend reads that file and reconstructs sessions from it.
+
+      What the reader stores is a counter per book per day - no time of day, no session boundaries,
+      no percentage history. So minutes are HERS (we only take the increments) while session
+      boundaries and the percentage path are OURS, observed across poll ticks.
+
+      Two kinds of rows, told apart by source:
+        live     - reconstructed by the poller as it watched the counter grow. Has clock times and
+                   a percentage path.
+        imported - a day that was already over when we first saw it (first run, or a phone that
+                   synced late). Minutes are known, the rest is not, and inventing a percentage
+                   path for it would be making history up. Percentages and times stay NULL.
+
+      Book metadata is denormalised for the same reason as podcasts: the board shows history, and
+      the owner may delete a book from the shelf later. Re resolving it at read time would rewrite
+      the past into blanks.
+    -->
+    <changeSet id="0370-reading-session-table" author="danchuo">
+        <createTable tableName="reading_session">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- MSK date the reading belongs to; a session never crosses midnight. -->
+            <column name="date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Book id inside the reader's own database - stable only as long as the shelf is. -->
+            <column name="book_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="book_title" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="book_author" type="VARCHAR(256)"/>
+            <!-- Relative path inside the shelf ("cover/name.png"), served by the reading resource. -->
+            <column name="cover_path" type="VARCHAR(512)"/>
+            <!-- Credited seconds, taken as increments of the reader's own counter. -->
+            <column name="read_seconds" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Progress as the reader stores it: a 0..1 fraction. NULL where it is not known. -->
+            <column name="start_percent" type="DOUBLE PRECISION"/>
+            <column name="end_percent" type="DOUBLE PRECISION"/>
+            <!-- Wall clock of our observations, NULL on imported days (we were not watching). -->
+            <column name="started_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="ended_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="source" type="VARCHAR(16)" defaultValue="live">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="reading_session" indexName="idx_reading_session_date">
+            <column name="date"/>
+        </createIndex>
+        <!-- Every poll asks "how much have we written for this book on this day" - that is the
+             poller's entire state, so it has to be a cheap lookup. -->
+        <createIndex tableName="reading_session" indexName="idx_reading_session_book_date">
+            <column name="book_id"/>
+            <column name="date"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

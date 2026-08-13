@@ -59,6 +59,11 @@ services:
       # Photo-drop frames live on a named volume so they survive redeploys (B1).
       DANCHUO_FILM_DIR: /data/film
 
+      # Anx Reader shelf root (PRD §5.16): the phone uploads its SQLite database here over
+      # WebDAV, the reading poller reads it. Mounted read-only below — the backend never
+      # writes into the shelf, so a bug here can never cost the owner a book file.
+      DANCHUO_READING_DIR: /data/anx
+
       # Spotify (M3): optional — absent creds mean the slice reports "not configured".
       DANCHUO_SPOTIFY_CLIENT_ID: ${DANCHUO_SPOTIFY_CLIENT_ID:-}
       DANCHUO_SPOTIFY_CLIENT_SECRET: ${DANCHUO_SPOTIFY_CLIENT_SECRET:-}
@@ -87,6 +92,22 @@ services:
       - "127.0.0.1:8081:8080"
     volumes:
       - filmdata:/data/film
+      - anxdata:/data/anx:ro
+
+  # Sync target for Anx Reader on the owner's phone (PRD §5.16). No published ports: the only
+  # way in is caddy /dav/*, which means TLS and the same edge rate limits as everything else.
+  # Basic auth lives in the WebDAV server itself — see webdav.yml.
+  webdav:
+    image: ghcr.io/hacdias/webdav:v5
+    container_name: danchuoworld-webdav
+    restart: unless-stopped
+    command: ["-c", "/config.yml"]
+    environment:
+      WEBDAV_USERNAME: ${WEBDAV_USERNAME:?set WEBDAV_USERNAME in .env}
+      WEBDAV_PASSWORD: ${WEBDAV_PASSWORD:?set WEBDAV_PASSWORD in .env}
+    volumes:
+      - ./webdav.yml:/config.yml:ro
+      - anxdata:/data
 
   frontend:
     image: ghcr.io/danchuo/danchuo.world/frontend:${TAG:-latest}
@@ -119,5 +140,6 @@ services:
 volumes:
   pgdata:
   filmdata:
+  anxdata:
   caddy-data:
   caddy-config:

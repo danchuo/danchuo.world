@@ -260,13 +260,21 @@ describe("QuestMap", () => {
 });
 
 describe("QuestMap — карточки прослушанных подкастов", () => {
-  const episode = (name: string, listened: number, duration: number | null = 48) => ({
+  const episode = (
+    name: string,
+    listened: number,
+    duration: number | null = 48,
+    dayMinutes = listened,
+    startedAt = "2026-08-13T06:12:00Z",
+  ) => ({
     episodeName: name,
     episodeUrl: `https://open.spotify.com/episode/${name}`,
     showName: `шоу ${name}`,
     showUrl: `https://open.spotify.com/show/${name}`,
     imageUrl: "https://i.scdn.co/image/cover.jpg",
+    startedAt,
     listenedMinutes: listened,
+    dayMinutes,
     durationMinutes: duration,
   });
 
@@ -299,6 +307,28 @@ describe("QuestMap — карточки прослушанных подкаст�
     render(<QuestMap items={withEpisodes([episode("Длинный", 120)])} monsterDrunk={false} />);
 
     expect(screen.getAllByTestId("quest-card")).toHaveLength(1);
+  });
+
+  it("эпизод, взятый двумя заходами, различает карточки временем и минутами захода", () => {
+    // 80 минут одного эпизода: утром 45, вечером 35. Оба кружка рассказывают своё, а строкой
+    // ниже каждый возвращает то, что теряется от разложения, — сколько пройдено за день.
+    render(
+      <QuestMap
+        items={withEpisodes([
+          episode("Ошибки", 45, 85, 80, "2026-08-13T06:12:00Z"),
+          episode("Ошибки", 35, 85, 80, "2026-08-13T16:40:00Z"),
+        ])}
+        monsterDrunk={false}
+      />,
+    );
+
+    expect(screen.getAllByTestId("quest-card")).toHaveLength(2);
+    expect(screen.getByText("09:12 · 45 мин")).toBeInTheDocument();
+    expect(screen.getByText("19:40 · 35 мин")).toBeInTheDocument();
+    expect(screen.getAllByText("80 из 85 мин за день")).toHaveLength(2);
+    // И под самими кружками — минуты своего захода, а не все 80 под первым.
+    expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("45 мин");
+    expect(screen.getByTestId("quest-minutes-podcasts-2")).toHaveTextContent("35 мин");
   });
 
   it("два эпизода дают две карточки", () => {
@@ -428,7 +458,9 @@ describe("QuestMap — превью обложки у остановки под�
     showName: `шоу ${name}`,
     showUrl: `https://open.spotify.com/show/${name}`,
     imageUrl: "https://i.scdn.co/image/cover.jpg",
+    startedAt: "2026-08-13T06:12:00Z",
     listenedMinutes: 40,
+    dayMinutes: 40,
     durationMinutes: 48,
   });
   const withEpisodes = (episodes: ReturnType<typeof episode>[]): DisciplineItemView[] => [

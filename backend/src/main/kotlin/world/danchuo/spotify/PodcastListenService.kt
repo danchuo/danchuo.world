@@ -64,40 +64,49 @@ class PodcastListenService(
         return credited
     }
 
-    /** Прослушанное за сутки, свёрнутое по эпизоду: сессий может быть несколько, карточка одна. */
-    fun listensOn(date: LocalDate): List<PodcastListen> =
-        sessions.listByDate(date)
-            .groupBy { it.episodeId }
-            .map { (episodeId, group) ->
-                // Метаданные берём у самой ранней сессии — той же, что задаёт порядок карточек.
-                val first = group.minByOrNull { it.startedAt }!!
-                PodcastListen(
-                    episodeId = episodeId,
-                    listenedMs = group.sumOf { it.listenedMs },
-                    firstListenedAt = first.startedAt,
-                    episodeName = first.episodeName,
-                    episodeUrl = first.episodeUrl,
-                    showName = first.showName,
-                    showUrl = first.showUrl,
-                    imageUrl = first.imageUrl,
-                    episodeDurationMs = first.episodeDurationMs,
-                )
-            }
+    /**
+     * Заходы за сутки: строки сессий, склеенные по паузе `run-gap-minutes` (см. [PodcastRun]).
+     * Порог хранения рвёт сессию раньше, чем человек считает прослушивание прерванным, поэтому
+     * борду сессии отдаются не как есть, а собранными обратно в заходы.
+     */
+    fun runsOn(date: LocalDate): List<PodcastRun> =
+        PodcastDayRollup.runs(
+            sessions.listByDate(date).map(::runOf),
+            config.podcast().runGapMinutes(),
+        )
 
     /** Суммарно прослушанные минуты за сутки — подпись пункта дисциплины. */
-    fun minutesOn(date: LocalDate): Int =
-        PodcastDayRollup.listenedMinutes(listensOn(date).sumOf { it.listenedMs })
+    fun minutesOn(date: LocalDate): Int = PodcastDayRollup.listenedMinutes(totalMsOn(date))
 
-    /** Карточки дня: первые [max] эпизодов, набравших порог (см. [PodcastDayRollup.cards]). */
-    fun cardsOn(date: LocalDate, max: Int): List<PodcastListen> =
-        PodcastDayRollup.cards(listensOn(date), max)
+    /** Карточки дня: первые [max] заходов, закрывших остановки (см. [PodcastDayRollup.cards]). */
+    fun cardsOn(date: LocalDate, max: Int): List<PodcastRun> =
+        PodcastDayRollup.cards(runsOn(date), max)
 
     /** Пересчитать отметку пункта по сумме минут; ручную отметку [PodcastMarker] не тронет. */
     private fun remark(date: LocalDate) {
         val target = marker.target() ?: return
-        val total = listensOn(date).sumOf { it.listenedMs }
-        marker.mark(date, PodcastDayRollup.occurrences(total, target))
+        marker.mark(date, PodcastDayRollup.occurrences(totalMsOn(date), target))
     }
+
+    /**
+     * Сумма зачтённого за сутки. Считается по сырым сессиям, без склейки в заходы: отметки
+     * зависят только от минут, а склейка их не меняет — незачем гонять её на каждый опрос.
+     */
+    private fun totalMsOn(date: LocalDate): Long = sessions.listByDate(date).sumOf { it.listenedMs }
+
+    /** Строка сессии как одиночный заход — дальше соседние склеит [PodcastDayRollup.runs]. */
+    private fun runOf(session: PodcastSession) = PodcastRun(
+        episodeId = session.episodeId,
+        listenedMs = session.listenedMs,
+        startedAt = session.startedAt,
+        endedAt = session.endedAt,
+        episodeName = session.episodeName,
+        episodeUrl = session.episodeUrl,
+        showName = session.showName,
+        showUrl = session.showUrl,
+        imageUrl = session.imageUrl,
+        episodeDurationMs = session.episodeDurationMs,
+    )
 
     private fun open(sample: EpisodeSample, date: LocalDate, at: Instant, credited: Long) {
         // IDENTITY-генерация вставляет строку немедленно ⇒ все not-null поля заполняем ДО persist.

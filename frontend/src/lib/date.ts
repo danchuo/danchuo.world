@@ -9,6 +9,11 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Intl-форматтеры строятся один раз на модуль (создание дорогое — не повторяем на каждый вызов).
 const MSK_TODAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: MSK_ZONE });
+const MSK_CLOCK_FMT = new Intl.DateTimeFormat("ru-RU", {
+  timeZone: MSK_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+});
 const MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
 const MONTH_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "short", timeZone: "UTC" });
 const WEEKDAY_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "UTC" });
@@ -17,6 +22,15 @@ const WEEKDAY_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "short"
 export function mskToday(now: Date = new Date()): string {
   // en-CA форматирует как YYYY-MM-DD.
   return MSK_TODAY_FMT.format(now);
+}
+
+/**
+ * Время суток по MSK (`09:12`) из ISO-момента, который отдаёт бэкенд. Зона зашита, как и у
+ * дат: борд отвечает про день владельца, а не про часовой пояс смотрящего — «заход в 09:12»
+ * из Владивостока обязан оставаться утренним заходом.
+ */
+export function mskClock(instant: string): string {
+  return MSK_CLOCK_FMT.format(new Date(instant));
 }
 
 /** Сдвиг даты на [days] дней (может быть отрицательным). */

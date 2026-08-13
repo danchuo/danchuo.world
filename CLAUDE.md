@@ -9,7 +9,7 @@
 сделанных веток и не «последняя / перед этим / ещё раньше». Что сделала ветка, живёт в её
 PR и сообщении коммита; правило — в PRD/DESIGN; архив первого года — `docs/journal.md`.
 
-- Версии: **бэк 1.17.0, фронт 1.24.1**.
+- Версии: **бэк 1.17.1, фронт 1.24.2**.
 - Оговорки «с какого дня у нас есть эти данные» живут в PRD, рядом со своей фичей.
 
 ## Документы — кто за что отвечает
@@ -205,7 +205,7 @@ postgres `localhost:5432`. Это **build-образы**, не dev-сервер�
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **danchuo.world** (3562 symbols, 7404 relationships, 273 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **danchuo.world** (5407 symbols, 11657 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

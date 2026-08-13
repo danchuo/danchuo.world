@@ -169,9 +169,18 @@ class ReadingService(
      * начали сейчас: на полке нет ни одного дня чтения раньше этого. Если дни были, а мы их не
      * видели (полка приехала с историей), старт остаётся пустым — подставить туда ноль значило бы
      * приписать владельцу проценты, которые он прошёл до нас.
+     *
+     * Одних счётчиков читалки для этого мало. Прогресс, принесённый из ДРУГОГО приложения (позиция
+     * выставлена руками), не оставляет в Anx ни одного прошлого дня — по счётчикам такая книга
+     * неотличима от начатой с нуля, и заход записался бы как «с 0% до 47%» за три минуты. Поэтому
+     * ноль ещё и проверяется на правдоподобие: проценты, которые сегодняшними минутами объяснить
+     * нельзя, прочитаны не сегодня.
      */
-    private fun fromScratch(book: ShelfBook, total: ShelfDayTotal, snapshot: ShelfSnapshot): Double? =
-        if (snapshot.dayTotals.none { it.bookId == book.id && it.date.isBefore(total.date) }) 0.0 else null
+    private fun fromScratch(book: ShelfBook, total: ShelfDayTotal, snapshot: ShelfSnapshot): Double? {
+        if (snapshot.dayTotals.any { it.bookId == book.id && it.date.isBefore(total.date) }) return null
+        val percent = book.percent ?: return 0.0
+        return if (total.seconds >= percent * 100 * MIN_SECONDS_PER_PERCENT) 0.0 else null
+    }
 
     /** Пересчитать отметку пункта по сумме минут; ручную отметку [ReadingMarker] не тронет. */
     private fun remark(date: LocalDate) {
@@ -196,5 +205,16 @@ class ReadingService(
         bookTitle = book.title
         bookAuthor = book.author
         coverPath = book.coverPath
+    }
+
+    private companion object {
+        /**
+         * Порог правдоподобия старта с нуля: секунд чтения на один процент книги. Взят с огромным
+         * запасом — 18 с/процент это целая книга за полчаса, то есть заведомо быстрее любого
+         * настоящего чтения. Порог не измеряет скорость владельца и не нужен для этого: он
+         * отделяет чтение от переноса позиции, а между ними разница на порядки (сегодняшний
+         * случай — 3.6 с/процент против 180 с/процент у реальных получаса за 10% книги).
+         */
+        const val MIN_SECONDS_PER_PERCENT = 18
     }
 }

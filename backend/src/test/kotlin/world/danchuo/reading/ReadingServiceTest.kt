@@ -115,6 +115,20 @@ class ReadingServiceTest {
     }
 
     @Test
+    fun `a position carried over from another reader is not counted as read today`() {
+        // Владелец читал книгу в другом приложении и перенёс позицию руками — читалка увидела
+        // её сразу на 47%. Счётчиков за прошлые дни у Anx неоткуда взяться (те дни прошли не в
+        // ней), поэтому по одному только их отсутствию заход выглядит начатым с нуля. Но три
+        // минуты не могут дать полкниги: столько процентов за сегодня НЕ прочитано, и старт
+        // остаётся неизвестным — карточка покажет только достигнутое.
+        service.absorb(shelf(seconds = 170, percent = 0.4765), today, evening)
+
+        val session = sessions.listByDate(today).single()
+        assertNull(session.startPercent)
+        assertEquals(0.4765, session.endPercent!!, 1e-9)
+    }
+
+    @Test
     fun `a book seen lying on the shelf earlier starts where we last saw it`() {
         // Главный сценарий владельца: книга весь день лежит на 35% и поллер её видит (чтения нет,
         // сессий нет), а вечером за неё садятся. «Откуда» знаем именно из этих наблюдений.

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DisciplineItemView } from "@/lib/api/types";
@@ -399,6 +399,164 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     const link = screen.getByText("Утро").closest("a");
     expect(link?.closest('[role="button"]')).toBeNull();
+  });
+});
+
+/**
+ * Указатель мыши. React синтезирует `onPointerEnter` из всплывающего `pointerover`, поэтому
+ * наведение шлём именно им; `pointerType` в jsdom нет вовсе (PointerEvent не реализован), и
+ * компонент трактует его отсутствие как мышь.
+ */
+function hover(el: Element) {
+  fireEvent.pointerOver(el);
+}
+function unhover(el: Element) {
+  fireEvent.pointerOut(el, { relatedTarget: document.body });
+}
+/** Тап пальцем: `fireEvent` теряет `pointerType` (нет PointerEvent) — доклеиваем его руками. */
+function tap(el: Element) {
+  const ev = new Event("pointerdown", { bubbles: true, cancelable: true });
+  Object.defineProperty(ev, "pointerType", { value: "touch" });
+  fireEvent(el, ev);
+}
+const isOpen = (card: Element) => card.getAttribute("class")?.includes("quest-card--open") ?? false;
+
+describe("QuestMap — превью обложки у остановки подкаста", () => {
+  const episode = (name: string) => ({
+    episodeName: name,
+    episodeUrl: `https://open.spotify.com/episode/${name}`,
+    showName: `шоу ${name}`,
+    showUrl: `https://open.spotify.com/show/${name}`,
+    imageUrl: "https://i.scdn.co/image/cover.jpg",
+    listenedMinutes: 40,
+    durationMinutes: 48,
+  });
+  const withEpisodes = (episodes: ReturnType<typeof episode>[]): DisciplineItemView[] => [
+    { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
+  ];
+
+  it("превью появляется ровно там, где есть что показать в карточке", () => {
+    const { rerender } = render(
+      <QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />,
+    );
+    expect(screen.getByTestId("quest-preview-podcasts-1")).toBeInTheDocument();
+    // Второй остановке эпизода не досталось — карточки нет, и превью тоже.
+    expect(screen.queryByTestId("quest-preview-podcasts-2")).toBeNull();
+
+    rerender(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
+    expect(screen.queryByTestId("quest-preview-podcasts-1")).toBeNull();
+  });
+
+  it("превью стоит сверху-слева, а его угол заходит ЗА диск остановки", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+
+    const preview = screen.getByTestId("quest-preview-podcasts-1");
+    const fo = preview.querySelector("foreignObject")!;
+    const x = Number(fo.getAttribute("x"));
+    const y = Number(fo.getAttribute("y"));
+    const size = Number(fo.getAttribute("width"));
+
+    // Остановка подкаста №1 стоит в (140, 45), радиус диска 17.
+    const [cx, cy] = [140, 45];
+    // Тело превью — выше и левее центра остановки.
+    expect(x + size).toBeLessThan(cx);
+    expect(y + size).toBeLessThan(cy);
+    // Нижний-правый угол при этом уходит ПОД диск, а не касается его снаружи.
+    expect(Math.hypot(cx - (x + size), cy - (y + size))).toBeLessThan(17);
+    // И целиком внутри viewBox.
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
+  });
+
+  it("превью нарисовано ДО остановки — иначе угол лёг бы поверх диска, а не под ним", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+
+    const preview = screen.getByTestId("quest-preview-podcasts-1");
+    const kids = Array.from(preview.parentElement!.children);
+    const stop = kids.findIndex((n) => n.classList.contains("quest-stop"));
+    expect(stop).toBeGreaterThan(-1);
+    expect(kids.indexOf(preview)).toBeLessThan(stop);
+  });
+
+  it("карточку раскрывает наведение на превью, а не на саму остановку", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+    const card = screen.getByTestId("quest-card");
+
+    // Остановка — переключатель линзы календаря; проход указателя по маршруту карточку не зовёт.
+    hover(screen.getByTestId("quest-stop-podcasts-1"));
+    expect(isOpen(card)).toBe(false);
+
+    hover(screen.getByTestId("quest-preview-podcasts-1"));
+    expect(isOpen(card)).toBe(true);
+  });
+
+  it("указатель, ушедший с остановки совсем, закрывает карточку", () => {
+    vi.useFakeTimers();
+    try {
+      render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+      const card = screen.getByTestId("quest-card");
+      const preview = screen.getByTestId("quest-preview-podcasts-1");
+
+      hover(preview);
+      expect(isOpen(card)).toBe(true);
+
+      unhover(preview);
+      // Закрытие отложено: указателю надо успеть доехать до карточки со ссылками.
+      expect(isOpen(card)).toBe(true);
+      act(() => {
+        vi.runAllTimers();
+      });
+      expect(isOpen(card)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("на тач карточку показывает и прячет тап по превью", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+    const card = screen.getByTestId("quest-card");
+    const preview = screen.getByTestId("quest-preview-podcasts-1");
+
+    tap(preview);
+    expect(isOpen(card)).toBe(true);
+    tap(preview);
+    expect(isOpen(card)).toBe(false);
+  });
+
+  it("тап мимо карточки закрывает её", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+    const card = screen.getByTestId("quest-card");
+
+    tap(screen.getByTestId("quest-preview-podcasts-1"));
+    expect(isOpen(card)).toBe(true);
+
+    tap(document.body);
+    expect(isOpen(card)).toBe(false);
+  });
+
+  it("тап внутри карточки её не закрывает — там живые ссылки", () => {
+    render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
+    const card = screen.getByTestId("quest-card");
+
+    tap(screen.getByTestId("quest-preview-podcasts-1"));
+    tap(screen.getByText("Утро"));
+    expect(isOpen(card)).toBe(true);
+  });
+
+  it("превью лежит ВНЕ кнопки-остановки: тап по нему не переключает линзу календаря", () => {
+    const onLensChange = vi.fn();
+    render(
+      <QuestMap
+        items={withEpisodes([episode("Утро")])}
+        monsterDrunk={false}
+        onLensChange={onLensChange}
+      />,
+    );
+
+    const preview = screen.getByTestId("quest-preview-podcasts-1");
+    expect(preview.closest('[role="button"]')).toBeNull();
+    tap(preview);
+    expect(onLensChange).not.toHaveBeenCalled();
   });
 });
 

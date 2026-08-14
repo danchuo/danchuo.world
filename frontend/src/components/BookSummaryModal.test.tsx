@@ -65,6 +65,31 @@ describe("BookSummaryModal", () => {
     expect(await screen.findByText("пересказ не собрался")).toBeInTheDocument();
   });
 
+  it("ответ без пунктов не роняет окно, а читается как «не собрался»", async () => {
+    // Так native-образ отдавал ответ, у которого DTO не помечен @RegisterForReflection:
+    // код 200, тело `{}`. Прежняя версия шла в `bullets.map` и валила клиентским исключением
+    // ВЕСЬ борд — Next уносит страницу в error-экран, а не только это окно.
+    getReadingSummary.mockResolvedValueOnce({} as never);
+
+    render(<BookSummaryModal book={book()} onClose={() => {}} />);
+
+    expect(await screen.findByText("пересказ не собрался")).toBeInTheDocument();
+    // Шапка на месте: окно живо, а не заменено экраном ошибки.
+    expect(screen.getByText("Дюна")).toBeInTheDocument();
+  });
+
+  it("пустые и битые пункты отсеиваются, а не рисуются пустыми строками", async () => {
+    getReadingSummary.mockResolvedValueOnce({
+      bullets: ["  ", "Живой пункт.", null, 42],
+      takeaway: "   ",
+    } as never);
+
+    render(<BookSummaryModal book={book()} onClose={() => {}} />);
+
+    expect(await screen.findByText("Живой пункт.")).toBeInTheDocument();
+    expect(screen.queryByTestId("book-summary-takeaway")).toBeNull();
+  });
+
   it("закрывается по Esc", async () => {
     const onClose = vi.fn();
     render(<BookSummaryModal book={book()} onClose={onClose} />);

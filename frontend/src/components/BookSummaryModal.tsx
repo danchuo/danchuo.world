@@ -30,7 +30,8 @@ interface BookSummaryModalProps {
 export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [summary, setSummary] = useState<ReadingSummaryView | null>(null);
+  const [bullets, setBullets] = useState<string[] | null>(null);
+  const [takeaway, setTakeaway] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   const sessionId = book.sessionId;
@@ -39,7 +40,21 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
     if (sessionId == null) return;
     const ctrl = new AbortController();
     getReadingSummary(sessionId, { signal: ctrl.signal })
-      .then(setSummary)
+      .then((data) => {
+        // Ответу НЕ доверяем на слово. Прилетевший `{}` (так native-образ отдавал ответ без
+        // `@RegisterForReflection`) раньше валил `bullets.map` — и падал не пересказ, а весь
+        // борд: клиентское исключение уносит страницу целиком в error-экран Next. Пустой
+        // пересказ и сломанный ответ для окна одно и то же — строка «не собрался».
+        const lines = Array.isArray(data?.bullets)
+          ? data.bullets.filter((line): line is string => typeof line === "string" && line.trim() !== "")
+          : [];
+        if (lines.length === 0) {
+          setFailed(true);
+          return;
+        }
+        setBullets(lines);
+        setTakeaway(typeof data.takeaway === "string" && data.takeaway.trim() !== "" ? data.takeaway : null);
+      })
       .catch(() => {
         // Прервали загрузку закрытием окна — не ошибка; всё остальное честно говорим строкой.
         if (!ctrl.signal.aborted) setFailed(true);
@@ -130,19 +145,19 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {summary ? (
+          {bullets ? (
             <>
               <ul className="flex flex-col gap-2" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {summary.bullets.map((line) => (
+                {bullets.map((line) => (
                   <li key={line} className="flex gap-2" style={{ ...mono, ...body }}>
                     <span aria-hidden style={{ color: "var(--accent)" }}>·</span>
                     <span>{line}</span>
                   </li>
                 ))}
               </ul>
-              {summary.takeaway && (
-                <p style={{ ...mono, ...takeaway }} data-testid="book-summary-takeaway">
-                  {summary.takeaway}
+              {takeaway && (
+                <p style={{ ...mono, ...takeawayStyle }} data-testid="book-summary-takeaway">
+                  {takeaway}
                 </p>
               )}
             </>
@@ -196,7 +211,7 @@ const progressValue = {
 } satisfies CSSProperties;
 
 /* Итог — не шестой пункт, а фраза про весь кусок: отбит сверху и набран приглушённее. */
-const takeaway = {
+const takeawayStyle = {
   marginTop: 12,
   paddingTop: 10,
   borderTop: "1px solid var(--border-tile, var(--border))",

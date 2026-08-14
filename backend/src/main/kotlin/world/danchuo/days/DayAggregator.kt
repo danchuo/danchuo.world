@@ -10,6 +10,7 @@ import world.danchuo.monster.MonsterFlavorRepository
 import world.danchuo.reading.ReadingDayRollup
 import world.danchuo.reading.ReadingService
 import world.danchuo.reading.ReadingSession
+import world.danchuo.reading.ReadingSummaryService
 import world.danchuo.spotify.PodcastDayRollup
 import world.danchuo.spotify.PodcastListenService
 import world.danchuo.spotify.PodcastRun
@@ -33,6 +34,7 @@ class DayAggregator(
     private val monsterFlavors: MonsterFlavorRepository,
     private val podcasts: PodcastListenService,
     private val reading: ReadingService,
+    private val readingSummaries: ReadingSummaryService,
     private val mskTime: MskTime,
 ) {
 
@@ -64,6 +66,9 @@ class DayAggregator(
         // того же набора сессий, а пункт чтения в списке ровно один.
         val readingSessions = reading.sessionsOn(date)
         val readingMinutes = ReadingDayRollup.minutes(readingSessions.sumOf { it.readSeconds })
+        // Про какие заходы есть что рассказать (§5.16). Спрашиваем ОДНИМ запросом на день: сам
+        // текст пересказа сюда не едет — карточке нужен только факт, что кнопке есть что открыть.
+        val retoldSessions = readingSummaries.readySessions(readingSessions.mapNotNull { it.id })
 
         val discipline = items.map { item ->
             val itemId = item.id!!
@@ -100,7 +105,8 @@ class DayAggregator(
                     emptyList()
                 },
                 books = if (item.key == READING_ITEM_KEY) {
-                    ReadingDayRollup.cards(readingSessions, item.target).map(::readingBookViewOf)
+                    ReadingDayRollup.cards(readingSessions, item.target)
+                        .map { readingBookViewOf(it, retoldSessions) }
                 } else {
                     emptyList()
                 },
@@ -218,7 +224,7 @@ class DayAggregator(
      * Карточка сессии чтения. Обложка отдаётся ссылкой на наш бэкенд по id сессии, а не путём
      * внутри полки: путь пришёл из чужой базы, и светить его наружу незачем ([ReadingResource]).
      */
-    private fun readingBookViewOf(session: ReadingSession) = ReadingBookView(
+    private fun readingBookViewOf(session: ReadingSession, retold: Set<Long>) = ReadingBookView(
         title = session.bookTitle,
         author = session.bookAuthor,
         coverUrl = session.id?.takeIf { session.coverPath != null }?.let { "/api/reading/cover/$it" },
@@ -226,6 +232,8 @@ class DayAggregator(
         readMinutes = ReadingDayRollup.minutes(session.readSeconds),
         startPercent = session.startPercent,
         endPercent = session.endPercent,
+        sessionId = session.id,
+        hasSummary = session.id in retold,
     )
 
     /** Выходной MSK (даты оси уже в MSK): суббота/воскресенье — нейтральны для стрика дисциплины. */

@@ -747,11 +747,61 @@ describe("QuestMap · чтение", () => {
     expect(Number(fo.getAttribute("width"))).toBe(206);
   });
 
+  it("кнопка пересказа есть только там, где есть что рассказать", async () => {
+    render(
+      <QuestMap
+        items={withBooks([
+          book("Первая", { sessionId: 1, hasSummary: true }),
+          book("Вторая", { sessionId: 2, hasSummary: false }),
+        ])}
+        monsterDrunk={false}
+      />,
+    );
+
+    expect(screen.getByTestId("quest-book-retell-1")).toBeInTheDocument();
+    // Пересказ считается фоном по тексту книги; пока его нет — обещать окно нечем (§5.16).
+    expect(screen.queryByTestId("quest-book-retell-2")).toBeNull();
+
+    await userEvent.click(screen.getByTestId("quest-book-retell-1"));
+    expect(screen.getByTestId("book-summary-modal")).toBeInTheDocument();
+  });
+
+  it("огонёк стрика уходит влево от остановки, чью обложку он бы накрыл", () => {
+    render(
+      <QuestMap
+        items={[
+          {
+            key: "reading",
+            label: "чтение",
+            icon: null,
+            count: 2,
+            target: 2,
+            occurrenceStreaks: [4, 4],
+            books: [book("Первая"), book("Вторая")],
+          },
+        ]}
+        monsterDrunk={false}
+      />,
+    );
+
+    const xOf = (testId: string) =>
+      Number(screen.getByTestId(testId).getAttribute("transform")!.match(/translate\((-?[\d.]+)/)![1]);
+    const cxOf = (occurrence: number) =>
+      Number(screen.getByTestId(`quest-stop-reading-${occurrence}`).querySelector("circle")!.getAttribute("cx"));
+
+    // У первой остановки обложка слева — огонёк остаётся справа, как у всех.
+    expect(xOf("quest-streak-reading-1")).toBeGreaterThan(cxOf(1));
+    // У второй обложка справа, и огонёк уступает ей место, а не прячется под ней.
+    expect(xOf("quest-streak-reading-2")).toBeLessThan(cxOf(2));
+  });
+
   it("карточка рассказывает книгу и пройденный кусок, но не часы", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     expect(screen.getByTestId("quest-book-title-1")).toHaveTextContent("Хребты безумия");
     expect(screen.getByText("35% → 42%")).toBeInTheDocument();
+    // Цифры подписаны словом — оно объясняет, что это за проценты (решение владельца).
+    expect(screen.getByText(/прочитано/)).toBeInTheDocument();
     // Часов у чтения нет ни в каком виде: единственное известное нам время — момент синка
     // полки, то есть конец захода с непредсказуемым лагом (см. `readingCard.ts`).
     expect(screen.queryByText(/19:04/)).toBeNull();

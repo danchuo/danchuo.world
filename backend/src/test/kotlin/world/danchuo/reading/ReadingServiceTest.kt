@@ -277,6 +277,21 @@ class ReadingServiceTest {
         assertEquals(0, markCount())
     }
 
+    @Test
+    fun `the book file is filled in even for sittings that gained no minutes`() {
+        // Заход записан ДО того, как мы стали забирать с полки файл книги.
+        service.absorb(shelf(seconds = 1_800, percent = 0.42), today, evening)
+        QuarkusTransaction.requiringNew().run {
+            sessions.listByDate(today).forEach { it.bookFilePath = null }
+        }
+
+        // Тот же снимок: минут не прибавилось, метаданные освежать нечему — и всё же путь к
+        // файлу обязан доехать, иначе вся прошлая история осталась бы без пересказа навсегда.
+        service.absorb(shelf(seconds = 1_800, percent = 0.42), today, evening)
+
+        assertEquals("file/hp.epub", sessions.listByDate(today).single().bookFilePath)
+    }
+
     // ── фикстуры ──
 
     private fun book(percent: Double) = ShelfBook(
@@ -285,6 +300,7 @@ class ReadingServiceTest {
         author = "Лавкрафт",
         coverPath = "cover/hp.png",
         percent = percent,
+        filePath = "file/hp.epub",
     )
 
     private fun shelf(seconds: Int, percent: Double) = ShelfSnapshot(

@@ -141,6 +141,16 @@ data class ReadingBookView(
     val readMinutes: Int,
     val startPercent: Double?,
     val endPercent: Double?,
+    /**
+     * Id захода — ключ к его пересказу (`GET /api/reading/summary/{id}`) и к обложке. `null`
+     * только у выдуманной карточки в тестах: у сохранённой сессии id есть всегда.
+     */
+    val sessionId: Long?,
+    /**
+     * Есть ли что рассказать про этот кусок книги (§5.16). Сам текст сюда не едет: он нужен
+     * только раскрытому окну, а проекция дня возится на каждый день календаря.
+     */
+    val hasSummary: Boolean = false,
 )
 
 /**

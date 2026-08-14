@@ -16,6 +16,11 @@ data class ShelfBook(
     val author: String?,
     val coverPath: String?,
     val percent: Double?,
+    /**
+     * Путь файла книги внутри полки («file/книга.epub»). Читалка синкает epub вместе с базой —
+     * по нему берётся текст для пересказа прочитанного куска ([EpubText], PRD §5.16).
+     */
+    val filePath: String? = null,
 )
 
 /** Накопленные секунды чтения одной книги за один день — как их считает сама читалка. */
@@ -108,7 +113,7 @@ object AnxShelfReader {
         connection.createStatement().use { statement ->
             statement.executeQuery(
                 """
-                SELECT id, title, author, cover_path, reading_percentage
+                SELECT id, title, author, cover_path, file_path, reading_percentage
                 FROM tb_books
                 WHERE COALESCE(is_deleted, 0) = 0
                 """.trimIndent(),
@@ -122,6 +127,7 @@ object AnxShelfReader {
                         author = rows.getString("author")?.takeIf { it.isNotBlank() },
                         coverPath = rows.getString("cover_path")?.takeIf { it.isNotBlank() },
                         percent = rows.getDouble("reading_percentage").takeUnless { rows.wasNull() },
+                        filePath = rows.getString("file_path")?.takeIf { it.isNotBlank() },
                     )
                 }
             }

@@ -50,6 +50,34 @@ interface ReadingConfig {
     @WithDefault("60")
     fun minSessionSeconds(): Int
 
+    /** Пересказ прочитанного куска (PRD §5.16). */
+    fun summary(): Summary
+
     /** Настроена ли полка. Пустой путь ⇒ слайс молчит: это нормальное состояние, а не поломка. */
     fun isConfigured(): Boolean = shelfDir().isPresent && shelfDir().get().isNotBlank()
+
+    interface Summary {
+
+        /** Включён ли фоновый счёт пересказов (в `%test` выключен — иначе он ходил бы в модель). */
+        @WithDefault("true")
+        fun enabled(): Boolean
+
+        /**
+         * Такт очереди (формат Quarkus `every`). Читается плейсхолдером в [ReadingSummaryPoller];
+         * метод объявлен, чтобы валидация `@ConfigMapping` приняла свойство под префиксом.
+         */
+        @WithDefault("2m")
+        fun interval(): String
+
+        /**
+         * Потолок выдержки в знаках. Держит один вызов внутри самого скупого free-лимита
+         * (12 тыс. токенов в минуту), а заход длиннее берётся окнами по всей длине.
+         */
+        @WithDefault("12000")
+        fun maxChars(): Int
+
+        /** Сколько раз пробовать сессию, прежде чем оставить её без пересказа. */
+        @WithDefault("3")
+        fun maxAttempts(): Int
+    }
 }

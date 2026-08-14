@@ -8,7 +8,10 @@ import "./globals.css";
 
 // Inter — UI/заголовки (§2.2, насыщенности 400/500). JetBrains Mono — цифры/данные/имена дней.
 const inter = Inter({ subsets: ["latin", "cyrillic"], weight: ["400", "500"], variable: "--font-inter" });
-const jetbrains = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400"], variable: "--font-jetbrains" });
+// 600 — для мест, где цифра обязана весить больше подписи рядом (проценты на карточке книги,
+// §5.16). Без настоящего начертания браузер синтезировал бы жирность, и моноширинные цифры
+// поплыли бы по ширине.
+const jetbrains = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "600"], variable: "--font-jetbrains" });
 // Jersey 10 — чанковый пиксельный дисплей-шрифт волны 02 «Obscura» (DESIGN §10.2). Грузится
 // глобально (next/font), но через токен --font-display проявляется только на активной волне 02;
 // на волне 01 --font-display = mono, так что начертание остаётся прежним.

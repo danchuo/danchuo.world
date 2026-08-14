@@ -7,6 +7,7 @@ import type {
   FreshnessView,
   NowPlayingView,
   ProjectView,
+  ReadingSummaryView,
   RecentTrackView,
   RideMonthSummaryView,
   RideStatsView,
@@ -109,6 +110,15 @@ export function getFreshness(init?: RequestInit): Promise<FreshnessView> {
 /** Поездки Велобайка (`GET /api/rides`, PRD §9 B4), новые сверху; до ingest — пусто. */
 export function getRides(init?: RequestInit): Promise<RideView[]> {
   return getJson<RideView[]>(`/api/rides`, init);
+}
+
+/**
+ * Пересказ прочитанного куска (`GET /api/reading/summary/{id}`, PRD §5.16) — тянется лениво,
+ * когда окно раскрыли. В проекции дня едет только флаг `hasSummary`: текст на несколько строк
+ * не нужен ни календарю, ни карточке, а дней в окне — десятки.
+ */
+export function getReadingSummary(sessionId: number, init?: RequestInit): Promise<ReadingSummaryView> {
+  return getJson<ReadingSummaryView>(`/api/reading/summary/${sessionId}`, init);
 }
 
 /** Агрегат истории поездок (`GET /api/rides/stats`). */

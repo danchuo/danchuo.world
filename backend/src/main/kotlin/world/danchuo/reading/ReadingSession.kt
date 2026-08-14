@@ -61,6 +61,14 @@ class ReadingSession {
     @Column(name = "cover_path", length = 512)
     var coverPath: String? = null
 
+    /**
+     * Путь файла книги внутри полки («file/книга.epub») — по нему берётся текст для пересказа
+     * куска ([ReadingSummary]). Денормализован по той же причине, что название и обложка: книгу
+     * с полки могут убрать, а рассказанное про прошлый заход должно остаться.
+     */
+    @Column(name = "book_file_path", length = 512)
+    var bookFilePath: String? = null
+
     /** Зачтённые секунды — приросты счётчика читалки, а не разница часов. */
     @Column(name = "read_seconds", nullable = false)
     var readSeconds: Int = 0
@@ -106,6 +114,28 @@ class ReadingSessionRepository : PanacheRepository<ReadingSession> {
      */
     fun latestOn(bookId: Long, date: LocalDate): ReadingSession? =
         find("bookId = ?1 and date = ?2 order by endedAt desc nulls last, id desc", bookId, date).firstResult()
+
+    /**
+     * Заходы, из которых МОЖНО вырезать кусок книги: известен файл на полке и оба конца пути по
+     * процентам (PRD §5.16). Свежие впереди — борд смотрят с сегодняшнего дня, и вчерашний вечер
+     * нужен раньше мартовского.
+     */
+    fun summarisable(): List<ReadingSession> = list(
+        "bookFilePath is not null and startPercent is not null and endPercent is not null " +
+            "and endPercent > startPercent order by date desc, id desc",
+    )
+
+    /**
+     * Дописать путь к файлу книги там, где его ещё нет.
+     *
+     * Метаданные заходов освежаются, только когда приросли минуты, — а путь к файлу мы стали
+     * забирать позже самих заходов, и без этого у всей прошлой истории он остался бы пустым
+     * навсегда (пересказ ей не светил бы, пока владелец не откроет книгу снова). Это не
+     * переписывание прошлого: заполняем ТОЛЬКО пустое, уже записанный путь не трогаем — книга,
+     * снятая с полки, должна сохранить тот, по которому её ещё можно найти.
+     */
+    fun fillMissingFilePath(bookId: Long, filePath: String): Int =
+        update("bookFilePath = ?1 where bookId = ?2 and bookFilePath is null", filePath, bookId)
 
     /**
      * Последний известный процент книги — «откуда» для нового захода. Берём по любой дате:

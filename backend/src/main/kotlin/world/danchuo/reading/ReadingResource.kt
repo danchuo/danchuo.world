@@ -1,5 +1,6 @@
 package world.danchuo.reading
 
+import io.quarkus.runtime.annotations.RegisterForReflection
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
@@ -70,13 +71,6 @@ class ReadingResource(
         return Response.ok(bytes, mediaTypeOf(file.extension)).cacheControl(cache).build()
     }
 
-    /** Пересказ куска наружу: пункты и строка-итог. Ничего больше окну не нужно — книга,
-     *  автор, обложка и проценты у него уже есть из карточки дня. */
-    data class ReadingSummaryView(
-        val bullets: List<String>,
-        val takeaway: String?,
-    )
-
     /** Anx кладёт обложки png/jpeg; по расширению этого достаточно, магию файла не читаем. */
     private fun mediaTypeOf(extension: String): String = when (extension.lowercase()) {
         "png" -> "image/png"
@@ -84,3 +78,19 @@ class ReadingResource(
         else -> "image/jpeg"
     }
 }
+
+/**
+ * Пересказ куска наружу: пункты и строка-итог. Ничего больше окну не нужно — книга, автор,
+ * обложка и проценты у него уже есть из карточки дня.
+ *
+ * ⚠️ `@RegisterForReflection` здесь **несущая**, как у всех наших ответов ([SleepNightView],
+ * `DayView`, `FilmViews`). Без неё native-образ вырезает у класса геттеры как «никем не
+ * вызываемые» — Jackson не находит ни одного свойства и отдаёт `{}` с кодом 200. На JVM
+ * (дев, тесты, локальный стек) всё при этом работает, поэтому промах доезжает до прода целым:
+ * ровно так этот эндпоинт и приехал туда пустым.
+ */
+@RegisterForReflection
+data class ReadingSummaryView(
+    val bullets: List<String>,
+    val takeaway: String?,
+)

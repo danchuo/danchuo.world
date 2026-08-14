@@ -42,7 +42,7 @@ class ReadingSummaryPoller(
     fun pollOnce(): Boolean {
         val candidate = summaries.nextCandidate() ?: return false
         val retelling = summaries.retell(candidate)
-        val stored = summaries.store(candidate.sessionId, retelling, freeModel)
+        val stored = summaries.store(candidate, retelling, freeModel)
         if (stored) {
             log.infof("reading: пересказ готов (сессия %d, «%s»)", candidate.sessionId, candidate.title)
             // Карточка дня несёт флаг «есть что рассказать» — без сброса кнопка не появилась бы.

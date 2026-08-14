@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      What a retelling actually covers (PRD 5.16.1).
+
+      A sitting is not frozen when it is first retold. Come back to the book within the session
+      gap and the poller extends THAT SAME row: the percentage path grows, while the retelling
+      stays about the beginning of it. The card would then say "10% to 30%" over bullets that
+      only ever saw 15% - and nothing on the page could tell them apart.
+
+      So the row now remembers the stretch its text covers, and the queue compares that against
+      where the sitting stands now. target_end_percent is the end of the stretch the LAST attempt
+      aimed at: a sitting that grew again is a new target, and the attempt counter starts over
+      instead of holding a give-up decision that was made about a different stretch.
+
+      Backfill matters here. Rows written before this change have no coverage recorded, and a
+      NULL would read as "covers nothing" - every existing retelling would go back in line and
+      burn the free rate limit on work already done. The stretch they cover is exactly what their
+      session held when they were written, which for an untouched sitting is what it holds now.
+    -->
+    <changeSet id="0400-reading-summary-coverage" author="danchuo">
+        <addColumn tableName="reading_summary">
+            <!-- The stretch the stored text covers; NULL while nothing has succeeded yet. -->
+            <column name="covered_start_percent" type="DOUBLE PRECISION"/>
+            <column name="covered_end_percent" type="DOUBLE PRECISION"/>
+            <!-- Where the last attempt aimed; a different target resets the attempt counter. -->
+            <column name="target_end_percent" type="DOUBLE PRECISION"/>
+        </addColumn>
+
+        <sql>
+            UPDATE reading_summary s
+            SET target_end_percent = r.end_percent,
+                covered_start_percent = CASE WHEN s.status = 'ready' THEN r.start_percent END,
+                covered_end_percent = CASE WHEN s.status = 'ready' THEN r.end_percent END
+            FROM reading_session r
+            WHERE r.id = s.session_id
+        </sql>
+    </changeSet>
+</databaseChangeLog>

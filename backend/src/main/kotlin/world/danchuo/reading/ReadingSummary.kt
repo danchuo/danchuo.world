@@ -62,6 +62,26 @@ class ReadingSummary {
     @Column(length = 96)
     var model: String? = null
 
+    /**
+     * Какой кусок книги покрывает лежащий здесь текст. `null` — покрывать нечем (успеха ещё
+     * не было). Заход не застывает в момент первого пересказа: вернулся к книге в пределах
+     * паузы — поллер продлевает ТУ ЖЕ строку, и пересказ начала перестаёт отвечать за неё
+     * целиком. По этой паре очередь и понимает, что пора освежить.
+     */
+    @Column(name = "covered_start_percent")
+    var coveredStartPercent: Double? = null
+
+    @Column(name = "covered_end_percent")
+    var coveredEndPercent: Double? = null
+
+    /**
+     * Конец куска, на который целилась ПОСЛЕДНЯЯ попытка. Заход, доросший ещё дальше, — это
+     * новая цель, и счётчик промахов по ней начинается заново: решение «сдаюсь» было принято
+     * про другой кусок.
+     */
+    @Column(name = "target_end_percent")
+    var targetEndPercent: Double? = null
+
     @Column(nullable = false)
     var attempts: Int = 0
 
@@ -71,6 +91,7 @@ class ReadingSummary {
     /** Готов ли пересказ к показу: статус `ready` и хотя бы один пункт. */
     fun isReady(): Boolean =
         status == ReadingSummaryStatus.READY.code() && !bullets.isNullOrBlank()
+
 
     /** Пункты списком — хранятся строками, наружу идут массивом. */
     fun bulletLines(): List<String> =

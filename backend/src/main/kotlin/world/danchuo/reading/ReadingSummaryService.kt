@@ -49,7 +49,7 @@ class ReadingSummaryService(
     private val log: Logger = Logger.getLogger(ReadingSummaryService::class.java)
 
     /**
-     * Следующий заход в очереди — самый свежий из тех, что ещё без пересказа.
+     * Следующий заход в очереди — самый свежий из тех, кому пересказ ещё нужен.
      *
      * Свежие вперёд намеренно: борд смотрят с сегодняшнего дня, и пересказ вчерашнего вечера
      * нужен раньше, чем пересказ мартовского. Заходы без обоих процентов и без файла книги в
@@ -58,13 +58,8 @@ class ReadingSummaryService(
     @Transactional
     fun nextCandidate(): SummaryCandidate? {
         val known = summaries.bySession()
-        val limit = config.summary().maxAttempts()
         return sessions.summarisable()
-            .firstOrNull { session ->
-                val done = known[session.id] ?: return@firstOrNull true
-                // Готовое не переспрашиваем никогда, промахнувшееся — пока не выйдут попытки.
-                !done.isReady() && done.attempts < limit
-            }
+            .firstOrNull { queued(it, known[it.id]) }
             ?.let {
                 SummaryCandidate(
                     sessionId = it.id!!,
@@ -75,6 +70,33 @@ class ReadingSummaryService(
                     endPercent = it.endPercent!!,
                 )
             }
+    }
+
+    /**
+     * Нужен ли заходу поход к модели.
+     *
+     * Три случая, и все три — про «что уже рассказано», а не про «сколько раз пробовали»:
+     * - **строки нет** — пересказа не было вовсе, берём;
+     * - **успеха не было** — берём, пока не вышли попытки;
+     * - **пересказ есть, но заход дорос** — берём: вернувшись к книге в пределах паузы, владелец
+     *   продлевает ТУ ЖЕ строку сессии, и текст про её начало перестаёт отвечать за неё целиком
+     *   (карточка сказала бы «10% → 30%» над пунктами, которые видели 15%).
+     *
+     * Порог [ReadingConfig.Summary.refreshPercent] не косметика: без него округление процента
+     * гоняло бы модель по кругу за пару абзацев, выжигая бесплатный лимит.
+     *
+     * Счётчик попыток держит решение «сдаюсь» только про ТУ цель, на которую целились. Заход,
+     * доросший дальше, — новая цель, и счёт начинается заново: прежний отказ был про другой кусок.
+     */
+    private fun queued(session: ReadingSession, known: ReadingSummary?): Boolean {
+        val end = session.endPercent ?: return false
+        if (known == null) return true
+
+        val refresh = config.summary().refreshPercent()
+        val newTarget = known.targetEndPercent?.let { end - it >= refresh } ?: true
+        if (!newTarget && known.attempts >= config.summary().maxAttempts()) return false
+        if (!known.isReady()) return true
+        return end - (known.coveredEndPercent ?: 0.0) >= refresh
     }
 
     /**
@@ -110,28 +132,43 @@ class ReadingSummaryService(
     }
 
     /**
-     * Записать итог попытки. [retelling] `null` — промах: строка всё равно заводится, потому
-     * что она и есть память очереди о попытках. Возвращает `true`, если на борде появилось что
-     * показать (и, значит, проекцию дня пора сбросить).
+     * Записать итог попытки по [candidate]. [retelling] `null` — промах: строка всё равно
+     * заводится, потому что она и есть память очереди о попытках. Возвращает `true`, если на
+     * борде появилось что показать (и, значит, проекцию дня пора сбросить).
+     *
+     * **Промах не стирает того, что уже рассказано.** Освежение — это попытка рассказать про
+     * заход, который дорос; не вышло — на карточке остаётся прежний текст (он про меньший
+     * кусок, но он правдив), а не пустое место вместо кнопки.
      */
     @Transactional
-    fun store(sessionId: Long, retelling: Retelling?, model: String): Boolean {
-        val row = summaries.findBySession(sessionId) ?: ReadingSummary().apply {
-            this.sessionId = sessionId
+    fun store(candidate: SummaryCandidate, retelling: Retelling?, model: String): Boolean {
+        val row = summaries.findBySession(candidate.sessionId) ?: ReadingSummary().apply {
+            sessionId = candidate.sessionId
             // IDENTITY-генерация вставляет строку немедленно ⇒ not-null поля заполняем ДО persist.
             updatedAt = Instant.now()
             summaries.persist(this)
         }
-        row.attempts += 1
+
+        // Счёт промахов ведётся по ЦЕЛИ: сменилась — начинаем заново (см. `queued`).
+        val newTarget = row.targetEndPercent?.let {
+            candidate.endPercent - it >= config.summary().refreshPercent()
+        } ?: true
+        row.attempts = if (newTarget) 1 else row.attempts + 1
+        row.targetEndPercent = candidate.endPercent
         row.updatedAt = Instant.now()
-        row.model = model
+
         if (retelling == null) {
-            row.status = ReadingSummaryStatus.FAILED.code()
+            // Уже рассказанное переживает неудачное освежение — статус и текст остаются прежними.
+            if (!row.isReady()) row.status = ReadingSummaryStatus.FAILED.code()
             return false
         }
+        row.model = model
         row.status = ReadingSummaryStatus.READY.code()
         row.bullets = retelling.bullets.joinToString("\n")
         row.takeaway = retelling.takeaway
+        row.coveredStartPercent = candidate.startPercent
+        row.coveredEndPercent = candidate.endPercent
+        row.attempts = 0
         return true
     }
 

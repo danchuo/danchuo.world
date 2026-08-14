@@ -53,7 +53,13 @@ class ReadingService(
         // Наблюдение обновляем в конце и по ВСЕМ книгам полки, а не только по читавшимся: смысл
         // строки как раз в книге, которая лежит нетронутой, — её процент понадобится, когда за
         // неё сядут.
-        snapshot.books.values.forEach { bookStates.observe(it.id, it.percent, at) }
+        snapshot.books.values.forEach { book ->
+            bookStates.observe(book.id, book.percent, at)
+            // Путь к файлу дописываем всем заходам этой книги, у которых его ещё нет: метаданные
+            // освежаются только вместе с приростом минут, а файл мы стали забирать позже самих
+            // заходов — иначе вся прошлая история осталась бы без пересказа навсегда (§5.16).
+            book.filePath?.let { sessions.fillMissingFilePath(book.id, it) }
+        }
 
         touched.forEach(::remark)
         return credited
@@ -205,6 +211,9 @@ class ReadingService(
         bookTitle = book.title
         bookAuthor = book.author
         coverPath = book.coverPath
+        // Путь файла не затираем пустотой: книга, снятая с полки, не должна лишать прошлый
+        // заход пересказа, который по ней ещё можно собрать.
+        book.filePath?.let { bookFilePath = it }
     }
 
     private companion object {

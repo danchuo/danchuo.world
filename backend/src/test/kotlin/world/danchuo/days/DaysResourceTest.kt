@@ -10,7 +10,9 @@ import org.hamcrest.Matchers.greaterThan
 import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.notNullValue
 import org.hamcrest.Matchers.nullValue
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import world.danchuo.checklist.ChecklistEntryRepository
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -25,6 +27,13 @@ import java.time.ZoneId
  * делится с ним (там оно только в 401/422, которые ничего не пишут), поэтому стрик за
  * сегодня проверяется **дельтой**, а не абсолютным числом: что лежит на −1…−3, зависит
  * от порядка классов.
+ *
+ * ⚠️ **За собой класс прибирает — иначе он бомба замедленного действия.** Заливает он
+ * скользящее окно последних тридцати дней, а соседи (например [HealthIngestResourceTest])
+ * держат ФИКСИРОВАННЫЕ даты и проверяют на них отсутствие данных. Пока календарь не свёл
+ * их вместе, всё зелено; в тот день, когда «сегодня минус пятнадцать» совпадает с чужой
+ * фиксированной датой, у соседа внезапно появляются семь часов сна — и падает он, а не мы.
+ * Ровно это и случилось 15.08.2026 с днём 2026-07-31.
  */
 @QuarkusTest
 class DaysResourceTest {
@@ -32,9 +41,29 @@ class DaysResourceTest {
     @Inject
     lateinit var dayRecords: DayRecordService
 
+    @Inject
+    lateinit var dayRecordRepository: DayRecordRepository
+
+    @Inject
+    lateinit var checklistEntries: ChecklistEntryRepository
+
     private val token = "dev-ingest-token-change-me"
 
     private val today: LocalDate = LocalDate.now(ZoneId.of("Europe/Moscow"))
+
+    /**
+     * Убрать за собой скользящее окно. Каждый тест класса заливает то, что сам же и читает,
+     * поэтому чистить можно после каждого — а вот НЕ чистить нельзя: залитые дни живут в тех
+     * же таблицах, что фиксированные даты соседей (см. доккоммент выше).
+     */
+    @AfterEach
+    fun cleanup() {
+        QuarkusTransaction.requiringNew().run {
+            val from = today.minusDays(SEEDED_WINDOW_DAYS)
+            checklistEntries.delete("date >= ?1 and date <= ?2", from, today)
+            dayRecordRepository.delete("date >= ?1 and date <= ?2", from, today)
+        }
+    }
 
     /** Залить день через публичные ingest-швы (как делает телефон), чтобы было что читать. */
     private fun seedDay(date: String, title: String, steps: Int, flavorKey: String) {
@@ -284,5 +313,10 @@ class DaysResourceTest {
         given().get("/api/days?from=2026-07-12&to=2026-07-08")
             .then().statusCode(400)
             .body("error", equalTo("invalid_range"))
+    }
+
+    private companion object {
+        /** Насколько глубоко назад класс заливает дни (самый дальний сид — «сегодня − 29»). */
+        const val SEEDED_WINDOW_DAYS = 40L
     }
 }

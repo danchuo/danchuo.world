@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      A retelling of the stretch of a book that was read in one sitting (PRD 5.16).
+
+      It is always made FROM THE BOOK ITSELF. The reader syncs the epub along with its database
+      (anx/data/file/*.epub), so the text is already on our shelf; the session's percentage path
+      says which part of it to cut out. A retelling "from what the model remembers about the
+      title" was considered and rejected: on a public board it would one day state something
+      confident and wrong about a book the model never read, and nothing on the page could tell
+      the two apart.
+
+      One row per session, and the row is also the poller's memory of its own failures: a model
+      that did not answer, or a book that is not on the shelf, leaves status=failed with the
+      attempt counted, so the background job backs off instead of hammering a free rate limit.
+
+      The book file path lands on the session itself, next to title and cover and for the same
+      reason: the shelf is the phone's, the board shows history, and a book removed from the
+      shelf must not rewrite what was already told about it.
+    -->
+    <changeSet id="0390-reading-session-file-path" author="danchuo">
+        <addColumn tableName="reading_session">
+            <!-- Relative path inside the shelf ("file/name.epub"), as the reader stores it. -->
+            <column name="book_file_path" type="VARCHAR(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0390-reading-summary-table" author="danchuo">
+        <createTable tableName="reading_summary">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- One retelling per reading session; the session is what defines the stretch. -->
+            <column name="session_id" type="BIGINT">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_reading_summary_session"/>
+            </column>
+            <!-- ready = there is something to show, failed = tried and could not. -->
+            <column name="status" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Bullet points, one per line. Plain text on purpose: it is read out as is. -->
+            <column name="bullets" type="TEXT"/>
+            <!-- One closing line about the stretch as a whole. -->
+            <column name="takeaway" type="TEXT"/>
+            <!-- Which model answered - the free lane may be re pointed, and old rows should say
+                 who wrote them. -->
+            <column name="model" type="VARCHAR(96)"/>
+            <column name="attempts" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- The background job asks the same question every tick: which sessions still have no
+             retelling. It walks sessions, so the lookup by session id has to be cheap - the
+             unique constraint above already indexes it. -->
+    </changeSet>
+</databaseChangeLog>

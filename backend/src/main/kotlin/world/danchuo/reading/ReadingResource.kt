@@ -24,7 +24,30 @@ import kotlin.io.path.extension
 class ReadingResource(
     private val sessions: ReadingSessionRepository,
     private val shelf: AnxShelf,
+    private val summaries: ReadingSummaryService,
 ) {
+
+    /**
+     * Пересказ прочитанного за заход куска (PRD §5.16). Отдельным запросом, а не в проекции дня:
+     * это текст на несколько строк, который нужен только раскрытому окну, а проекция едет на
+     * каждый день календаря. В карточке дня остаётся один флаг — есть ли что показывать.
+     *
+     * 404 — пересказа нет (не собрался либо ещё в очереди). Форма ответа при этом не выдумывается:
+     * пустой пересказ и отсутствующий — для окна одно и то же.
+     */
+    @GET
+    @Path("/summary/{sessionId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun summary(@PathParam("sessionId") sessionId: Long): Response {
+        val summary = summaries.readyFor(sessionId)
+            ?: return Response.status(Response.Status.NOT_FOUND).build()
+        return Response.ok(
+            ReadingSummaryView(
+                bullets = summary.bulletLines(),
+                takeaway = summary.takeaway?.takeIf { it.isNotBlank() },
+            ),
+        ).build()
+    }
 
     @GET
     @Path("/cover/{sessionId}")
@@ -46,6 +69,13 @@ class ReadingResource(
         }
         return Response.ok(bytes, mediaTypeOf(file.extension)).cacheControl(cache).build()
     }
+
+    /** Пересказ куска наружу: пункты и строка-итог. Ничего больше окну не нужно — книга,
+     *  автор, обложка и проценты у него уже есть из карточки дня. */
+    data class ReadingSummaryView(
+        val bullets: List<String>,
+        val takeaway: String?,
+    )
 
     /** Anx кладёт обложки png/jpeg; по расширению этого достаточно, магию файла не читаем. */
     private fun mediaTypeOf(extension: String): String = when (extension.lowercase()) {

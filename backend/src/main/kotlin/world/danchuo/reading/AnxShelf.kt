@@ -7,7 +7,7 @@ import kotlin.io.path.isRegularFile
 
 /**
  * Полка Anx Reader на диске (PRD §5.16): куда WebDAV-сервер кладёт присланное телефоном и как
- * оттуда достать базу и обложки. Раскладку задаёт читалка, мы под неё подстраиваемся:
+ * оттуда достать базу, обложки и сами книги. Раскладку задаёт читалка, мы под неё подстраиваемся:
  *
  * ```
  * <shelf-dir>/anx/database<N>.db      — вся статистика чтения
@@ -39,9 +39,18 @@ class AnxShelf(private val config: ReadingConfig) {
      * а не склеивается на веру: результат обязан остаться внутри каталога обложек — иначе
      * `../../` в базе увёл бы отдачу в любой файл контейнера.
      */
-    fun coverFile(coverPath: String): Path? {
+    fun coverFile(coverPath: String): Path? = dataFile(coverPath)
+
+    /**
+     * Файл книги по `file_path` из базы («file/книга.epub») — из него берётся текст для
+     * пересказа прочитанного куска (PRD §5.16). Проверка та же, что у обложки.
+     */
+    fun bookFile(filePath: String): Path? = dataFile(filePath)
+
+    /** Файл внутри `anx/data`, и только внутри: `../../` в чужой базе не должен никуда уводить. */
+    private fun dataFile(relative: String): Path? {
         val data = root()?.resolve(DATA_DIR)?.normalize() ?: return null
-        val resolved = data.resolve(coverPath).normalize()
+        val resolved = data.resolve(relative).normalize()
         if (!resolved.startsWith(data)) return null
         return resolved.takeIf { it.isRegularFile() }
     }

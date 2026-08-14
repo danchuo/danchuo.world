@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import type {
   DisciplineItemView,
   PodcastEpisodeView,
@@ -11,7 +12,8 @@ import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplin
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
 import { cardTimeLines, episodeForStop } from "@/lib/podcastCard";
-import { bookForStop, progressLabel } from "@/lib/readingCard";
+import { bookForStop, progressLabel, PROGRESS_CAPTION } from "@/lib/readingCard";
+import { BookSummaryModal } from "./BookSummaryModal";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -108,9 +110,15 @@ const MONSTER_STOP_CLASS: Record<MonsterTone, string> = {
   unknown: "quest-stop--pending",
 };
 
-/** Монстр стоит ОТДЕЛЬНО от маршрута — в пустой полосе между рядами тропы, без связи с ней
- *  (сегмент-детур от «офиса» снят, см. рендер). */
-const MONSTER_XY = [172, 110] as const;
+/**
+ * Монстр стоит ОТДЕЛЬНО от маршрута — в пустой полосе между рядами тропы, без связи с ней
+ * (сегмент-детур от «офиса» снят, см. рендер).
+ *
+ * Сдвинут левее середины полосы намеренно: справа-сверху от нижней остановки чтения выглядывает
+ * обложка книги (§5.16), и на прежних 172 подпись-вердикт монстра доставала до неё краем. Полоса
+ * слева при этом пустая — двигаться туда монстру ничего не мешает.
+ */
+const MONSTER_XY = [120, 110] as const;
 
 /** Значок стрика показываем от 2: серия в 1 день (или 0) на карте — шум, не достижение. */
 const STREAK_MIN = 2;
@@ -391,6 +399,20 @@ const BOOK_CARD_GAP = 6;
 const BOOK_CARD_SLACK = 4;
 /** Уже этого карточка не жмётся: у совсем короткого названия она перестала бы читаться карточкой. */
 const BOOK_CARD_MIN_W = 104;
+/**
+ * Надпись на кнопке пересказа — она же множитель ширины строки прогресса (§5.16). В скобках
+ * (решение владельца): рядом с процентами голое слово читалось как продолжение данных, а скобки
+ * сразу говорят «это подпись к действию, а не ещё одна цифра захода».
+ */
+const RETELL_LABEL = "(пересказ)";
+
+/**
+ * Отступ значка стрика от центра остановки. Вправо он равен зазору у диска, влево — больше:
+ * значок рисуется ОТ своей точки вправо (огонёк в нуле, число за ним), поэтому зеркальная
+ * позиция должна отодвинуться на его собственную ширину, иначе число легло бы на диск.
+ */
+const STREAK_DX = 18;
+const STREAK_DX_LEFT = 32;
 
 /**
  * Ширина карточки книги — **по содержимому**, а не фиксированная.
@@ -419,7 +441,13 @@ function bookCardWidth(book: ReadingBookView): number {
   const mono = 0.7;
   const titleW = book.title.length * 11 * mono;
   const authorW = (book.author?.length ?? 0) * 8.5 * mono;
-  const progressW = (progressLabel(book)?.length ?? 0) * 8.5 * mono;
+  // Строка прогресса — это подпись «прочитано», сами проценты и (когда есть что рассказать)
+  // кнопка пересказа: считаем её целиком, иначе строка уедет в многоточие.
+  const progressChars = progressLabel(book) === null
+    ? 0
+    : PROGRESS_CAPTION.length + 1 + progressLabel(book)!.length +
+      (book.hasSummary && book.sessionId != null ? RETELL_LABEL.length + 2 : 0);
+  const progressW = progressChars * 8.5 * mono;
 
   const text = Math.max(titleW, authorW, progressW) + BOOK_CARD_SLACK;
   const total = BOOK_CARD_PAD * 2 + BOOK_CARD_COVER_W + BOOK_CARD_GAP + text;
@@ -636,6 +664,7 @@ function BookCard({
   open,
   onOpen,
   onClose,
+  onRetell,
 }: {
   cx: number;
   cy: number;
@@ -644,6 +673,8 @@ function BookCard({
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  /** Раскрыть окно с пересказом куска (§5.16). */
+  onRetell: () => void;
 }) {
   const width = bookCardWidth(book);
   const half = width / 2;
@@ -681,7 +712,29 @@ function BookCard({
               </div>
             </Marquee>
             {book.author && <div className="quest-book__author">{book.author}</div>}
-            {progress && <div className="quest-book__progress">{progress}</div>}
+            {progress && (
+              <div className="quest-book__progress">
+                <span className="quest-book__progress-caption">{PROGRESS_CAPTION} </span>
+                <span className="quest-book__progress-value">{progress}</span>
+                {/* Кнопка есть, только когда пересказ УЖЕ собран: он считается фоном по тексту
+                    книги с полки, и обещать окно, которому нечего показать, незачем (§5.16). */}
+                {book.hasSummary && book.sessionId != null && (
+                  <button
+                    type="button"
+                    className="quest-book__retell"
+                    data-testid={`quest-book-retell-${occurrence}`}
+                    onClick={(e) => {
+                      // Карточка живёт внутри остановки-переключателя линзы: без остановки
+                      // всплытия клик по кнопке заодно перекинул бы календарь на другой пункт.
+                      e.stopPropagation();
+                      onRetell();
+                    }}
+                  >
+                    {RETELL_LABEL}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </foreignObject>
@@ -752,6 +805,12 @@ export function QuestMap({
    * поддерева своей остановки, и descendant-селектор до них не дотягивается.
    */
   const [openCard, setOpenCard] = useState<string | null>(null);
+  /**
+   * Заход, чей пересказ раскрыт окном (§5.16). Держим саму карточку, а не её ключ: окно
+   * показывает книгу, автора и проценты сразу, ещё до того как приедет текст, — а всё это у
+   * карточки уже есть.
+   */
+  const [retold, setRetold] = useState<ReadingBookView | null>(null);
   const closeTimer = useRef<number | null>(null);
   /** Зеркало [openCard] для обработчиков: тап-переключатель и слушатель документа читают
    *  состояние из замыканий, созданных один раз. */
@@ -868,6 +927,7 @@ export function QuestMap({
   };
 
   return (
+    <>
     <svg
       viewBox="0 0 400 210"
       className={`quest-map${perfect ? " quest-map--perfect" : ""}${spriteWave ? " quest-map--sprites" : ""}`}
@@ -1026,7 +1086,11 @@ export function QuestMap({
               </text>
             )}
             <StreakBadge
-              cx={cx + 18}
+              // Огонёк стоит справа сверху от остановки — там же, где встаёт превью обложки
+              // ВТОРОЙ сессии чтения (первая уходит влево), и обложка его накрывала. У такой
+              // остановки значок уезжает налево, зеркально: превью нельзя двинуть в свою
+              // очередь — стороны у двух остановок разные намеренно (§5.16).
+              cx={cx + (book && bookSide(s.occurrence) === "right" ? -STREAK_DX_LEFT : STREAK_DX)}
               cy={cy - 17}
               value={streak}
               testId={`quest-streak-${s.key}-${s.occurrence}`}
@@ -1134,10 +1198,20 @@ export function QuestMap({
               open={openCard === c.key}
               onOpen={() => open(c.key)}
               onClose={close}
+              onRetell={() => setRetold(c.book)}
             />
           ))}
         </g>
       )}
-    </svg>
+      </svg>
+      {/* Окно пересказа живёт ВНЕ карты: внутри `svg` ему было бы тесно и по вёрстке (модалка
+          на весь экран), и по слоям (в SVG нет z-index). Портал в body — тот же приём, что у
+          лайтбокса артефактов. */}
+      {retold && typeof document !== "undefined" &&
+        createPortal(
+          <BookSummaryModal book={retold} onClose={() => setRetold(null)} />,
+          document.body,
+        )}
+    </>
   );
 }

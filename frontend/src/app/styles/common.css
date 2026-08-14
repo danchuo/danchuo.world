@@ -821,6 +821,37 @@ body {
   font-size: var(--fs-music-meta);
   color: var(--text-primary);
 }
+/* Слово «прочитано» — подпись, а не факт: она объясняет цифры, поэтому набрана приглушённо и
+   обычным весом. Сами проценты, наоборот, ПЛОТНЕЕ (решение владельца: рядом со строкой времени
+   на карточке подкаста они выглядели тоньше, чем весит их смысл). Кегль при этом общий — иначе
+   строка распирала бы карточку, ширину которой считает оценка. */
+.quest-book__progress-caption {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+.quest-book__progress-value {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+/* Кнопка пересказа (§5.16) — в той же строке, сразу за процентами: она отвечает на следующий
+   вопрос про тот же кусок («а что там было»), и уводить её в отдельную строку значило бы
+   растить карточку ради одного слова. Подчёркнута пунктиром, а не оформлена плашкой: внутри
+   тултипа в 8 пикселей кегля плашка съела бы половину строки. */
+.quest-book__retell {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.quest-book__retell:hover,
+.quest-book__retell:focus-visible {
+  text-decoration: underline solid;
+}
 
 /* Подвал, которого у плитки нет и быть не может: она отвечает «что играет», а карточка —
    «что это БЫЛО и сколько его было». */

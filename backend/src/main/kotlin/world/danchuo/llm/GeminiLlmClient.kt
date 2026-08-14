@@ -25,7 +25,7 @@ class GeminiLlmClient(
     @param:ConfigProperty(name = "danchuo.gemini.model") private val model: String,
     @param:ConfigProperty(name = "danchuo.gemini.vision-model") private val visionModel: String,
     private val mapper: ObjectMapper,
-) : LlmClient {
+) : LlmClient, LlmTextProvider {
 
     private val log: Logger = Logger.getLogger(GeminiLlmClient::class.java)
 
@@ -33,6 +33,15 @@ class GeminiLlmClient(
         generate(
             model = model,
             temperature = 0.7,
+            systemPrompt = systemPrompt,
+            parts = listOf(GeminiTextPart(userPrompt)),
+        )
+
+    /** Усилие рассуждения — понятие Groq; у Gemini его в запросе нет, поле просто не смотрим. */
+    override fun completeText(systemPrompt: String, userPrompt: String, call: LlmTextCall): String? =
+        generate(
+            model = call.model,
+            temperature = call.temperature,
             systemPrompt = systemPrompt,
             parts = listOf(GeminiTextPart(userPrompt)),
         )

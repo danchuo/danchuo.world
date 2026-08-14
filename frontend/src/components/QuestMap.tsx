@@ -11,7 +11,7 @@ import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplin
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
 import { cardTimeLines, episodeForStop } from "@/lib/podcastCard";
-import { bookForStop, progressLabel, readingTimeLine } from "@/lib/readingCard";
+import { bookForStop, progressLabel } from "@/lib/readingCard";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -359,15 +359,16 @@ const BOOK_PREVIEW_H = 33;
 const BOOK_CARD_COVER_W = 30;
 const BOOK_CARD_COVER_H = 45;
 /**
- * Высота карточки книги. Строк у неё **четыре** (название, автор, проценты, время) против трёх
- * у подкаста — отсюда и разница с его 54/68, а не из-за обложки.
+ * Высота карточки книги. Строк у неё **три** (название, автор, проценты); часов у чтения нет
+ * (см. `readingCard.ts`), и высоту теперь держит не текст, а обложка: 45 + поля 6×2 = 57.
  *
  * ⚠️ Число обязано покрывать содержимое целиком: карточка живёт в `foreignObject`, а он отводит
  * окно ЗАРАНЕЕ и по содержимому не растёт — не хватило, и `overflow: hidden` молча срежет нижнюю
- * строку (ловилось владельцем: пропадало время захода). Замер на борде: четыре строки с полями
- * просят 70 единиц.
+ * строку (ловилось владельцем: пропадало время захода). Считать надо и рамку: окно отводится
+ * снаружи, а `overflow` режет ВНУТРИ неё, поэтому 57 содержимого просят 59 окна. Замер на борде
+ * (`scrollHeight` против `clientHeight`): при 58 карточка переполнялась ровно на пиксель.
  */
-const BOOK_CARD_H = 72;
+const BOOK_CARD_H = 60;
 
 /**
  * Левый-верхний угол превью обложки книги. Стороны у двух остановок РАЗНЫЕ (решение владельца):
@@ -415,9 +416,8 @@ function bookCardWidth(book: ReadingBookView): number {
   const titleW = book.title.length * 11 * proportional;
   const authorW = (book.author?.length ?? 0) * 8.5 * proportional;
   const progressW = (progressLabel(book)?.length ?? 0) * 8.5 * mono;
-  const timeW = readingTimeLine(book).length * 8.5 * mono;
 
-  const text = Math.max(titleW, authorW, progressW, timeW) + BOOK_CARD_SLACK;
+  const text = Math.max(titleW, authorW, progressW) + BOOK_CARD_SLACK;
   const total = BOOK_CARD_PAD * 2 + BOOK_CARD_COVER_W + BOOK_CARD_GAP + text;
   return Math.round(Math.min(CARD_W, Math.max(BOOK_CARD_MIN_W, total)));
 }
@@ -678,7 +678,6 @@ function BookCard({
             </Marquee>
             {book.author && <div className="quest-book__author">{book.author}</div>}
             {progress && <div className="quest-book__progress">{progress}</div>}
-            <div className="quest-card__time">{readingTimeLine(book)}</div>
           </div>
         </div>
       </foreignObject>

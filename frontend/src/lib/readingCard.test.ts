@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookForStop, progressLabel, readingTimeLine } from "./readingCard";
+import { bookForStop, progressLabel } from "./readingCard";
 import type { ReadingBookView } from "./api/types";
 
 /**
@@ -8,6 +8,9 @@ import type { ReadingBookView } from "./api/types";
  * Главное, что здесь проверяется, — разница между «ноль» и «не знаем». Читалка не хранит
  * истории прогресса, поэтому начало захода известно не всегда, и подставлять туда ноль нельзя:
  * книга, приехавшая к нам уже начатой, получила бы чужие проценты.
+ *
+ * Часов у карточки книги нет вовсе, и проверять тут нечего: `startedAt` в данных остался, но
+ * это отметка НАШЕГО такта опроса, а не время владельца (см. `readingCard.ts`).
  */
 
 const book = (patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
@@ -60,16 +63,5 @@ describe("progressLabel", () => {
 
   it("у импортированного дня строки прогресса нет вовсе", () => {
     expect(progressLabel(book({ startPercent: null, endPercent: null }))).toBeNull();
-  });
-});
-
-describe("readingTimeLine", () => {
-  it("подписывает заход временем начала и минутами", () => {
-    expect(readingTimeLine(book())).toBe("19:04 · 32 мин");
-  });
-
-  it("у импортированного дня остаются одни минуты", () => {
-    // Тогда мы не смотрели: выдумывать время значило бы врать точнее, чем мы знаем.
-    expect(readingTimeLine(book({ startedAt: null, readMinutes: 40 }))).toBe("40 мин");
   });
 });

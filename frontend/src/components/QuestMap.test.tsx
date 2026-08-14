@@ -287,7 +287,8 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     expect(screen.getByText("Утро")).toBeInTheDocument();
     expect(screen.getByText("шоу Утро")).toBeInTheDocument();
-    expect(screen.getByText("47 из 48 мин")).toBeInTheDocument();
+    // Время начала стоит и у единственного захода: «когда я это слушал» — вопрос сам по себе.
+    expect(screen.getByText("09:12 · 47 из 48 мин")).toBeInTheDocument();
   });
 
   it("ведёт ссылками на эпизод и на шоу", () => {
@@ -732,12 +733,15 @@ describe("QuestMap · чтение", () => {
     expect(long).toBe(214);
   });
 
-  it("карточка рассказывает книгу, пройденный кусок и время захода", () => {
+  it("карточка рассказывает книгу и пройденный кусок, но не часы", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     expect(screen.getByTestId("quest-book-title-1")).toHaveTextContent("Хребты безумия");
     expect(screen.getByText("35% → 42%")).toBeInTheDocument();
-    expect(screen.getByText("19:04 · 32 мин")).toBeInTheDocument();
+    // Часов у чтения нет ни в каком виде: единственное известное нам время — момент синка
+    // полки, то есть конец захода с непредсказуемым лагом (см. `readingCard.ts`).
+    expect(screen.queryByText(/19:04/)).toBeNull();
+    expect(screen.queryByText(/·/)).toBeNull();
   });
 
   it("под остановкой стоят минуты своей сессии, а не сумма за сутки", () => {

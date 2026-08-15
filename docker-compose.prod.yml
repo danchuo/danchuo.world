@@ -122,7 +122,10 @@ services:
     # No published ports: only caddy talks to it, over the compose network.
 
   caddy:
-    image: caddy:2
+    # Custom build (caddy/Dockerfile): stock caddy:2 has neither a rate limiter nor a cache,
+    # and the Caddyfile now needs both. Tagged with the deploy sha like the other two images,
+    # so an edge rollback works exactly the same way (docs/deploy.md §5).
+    image: ghcr.io/danchuo/danchuo.world/caddy:${TAG:-latest}
     container_name: danchuoworld-caddy
     restart: unless-stopped
     depends_on:

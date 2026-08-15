@@ -30,6 +30,7 @@ concurrency:
 env:
   BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
   FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+  CADDY_IMAGE: ghcr.io/${{ github.repository }}/caddy
 
 jobs:
 
@@ -109,6 +110,60 @@ jobs:
             ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+  # ── Stage 1c: build the edge image (caddy + rate limiter + cache) ─────────────────────
+  # Small and cheap next to the other two, but it has to exist before deploy: the Caddyfile
+  # uses directives stock caddy:2 cannot even parse, so both the validation step and the
+  # running edge need this image.
+  build-caddy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: caddy
+          push: true
+          tags: |
+            ${{ env.CADDY_IMAGE }}:latest
+            ${{ env.CADDY_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=caddy
+          cache-to: type=gha,mode=max,scope=caddy
+
+  # ── Stage 1d: the Caddyfile must parse against the image that will serve it ───────────
+  # Runs here rather than on the VPS so a broken edge config fails the build in a minute,
+  # before anything is pulled. The on-server validation stays as well — it is the one that
+  # proves the file which actually landed there is good.
+  validate-edge-config:
+    needs: build-caddy
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate Caddyfile
+        run: |
+          docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            ${{ env.CADDY_IMAGE }}:${{ github.sha }} \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
   # ── Stage 2: run the freshly built images and exercise the real request paths ─────────
   smoke-test:
@@ -214,7 +269,7 @@ jobs:
 
   # ── Stage 3: roll the VPS onto the new images ─────────────────────────────────────────
   deploy:
-    needs: smoke-test
+    needs: [ smoke-test, validate-edge-config ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -260,7 +315,12 @@ jobs:
             # file, which is still valid and reloads green. Only recreating the container
             # re-resolves the mount. Validate first in a throwaway container so a broken
             # Caddyfile fails the deploy instead of taking the edge down on restart.
-            docker run --rm -v /opt/danchuoworld/Caddyfile:/etc/caddy/Caddyfile:ro caddy:2 \
+            #
+            # Validate with OUR image, not caddy:2 — the config uses rate_limit and cache,
+            # which stock Caddy cannot parse, so validating against caddy:2 would now fail
+            # every deploy on a perfectly good file.
+            docker run --rm -v /opt/danchuoworld/Caddyfile:/etc/caddy/Caddyfile:ro \
+              ghcr.io/danchuo/danchuo.world/caddy:${TAG} \
               caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
             # Every service whose config arrives as a bind-mounted file has to be recreated for
@@ -346,6 +406,7 @@ jobs:
             echo "**Images (sha tag = rollback handle, docs/deploy.md §5):**"
             echo "- \`${{ env.BACKEND_IMAGE }}:${{ github.sha }}\`"
             echo "- \`${{ env.FRONTEND_IMAGE }}:${{ github.sha }}\`"
+            echo "- \`${{ env.CADDY_IMAGE }}:${{ github.sha }}\`"
           } > notes.md
 
           gh release create "$TAG" \

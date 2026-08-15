@@ -23,6 +23,7 @@ class RateLimitFilterTest {
     class SmallLimit : QuarkusTestProfile {
         override fun getConfigOverrides() = mapOf(
             "danchuo.ratelimit.requests" to "3",
+            "danchuo.ratelimit.media-requests" to "5",
             "danchuo.ratelimit.window-seconds" to "3600",
         )
     }
@@ -69,6 +70,63 @@ class RateLimitFilterTest {
         // Тот же первый хоп с другим хвостом попадает в ТОТ ЖЕ бакет (уже пустой) ⇒ 429.
         given().header("X-Forwarded-For", "$first, 10.9.9.9").get("/api/theme/active")
             .then().statusCode(429)
+    }
+
+    @Test
+    fun `film frames spend their own bucket, not the public one`() {
+        val ip = "203.0.113.40"
+        // Публичный бакет вычерпан досуха…
+        repeat(4) { given().header("X-Forwarded-For", ip).get("/api/theme/active") }
+        given().header("X-Forwarded-For", ip).get("/api/theme/active")
+            .then().statusCode(429)
+        // …а кадры дропа продолжают ходить: у них отдельный, более щедрый бакет.
+        // 404 (в тестах хранилище пустое) — важно, что НЕ 429: лимитер пропустил запрос.
+        given().header("X-Forwarded-For", ip).get("/api/film-media/1/1/thumb")
+            .then().statusCode(404)
+    }
+
+    @Test
+    fun `film bucket still stops a flood of frames`() {
+        val ip = "203.0.113.50"
+        // Щедрый — не значит бесконечный: 5 кадров проходят…
+        repeat(5) {
+            given().header("X-Forwarded-For", ip).get("/api/film-media/1/1/thumb")
+                .then().statusCode(404)
+        }
+        // …шестой отбивается. Раньше ручка была исключена из лимитера совсем.
+        given().header("X-Forwarded-For", ip).get("/api/film-media/1/1/thumb")
+            .then().statusCode(429)
+            .body("error", equalTo("rate_limited"))
+    }
+
+    @Test
+    fun `draining the film bucket leaves the public one untouched`() {
+        val ip = "203.0.113.60"
+        // Кадры выбраны до отказа…
+        repeat(6) { given().header("X-Forwarded-For", ip).get("/api/film-media/1/1/thumb") }
+        given().header("X-Forwarded-For", ip).get("/api/film-media/1/1/thumb")
+            .then().statusCode(429)
+        // …а обычное чтение того же клиента не задето: бакеты независимы в обе стороны.
+        given().header("X-Forwarded-For", ip).get("/api/theme/active")
+            .then().statusCode(200)
+    }
+
+    @Test
+    fun `SSR calls marked as internal are never rate-limited`() {
+        val ip = "203.0.113.70"
+        // Фронт-сервер ходит к бэку по compose-сети и метит свои запросы доверенным
+        // заголовком (Caddy срезает его с публичного трафика). Такие запросы не тратят
+        // бакет — иначе SSR всех посетителей мира дерётся за один общий лимит.
+        repeat(6) {
+            given().header(RateLimitFilter.INTERNAL_HEADER, "1").header("X-Forwarded-For", ip)
+                .get("/api/theme/active")
+                .then().statusCode(200)
+        }
+        // Бакет клиента при этом нетронут — внутренние запросы его не расходовали.
+        repeat(3) {
+            given().header("X-Forwarded-For", ip).get("/api/theme/active")
+                .then().statusCode(200)
+        }
     }
 
     @Test

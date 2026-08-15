@@ -55,32 +55,19 @@ class EpubTextTest {
         val book = EpubText.read(epub(dir.resolve("book.epub")))!!
 
         // Вторая глава — вся середина книги по размеру; кусок 0.4..0.6 обязан быть про неё.
-        val excerpt = book.excerpt(from = 0.4, to = 0.6, maxChars = 10_000)
+        val excerpt = book.excerpt(from = 0.4, to = 0.6)
 
         assertTrue(excerpt.contains("вторая"), "середина книги — вторая глава: $excerpt")
         assertFalse(excerpt.contains("третья"), "конец книги в середину попасть не мог: $excerpt")
     }
 
     @Test
-    fun `an excerpt is capped and never runs past the end of what was read`() {
+    fun `an excerpt never runs past the end of what was read`() {
         val book = EpubText.read(epub(dir.resolve("book.epub")))!!
 
-        assertTrue(book.excerpt(from = 0.0, to = 1.0, maxChars = 120).length <= 120)
         // Последняя глава начинается там же, где кончается вторая: кусок «до 60%» её не задевает.
-        assertFalse(book.excerpt(from = 0.0, to = 0.6, maxChars = 10_000).contains("третья"))
-    }
-
-    @Test
-    fun `a long stretch is sampled across its whole length, ending where reading stopped`() {
-        val book = EpubText.read(epub(dir.resolve("book.epub")))!!
-
-        val whole = book.excerpt(from = 0.0, to = 1.0, maxChars = 10_000)
-        val capped = book.excerpt(from = 0.0, to = 1.0, maxChars = 2_000)
-
-        assertTrue(capped.length <= 2_000)
-        assertTrue(capped.contains("[…]"), "разрывы должны быть отмечены явно: $capped")
-        // Обрезка «по началу» потеряла бы именно конец — то место, где владелец закрыл книгу.
-        assertTrue(capped.trimEnd().endsWith(whole.trimEnd().takeLast(40)), "конец куска потерян: $capped")
+        // Захватить непрочитанное значило бы спойлерить владельцу его же книгу.
+        assertFalse(book.excerpt(from = 0.0, to = 0.6).contains("третья"))
     }
 
     @Test
@@ -89,7 +76,7 @@ class EpubTextTest {
 
         // Импортированный день и промах округления дают from == to; пустая строка сорвала бы
         // пересказ на ровном месте — берём окно вокруг точки.
-        assertTrue(book.excerpt(from = 0.5, to = 0.5, maxChars = 10_000).isNotBlank())
+        assertTrue(book.excerpt(from = 0.5, to = 0.5).isNotBlank())
     }
 
     @Test

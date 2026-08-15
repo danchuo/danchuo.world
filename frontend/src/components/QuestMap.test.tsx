@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { DisciplineItemView, ReadingBookView } from "@/lib/api/types";
+import type { DisciplineItemView, PodcastEpisodeView, ReadingBookView } from "@/lib/api/types";
 import { QuestMap } from "./QuestMap";
 
 function item(
@@ -266,7 +266,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     duration: number | null = 48,
     dayMinutes = listened,
     startedAt = "2026-08-13T06:12:00Z",
-  ) => ({
+  ): PodcastEpisodeView => ({
     episodeName: name,
     episodeUrl: `https://open.spotify.com/episode/${name}`,
     showName: `шоу ${name}`,
@@ -278,7 +278,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     durationMinutes: duration,
   });
 
-  const withEpisodes = (episodes: ReturnType<typeof episode>[]): DisciplineItemView[] => [
+  const withEpisodes = (episodes: PodcastEpisodeView[]): DisciplineItemView[] => [
     { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
   ];
 
@@ -430,6 +430,28 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     const link = screen.getByText("Утро").closest("a");
     expect(link?.closest('[role="button"]')).toBeNull();
+  });
+
+  it("кнопка пересказа есть только там, где есть что рассказать, и окно у неё общее с книгой", async () => {
+    render(
+      <QuestMap
+        items={withEpisodes([
+          { ...episode("Первый", 47), sessionId: 11, hasSummary: true },
+          { ...episode("Второй", 30), sessionId: 12, hasSummary: false },
+        ])}
+        monsterDrunk={false}
+      />,
+    );
+
+    expect(screen.getByTestId("quest-episode-retell-1")).toBeInTheDocument();
+    // Источника текста у выпуска может не быть — тогда обещать окно нечем (§5.16.1).
+    expect(screen.queryByTestId("quest-episode-retell-2")).toBeNull();
+
+    await userEvent.click(screen.getByTestId("quest-episode-retell-1"));
+    // Окно ОДНО на книгу и на выпуск: тот же контур, тот же ответ — расходится только шапка.
+    expect(screen.getByTestId("summary-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("summary-progress")).toHaveTextContent("прослушано за этот заход");
+    expect(screen.getByTestId("summary-progress")).toHaveTextContent("47 из 48 мин");
   });
 });
 
@@ -763,8 +785,9 @@ describe("QuestMap · чтение", () => {
     expect(screen.queryByTestId("quest-book-retell-2")).toBeNull();
 
     await userEvent.click(screen.getByTestId("quest-book-retell-1"));
-    expect(screen.getByTestId("book-summary-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("summary-modal")).toBeInTheDocument();
   });
+
 
   it("огонёк стрика уходит влево от остановки, чью обложку он бы накрыл", () => {
     render(

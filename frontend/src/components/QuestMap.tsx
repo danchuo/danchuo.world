@@ -13,7 +13,8 @@ import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
 import { cardTimeLines, episodeForStop } from "@/lib/podcastCard";
 import { bookForStop, progressLabel, PROGRESS_CAPTION } from "@/lib/readingCard";
-import { BookSummaryModal } from "./BookSummaryModal";
+import { SummaryModal } from "./SummaryModal";
+import { bookSubject, episodeSubject, type SummarySubject } from "@/lib/summarySubject";
 
 /**
  * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
@@ -326,6 +327,13 @@ const CARD_H = 54;
  * подрезает (`overflow: hidden` на боксе).
  */
 const CARD_H_SPLIT = 68;
+/**
+ * Прибавка на строку с кнопкой пересказа (§5.16.1) — та же строка, что развела [CARD_H_SPLIT] с
+ * [CARD_H]. Кнопка стоит СВОЕЙ строкой, а не в хвосте времени: «09:12 · 47 из 48 мин» и так
+ * почти во всю ширину карточки, и приписанное следом слово уехало бы за край или в перенос,
+ * а перенос в `foreignObject` подрезается.
+ */
+const CARD_H_RETELL = 14;
 const CARD_COVER = 40;
 /** Насколько край карточки заходит под площадку нажатия (r=22) — чтобы ховер не срывался. */
 const CARD_LIFT = 20;
@@ -550,16 +558,20 @@ function PodcastCard({
   cx,
   cy,
   episode,
+  occurrence,
   open,
   onOpen,
   onClose,
+  onRetell,
 }: {
   cx: number;
   cy: number;
   episode: PodcastEpisodeView;
+  occurrence: number;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  onRetell: () => void;
 }) {
   const half = CARD_W / 2;
   // Сдвиг, чтобы карточка целиком осталась в пределах viewBox [0,400] — как у тултипа стрика.
@@ -570,7 +582,9 @@ function PodcastCard({
   // Строк времени одна или две (§5.6) — от этого зависит окно foreignObject и точка, от которой
   // карточка встаёт над превью.
   const timeLines = cardTimeLines(episode);
-  const height = timeLines.length > 1 ? CARD_H_SPLIT : CARD_H;
+  // Кнопка есть, только когда пересказ УЖЕ собран (§5.16.1) — и тогда карточке нужна ещё строка.
+  const canRetell = episode.hasSummary === true && episode.sessionId != null;
+  const height = (timeLines.length > 1 ? CARD_H_SPLIT : CARD_H) + (canRetell ? CARD_H_RETELL : 0);
 
   // Над ПРЕВЬЮ (а не просто над остановкой), иначе карточка накрывала бы собственную ручку:
   // превью висит сверху-слева от диска, и «над остановкой» приходилось ровно на него.
@@ -597,6 +611,23 @@ function PodcastCard({
                 {line}
               </div>
             ))}
+            {canRetell && (
+              <div className="quest-card__time">
+                <button
+                  type="button"
+                  className="quest-card__retell"
+                  data-testid={`quest-episode-retell-${occurrence}`}
+                  onClick={(e) => {
+                    // Карточка живёт внутри остановки-переключателя линзы: без остановки
+                    // всплытия клик по кнопке заодно перекинул бы календарь на другой пункт.
+                    e.stopPropagation();
+                    onRetell();
+                  }}
+                >
+                  {RETELL_LABEL}
+                </button>
+              </div>
+            )}
           </NowPlayingCard>
         </div>
       </foreignObject>
@@ -721,7 +752,7 @@ function BookCard({
                 {book.hasSummary && book.sessionId != null && (
                   <button
                     type="button"
-                    className="quest-book__retell"
+                    className="quest-card__retell"
                     data-testid={`quest-book-retell-${occurrence}`}
                     onClick={(e) => {
                       // Карточка живёт внутри остановки-переключателя линзы: без остановки
@@ -810,7 +841,8 @@ export function QuestMap({
    * показывает книгу, автора и проценты сразу, ещё до того как приедет текст, — а всё это у
    * карточки уже есть.
    */
-  const [retold, setRetold] = useState<ReadingBookView | null>(null);
+  // Предмет раскрытого окна пересказа — книга или выпуск: окно у них одно (§5.16.1).
+  const [retold, setRetold] = useState<SummarySubject | null>(null);
   const closeTimer = useRef<number | null>(null);
   /** Зеркало [openCard] для обработчиков: тап-переключатель и слушатель документа читают
    *  состояние из замыканий, созданных один раз. */
@@ -875,7 +907,7 @@ export function QuestMap({
     const episode = episodeForStop(byKey.get(s.key)?.episodes, s.occurrence);
     if (!episode) return [];
     const [cx, cy] = STOPS_XY[i];
-    return [{ key: `${s.key}-${s.occurrence}`, cx, cy, episode }];
+    return [{ key: `${s.key}-${s.occurrence}`, cx, cy, episode, occurrence: s.occurrence }];
   });
   const readingCards = ROUTE.flatMap((s, i) => {
     if (s.key !== READING_KEY) return [];
@@ -1178,9 +1210,11 @@ export function QuestMap({
               cx={c.cx}
               cy={c.cy}
               episode={c.episode}
+              occurrence={c.occurrence}
               open={openCard === c.key}
               onOpen={() => open(c.key)}
               onClose={close}
+              onRetell={() => setRetold(episodeSubject(c.episode))}
             />
           ))}
         </g>
@@ -1198,7 +1232,7 @@ export function QuestMap({
               open={openCard === c.key}
               onOpen={() => open(c.key)}
               onClose={close}
-              onRetell={() => setRetold(c.book)}
+              onRetell={() => setRetold(bookSubject(c.book))}
             />
           ))}
         </g>
@@ -1209,7 +1243,7 @@ export function QuestMap({
           лайтбокса артефактов. */}
       {retold && typeof document !== "undefined" &&
         createPortal(
-          <BookSummaryModal book={retold} onClose={() => setRetold(null)} />,
+          <SummaryModal subject={retold} onClose={() => setRetold(null)} />,
           document.body,
         )}
     </>

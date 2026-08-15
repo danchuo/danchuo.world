@@ -7,15 +7,16 @@ import type {
   FreshnessView,
   NowPlayingView,
   ProjectView,
-  ReadingSummaryView,
   RecentTrackView,
   RideMonthSummaryView,
   RideStatsView,
   RideView,
   SleepNightView,
   SocialLinkView,
+  SummaryView,
   ThemeView,
 } from "./types";
+import type { SummaryKind } from "../summarySubject";
 
 /**
  * JSON-клиент к Quarkus (PRD §3 — фронт изолирован в клиента к бэкенду). Только публичное
@@ -113,12 +114,18 @@ export function getRides(init?: RequestInit): Promise<RideView[]> {
 }
 
 /**
- * Пересказ прочитанного куска (`GET /api/reading/summary/{id}`, PRD §5.16) — тянется лениво,
+ * Пересказ пройденного куска (`GET /api/summary/{kind}/{id}`, PRD §5.16.1) — тянется лениво,
  * когда окно раскрыли. В проекции дня едет только флаг `hasSummary`: текст на несколько строк
  * не нужен ни календарю, ни карточке, а дней в окне — десятки.
+ *
+ * Точка одна на все виды заходов: строка на бэкенде тоже одна, различается только ключ.
  */
-export function getReadingSummary(sessionId: number, init?: RequestInit): Promise<ReadingSummaryView> {
-  return getJson<ReadingSummaryView>(`/api/reading/summary/${sessionId}`, init);
+export function getSummary(
+  kind: SummaryKind,
+  sessionId: number,
+  init?: RequestInit,
+): Promise<SummaryView> {
+  return getJson<SummaryView>(`/api/summary/${kind}/${sessionId}`, init);
 }
 
 /** Агрегат истории поездок (`GET /api/rides/stats`). */

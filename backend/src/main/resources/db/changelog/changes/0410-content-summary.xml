@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      One retelling table for every kind of sitting, not one per slice (PRD 5.16).
+
+      The queue, the attempt counter, the refresh threshold and the prompt never had anything to
+      do with books: they are arithmetic over two fractions plus a call to the model. What IS
+      book-specific is only where the text comes from, and that stays in the reading slice.
+
+      The real reason to merge them is not tidiness. The free model lane is ONE scarce limit for
+      the whole backend (12k tokens per minute), so two independent pollers with their own queues
+      would compete for it blindly and take turns collecting 429s - burning attempts on work
+      neither of them completed. One table means one queue means one poller.
+
+      The key becomes (kind, session_id): a reading session #7 and a podcast session #7 are
+      different things, and session ids are only unique inside their own slice.
+
+      The percent columns lose the word "percent" on the way. They always held fractions 0..1,
+      and for an episode "percent of the book" would be plain wrong - the core stores a fraction
+      of whatever unit the source measures in, and does not need to know which.
+    -->
+    <changeSet id="0410-content-summary-rename" author="danchuo">
+        <renameTable oldTableName="reading_summary" newTableName="content_summary"/>
+
+        <!-- Which kind of sitting this retelling is about; every existing row is a book. -->
+        <addColumn tableName="content_summary">
+            <column name="kind" type="VARCHAR(16)" defaultValue="reading">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <renameColumn tableName="content_summary"
+                      oldColumnName="covered_start_percent" newColumnName="covered_start"
+                      columnDataType="DOUBLE PRECISION"/>
+        <renameColumn tableName="content_summary"
+                      oldColumnName="covered_end_percent" newColumnName="covered_end"
+                      columnDataType="DOUBLE PRECISION"/>
+        <renameColumn tableName="content_summary"
+                      oldColumnName="target_end_percent" newColumnName="target_end"
+                      columnDataType="DOUBLE PRECISION"/>
+    </changeSet>
+
+    <!--
+      The old uniqueness was on session_id alone, which would now collide across kinds the moment
+      a second source appears. Dropping it and re-adding it over the pair keeps the lookup the
+      background job does every tick ("what do we already know about these sittings") on an index.
+    -->
+    <changeSet id="0410-content-summary-key" author="danchuo">
+        <dropUniqueConstraint tableName="content_summary" constraintName="uq_reading_summary_session"/>
+        <addUniqueConstraint tableName="content_summary"
+                             columnNames="kind, session_id"
+                             constraintName="uq_content_summary_kind_session"/>
+    </changeSet>
+</databaseChangeLog>

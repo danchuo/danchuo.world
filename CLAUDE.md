@@ -9,7 +9,7 @@
 сделанных веток и не «последняя / перед этим / ещё раньше». Что сделала ветка, живёт в её
 PR и сообщении коммита; правило — в PRD/DESIGN; архив первого года — `docs/journal.md`.
 
-- Версии: **бэк 1.19.2, фронт 1.26.1**.
+- Версии: **бэк 1.20.0, фронт 1.27.0**.
 - Оговорки «с какого дня у нас есть эти данные» живут в PRD, рядом со своей фичей.
 
 ## Документы — кто за что отвечает
@@ -38,9 +38,10 @@ PRD и DESIGN — разделённые источники правды, не �
 | `health` | приём с iOS-шортката: шаги, сессионизация сна (`SleepSessionizer`), дневник (`JournalDetector`) | `POST /api/ingest/health` |
 | `checklist` | пункты дисциплины и отметки | `POST /api/ingest/daily` |
 | `monster` | вкусы монстра (data-driven); пункт `monster` — производная от вкуса | — |
-| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш; поллер подкастов (`@Scheduled` 60с → `podcast_session`, пункт `podcasts` — производная от минут) | `GET /api/spotify/{now-playing,recent,top}` |
+| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш; поллер подкастов (`@Scheduled` 60с → `podcast_session`, пункт `podcasts` — производная от минут; сессия помнит и КУСОК эпизода: `start_progress_ms`→`last_progress_ms`) | `GET /api/spotify/{now-playing,recent,top}` |
 | `github` | вклады из HTML-фрагмента профиля, `@Scheduled`; не двигает лампу свежести | едут в `DaySummary` |
-| `reading` | полка Anx Reader по WebDAV: SQLite читалки → сессии чтения (`@Scheduled` 5м → `reading_session`, пункт `reading` — производная от минут); пересказ прочитанного куска по epub с полки (`@Scheduled` 2м, бесплатная полоса LLM) | `GET /api/reading/{cover,summary}/{id}` |
+| `reading` | полка Anx Reader по WebDAV: SQLite читалки → сессии чтения (`@Scheduled` 5м → `reading_session`, пункт `reading` — производная от минут); `ReadingSummarySource` — откуда взять текст прочитанного куска (epub с полки) | `GET /api/reading/cover/{id}` |
+| `summary` | пересказ пройденного за заход куска, **общий на все источники**: очередь и попытки (`content_summary`, ключ `kind`+`sessionId`), чистые `SummaryPolicy`/`SummaryWindows`, промпт со словарём по виду, один `SummaryPoller` (`@Scheduled` 2м, бесплатная полоса LLM) на всех. Слайсы дают текст через `SummarySource` | `GET /api/summary/{kind}/{id}` |
 | `bike` | Велобайк: поездки, покупки тарифов, геокодинг станций (Nominatim) | `GET /api/rides`, `/api/rides/stats` |
 | `film` | фото-дропы: zip → web+thumb, поворот кадров через LLM, поиск артефактов | `GET /api/drops`, `/api/film-media/…` |
 | `llm` | клиент внешних LLM за `LlmClient` (Groq + Gemini); две **полосы** — основная (может быть платной) и бесплатная `LlmLane.FREE` для фоновой работы; без ключа — тихий `null` | — |
@@ -170,7 +171,7 @@ postgres `localhost:5432`, WebDAV полки читалки `localhost:6065/dav`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **danchuo.world** (5407 symbols, 11657 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **danchuo.world** (6132 symbols, 13451 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

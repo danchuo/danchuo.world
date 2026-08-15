@@ -15,6 +15,14 @@ import java.time.Instant
  * уехать. Ссылки — те же, что отдаёт `currently-playing`.
  */
 data class PodcastRun(
+    /**
+     * Id ПЕРВОЙ сессии захода — его ключ наружу (пересказ прослушанного, PRD §5.16.1).
+     *
+     * Собственного id у захода нет: он склеивается на чтении и в базе не лежит. Ключом служит
+     * первая из склеенных строк, и это устойчиво — склейка детерминирована, а сессии только
+     * дописываются: заход не может задним числом начаться раньше.
+     */
+    val sessionId: Long,
     val episodeId: String,
     /** Сколько реально слушал за этот заход, мс (см. [PodcastListenMath]). */
     val listenedMs: Long,
@@ -85,6 +93,8 @@ object PodcastDayRollup {
         for (next in sessions.sortedBy { it.startedAt }) {
             val previous = merged.lastOrNull()
             if (previous != null && previous.joins(next, gapMinutes)) {
+                // Ключ захода остаётся ключом ПЕРВОЙ его строки: приклеенный кусок продолжает
+                // тот же заход, а не открывает новый, и пересказ не должен переезжать.
                 merged[merged.lastIndex] = previous.copy(
                     listenedMs = previous.listenedMs + next.listenedMs,
                     endedAt = maxOf(previous.endedAt, next.endedAt),

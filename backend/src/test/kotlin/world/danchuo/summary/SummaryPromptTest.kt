@@ -1,4 +1,4 @@
-package world.danchuo.reading
+package world.danchuo.summary
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Разговор с моделью про прочитанный кусок (PRD §5.16): что мы ей даём и как читаем ответ.
+ * Разговор с моделью про пройденный кусок (PRD §5.16): что мы ей даём и как читаем ответ.
  *
  * Модель отвечает **текстом**, а не JSON, и это осознанно: бесплатная полоса — это модели вроде
  * llama-3.3, у которых структурированный вывод либо не поддержан, либо съедает половину бюджета
@@ -17,25 +17,28 @@ import org.junit.jupiter.api.Test
  * - **пункты вытаскиваются** из любого привычного маркера (`-`, `•`, `*`, «1.»);
  * - **итог отделён** от пунктов и не остаётся среди них;
  * - **болтовня вокруг** списка выбрасывается, а не едет пунктом;
- * - **итог узнаётся на языке книги**: пересказ пишется на языке ВЫДЕРЖКИ (решение владельца),
- *   и подпись к последней строке модель вправе перевести вместе с ним;
+ * - **итог узнаётся на языке источника**: пересказ пишется на языке ВЫДЕРЖКИ (решение
+ *   владельца), и подпись к последней строке модель вправе перевести вместе с ним;
  * - **отказ модели** (`NO_CONTENT` и человеческие его формы) — это `null`, а не пересказ из
  *   одной пустой строки;
- * - **промпт несёт факты захода**: название, автора и границы куска.
+ * - **промпт несёт факты захода**: название, подпись и границы куска;
+ * - **словарь следует виду источника**: у книги и у выпуска правила одни, а существительные
+ *   разные — иначе дневник рассказывал бы про «книгу» под карточкой подкаста.
  */
-class ReadingSummaryPromptTest {
+class SummaryPromptTest {
 
-    private val book = SummaryContext(
+    private val book = SummaryTarget(
+        kind = SummaryKind.READING,
+        sessionId = 1,
         title = "Дюна",
-        author = "Фрэнк Герберт",
-        startPercent = 0.48,
-        endPercent = 0.53,
-        chapters = listOf("Глава 14"),
+        byline = "Фрэнк Герберт",
+        from = 0.48,
+        to = 0.53,
     )
 
     @Test
     fun `bullets survive any usual marker`() {
-        val parsed = ReadingSummaryPrompt.parse(
+        val parsed = SummaryPrompt.parse(
             """
             - Пауль уходит в пустыню.
             • Джессика говорит с фрименами.
@@ -58,7 +61,7 @@ class ReadingSummaryPromptTest {
 
     @Test
     fun `the closing line is told apart from the bullets`() {
-        val parsed = ReadingSummaryPrompt.parse(
+        val parsed = SummaryPrompt.parse(
             """
             Вот что было в этом куске:
 
@@ -75,14 +78,14 @@ class ReadingSummaryPromptTest {
 
     @Test
     fun `markdown emphasis inside a bullet is stripped`() {
-        val parsed = ReadingSummaryPrompt.parse("- **Пауль** уходит в *пустыню*.")!!
+        val parsed = SummaryPrompt.parse("- **Пауль** уходит в *пустыню*.")!!
 
         assertEquals(listOf("Пауль уходит в пустыню."), parsed.bullets)
     }
 
     @Test
-    fun `the closing line is recognised in the language of the book`() {
-        val parsed = ReadingSummaryPrompt.parse(
+    fun `the closing line is recognised in the language of the source`() {
+        val parsed = SummaryPrompt.parse(
             """
             - The team ships a broken build.
             - Customers notice before the founders do.
@@ -97,18 +100,18 @@ class ReadingSummaryPromptTest {
 
     @Test
     fun `a refusal is not a retelling`() {
-        assertNull(ReadingSummaryPrompt.parse("NO_CONTENT"))
-        assertNull(ReadingSummaryPrompt.parse("НЕ ПОЛУЧИЛОСЬ"))
-        assertNull(ReadingSummaryPrompt.parse("не получилось: в куске одно оглавление"))
-        assertNull(ReadingSummaryPrompt.parse(""))
-        assertNull(ReadingSummaryPrompt.parse(null))
+        assertNull(SummaryPrompt.parse("NO_CONTENT"))
+        assertNull(SummaryPrompt.parse("НЕ ПОЛУЧИЛОСЬ"))
+        assertNull(SummaryPrompt.parse("не получилось: в куске одно оглавление"))
+        assertNull(SummaryPrompt.parse(""))
+        assertNull(SummaryPrompt.parse(null))
         // Одна вводная фраза без единого пункта — тоже не пересказ.
-        assertNull(ReadingSummaryPrompt.parse("Конечно! Сейчас расскажу."))
+        assertNull(SummaryPrompt.parse("Конечно! Сейчас расскажу."))
     }
 
     @Test
     fun `the prompt carries the facts of the sitting`() {
-        val prompt = ReadingSummaryPrompt.user(book, "…текст выдержки…")
+        val prompt = SummaryPrompt.user(book, SummaryExcerpt("…текст выдержки…", listOf("Глава 14")))
 
         assertTrue(prompt.contains("Дюна"))
         assertTrue(prompt.contains("Фрэнк Герберт"))
@@ -116,5 +119,26 @@ class ReadingSummaryPromptTest {
         assertTrue(prompt.contains("53%"))
         assertTrue(prompt.contains("Глава 14"))
         assertTrue(prompt.contains("…текст выдержки…"))
+    }
+
+    @Test
+    fun `an episode is described in the words of an episode, not a book`() {
+        val episode = book.copy(
+            kind = SummaryKind.PODCAST,
+            title = "How Feelings Make Us Smarter",
+            byline = "Hidden Brain",
+        )
+
+        val prompt = SummaryPrompt.user(episode, SummaryExcerpt("…расшифровка…"))
+        val system = SummaryPrompt.system(SummaryKind.PODCAST)
+
+        assertTrue(prompt.startsWith("Выпуск: How Feelings Make Us Smarter"), prompt)
+        assertTrue(prompt.contains("Подкаст: Hidden Brain"), prompt)
+        assertTrue(prompt.contains("Прослушано за этот заход"), prompt)
+        assertTrue(system.contains("прослушал"), system)
+        // Правила при этом те же самые — расходятся только существительные.
+        assertTrue(system.contains(SummaryPrompt.REFUSAL))
+        assertTrue(system.contains(SummaryPrompt.TAKEAWAY_MARK))
+        assertTrue(SummaryPrompt.system(SummaryKind.READING).contains("прочитал"))
     }
 }

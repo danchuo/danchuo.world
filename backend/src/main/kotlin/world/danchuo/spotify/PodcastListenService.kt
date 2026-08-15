@@ -96,6 +96,7 @@ class PodcastListenService(
 
     /** Строка сессии как одиночный заход — дальше соседние склеит [PodcastDayRollup.runs]. */
     private fun runOf(session: PodcastSession) = PodcastRun(
+        sessionId = session.id!!,
         episodeId = session.episodeId,
         listenedMs = session.listenedMs,
         startedAt = session.startedAt,
@@ -124,6 +125,10 @@ class PodcastListenService(
             endedAt = at
             listenedMs = credited
             lastProgressMs = sample.progressMs
+            // Откуда пошёл зачёт, оттуда начинается и кусок эпизода: включил с начала —
+            // [PodcastListenMath.openingCredit] вернул всю фору, и кусок начинается с нуля;
+            // продолжил с середины — форы не было, и кусок начинается с текущего положения.
+            startProgressMs = sample.progressMs - credited
         }
         sessions.persist(session)
     }

@@ -1,45 +1,50 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { getReadingSummary } from "@/lib/api/client";
-import type { ReadingBookView, ReadingSummaryView } from "@/lib/api/types";
-import { progressLabel } from "@/lib/readingCard";
+import { getSummary } from "@/lib/api/client";
+import type { SummarySubject } from "@/lib/summarySubject";
 import { Icon } from "./Icon";
 import { Cover } from "./NowPlayingCard";
 
-interface BookSummaryModalProps {
-  book: ReadingBookView;
+interface SummaryModalProps {
+  subject: SummarySubject;
   onClose: () => void;
 }
 
 /**
- * Окно «что было в этом куске» (PRD §5.16) — раскрывается кнопкой на карточке прочитанного.
+ * Окно «что было в этом куске» (PRD §5.16.1) — раскрывается кнопкой на карточке прочитанного
+ * или прослушанного.
+ *
+ * **Окно одно на оба предмета.** Вопрос («что там было») и ответ (пункты плюс строка-итог) от
+ * того, читали или слушали, не зависят; различается ровно шапка, и она приезжает сюда готовым
+ * предметом ([SummarySubject]). Два похожих окна разошлись бы по мелочам при первой же правке
+ * одного из них — а борд обязан отвечать на один вопрос одинаково.
  *
  * Контур общий с модалками поездок и фото-дропов (DESIGN §7.6): затемнённый фон, закрытие по
  * `×`/`Esc`/клику мимо панели, фокус-трап. Порядок внутри повторяет вопрос владельца: сверху
- * книга (обложка, название, автор), посередине — пройденный кусок крупно, снизу — пункты.
+ * предмет (обложка, название, подпись), посередине — пройденный кусок крупно, снизу — пункты.
  *
  * **Текст тянется лениво.** В карточке дня едет только флаг «есть что рассказать»: пересказ —
  * это несколько строк на заход, а дней в окне календаря десятки. Пока он едет, окно уже
- * показывает шапку и проценты — то есть ровно то, что и так известно борду (DESIGN §7: лоадер
+ * показывает шапку и кусок — то есть ровно то, что и так известно борду (DESIGN §7: лоадер
  * уместен только там, где показать нечего).
  *
- * Пересказ собран по тексту книги с полки, а не по памяти модели, — поэтому в окне нет никаких
- * оговорок про достоверность: их нечем было бы подкрепить, а без файла книги кнопки просто нет.
+ * Пересказ собран по тексту самого источника, а не по памяти модели, — поэтому в окне нет
+ * никаких оговорок про достоверность: их нечем было бы подкрепить, а без источника кнопки
+ * просто нет.
  */
-export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
+export function SummaryModal({ subject, onClose }: SummaryModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [bullets, setBullets] = useState<string[] | null>(null);
   const [takeaway, setTakeaway] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const sessionId = book.sessionId;
+  const { kind, sessionId } = subject;
 
   useEffect(() => {
-    if (sessionId == null) return;
     const ctrl = new AbortController();
-    getReadingSummary(sessionId, { signal: ctrl.signal })
+    getSummary(kind, sessionId, { signal: ctrl.signal })
       .then((data) => {
         // Ответу НЕ доверяем на слово. Прилетевший `{}` (так native-образ отдавал ответ без
         // `@RegisterForReflection`) раньше валил `bullets.map` — и падал не пересказ, а весь
@@ -60,7 +65,7 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
         if (!ctrl.signal.aborted) setFailed(true);
       });
     return () => ctrl.abort();
-  }, [sessionId]);
+  }, [kind, sessionId]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -88,8 +93,6 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const progress = progressLabel(book);
-
   return (
     <div
       className="modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -100,19 +103,19 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Что было в прочитанном куске: ${book.title}`}
+        aria-label={subject.ariaLabel}
         className="pixel-tile flex w-full max-w-md flex-col p-4"
         style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
-        data-testid="book-summary-modal"
+        data-testid="summary-modal"
       >
         <span className="pixel-slab" aria-hidden />
         <span className="pixel-lid" aria-hidden />
 
-        {/* Шапка — та же книга, что на карточке: обложка, название, автор. Колонкой по центру
-            (решение владельца): в модалке речь об ОДНОЙ книге, и её обложка — предмет разговора,
-            а не иконка строки списка. Прижатая к левому краю, она читалась как аватарка. Крестик
-            при этом уходит в угол абсолютом, иначе он растянул бы центр вбок. */}
+        {/* Шапка — тот же предмет, что на карточке: обложка, название, подпись. Колонкой по
+            центру (решение владельца): в модалке речь об ОДНОЙ вещи, и её обложка — предмет
+            разговора, а не иконка строки списка. Прижатая к левому краю, она читалась как
+            аватарка. Крестик при этом уходит в угол абсолютом, иначе он растянул бы центр вбок. */}
         <div className="relative mb-3 flex shrink-0 flex-col items-center text-center">
           <button
             ref={closeRef}
@@ -124,23 +127,29 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
           >
             <Icon name="close" size={18} />
           </button>
-          {/* Та же обложка тем же компонентом, что в карточке и в плитке плеера: у книги она
-              портретная, поэтому высота задаётся отдельно от ширины. Крупнее карточной — здесь
-              она несёт шапку одна, а не подпирает строку текста сбоку. */}
-          <Cover url={book.coverUrl} alt="" size={60} height={90} />
+          {/* Та же обложка тем же компонентом, что в карточке и в плитке плеера. У книги она
+              портретная (корешок), у выпуска квадратная (конверт) — отсюда разная высота при
+              одной ширине. Крупнее карточной: здесь она несёт шапку одна, а не подпирает
+              строку текста сбоку. */}
+          <Cover
+            url={subject.coverUrl}
+            alt=""
+            size={COVER_W}
+            height={subject.portrait ? COVER_H_PORTRAIT : COVER_W}
+          />
           <div className="mt-2 max-w-full px-6">
             <div style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>
-              {book.title}
+              {subject.title}
             </div>
-            {book.author && <div style={{ ...mono, ...meta }}>{book.author}</div>}
+            {subject.byline && <div style={{ ...mono, ...meta }}>{subject.byline}</div>}
           </div>
         </div>
 
         {/* Пройденный кусок — крупно и по центру: это и есть заголовок разговора. */}
-        {progress && (
-          <div className="shrink-0 text-center" style={progressBlock} data-testid="book-summary-progress">
-            <div style={progressCaption}>прочитано за этот заход</div>
-            <div style={progressValue}>{progress}</div>
+        {subject.progressValue && (
+          <div className="shrink-0 text-center" style={progressBlock} data-testid="summary-progress">
+            <div style={progressCaption}>{subject.progressCaption}</div>
+            <div style={progressValue}>{subject.progressValue}</div>
           </div>
         )}
 
@@ -156,7 +165,7 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
                 ))}
               </ul>
               {takeaway && (
-                <p style={{ ...mono, ...takeawayStyle }} data-testid="book-summary-takeaway">
+                <p style={{ ...mono, ...takeawayStyle }} data-testid="summary-takeaway">
                   {takeaway}
                 </p>
               )}
@@ -172,6 +181,10 @@ export function BookSummaryModal({ book, onClose }: BookSummaryModalProps) {
   );
 }
 
+/** Обложка шапки: ширина одна на оба предмета, высота — по пропорции своего. */
+const COVER_W = 60;
+const COVER_H_PORTRAIT = 90;
+
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 const meta = {
@@ -185,7 +198,7 @@ const body = {
   lineHeight: 1.45,
 } satisfies CSSProperties;
 
-/* Проценты стоят отдельным блоком между шапкой и пунктами, отбитые линиями: они отвечают на
+/* Кусок стоит отдельным блоком между шапкой и пунктами, отбитый линиями: он отвечает на
    «сколько», а пункты — на «что», и смешивать эти два ответа в один поток не стоит. */
 const progressBlock = {
   padding: "10px 0 12px",

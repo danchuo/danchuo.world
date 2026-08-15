@@ -837,7 +837,7 @@ body {
    вопрос про тот же кусок («а что там было»), и уводить её в отдельную строку значило бы
    растить карточку ради одного слова. Подчёркнута пунктиром, а не оформлена плашкой: внутри
    тултипа в 8 пикселей кегля плашка съела бы половину строки. */
-.quest-book__retell {
+.quest-card__retell {
   margin-left: 6px;
   padding: 0;
   border: none;
@@ -848,8 +848,8 @@ body {
   text-underline-offset: 2px;
   cursor: pointer;
 }
-.quest-book__retell:hover,
-.quest-book__retell:focus-visible {
+.quest-card__retell:hover,
+.quest-card__retell:focus-visible {
   text-decoration: underline solid;
 }
 

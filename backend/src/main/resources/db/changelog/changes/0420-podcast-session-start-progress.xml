@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Where a listening session STARTED inside the episode (PRD 5.6).
+
+      The row already knows where the head stands now (last_progress_ms) and how much time was
+      credited, but not where the sitting began - and a stretch needs both ends. Everything the
+      board says about podcasts so far is an amount ("45 minutes today"), which needs no start;
+      the moment we want to say WHAT was listened to, the amount stops being enough.
+
+      Recorded, not derived. last_progress_ms minus listened_ms looks like the same number and
+      usually is, but a rewind makes credited time exceed the distance covered and the difference
+      drifts. Since the point of the column is to cut exactly the stretch that was heard, an
+      estimate here would be the same class of mistake as retelling a book from memory.
+
+      Which is also why old rows are left NULL instead of backfilled with that estimate: they
+      were written before we started looking, and "we did not record it" is the truth about them.
+      A sitting without a start simply gets no retelling - the same rule as a book whose file is
+      not on the shelf.
+    -->
+    <changeSet id="0420-podcast-session-start-progress" author="danchuo">
+        <addColumn tableName="podcast_session">
+            <!-- Head position when the session was opened, ms; NULL on rows written before this. -->
+            <column name="start_progress_ms" type="BIGINT"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

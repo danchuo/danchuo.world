@@ -47,7 +47,7 @@ export function cardTimeLines(episode: PodcastEpisodeView): string[] {
  * Прослушанное зажимается длительностью. Переслушанный кусок честно копится в минутах (слушал —
  * значит слушал), но «49 из 48» на карточке читалось бы как сбой счётчика, а не как повтор.
  */
-function minutesLabel(minutes: number, durationMinutes: number | null | undefined): string {
+export function minutesLabel(minutes: number, durationMinutes: number | null | undefined): string {
   if (typeof durationMinutes !== "number") return `${minutes} мин`;
   return `${Math.min(minutes, durationMinutes)} из ${durationMinutes} мин`;
 }

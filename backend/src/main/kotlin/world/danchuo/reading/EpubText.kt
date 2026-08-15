@@ -50,12 +50,11 @@ class EpubBook(val sections: List<EpubSection>) {
      * значило бы спойлерить владельцу его же книгу. Промах шкалы гасится назад — окном перед
      * началом (у нулевого куска оно единственное, что вообще можно пересказать).
      *
-     * [maxChars] — потолок выдержки: он держит один вызов модели внутри самого скупого
-     * free-лимита (у Groq это 8–12 тыс. токенов в минуту), а на длинных заходах ещё и режет
-     * ожидание ответа. Заход, который в потолок не влез, режется НЕ по началу, а окнами по всей
-     * длине (см. [cap]): пересказ обязан дойти до места, где владелец остановился.
+     * Под потолок вызова модели кусок здесь НЕ ужимается: сколько знаков влезает в один поход,
+     * знает бесплатная полоса, а не книга. Этим занимается ядро пересказа
+     * ([world.danchuo.summary.SummaryWindows]).
      */
-    fun excerpt(from: Double, to: Double, maxChars: Int): String {
+    fun excerpt(from: Double, to: Double): String {
         val end = to.coerceIn(0.0, 1.0)
         // Пустой (или вывернутый) диапазон — не повод остаться без пересказа: окно назад от
         // точки остановки отвечает на тот же вопрос «что это было».
@@ -76,7 +75,7 @@ class EpubBook(val sections: List<EpubSection>) {
                 append(cut.trim())
             }
         }
-        return cap(text, maxChars)
+        return text
     }
 
     /** Доля → место в книге: какой документ и сколько знаков от его начала. */
@@ -94,52 +93,11 @@ class EpubBook(val sections: List<EpubSection>) {
         return Position(0, 0)
     }
 
-    /**
-     * Ужать выдержку до потолка.
-     *
-     * Длинный заход не обрезается по началу: тогда пересказ обрывался бы на середине куска и
-     * молчал ровно про то место, где владелец закрыл книгу, — а это самое памятное. Вместо
-     * обрезки берём несколько равномерных окон по всей длине куска, последнее — впритык к концу.
-     * Пропуски отмечены явно, чтобы модель видела разрывы, а не сочиняла мостики между ними.
-     *
-     * Совсем маленький потолок (меньше [MIN_WINDOW] на окно) окнами не нарезать — там честнее
-     * одна связная выдержка от начала.
-     */
-    private fun cap(text: String, maxChars: Int): String {
-        if (text.length <= maxChars) return text
-        val budget = maxChars - (WINDOWS - 1) * GAP.length
-        if (budget / WINDOWS < MIN_WINDOW) return word(text, maxChars)
-
-        val window = budget / WINDOWS
-        val step = (text.length - window) / (WINDOWS - 1)
-        return (0 until WINDOWS).joinToString(GAP) { i ->
-            val start = if (i == WINDOWS - 1) text.length - window else i * step
-            word(text.substring(start, start + window), window).trim()
-        }
-    }
-
-    /** Обрезка по границе слова, чтобы выдержка не обрывалась на полубукве. */
-    private fun word(text: String, maxChars: Int): String {
-        if (text.length <= maxChars) return text
-        val cut = text.take(maxChars)
-        val lastSpace = cut.lastIndexOf(' ')
-        return if (lastSpace > maxChars / 2) cut.take(lastSpace) else cut
-    }
-
     private data class Position(val section: Int, val offset: Int)
 
     private companion object {
         /** Минимальная ширина окна выдержки в долях книги (~полпроцента). */
         const val MIN_SPAN = 0.005
-
-        /** На сколько окон режется заход, не влезший в потолок. */
-        const val WINDOWS = 4
-
-        /** Окно тоньше этого пересказывать нечем — тогда берём одну связную выдержку. */
-        const val MIN_WINDOW = 300
-
-        /** Явный разрыв между окнами: модель должна видеть пропуск, а не додумывать его. */
-        const val GAP = "\n\n[…]\n\n"
     }
 }
 

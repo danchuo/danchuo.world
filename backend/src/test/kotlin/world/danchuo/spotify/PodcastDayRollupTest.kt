@@ -20,8 +20,12 @@ class PodcastDayRollupTest {
 
     private val morning: Instant = Instant.parse("2026-08-12T05:10:00Z")
 
+    /** Ключи строк — как в БД: у каждой сессии свой, и растут они по мере записи. */
+    private var nextSessionId = 1L
+
     /** Заход: минуты слушал подряд, начиная с [at]. Сессия из БД приезжает сюда в этой же форме. */
     private fun run(id: String, minutes: Long, at: Instant) = PodcastRun(
+        sessionId = nextSessionId++,
         episodeId = id,
         listenedMs = minutes * 60_000,
         startedAt = at,
@@ -93,6 +97,18 @@ class PodcastDayRollupTest {
         assertEquals(1, merged.size)
         assertEquals(35 * 60_000L, merged.single().listenedMs)
         assertEquals(morning, merged.single().startedAt)
+    }
+
+    @Test
+    fun `a glued run keeps the key of the strip it started with`() {
+        // Ключ захода — это ключ его ПЕРВОЙ строки: к нему привязан пересказ прослушанного
+        // (§5.16.1), и приклеенный следом кусок не должен уводить его на другую строку.
+        val before = run("A", 20, morning)
+        val after = run("A", 15, morning.plusSeconds(20 * 60 + 30 * 60))
+
+        assertEquals(before.sessionId, merge(before, after).single().sessionId)
+        // Порядок аргументов роли не играет: склейка идёт по времени, а не по вызову.
+        assertEquals(before.sessionId, merge(after, before).single().sessionId)
     }
 
     @Test

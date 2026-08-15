@@ -10,7 +10,8 @@ import world.danchuo.monster.MonsterFlavorRepository
 import world.danchuo.reading.ReadingDayRollup
 import world.danchuo.reading.ReadingService
 import world.danchuo.reading.ReadingSession
-import world.danchuo.reading.ReadingSummaryService
+import world.danchuo.summary.SummaryKind
+import world.danchuo.summary.SummaryService
 import world.danchuo.spotify.PodcastDayRollup
 import world.danchuo.spotify.PodcastListenService
 import world.danchuo.spotify.PodcastRun
@@ -34,7 +35,7 @@ class DayAggregator(
     private val monsterFlavors: MonsterFlavorRepository,
     private val podcasts: PodcastListenService,
     private val reading: ReadingService,
-    private val readingSummaries: ReadingSummaryService,
+    private val summaries: SummaryService,
     private val mskTime: MskTime,
 ) {
 
@@ -61,6 +62,8 @@ class DayAggregator(
         val podcastMinutes = PodcastDayRollup.listenedMinutes(podcastRuns.sumOf { it.listenedMs })
         // Минуты эпизода за весь день — знаменатель строки «80 из 85 мин за день» на карточке.
         val podcastEpisodeMinutes = PodcastDayRollup.episodeMinutes(podcastRuns)
+        // Про какие заходы есть что рассказать (§5.16.1) — одним запросом на день, как у чтения.
+        val retoldRuns = summaries.readySessions(SummaryKind.PODCAST, podcastRuns.map { it.sessionId })
 
         // Прочитанное за день — так же одним чтением: минуты и карточки суть свёртки одного и
         // того же набора сессий, а пункт чтения в списке ровно один.
@@ -68,7 +71,7 @@ class DayAggregator(
         val readingMinutes = ReadingDayRollup.minutes(readingSessions.sumOf { it.readSeconds })
         // Про какие заходы есть что рассказать (§5.16). Спрашиваем ОДНИМ запросом на день: сам
         // текст пересказа сюда не едет — карточке нужен только факт, что кнопке есть что открыть.
-        val retoldSessions = readingSummaries.readySessions(readingSessions.mapNotNull { it.id })
+        val retoldSessions = summaries.readySessions(SummaryKind.READING, readingSessions.mapNotNull { it.id })
 
         val discipline = items.map { item ->
             val itemId = item.id!!
@@ -100,7 +103,7 @@ class DayAggregator(
                 },
                 episodes = if (item.key == PODCAST_ITEM_KEY) {
                     PodcastDayRollup.cards(podcastRuns, item.target)
-                        .map { episodeViewOf(it, podcastEpisodeMinutes) }
+                        .map { episodeViewOf(it, podcastEpisodeMinutes, retoldRuns) }
                 } else {
                     emptyList()
                 },
@@ -203,7 +206,11 @@ class DayAggregator(
     }
 
     /** Карточка захода: миллисекунды свёртки переводим в минуты уже на выходе. */
-    private fun episodeViewOf(run: PodcastRun, episodeMinutes: Map<String, Int>): PodcastEpisodeView {
+    private fun episodeViewOf(
+        run: PodcastRun,
+        episodeMinutes: Map<String, Int>,
+        retold: Set<Long>,
+    ): PodcastEpisodeView {
         val listened = PodcastDayRollup.listenedMinutes(run.listenedMs)
         return PodcastEpisodeView(
             episodeName = run.episodeName,
@@ -217,6 +224,8 @@ class DayAggregator(
             // чтобы «за день» никогда не оказалось меньше, чем уже показано за заход.
             dayMinutes = maxOf(episodeMinutes[run.episodeId] ?: 0, listened),
             durationMinutes = run.episodeDurationMs?.let { PodcastDayRollup.listenedMinutes(it) },
+            sessionId = run.sessionId,
+            hasSummary = run.sessionId in retold,
         )
     }
 

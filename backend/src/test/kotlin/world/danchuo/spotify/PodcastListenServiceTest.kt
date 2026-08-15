@@ -80,6 +80,15 @@ class PodcastListenServiceTest {
 
     private fun sessionCount(): Int = QuarkusTransaction.requiringNew().call { sessions.listByDate(date).size }
 
+    /** Начала окон прослушивания за дату, в порядке появления сессий. */
+    private fun startProgresses(): List<Long?> = QuarkusTransaction.requiringNew().call {
+        sessions.listByDate(date).sortedBy { it.startedAt }.map { it.startProgressMs }
+    }
+
+    private fun lastProgresses(): List<Long> = QuarkusTransaction.requiringNew().call {
+        sessions.listByDate(date).sortedBy { it.startedAt }.map { it.lastProgressMs }
+    }
+
     @Test
     fun `the same episode playing on keeps one session`() {
         listen("A", 30, start)
@@ -131,6 +140,36 @@ class PodcastListenServiceTest {
 
         listen("B", 30, afterFirst.plusSeconds(600))
         assertEquals(2, markedCount(), "60 минут — закрыты обе")
+    }
+
+    @Test
+    fun `an episode started from the top is a stretch that begins at zero`() {
+        listen("A", 30, start)
+
+        // Кусок эпизода, а не только его длина: 0 → 30 минут (PRD §5.16, вторая половина —
+        // пересказ прослушанного — без начала окна невозможна).
+        assertEquals(listOf(0L), startProgresses())
+        assertEquals(listOf(30L * 60_000), lastProgresses())
+    }
+
+    @Test
+    fun `an episode continued from the middle keeps the middle as its start`() {
+        // Вчерашний эпизод продолжен с 20-й минуты: первые 20 минут слушали не сегодня, и
+        // засчитывать их нельзя — ни в минуты, ни в кусок, который потом пересказывать.
+        service.record(sample("A", 20), date, start)
+        service.record(sample("A", 30), date, start.plusSeconds(600))
+
+        assertEquals(listOf(20L * 60_000), startProgresses())
+        assertEquals(10, service.minutesOn(date), "чужие 20 минут в зачёт не идут")
+    }
+
+    @Test
+    fun `each run of the same episode remembers where it began`() {
+        listen("A", 30, start)
+        // Час тишины — новая сессия того же эпизода, и начинается она там, где кончилась прошлая.
+        service.record(sample("A", 30), date, start.plusSeconds(3600 + 30 * 60))
+
+        assertEquals(listOf(0L, 30L * 60_000), startProgresses())
     }
 
     @Test

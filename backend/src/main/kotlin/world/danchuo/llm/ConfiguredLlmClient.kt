@@ -26,6 +26,7 @@ import java.util.Optional
 class ConfiguredLlmClient(
     private val groq: GroqLlmClient,
     private val gemini: GeminiLlmClient,
+    private val transcription: GroqTranscriptionClient,
     @param:ConfigProperty(name = "danchuo.llm.provider") private val provider: String,
     @param:ConfigProperty(name = "danchuo.llm.free-provider") private val freeProvider: String,
     @param:ConfigProperty(name = "danchuo.llm.free-model") private val freeModel: String,
@@ -77,6 +78,13 @@ class ConfiguredLlmClient(
                 ),
             )
         }
+
+    /**
+     * Расшифровка идёт к Groq независимо от полосы: у Gemini её в нашем контракте нет, а
+     * бесплатный лимит на аудиосекунды у Groq щедрее, чем нужно фону (7200 в час против ~720
+     * на заход). Полоса остаётся в подписи, чтобы вызывающий называл цену вслух.
+     */
+    override fun transcribe(audio: LlmAudio, lane: LlmLane): String? = transcription.transcribe(audio)
 
     override fun completeVision(
         systemPrompt: String,

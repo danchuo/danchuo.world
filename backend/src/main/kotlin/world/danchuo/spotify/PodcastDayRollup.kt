@@ -38,6 +38,15 @@ data class PodcastRun(
     val imageUrl: String?,
     /** Полная длительность эпизода, мс; `null` — не приехала. Для строки «80 из 85 мин». */
     val episodeDurationMs: Long?,
+    /**
+     * Кусок ВЫПУСКА, пройденный за этот заход: откуда пошёл зачёт и где остановилась головка.
+     * По нему режется аудио для пересказа прослушанного (§5.16.1).
+     *
+     * `null` у начала — строка записана до того, как мы стали это смотреть; такой заход
+     * пересказа не получает, потому что выдумывать начало нельзя.
+     */
+    val startProgressMs: Long? = null,
+    val lastProgressMs: Long = 0,
 )
 
 /**
@@ -94,10 +103,13 @@ object PodcastDayRollup {
             val previous = merged.lastOrNull()
             if (previous != null && previous.joins(next, gapMinutes)) {
                 // Ключ захода остаётся ключом ПЕРВОЙ его строки: приклеенный кусок продолжает
-                // тот же заход, а не открывает новый, и пересказ не должен переезжать.
+                // тот же заход, а не открывает новый, и пересказ не должен переезжать. Кусок
+                // выпуска растягивается по тому же правилу: начало от первой строки, конец от
+                // последней — заход прошёл их насквозь.
                 merged[merged.lastIndex] = previous.copy(
                     listenedMs = previous.listenedMs + next.listenedMs,
                     endedAt = maxOf(previous.endedAt, next.endedAt),
+                    lastProgressMs = maxOf(previous.lastProgressMs, next.lastProgressMs),
                 )
             } else {
                 merged += next

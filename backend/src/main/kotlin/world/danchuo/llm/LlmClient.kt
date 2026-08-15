@@ -47,6 +47,17 @@ interface LlmClient {
         image: LlmImage,
         jsonSchema: String,
     ): String? = completeVision(systemPrompt, userPrompt, image)
+
+    /**
+     * Расшифровка речи: текст [audio] или `null` по тем же правилам, что у [completeText] (нет
+     * ключа, отказ провайдера, сеть). Лимит здесь **свой** — он меряется аудиосекундами, а не
+     * токенами, поэтому расшифровка не отнимает бюджет у текстовых вызовов той же полосы.
+     *
+     * Присылать сюда надо КУСКИ, а не файл целиком: у бесплатной полосы есть потолок на размер
+     * запроса, а у пересказа — потолок на выдержку, и оба берутся нарезкой окон до расшифровки
+     * (см. `AudioWindows` в слайсе spotify).
+     */
+    fun transcribe(audio: LlmAudio, lane: LlmLane): String? = null
 }
 
 /**
@@ -94,4 +105,17 @@ data class LlmTextCall(
 class LlmImage(
     val bytes: ByteArray,
     val mediaType: String,
+)
+
+/**
+ * Кусок аудио на расшифровку: байты, тип и **имя файла**.
+ *
+ * Имя здесь несущее, а не для красоты: провайдеры распознавания определяют формат по
+ * расширению в multipart-части и отвергают безымянную. Байты при этом — честный срез потока
+ * (не целый файл), и это нормально: mp3 самосинхронизируется на первом заголовке фрейма.
+ */
+class LlmAudio(
+    val bytes: ByteArray,
+    val mediaType: String,
+    val fileName: String,
 )

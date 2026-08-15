@@ -107,4 +107,22 @@ class PodcastSessionRepository : PanacheRepository<PodcastSession> {
      */
     fun latestOn(date: LocalDate): PodcastSession? =
         find("date = ?1 order by endedAt desc", date).firstResult()
+
+    /**
+     * Даты, на которых есть заходы с известным началом окна (§5.16.1) — свежие вперёд. Очередь
+     * пересказов ходит по ним, а не по всем подряд: у строк, записанных до появления колонки,
+     * начала нет и не появится, и гонять по ним склейку каждый такт незачем.
+     *
+     * Ограничение по глубине — не оптимизация, а то же самое рассуждение: чем дальше в прошлое,
+     * тем меньше там строк с началом, а очередь и так берёт по одному заходу за такт.
+     */
+    fun datesWithWindow(today: LocalDate, days: Long): List<LocalDate> =
+        getEntityManager()
+            .createQuery(
+                "select distinct s.date from PodcastSession s " +
+                    "where s.startProgressMs is not null and s.date >= :from order by s.date desc",
+                LocalDate::class.java,
+            )
+            .setParameter("from", today.minusDays(days))
+            .resultList
 }

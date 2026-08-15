@@ -107,6 +107,8 @@ class PodcastListenService(
         showUrl = session.showUrl,
         imageUrl = session.imageUrl,
         episodeDurationMs = session.episodeDurationMs,
+        startProgressMs = session.startProgressMs,
+        lastProgressMs = session.lastProgressMs,
     )
 
     private fun open(sample: EpisodeSample, date: LocalDate, at: Instant, credited: Long) {

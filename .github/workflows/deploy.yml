@@ -149,6 +149,12 @@ jobs:
     needs: build-caddy
     runs-on: ubuntu-latest
     permissions:
+      # `contents: read` is NOT optional here, and its absence does not look like a
+      # permissions problem: declaring a `permissions:` block drops every scope you leave
+      # out, so checkout loses read access and GitHub reports the private repo as
+      # "Repository not found" — a 404 standing in for a 403. Any job in this file that
+      # checks out the repo needs this line; smoke-test omits it only because it never does.
+      contents: read
       packages: read
     steps:
       - uses: actions/checkout@v4

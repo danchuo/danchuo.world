@@ -40,38 +40,18 @@ export function serializeTokensToCss(tokens: Record<string, string>): string {
  * `cache()` дедуплицирует вызов в пределах одного запроса — root-layout (токены) и page
  * (layout) бьют эндпоинт один раз.
  */
-export const fetchActiveTheme = cache(async (): Promise<ThemeView | null> => {
-  const base = serverApiBase();
-  try {
-    const res = await fetch(`${base}/api/theme/active`, {
-      headers: { Accept: "application/json" },
-      next: { revalidate: THEME_REVALIDATE_SECONDS },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as ThemeView;
-  } catch {
-    return null;
-  }
-});
+export const fetchActiveTheme = cache(
+  async (): Promise<ThemeView | null> => fetchBackendJson<ThemeView>("/api/theme/active"),
+);
 
 /**
  * All released waves for SSR (`GET /api/themes`); `null` on failure. Needed to render the
  * visitor-picked wave (cookie) even when it is not the active one. `cache()` — one call
  * per request (layout + page).
  */
-const fetchThemes = cache(async (): Promise<ThemeView[] | null> => {
-  const base = serverApiBase();
-  try {
-    const res = await fetch(`${base}/api/themes`, {
-      headers: { Accept: "application/json" },
-      next: { revalidate: THEME_REVALIDATE_SECONDS },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as ThemeView[];
-  } catch {
-    return null;
-  }
-});
+const fetchThemes = cache(
+  async (): Promise<ThemeView[] | null> => fetchBackendJson<ThemeView[]>("/api/themes"),
+);
 
 /**
  * Wave to render for this request: the visitor's preference from the cookie (see
@@ -93,6 +73,35 @@ export function applyThemeTokens(tokens: Record<string, string>): void {
   const root = document.documentElement;
   for (const [k, v] of Object.entries(tokens)) {
     root.style.setProperty(`--${k}`, v);
+  }
+}
+
+/**
+ * Метка «запрос пришёл изнутри compose-сети». Бэкенд по ней **не считает** запрос в бакет
+ * рейтлимитера (`RateLimitFilter.INTERNAL_HEADER`): SSR ходит к нему без `X-Forwarded-For`,
+ * то есть весь серверный рендер иначе делит один общий лимит на всех посетителей сразу.
+ *
+ * Безопасность держится на инварианте: **edge срезает этот заголовок с публичного трафика**
+ * (`header_up -X-Danchuo-Internal` в `Caddyfile`), поэтому снаружи его не подделать. Меняешь
+ * имя — меняй в обоих местах.
+ */
+export const INTERNAL_HEADER = "X-Danchuo-Internal";
+
+/**
+ * Общий шов SSR-запроса к бэку: доверенный заголовок + кэш данных Next + мягкая деградация.
+ * Любая осечка (бэк лежит, не-200, битый JSON) — это `null`, а не исключение: борд остаётся
+ * на дефолтах `globals.css` / `layout.ts`, а не падает целиком.
+ */
+export async function fetchBackendJson<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${serverApiBase()}${path}`, {
+      headers: { Accept: "application/json", [INTERNAL_HEADER]: "1" },
+      next: { revalidate: THEME_REVALIDATE_SECONDS },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
   }
 }
 

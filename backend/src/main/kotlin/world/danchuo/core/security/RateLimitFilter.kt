@@ -14,10 +14,23 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Мягкий рейтлимит публичных GET (PRD §3, §8, M4): in-memory токен-бакет на клиента.
  *
- * Останавливает одного шумного клиента, **не** настоящий DDoS (для последнего — Cloudflare в
- * бэклоге). Лимитируем публичное чтение `GET /api/…` и публичную телеметрию `POST /api/analytics/…`
- * (бикон + клики хитмапы, B2 — анти-абуз накрутки); `/api/ingest/…` пропускаем (там свой шов
- * «креды записи» — это трафик владельца/шортката, не публичный абуз).
+ * Останавливает одного шумного клиента, **не** настоящий DDoS (для последнего — рейтлимит и кэш
+ * на edge, см. `Caddyfile`; Cloudflare остаётся в бэклоге). Лимитируем публичное чтение
+ * `GET /api/…` и публичную телеметрию `POST /api/analytics/…` (бикон + клики хитмапы, B2 —
+ * анти-абуз накрутки); `/api/ingest/…` пропускаем (там свой шов «креды записи» — это трафик
+ * владельца/шортката, не публичный абуз).
+ *
+ * **Два независимых бакета на клиента.** Обычное чтение и раздача кадров фото-дропа считаются
+ * порознь: одна модалка-галерея — это ~36 GET картинок, и в общем бакете она съедала лимит
+ * целиком (борд + три открытых дропа = 130 запросов при лимите 120 ⇒ живой посетитель ловил
+ * 429). Раньше `api/film-media` был исключён из лимитера совсем — то есть оставался публичной
+ * ручкой без потолка, читающей файлы с диска. Теперь у него свой, кратно более щедрый бакет.
+ *
+ * **Запросы SSR не лимитируются вовсе.** Фронт-сервер ходит к бэку по compose-сети и метит свои
+ * вызовы заголовком [INTERNAL_HEADER]; Caddy срезает этот заголовок с публичного трафика
+ * (см. `Caddyfile`), поэтому подделать его снаружи нельзя. Без этой пометки весь SSR приходит
+ * без `X-Forwarded-For`, попадает в общий бакет `direct` — и один шумный посетитель роняет
+ * серверный рендер сразу всем.
  *
  * Это лёгкий самописный токен-бакет (PRD называет Bucket4j — он in-memory ровно так же; при
  * нужде заменяется без правок вызовов). Ключ клиента — `X-Forwarded-For` (за прокси Caddy);
@@ -29,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap
 @ApplicationScoped
 class RateLimitFilter(
     @param:ConfigProperty(name = "danchuo.ratelimit.requests") private val maxRequests: Int,
+    @param:ConfigProperty(name = "danchuo.ratelimit.media-requests") private val maxMediaRequests: Int,
     @param:ConfigProperty(name = "danchuo.ratelimit.window-seconds") private val windowSeconds: Long,
 ) : ContainerRequestFilter {
 
@@ -36,6 +50,10 @@ class RateLimitFilter(
 
     override fun filter(ctx: ContainerRequestContext) {
         if (maxRequests <= 0) return // выключен (тесты/дев)
+        // Internal SSR traffic is trusted: the header can only originate inside the compose
+        // network, because the edge strips it from everything arriving from outside.
+        if (!ctx.getHeaderString(INTERNAL_HEADER).isNullOrBlank()) return
+
         val path = ctx.uriInfo.path.trim('/')
         // Лимитируем публичное чтение (GET) и публичную телеметрию аналитики (POST бикон/клики).
         // Прочие методы (мутации владельца под /api/ingest) — не наш контур.
@@ -43,14 +61,17 @@ class RateLimitFilter(
         val isAnalyticsPost = ctx.method == "POST" && path.startsWith("api/analytics")
         if (!isPublicGet && !isAnalyticsPost) return
         if (!path.startsWith("api/") || path.startsWith("api/ingest")) return
-        // Раздача кадров фото-дропа (B1): одна модалка-галерея = ~36 GET картинок — это не абуз,
-        // а штатная загрузка статики (в проде её кэширует/отдаёт Caddy/CDN). Не лимитируем.
-        if (path.startsWith("api/film-media")) return
 
-        val key = ctx.getHeaderString("X-Forwarded-For")
+        // Frames get their own scope and their own (much larger) allowance — see the class doc.
+        val isMedia = path.startsWith("api/film-media")
+        val capacity = if (isMedia) maxMediaRequests else maxRequests
+        val scope = if (isMedia) "media" else "public"
+
+        val client = ctx.getHeaderString("X-Forwarded-For")
             ?.split(",")?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() }
             ?: "direct"
-        val bucket = buckets.computeIfAbsent(key) { Bucket(maxRequests, windowSeconds) }
+        // Scope is part of the key: draining one bucket must never touch the other.
+        val bucket = buckets.computeIfAbsent("$scope:$client") { Bucket(capacity, windowSeconds) }
         if (!bucket.tryConsume()) {
             ctx.abortWith(
                 Response.status(TOO_MANY_REQUESTS)
@@ -81,7 +102,14 @@ class RateLimitFilter(
         }
     }
 
-    private companion object {
-        const val TOO_MANY_REQUESTS = 429
+    companion object {
+        /**
+         * Метка «этот запрос пришёл изнутри compose-сети» (SSR фронта). Доверие держится на
+         * одном инварианте: **edge обязан срезать этот заголовок с входящего трафика**
+         * (`header_up -X-Danchuo-Internal` в `Caddyfile`). Меняешь имя здесь — меняй и там.
+         */
+        const val INTERNAL_HEADER = "X-Danchuo-Internal"
+
+        private const val TOO_MANY_REQUESTS = 429
     }
 }

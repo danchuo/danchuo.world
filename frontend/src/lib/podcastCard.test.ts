@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { cardTimeLines, episodeForStop } from "./podcastCard";
+import { episodeForStop, listenedLabel, stretchLabel } from "./podcastCard";
 import type { PodcastEpisodeView } from "./api/types";
 
 const episode = (
   name: string,
   listened = 40,
   duration: number | null = 48,
-  dayMinutes = listened,
+  patch: Partial<PodcastEpisodeView> = {},
 ): PodcastEpisodeView => ({
   episodeName: name,
   episodeUrl: `https://open.spotify.com/episode/${name}`,
@@ -15,8 +15,10 @@ const episode = (
   showUrl: `https://open.spotify.com/show/${name}`,
   imageUrl: null,
   listenedMinutes: listened,
-  dayMinutes,
+  startMinute: 0,
+  endMinute: listened,
   durationMinutes: duration,
+  ...patch,
 });
 
 describe("episodeForStop", () => {
@@ -39,28 +41,25 @@ describe("episodeForStop", () => {
   });
 });
 
-describe("cardTimeLines", () => {
-  it("одним заходом — одна строка: прослушанное на фоне длительности", () => {
-    expect(cardTimeLines(episode("A", 47, 48))).toEqual(["47 из 48 мин"]);
+describe("подвал карточки подкаста", () => {
+  it("сумма минут захода — отдельной строкой над куском", () => {
+    expect(listenedLabel(episode("A", 47, 48))).toBe("47 мин");
   });
 
-  it("обходится без знаменателя, когда длительность не приехала", () => {
-    expect(cardTimeLines(episode("A", 47, null))).toEqual(["47 мин"]);
+  it("продолжение эпизода показывает СВОЙ кусок, а не начало выпуска", () => {
+    // Ради этого строка куска и появилась: «50 мин» у второго захода не говорит, откуда
+    // докуда слушали, и заход неотличим от повторного прослушивания начала.
+    expect(stretchLabel(episode("A", 50, 199, { startMinute: 45, endMinute: 95 }))).toBe("45 → 95 мин");
+    expect(stretchLabel(episode("A", 47, 48))).toBe("0 → 47 мин");
   });
 
-  it("не обещает больше, чем длится эпизод", () => {
-    // Переслушанный кусок честно копится в минутах, но «49 из 48» читалось бы как сбой.
-    expect(cardTimeLines(episode("A", 49, 48))).toEqual(["48 из 48 мин"]);
+  it("без известных границ окна куска нет", () => {
+    // Заход записан до того, как мы стали смотреть окно: «→ 95» без начала не отвечает
+    // ни на один вопрос — молчим, а не подставляем ноль.
+    expect(stretchLabel(episode("A", 40, 48, { startMinute: null, endMinute: null }))).toBeNull();
   });
 
-  it("эпизод, взятый двумя заходами, отвечает за свой заход и за весь день", () => {
-    expect(cardTimeLines(episode("A", 45, 85, 80))).toEqual(["45 мин", "80 из 85 мин за день"]);
-  });
-
-  it("часов начала на карточке нет — ни у какого захода", () => {
-    // «Во сколько включил» — не тот вопрос, который задаёт карточка (решение владельца), а
-    // время съедало половину узкой строки и на мобильном выталкивало минуты в бегущую строку.
-    // Момент захода бэкенд больше и не отдаёт (хранить — хранит), так что взять его неоткуда.
-    expect(cardTimeLines(episode("A", 35, 85, 80)).join(" ")).not.toMatch(/\d\d:\d\d/);
+  it("нулевой кусок не строка: точка — не отрезок", () => {
+    expect(stretchLabel(episode("A", 0, 48, { startMinute: 12, endMinute: 12 }))).toBeNull();
   });
 });

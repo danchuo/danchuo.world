@@ -36,7 +36,8 @@ describe("summarySubject", () => {
     showUrl: "https://open.spotify.com/show/y",
     imageUrl: "https://i.scdn.co/image/abc",
     listenedMinutes: 35,
-    dayMinutes: 35,
+    startMinute: 12,
+    endMinute: 47,
     durationMinutes: 48,
     sessionId: 42,
     hasSummary: true,
@@ -55,21 +56,26 @@ describe("summarySubject", () => {
     expect(subject.portrait).toBe(true);
   });
 
-  it("у выпуска подпись — шоу, а кусок меряется минутами", () => {
+  it("у выпуска подпись — шоу, а кусок меряется минутами той же стрелкой, что проценты книги", () => {
     const subject = episodeSubject(episode())!;
 
     expect(subject.kind).toBe("podcast");
     expect(subject.sessionId).toBe(42);
     expect(subject.title).toBe("How Feelings Make Us Smarter");
     expect(subject.byline).toBe("Hidden Brain");
-    expect(subject.progressValue).toBe("35 из 48 мин");
+    expect(subject.progressValue).toBe("12 → 47 мин");
     expect(subject.progressCaption).toBe("прослушано за этот заход");
     // Обложка эпизода квадратная — это конверт, а не корешок книги.
     expect(subject.portrait).toBe(false);
   });
 
-  it("без длительности выпуск говорит просто «сколько»", () => {
-    expect(episodeSubject(episode({ durationMinutes: null }))!.progressValue).toBe("35 мин");
+  it("без известных границ окна выпуск откатывается к «сколько слушали»", () => {
+    // Старый заход: границ нет. Это меньше, чем хотелось бы, но не молчание — окно всё равно
+    // открывается и пересказ показывает.
+    const old = episode({ startMinute: null, endMinute: null });
+
+    expect(episodeSubject(old)!.progressValue).toBe("35 из 48 мин");
+    expect(episodeSubject({ ...old, durationMinutes: null })!.progressValue).toBe("35 мин");
   });
 
   it("заход без ключа открыть нечем", () => {

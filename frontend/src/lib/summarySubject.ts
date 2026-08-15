@@ -1,5 +1,5 @@
 import type { PodcastEpisodeView, ReadingBookView } from "./api/types";
-import { minutesLabel } from "./podcastCard";
+import { minutesLabel, stretchLabel } from "./podcastCard";
 import { progressLabel } from "./readingCard";
 
 /**
@@ -56,8 +56,9 @@ export function bookSubject(book: ReadingBookView): SummarySubject | null {
 /**
  * Прослушанный заход как предмет окна. `null` — по той же причине, что у книги.
  *
- * Кусок здесь меряется минутами, а не долями: борду приезжает «сколько слушал», а границы окна
- * внутри эпизода живут на бэкенде и наружу не едут — на карточке от них не было бы толку.
+ * Кусок меряется минутами, а не долями, но отвечает на тот же вопрос и той же стрелкой, что
+ * проценты книги: «45 → 95 мин» против «35% → 42%». Границ окна не знаем (старый заход) —
+ * откатываемся к «сколько слушали»: это меньше, чем хотелось бы, но не молчание.
  */
 export function episodeSubject(episode: PodcastEpisodeView): SummarySubject | null {
   if (episode.sessionId == null) return null;
@@ -69,7 +70,7 @@ export function episodeSubject(episode: PodcastEpisodeView): SummarySubject | nu
     coverUrl: episode.imageUrl,
     portrait: false,
     progressCaption: "прослушано за этот заход",
-    progressValue: minutesLabel(episode.listenedMinutes, episode.durationMinutes),
+    progressValue: stretchLabel(episode) ?? minutesLabel(episode.listenedMinutes, episode.durationMinutes),
     ariaLabel: `Что было в прослушанном куске: ${episode.episodeName}`,
   };
 }

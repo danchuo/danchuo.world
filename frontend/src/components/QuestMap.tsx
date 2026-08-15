@@ -11,7 +11,7 @@ import type {
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
-import { cardTimeLines, episodeForStop } from "@/lib/podcastCard";
+import { LISTENED_CAPTION, episodeForStop, listenedLabel, stretchLabel } from "@/lib/podcastCard";
 import { bookForStop, progressLabel, PROGRESS_CAPTION } from "@/lib/readingCard";
 import { SummaryModal } from "./SummaryModal";
 import { bookSubject, episodeSubject, type SummarySubject } from "@/lib/summarySubject";
@@ -331,13 +331,11 @@ const CARD_H = 54;
  * подрезает (`overflow: hidden` на боксе).
  */
 const CARD_H_SPLIT = 68;
-/**
- * Прибавка на строку с кнопкой пересказа (§5.16.1) — та же строка, что развела [CARD_H_SPLIT] с
- * [CARD_H]. Кнопка стоит СВОЕЙ строкой, а не в хвосте времени: «09:12 · 47 из 48 мин» и так
- * почти во всю ширину карточки, и приписанное следом слово уехало бы за край или в перенос,
- * а перенос в `foreignObject` подрезается.
+/*
+ * Здесь была прибавка [CARD_H_RETELL] на отдельную строку под кнопку пересказа: рядом с
+ * «09:12 · 47 из 48 мин» она не помещалась. Часы с карточки ушли, строка стала короткой
+ * («45 мин»), и кнопка встала в неё — как у книги, где она стоит в строке процентов.
  */
-const CARD_H_RETELL = 14;
 const CARD_COVER = 40;
 /** Насколько край карточки заходит под площадку нажатия (r=22) — чтобы ховер не срывался. */
 const CARD_LIFT = 20;
@@ -583,12 +581,16 @@ function PodcastCard({
   if (cx + half > 396) dx = 396 - (cx + half);
   if (cx - half < 4) dx = 4 - (cx - half);
 
-  // Строк времени одна или две (§5.6) — от этого зависит окно foreignObject и точка, от которой
+  // Подвал: пройденный кусок выпуска — всегда, сумма минут над ним — только когда кусок
+  // известен. Не известен (старый заход) — в строке куска стоят те же минуты, и подвал
+  // схлопывается в одну строку. От этого зависит окно foreignObject и точка, от которой
   // карточка встаёт над превью.
-  const timeLines = cardTimeLines(episode);
-  // Кнопка есть, только когда пересказ УЖЕ собран (§5.16.1) — и тогда карточке нужна ещё строка.
+  const stretch = stretchLabel(episode);
+  const listened = listenedLabel(episode);
+  // Кнопка есть, только когда пересказ УЖЕ собран (§5.16.1). Своей строки ей больше не нужно:
+  // она встаёт в строку куска — как у книги, где стоит в строке процентов.
   const canRetell = episode.hasSummary === true && episode.sessionId != null;
-  const height = (timeLines.length > 1 ? CARD_H_SPLIT : CARD_H) + (canRetell ? CARD_H_RETELL : 0);
+  const height = stretch === null ? CARD_H : CARD_H_SPLIT;
 
   // Над ПРЕВЬЮ (а не просто над остановкой), иначе карточка накрывала бы собственную ручку:
   // превью висит сверху-слева от диска, и «над остановкой» приходилось ровно на него.
@@ -608,15 +610,25 @@ function PodcastCard({
       <foreignObject x={cx + dx - half} y={top} width={CARD_W} height={height}>
         <div className="quest-card__box" style={CARD_TYPE_SCALE}>
           <NowPlayingCard track={trackOf(episode)} coverSize={CARD_COVER}>
-            {timeLines.map((line, i) => (
-              // Вторая строка (итог эпизода за день) — фоном к первой: карточка отвечает
-              // прежде всего за СВОЙ заход, день идёт справкой.
-              <div key={line} className={`quest-card__time${i > 0 ? " quest-card__time--day" : ""}`}>
-                {line}
+            {/* Сумма минут захода — тише куска: она отвечает «сколько всего», чтобы не
+                вычитать одно из другого в уме. Подпись стоит здесь, а не в строке ниже, по
+                прозаической причине: карточка подкаста фиксированной ширины (в отличие от
+                книжной, которая подбирает её под содержимое), и «прослушано 45 → 95 мин
+                (пересказ)» в неё не влезало — замер: нужно 176 единиц, есть 148. Пара
+                «цифры + кнопка» при этом набрана книжными классами, как и просили. */}
+            {stretch !== null && (
+              <div className="quest-card__sum">
+                <span className="quest-card__progress-caption">{LISTENED_CAPTION} </span>
+                {listened}
               </div>
-            ))}
-            {canRetell && (
-              <div className="quest-card__time">
+            )}
+            {/* Пройденный кусок выпуска — ТЕМИ ЖЕ классами, что проценты книги: вопрос один,
+                и набор у него обязан быть один (замечено владельцем). Кнопка здесь же,
+                справа, — тоже как у книги. */}
+            <div className="quest-card__progress">
+              {stretch === null && <span className="quest-card__progress-caption">{LISTENED_CAPTION} </span>}
+              <span className="quest-card__progress-value">{stretch ?? listened}</span>
+              {canRetell && (
                 <button
                   type="button"
                   className="quest-card__retell"
@@ -630,8 +642,8 @@ function PodcastCard({
                 >
                   {RETELL_LABEL}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </NowPlayingCard>
         </div>
       </foreignObject>
@@ -748,9 +760,9 @@ function BookCard({
             </Marquee>
             {book.author && <div className="quest-book__author">{book.author}</div>}
             {progress && (
-              <div className="quest-book__progress">
-                <span className="quest-book__progress-caption">{PROGRESS_CAPTION} </span>
-                <span className="quest-book__progress-value">{progress}</span>
+              <div className="quest-card__progress">
+                <span className="quest-card__progress-caption">{PROGRESS_CAPTION} </span>
+                <span className="quest-card__progress-value">{progress}</span>
                 {/* Кнопка есть, только когда пересказ УЖЕ собран: он считается фоном по тексту
                     книги с полки, и обещать окно, которому нечего показать, незачем (§5.16). */}
                 {book.hasSummary && book.sessionId != null && (

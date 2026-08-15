@@ -264,7 +264,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     name: string,
     listened: number,
     duration: number | null = 48,
-    dayMinutes = listened,
+    patch: Partial<PodcastEpisodeView> = {},
   ): PodcastEpisodeView => ({
     episodeName: name,
     episodeUrl: `https://open.spotify.com/episode/${name}`,
@@ -272,8 +272,10 @@ describe("QuestMap — карточки прослушанных подкаст�
     showUrl: `https://open.spotify.com/show/${name}`,
     imageUrl: "https://i.scdn.co/image/cover.jpg",
     listenedMinutes: listened,
-    dayMinutes,
+    startMinute: 0,
+    endMinute: listened,
     durationMinutes: duration,
+    ...patch,
   });
 
   const withEpisodes = (episodes: PodcastEpisodeView[]): DisciplineItemView[] => [
@@ -285,9 +287,11 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     expect(screen.getByText("Утро")).toBeInTheDocument();
     expect(screen.getByText("шоу Утро")).toBeInTheDocument();
-    // Часов начала на карточке нет (решение владельца): она отвечает «что это было и сколько
-    // его было», а не «во сколько я включил».
-    expect(screen.getByText("47 из 48 мин")).toBeInTheDocument();
+    // Часов начала на карточке нет (решение владельца): она отвечает «что это было, сколько
+    // его было и какой это был кусок», а не «во сколько я включил».
+    const card = screen.getAllByTestId("quest-card")[0];
+    expect(card).toHaveTextContent("47 мин");
+    expect(card).toHaveTextContent("0 → 47 мин");
   });
 
   it("ведёт ссылками на эпизод и на шоу", () => {
@@ -309,26 +313,30 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(screen.getAllByTestId("quest-card")).toHaveLength(1);
   });
 
-  it("эпизод, взятый двумя заходами, различает карточки минутами захода", () => {
-    // 80 минут одного эпизода: утром 45, вечером 35. Оба кружка рассказывают своё, а строкой
-    // ниже каждый возвращает то, что теряется от разложения, — сколько пройдено за день.
+  it("эпизод, взятый двумя заходами, различает карточки СВОИМ куском выпуска", () => {
+    // 80 минут одного эпизода: утром 0→45, вечером 45→80. Ради этого вторая строка и есть —
+    // одни минуты («45 мин» и «35 мин») не говорят, что вечером слушали продолжение, а не
+    // начало заново.
     render(
       <QuestMap
         items={withEpisodes([
-          episode("Ошибки", 45, 85, 80),
-          episode("Ошибки", 35, 85, 80),
+          episode("Ошибки", 45, 85, { startMinute: 0, endMinute: 45 }),
+          episode("Ошибки", 35, 85, { startMinute: 45, endMinute: 80 }),
         ])}
         monsterDrunk={false}
       />,
     );
 
-    // Проверяем внутри своих карточек: без часов строка захода совпала с подписью под
-    // кружком, и поиск по всему документу нашёл бы обе.
+    // Проверяем внутри своих карточек: строка захода совпала с подписью под кружком, и поиск
+    // по всему документу нашёл бы обе.
     const cards = screen.getAllByTestId("quest-card");
     expect(cards).toHaveLength(2);
     expect(cards[0]).toHaveTextContent("45 мин");
+    expect(cards[0]).toHaveTextContent("0 → 45 мин");
     expect(cards[1]).toHaveTextContent("35 мин");
-    expect(screen.getAllByText("80 из 85 мин за день")).toHaveLength(2);
+    expect(cards[1]).toHaveTextContent("45 → 80 мин");
+    // Итога эпизода за день на карточке больше нет — кусок отвечает на это сам.
+    expect(screen.queryByText(/за день/)).toBeNull();
     // И под самими кружками — минуты своего захода, а не все 80 под первым.
     expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("45 мин");
     expect(screen.getByTestId("quest-minutes-podcasts-2")).toHaveTextContent("35 мин");
@@ -453,7 +461,8 @@ describe("QuestMap — карточки прослушанных подкаст�
     // Окно ОДНО на книгу и на выпуск: тот же контур, тот же ответ — расходится только шапка.
     expect(screen.getByTestId("summary-modal")).toBeInTheDocument();
     expect(screen.getByTestId("summary-progress")).toHaveTextContent("прослушано за этот заход");
-    expect(screen.getByTestId("summary-progress")).toHaveTextContent("47 из 48 мин");
+    // Кусок — той же стрелкой, что проценты книги: окно отвечает на один вопрос одинаково.
+    expect(screen.getByTestId("summary-progress")).toHaveTextContent("0 → 47 мин");
   });
 });
 
@@ -484,7 +493,8 @@ describe("QuestMap — превью обложки у остановки под�
     showUrl: `https://open.spotify.com/show/${name}`,
     imageUrl: "https://i.scdn.co/image/cover.jpg",
     listenedMinutes: 40,
-    dayMinutes: 40,
+    startMinute: 0,
+    endMinute: 40,
     durationMinutes: 48,
   });
   const withEpisodes = (episodes: PodcastEpisodeView[]): DisciplineItemView[] => [

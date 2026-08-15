@@ -194,19 +194,6 @@ class PodcastDayRollupTest {
         assertEquals(emptyList<String>(), cardIds(run("A", 10, morning)))
     }
 
-    // ── минуты эпизода за сутки: знаменатель строки «80 из 85 мин за день» ──
-
-    @Test
-    fun `episode minutes sum every run of that episode`() {
-        val there = run("A", 45, morning)
-        val back = run("A", 35, morning.plusSeconds(10 * 3600))
-        val other = run("B", 20, morning.plusSeconds(3600))
-        assertEquals(
-            mapOf("A" to 80, "B" to 20),
-            PodcastDayRollup.episodeMinutes(listOf(there, back, other)),
-        )
-    }
-
     @Test
     fun `listened minutes floor to whole minutes`() {
         assertEquals(49, PodcastDayRollup.listenedMinutes(2_999_000))

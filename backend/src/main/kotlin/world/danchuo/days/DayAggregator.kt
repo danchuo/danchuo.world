@@ -61,7 +61,6 @@ class DayAggregator(
         val podcastRuns = podcasts.runsOn(date)
         val podcastMinutes = PodcastDayRollup.listenedMinutes(podcastRuns.sumOf { it.listenedMs })
         // Минуты эпизода за весь день — знаменатель строки «80 из 85 мин за день» на карточке.
-        val podcastEpisodeMinutes = PodcastDayRollup.episodeMinutes(podcastRuns)
         // Про какие заходы есть что рассказать (§5.16.1) — одним запросом на день, как у чтения.
         val retoldRuns = summaries.readySessions(SummaryKind.PODCAST, podcastRuns.map { it.sessionId })
 
@@ -103,7 +102,7 @@ class DayAggregator(
                 },
                 episodes = if (item.key == PODCAST_ITEM_KEY) {
                     PodcastDayRollup.cards(podcastRuns, item.target)
-                        .map { episodeViewOf(it, podcastEpisodeMinutes, retoldRuns) }
+                        .map { episodeViewOf(it, retoldRuns) }
                 } else {
                     emptyList()
                 },
@@ -206,22 +205,21 @@ class DayAggregator(
     }
 
     /** Карточка захода: миллисекунды свёртки переводим в минуты уже на выходе. */
-    private fun episodeViewOf(
-        run: PodcastRun,
-        episodeMinutes: Map<String, Int>,
-        retold: Set<Long>,
-    ): PodcastEpisodeView {
-        val listened = PodcastDayRollup.listenedMinutes(run.listenedMs)
+    private fun episodeViewOf(run: PodcastRun, retold: Set<Long>): PodcastEpisodeView {
+        // Пройденный кусок выпуска — обе границы или ни одной: «→ 95» без начала не отвечает
+        // ни на один вопрос (то же правило, что у процентов книги).
+        val start = run.startProgressMs?.let { PodcastDayRollup.listenedMinutes(it) }
+        val end = start?.let { PodcastDayRollup.listenedMinutes(run.lastProgressMs) }
+
         return PodcastEpisodeView(
             episodeName = run.episodeName,
             episodeUrl = run.episodeUrl,
             showName = run.showName,
             showUrl = run.showUrl,
             imageUrl = run.imageUrl,
-            listenedMinutes = listened,
-            // Карточка всегда собрана из своего захода, поэтому эпизод в карте есть; фолбэк —
-            // чтобы «за день» никогда не оказалось меньше, чем уже показано за заход.
-            dayMinutes = maxOf(episodeMinutes[run.episodeId] ?: 0, listened),
+            listenedMinutes = PodcastDayRollup.listenedMinutes(run.listenedMs),
+            startMinute = start,
+            endMinute = end,
             durationMinutes = run.episodeDurationMs?.let { PodcastDayRollup.listenedMinutes(it) },
             sessionId = run.sessionId,
             hasSummary = run.sessionId in retold,

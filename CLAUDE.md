@@ -9,7 +9,7 @@
 сделанных веток и не «последняя / перед этим / ещё раньше». Что сделала ветка, живёт в её
 PR и сообщении коммита; правило — в PRD/DESIGN; архив первого года — `docs/journal.md`.
 
-- Версии: **бэк 1.20.0, фронт 1.27.0**.
+- Версии: **бэк 1.21.0, фронт 1.27.0**.
 - Оговорки «с какого дня у нас есть эти данные» живут в PRD, рядом со своей фичей.
 
 ## Документы — кто за что отвечает
@@ -38,13 +38,13 @@ PRD и DESIGN — разделённые источники правды, не �
 | `health` | приём с iOS-шортката: шаги, сессионизация сна (`SleepSessionizer`), дневник (`JournalDetector`) | `POST /api/ingest/health` |
 | `checklist` | пункты дисциплины и отметки | `POST /api/ingest/daily` |
 | `monster` | вкусы монстра (data-driven); пункт `monster` — производная от вкуса | — |
-| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш; поллер подкастов (`@Scheduled` 60с → `podcast_session`, пункт `podcasts` — производная от минут; сессия помнит и КУСОК эпизода: `start_progress_ms`→`last_progress_ms`) | `GET /api/spotify/{now-playing,recent,top}` |
+| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш; поллер подкастов (`@Scheduled` 60с → `podcast_session`, пункт `podcasts` — производная от минут; сессия помнит и КУСОК эпизода: `start_progress_ms`→`last_progress_ms`); `PodcastSummarySource` — текст прослушанного куска: каталог Apple → RSS → окна аудио по `Range` → распознавание | `GET /api/spotify/{now-playing,recent,top}` |
 | `github` | вклады из HTML-фрагмента профиля, `@Scheduled`; не двигает лампу свежести | едут в `DaySummary` |
 | `reading` | полка Anx Reader по WebDAV: SQLite читалки → сессии чтения (`@Scheduled` 5м → `reading_session`, пункт `reading` — производная от минут); `ReadingSummarySource` — откуда взять текст прочитанного куска (epub с полки) | `GET /api/reading/cover/{id}` |
 | `summary` | пересказ пройденного за заход куска, **общий на все источники**: очередь и попытки (`content_summary`, ключ `kind`+`sessionId`), чистые `SummaryPolicy`/`SummaryWindows`, промпт со словарём по виду, один `SummaryPoller` (`@Scheduled` 2м, бесплатная полоса LLM) на всех. Слайсы дают текст через `SummarySource` | `GET /api/summary/{kind}/{id}` |
 | `bike` | Велобайк: поездки, покупки тарифов, геокодинг станций (Nominatim) | `GET /api/rides`, `/api/rides/stats` |
 | `film` | фото-дропы: zip → web+thumb, поворот кадров через LLM, поиск артефактов | `GET /api/drops`, `/api/film-media/…` |
-| `llm` | клиент внешних LLM за `LlmClient` (Groq + Gemini); две **полосы** — основная (может быть платной) и бесплатная `LlmLane.FREE` для фоновой работы; без ключа — тихий `null` | — |
+| `llm` | клиент внешних LLM за `LlmClient` (Groq + Gemini); две **полосы** — основная (может быть платной) и бесплатная `LlmLane.FREE` для фоновой работы; распознавание речи (`transcribe`, multipart, свой лимит в аудиосекундах); без ключа — тихий `null` | — |
 | `projects`, `social` | контент борда (проекты, соцссылки, артефакты) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
 | `theme` | волны: токены **и** layout-дельта в JSONB | `GET /api/theme/active`, `/api/themes` |
 | `analytics` | cookieless-бикон + потайловая хитмапа (приватная сводка за bearer) | `POST /api/analytics/{beacon,interactions}` |

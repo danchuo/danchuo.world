@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Recover the window start for the sittings where it is not a guess (PRD 5.16.1).
+
+      The column arrived with the listening-stretch work, so every row written before it has a
+      NULL start and gets no retelling. That was the right default: last_progress_ms minus
+      listened_ms is usually the start, but a rewind makes credited time exceed the distance
+      covered, and inventing a start is the same class of lie as retelling a book from memory.
+
+      One subset is not a guess, though. When listened_ms EQUALS last_progress_ms, the credit
+      counted from zero and nothing was skipped: openingCredit() only hands back the head
+      position when the episode was opened within a minute of its start, so equality means the
+      sitting ran straight through from the top. For those rows the start is exactly 0, and
+      leaving them NULL would withhold a retelling we can honestly produce.
+
+      Everything else keeps its NULL. A sitting that continued yesterday's episode, or that was
+      rewound, stays out of the queue until the poller records its start first-hand.
+    -->
+    <changeSet id="0430-podcast-window-backfill" author="danchuo">
+        <sql>
+            UPDATE podcast_session
+            SET start_progress_ms = 0
+            WHERE start_progress_ms IS NULL
+              AND listened_ms = last_progress_ms
+              AND listened_ms > 0
+        </sql>
+    </changeSet>
+</databaseChangeLog>

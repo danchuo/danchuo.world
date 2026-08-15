@@ -1,6 +1,7 @@
 package world.danchuo.summary
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -136,6 +137,11 @@ class SummaryPromptTest {
         assertTrue(prompt.contains("Подкаст: Hidden Brain"), prompt)
         assertTrue(prompt.contains("Прослушано за этот заход"), prompt)
         assertTrue(system.contains("прослушал"), system)
+        // Реклама садится в СЕРЕДИНУ прослушанного куска, поэтому отказа «тут одна реклама»
+        // мало: без отдельного правила модель тратит на спонсоров пункт пересказа (замерено
+        // на живом выпуске Huberman Lab). Книге это правило ни к чему — и его там нет.
+        assertTrue(system.contains("спонсоров"), system)
+        assertFalse(SummaryPrompt.system(SummaryKind.READING).contains("спонсоров"))
         // Правила при этом те же самые — расходятся только существительные.
         assertTrue(system.contains(SummaryPrompt.REFUSAL))
         assertTrue(system.contains(SummaryPrompt.TAKEAWAY_MARK))

@@ -17,11 +17,19 @@
 	order rate_limit before basic_auth
 	order cache after rate_limit
 
-	# Access logs. There were none until now, and it showed: reconstructing the August incident
-	# meant inferring traffic from failures, because only errors were ever written.
-	log {
+	# Caddy's OWN logs (startup, TLS, errors). Note this is not the access log — a `log` block
+	# in global options configures the default logger, and access logging is a separate,
+	# per-site directive. Getting that wrong is silent: the config is valid, Caddy is chatty
+	# at startup, and yet not one request is ever recorded.
+	log default {
 		output stdout
 		format json
+
+		# The limiter writes an info line per refused request ("rate limit exceeded"). One
+		# 600 rps flood produced 26k of them — the same wall of noise that made reading the
+		# August incident so painful. Every refusal already appears in the access log below
+		# as a 429, with the client and path attached, so this is pure duplication.
+		exclude http.handlers.rate_limit
 	}
 
 	cache {
@@ -50,6 +58,15 @@
 
 danchuo.world {
 	encode zstd gzip
+
+	# THE access log — one line per request, with client, path, status and duration. It has to
+	# live inside the site block; the global `log` above does not produce it. Until this line
+	# existed there was no record of traffic at all, and the August incident had to be
+	# reconstructed from proxy failures alone: we could see what broke, never what arrived.
+	log {
+		output stdout
+		format json
+	}
 
 	handle /api/* {
 		# Frames and the rest of the API are counted separately, mirroring the split inside

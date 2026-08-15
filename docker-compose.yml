@@ -3,12 +3,22 @@
 #   • сайт   → http://localhost:3000
 #   • API    → http://localhost:8080/api/days/<дата>
 #   • postgres → localhost:5432 (danchuo/danchuo)
+#
+# `restart: unless-stopped` у всех сервисов — это не украшение: стек заявлен витриной проекта
+# («localhost:3000 всегда живой», CLAUDE.md), а без политики он не переживал ни перезагрузку
+# машины, ни рестарт Docker Desktop, и витрина молча гасла до следующего ручного `up`.
+#
+# Порт 8080 принадлежит ЭТОМУ стеку и больше никому. Не поднимать рядом `quarkusDev`: он
+# слушает 127.0.0.1:8080, контейнер — 0.0.0.0:8080, и на петлевых соединениях выигрывает
+# более узкая привязка. Итог — `localhost:8080` и `http://backend:8080` отвечают разными
+# процессами, а выглядит это как необъяснимое поведение бэкенда (см. docs/pitfalls.md).
 # Это ТЕСТОВЫЙ конфиг: дефолтные креды и токен открыты намеренно. Не для прода
 # (там — env-секреты + Caddy/TLS, отдельный deploy-compose появится в эру деплоя).
 
 services:
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: danchuo
       POSTGRES_USER: danchuo
@@ -25,6 +35,7 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     # Spotify-креды (PRD §M3) подтягиваются из backend/.env (он в .gitignore, секреты
     # не в репозитории). Файла нет ⇒ слайс грузится «не сконфигурирован», не падает.
     env_file:
@@ -61,6 +72,7 @@ services:
   # ходит на http://<ip-машины>:6065/dav); в проде тот же контейнер стоит за Caddy на /dav/*.
   webdav:
     image: ghcr.io/hacdias/webdav:v5
+    restart: unless-stopped
     command: ["-c", "/config.yml"]
     environment:
       # Тестовый стек: креды открыты намеренно, как ingest-токен выше. Прод берёт их из .env.
@@ -73,6 +85,7 @@ services:
       - anxdata:/data
 
   frontend:
+    restart: unless-stopped
     build:
       context: ./frontend
       args:

@@ -218,7 +218,6 @@ class DayAggregator(
             showName = run.showName,
             showUrl = run.showUrl,
             imageUrl = run.imageUrl,
-            startedAt = run.startedAt,
             listenedMinutes = listened,
             // Карточка всегда собрана из своего захода, поэтому эпизод в карте есть; фолбэк —
             // чтобы «за день» никогда не оказалось меньше, чем уже показано за заход.

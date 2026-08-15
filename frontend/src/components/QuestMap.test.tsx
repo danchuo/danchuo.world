@@ -265,14 +265,12 @@ describe("QuestMap — карточки прослушанных подкаст�
     listened: number,
     duration: number | null = 48,
     dayMinutes = listened,
-    startedAt = "2026-08-13T06:12:00Z",
   ): PodcastEpisodeView => ({
     episodeName: name,
     episodeUrl: `https://open.spotify.com/episode/${name}`,
     showName: `шоу ${name}`,
     showUrl: `https://open.spotify.com/show/${name}`,
     imageUrl: "https://i.scdn.co/image/cover.jpg",
-    startedAt,
     listenedMinutes: listened,
     dayMinutes,
     durationMinutes: duration,
@@ -282,13 +280,14 @@ describe("QuestMap — карточки прослушанных подкаст�
     { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
   ];
 
-  it("вешает по карточке на остановку и подписывает эпизод, шоу и время", () => {
+  it("вешает по карточке на остановку и подписывает эпизод, шоу и минуты", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 
     expect(screen.getByText("Утро")).toBeInTheDocument();
     expect(screen.getByText("шоу Утро")).toBeInTheDocument();
-    // Время начала стоит и у единственного захода: «когда я это слушал» — вопрос сам по себе.
-    expect(screen.getByText("09:12 · 47 из 48 мин")).toBeInTheDocument();
+    // Часов начала на карточке нет (решение владельца): она отвечает «что это было и сколько
+    // его было», а не «во сколько я включил».
+    expect(screen.getByText("47 из 48 мин")).toBeInTheDocument();
   });
 
   it("ведёт ссылками на эпизод и на шоу", () => {
@@ -310,22 +309,25 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(screen.getAllByTestId("quest-card")).toHaveLength(1);
   });
 
-  it("эпизод, взятый двумя заходами, различает карточки временем и минутами захода", () => {
+  it("эпизод, взятый двумя заходами, различает карточки минутами захода", () => {
     // 80 минут одного эпизода: утром 45, вечером 35. Оба кружка рассказывают своё, а строкой
     // ниже каждый возвращает то, что теряется от разложения, — сколько пройдено за день.
     render(
       <QuestMap
         items={withEpisodes([
-          episode("Ошибки", 45, 85, 80, "2026-08-13T06:12:00Z"),
-          episode("Ошибки", 35, 85, 80, "2026-08-13T16:40:00Z"),
+          episode("Ошибки", 45, 85, 80),
+          episode("Ошибки", 35, 85, 80),
         ])}
         monsterDrunk={false}
       />,
     );
 
-    expect(screen.getAllByTestId("quest-card")).toHaveLength(2);
-    expect(screen.getByText("09:12 · 45 мин")).toBeInTheDocument();
-    expect(screen.getByText("19:40 · 35 мин")).toBeInTheDocument();
+    // Проверяем внутри своих карточек: без часов строка захода совпала с подписью под
+    // кружком, и поиск по всему документу нашёл бы обе.
+    const cards = screen.getAllByTestId("quest-card");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveTextContent("45 мин");
+    expect(cards[1]).toHaveTextContent("35 мин");
     expect(screen.getAllByText("80 из 85 мин за день")).toHaveLength(2);
     // И под самими кружками — минуты своего захода, а не все 80 под первым.
     expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("45 мин");
@@ -475,18 +477,17 @@ function tap(el: Element) {
 const isOpen = (card: Element) => card.getAttribute("class")?.includes("quest-card--open") ?? false;
 
 describe("QuestMap — превью обложки у остановки подкаста", () => {
-  const episode = (name: string) => ({
+  const episode = (name: string): PodcastEpisodeView => ({
     episodeName: name,
     episodeUrl: `https://open.spotify.com/episode/${name}`,
     showName: `шоу ${name}`,
     showUrl: `https://open.spotify.com/show/${name}`,
     imageUrl: "https://i.scdn.co/image/cover.jpg",
-    startedAt: "2026-08-13T06:12:00Z",
     listenedMinutes: 40,
     dayMinutes: 40,
     durationMinutes: 48,
   });
-  const withEpisodes = (episodes: ReturnType<typeof episode>[]): DisciplineItemView[] => [
+  const withEpisodes = (episodes: PodcastEpisodeView[]): DisciplineItemView[] => [
     { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
   ];
 

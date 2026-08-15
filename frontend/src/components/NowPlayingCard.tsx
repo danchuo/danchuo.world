@@ -66,7 +66,7 @@ export function Marquee({ children, style }: { children: ReactNode; style?: CSSP
 
   const scrolling = shift > 0;
   return (
-    <div ref={outer} className="overflow-hidden" style={style}>
+    <div ref={outer} className="marquee-clip" style={style}>
       <div
         ref={inner}
         className={`marquee-inner${scrolling ? " is-scrolling" : ""}`}

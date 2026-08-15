@@ -35,7 +35,6 @@ describe("summarySubject", () => {
     showName: "Hidden Brain",
     showUrl: "https://open.spotify.com/show/y",
     imageUrl: "https://i.scdn.co/image/abc",
-    startedAt: "2026-08-13T06:12:00Z",
     listenedMinutes: 35,
     dayMinutes: 35,
     durationMinutes: 48,

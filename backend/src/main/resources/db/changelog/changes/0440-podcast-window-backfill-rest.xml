@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Recover the window start for the REST of the old sittings (PRD 5.16.2).
+
+      0430 restored only the rows where the start was not a guess at all: credited time equal to
+      the head position means the sitting ran straight through from zero. The rest were left NULL
+      because "head minus credited" is exact only when nothing was rewound.
+
+      Owner's call: recover them too. The remaining rows are the ones that continued an episode
+      from the middle, and for them the difference is the best statement we have about which
+      stretch was heard - the alternative is not a better number, it is no retelling at all.
+
+      The approximation is also bounded, and in the useful direction. A forward skip (ads) makes
+      credited time SMALLER than the distance covered, so the computed start lands late and we
+      under-claim - we simply retell less than was heard. A rewind makes credited time larger, so
+      the start lands early; but a rewind means that stretch was heard twice, so the window still
+      covers audio the owner actually listened to.
+
+      Checked against the local shelf before writing this: of the three rows it touches, two are
+      corroborated exactly - the preceding sitting of the same episode ends at the very
+      millisecond this one is computed to start (Lex #500: 45:00, Hidden Brain: 45:00).
+
+      GREATEST(0, ...) guards the rewind case from going negative; new rows are unaffected, the
+      poller records their start first-hand.
+    -->
+    <changeSet id="0440-podcast-window-backfill-rest" author="danchuo">
+        <sql>
+            UPDATE podcast_session
+            SET start_progress_ms = GREATEST(0, last_progress_ms - listened_ms)
+            WHERE start_progress_ms IS NULL
+              AND listened_ms > 0
+        </sql>
+    </changeSet>
+</databaseChangeLog>

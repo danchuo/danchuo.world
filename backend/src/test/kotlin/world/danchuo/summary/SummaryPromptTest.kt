@@ -78,6 +78,22 @@ class SummaryPromptTest {
     }
 
     @Test
+    fun `the closing line survives a list marker in front of it`() {
+        // Модель нет-нет да и оформит итог пунктом. Без снятия маркера ДО проверки на итог он
+        // уезжал в пункты, а строка-итог оставалась пустой — поймано на живом заходе.
+        val parsed = SummaryPrompt.parse(
+            """
+            - Пауль уходит в пустыню.
+            - Появляется червь.
+            - TAKEAWAY: пустыня учит быстрее, чем учителя.
+            """.trimIndent(),
+        )!!
+
+        assertEquals(listOf("Пауль уходит в пустыню.", "Появляется червь."), parsed.bullets)
+        assertEquals("пустыня учит быстрее, чем учителя.", parsed.takeaway)
+    }
+
+    @Test
     fun `markdown emphasis inside a bullet is stripped`() {
         val parsed = SummaryPrompt.parse("- **Пауль** уходит в *пустыню*.")!!
 
@@ -97,6 +113,29 @@ class SummaryPromptTest {
 
         assertEquals(2, parsed.bullets.size)
         assertEquals("a chapter about learning from what the market says.", parsed.takeaway)
+    }
+
+    @Test
+    fun `the closing line is asked for content, not for a description of the excerpt`() {
+        // Модель тянет на мета-формулировку — «разговор охватывает…» — и строка-итог
+        // превращается в оглавление вместо содержания (замерено на живых выпусках: так вышло у
+        // всех шести). Просим переформулировкой, а не запретом: замер показал, что запрет либо
+        // не работает, либо перетягивает ответ на язык инструкции.
+        // Переносы строк в промпте — дело вёрстки, а не смысла: сравниваем по словам.
+        fun flat(kind: SummaryKind) = SummaryPrompt.system(kind).replace(Regex("""\s+"""), " ")
+
+        assertTrue(flat(SummaryKind.READING).contains("не зная, что это книга"))
+        assertTrue(flat(SummaryKind.PODCAST).contains("не зная, что это подкаст"))
+    }
+
+    @Test
+    fun `the language rule comes first, ahead of the mass of russian instruction`() {
+        // Инструкция целиком по-русски, и её масса перетягивает ответ на русский даже для
+        // англоязычного источника (замер: 4 из 4). Поднятое вперёд правило это держит.
+        for (kind in SummaryKind.entries) {
+            val rules = SummaryPrompt.system(kind).substringAfter("Правила:")
+            assertTrue(rules.trimStart().startsWith("1. ЯЗЫК ОТВЕТА"), "$kind: $rules")
+        }
     }
 
     @Test

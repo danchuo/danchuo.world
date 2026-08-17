@@ -25,6 +25,30 @@ export function episodeForStop(
 export const LISTENED_CAPTION = "прослушано";
 
 /**
+ * Единица минут в подписях карточки. Вынесена в константу не ради экономии букв, а потому что
+ * карточка разбирает подпись обратно ([splitMinutesUnit]): цифры и единица красятся по-разному,
+ * и знать про «мин» они обязаны из одного места.
+ */
+export const MINUTES_UNIT = "мин";
+
+/**
+ * Подпись — на цифры и единицу: «0 → 33 мин» → `["0 → 33", "мин"]`, «35% → 42%» → `["35% → 42%", null]`.
+ *
+ * Нужно для покраски: зелёным «пройдено» горят сами цифры и стрелка между ними, единица — нет
+ * (решение владельца). Проценты книги идут той же строкой и тем же классом, но отделять там
+ * нечего — знак процента живёт вплотную к числу и читается как его часть.
+ *
+ * Разбор именно ОБРАТНЫЙ, а не раздельные поля у [stretchLabel]: ту же строку целиком берёт
+ * окно пересказа (`summarySubject`), где никакой покраски нет, и городить ради неё пару полей
+ * во всех источниках дороже, чем снять суффикс на отрисовке.
+ */
+export function splitMinutesUnit(label: string): [string, string | null] {
+  const suffix = ` ${MINUTES_UNIT}`;
+  if (!label.endsWith(suffix)) return [label, null];
+  return [label.slice(0, -suffix.length), MINUTES_UNIT];
+}
+
+/**
  * Сколько слушали за заход: «50 мин».
  *
  * Стоит НАД пройденным куском и тише него — отвечает «сколько всего», чтобы не вычитать одно
@@ -35,7 +59,7 @@ export const LISTENED_CAPTION = "прослушано";
  * упорядочены и склеены.
  */
 export function listenedLabel(episode: PodcastEpisodeView): string {
-  return `${episode.listenedMinutes} мин`;
+  return `${episode.listenedMinutes} ${MINUTES_UNIT}`;
 }
 
 /**
@@ -50,7 +74,7 @@ export function stretchLabel(episode: PodcastEpisodeView): string | null {
   const to = episode.endMinute;
   if (typeof from !== "number" || typeof to !== "number") return null;
   if (to <= from) return null;
-  return `${from} → ${to} мин`;
+  return `${from} → ${to} ${MINUTES_UNIT}`;
 }
 
 /**
@@ -60,6 +84,6 @@ export function stretchLabel(episode: PodcastEpisodeView): string | null {
  * значит слушал), но «49 из 48» на карточке читалось бы как сбой счётчика, а не как повтор.
  */
 export function minutesLabel(minutes: number, durationMinutes: number | null | undefined): string {
-  if (typeof durationMinutes !== "number") return `${minutes} мин`;
-  return `${Math.min(minutes, durationMinutes)} из ${durationMinutes} мин`;
+  if (typeof durationMinutes !== "number") return `${minutes} ${MINUTES_UNIT}`;
+  return `${Math.min(minutes, durationMinutes)} из ${durationMinutes} ${MINUTES_UNIT}`;
 }

@@ -11,7 +11,13 @@ import type {
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
-import { LISTENED_CAPTION, episodeForStop, listenedLabel, stretchLabel } from "@/lib/podcastCard";
+import {
+  LISTENED_CAPTION,
+  episodeForStop,
+  listenedLabel,
+  splitMinutesUnit,
+  stretchLabel,
+} from "@/lib/podcastCard";
 import { bookForStop, progressLabel, PROGRESS_CAPTION } from "@/lib/readingCard";
 import { SummaryModal } from "./SummaryModal";
 import { bookSubject, episodeSubject, type SummarySubject } from "@/lib/summarySubject";
@@ -539,6 +545,26 @@ function EpisodePreview({
 }
 
 /**
+ * Пройденный кусок цифрами — общий на карточку книги и карточку выпуска (вопрос один, набор
+ * обязан быть один).
+ *
+ * Внутри строка разобрана надвое: сами цифры со стрелкой между ними горят зелёным «пройдено»
+ * (тот же `--success`, что у стрелок между сделанными пунктами тропы), а единица «мин» — нет.
+ * Единица не факт, а пояснение к нему, ровно как подпись «прослушано» слева; в зелёном она
+ * тянула бы на себя ту же яркость, что и цифры. У процентов книги отделять нечего — знак
+ * процента стоит вплотную к числу и читается его частью, поэтому строка зеленеет целиком.
+ */
+function ProgressValue({ label }: { label: string }) {
+  const [figures, unit] = splitMinutesUnit(label);
+  return (
+    <span className="quest-card__progress-value">
+      <span className="quest-card__progress-figures">{figures}</span>
+      {unit !== null && <span className="quest-card__progress-unit"> {unit}</span>}
+    </span>
+  );
+}
+
+/**
  * Карточка прослушанного эпизода у остановки подкастов (§5.6): обложка, эпизод и шоу со
  * ссылками, сколько слушали. Тот же язык, что у [StreakBadge] — поверхность и кант волны,
  * всплывает по наведению.
@@ -627,7 +653,7 @@ function PodcastCard({
                 справа, — тоже как у книги. */}
             <div className="quest-card__progress">
               {stretch === null && <span className="quest-card__progress-caption">{LISTENED_CAPTION} </span>}
-              <span className="quest-card__progress-value">{stretch ?? listened}</span>
+              <ProgressValue label={stretch ?? listened} />
               {canRetell && (
                 <button
                   type="button"
@@ -762,7 +788,7 @@ function BookCard({
             {progress && (
               <div className="quest-card__progress">
                 <span className="quest-card__progress-caption">{PROGRESS_CAPTION} </span>
-                <span className="quest-card__progress-value">{progress}</span>
+                <ProgressValue label={progress} />
                 {/* Кнопка есть, только когда пересказ УЖЕ собран: он считается фоном по тексту
                     книги с полки, и обещать окно, которому нечего показать, незачем (§5.16). */}
                 {book.hasSummary && book.sessionId != null && (

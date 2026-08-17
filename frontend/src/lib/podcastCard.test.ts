@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { episodeForStop, listenedLabel, stretchLabel } from "./podcastCard";
+import { episodeForStop, listenedLabel, splitMinutesUnit, stretchLabel } from "./podcastCard";
 import type { PodcastEpisodeView } from "./api/types";
 
 const episode = (
@@ -61,5 +61,18 @@ describe("подвал карточки подкаста", () => {
 
   it("нулевой кусок не строка: точка — не отрезок", () => {
     expect(stretchLabel(episode("A", 0, 48, { startMinute: 12, endMinute: 12 }))).toBeNull();
+  });
+});
+
+describe("splitMinutesUnit", () => {
+  it("отделяет единицу от цифр — их карточка красит по-разному", () => {
+    expect(splitMinutesUnit("0 → 33 мин")).toEqual(["0 → 33", "мин"]);
+    expect(splitMinutesUnit("33 мин")).toEqual(["33", "мин"]);
+    expect(splitMinutesUnit("47 из 48 мин")).toEqual(["47 из 48", "мин"]);
+  });
+
+  it("у процентов книги отделять нечего", () => {
+    expect(splitMinutesUnit("35% → 42%")).toEqual(["35% → 42%", null]);
+    expect(splitMinutesUnit("42%")).toEqual(["42%", null]);
   });
 });

@@ -294,14 +294,14 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(card).toHaveTextContent("0 → 47 мин");
   });
 
-  it("зелёными в куске горят цифры и стрелка, но не единица", () => {
+  it("кусок горит зелёным целиком — вместе с единицей", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 
     const card = screen.getAllByTestId("quest-card")[0];
-    // Цифры со стрелкой — «пройдено» тем же зелёным, что у стрелок тропы; «мин» поясняет
-    // их, как и подпись слева, и в зелёное не идёт (решение владельца).
-    expect(card.querySelector(".quest-card__progress-figures")).toHaveTextContent("0 → 47");
-    expect(card.querySelector(".quest-card__progress-unit")).toHaveTextContent("мин");
+    // Одна строка — один цвет: «мин» неотделима от цифр, при которых стоит (решение
+    // владельца). Отдельного элемента под единицу поэтому нет — красить нечего врозь.
+    expect(card.querySelector(".quest-card__progress-value")).toHaveTextContent("0 → 47 мин");
+    expect(card.querySelector(".quest-card__progress-unit")).toBeNull();
   });
 
   it("ведёт ссылками на эпизод и на шоу", () => {
@@ -852,12 +852,11 @@ describe("QuestMap · чтение", () => {
     expect(screen.queryByText(/·/)).toBeNull();
   });
 
-  it("проценты книги зеленеют целиком: отделять от них нечего", () => {
+  it("проценты книги зеленеют тем же классом, что минуты выпуска", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     const card = screen.getAllByTestId("quest-card")[0];
-    expect(card.querySelector(".quest-card__progress-figures")).toHaveTextContent("35% → 42%");
-    expect(card.querySelector(".quest-card__progress-unit")).toBeNull();
+    expect(card.querySelector(".quest-card__progress-value")).toHaveTextContent("35% → 42%");
   });
 
   it("под остановкой стоят минуты своей сессии, а не сумма за сутки", () => {

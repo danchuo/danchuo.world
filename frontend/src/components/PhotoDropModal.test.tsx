@@ -114,6 +114,24 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("системное «Назад» закрывает сперва кадр, потом галерею — а не уводит с сайта", async () => {
+    // Главный жест отмены на телефоне. Пока открытые окна не попадали в историю, «Назад»
+    // на андроиде уводил с сайта целиком: браузеру нечего было отменять.
+    vi.spyOn(window.history, "back").mockImplementation(() => {});
+    window.history.replaceState(null, "");
+    const onClose = vi.fn();
+    const { container } = await openFirst(onClose);
+
+    // Браузер снимает верхнюю запись истории и отдаёт состояние той, что под ней.
+    fireEvent(window, new PopStateEvent("popstate", { state: { danchuoOverlay: 1 } }));
+    expect(container.querySelector(".lightbox-photo")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("button", { name: /открыть кадр/ })).toHaveLength(2);
+
+    fireEvent(window, new PopStateEvent("popstate", { state: null }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("клик по фону и по ✕ закрывает кадр, но не галерею", async () => {
     const onClose = vi.fn();
     const { container } = await openFirst(onClose);

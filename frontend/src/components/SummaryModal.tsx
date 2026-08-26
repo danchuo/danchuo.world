@@ -5,6 +5,7 @@ import { getSummary } from "@/lib/api/client";
 import type { SummarySubject } from "@/lib/summarySubject";
 import { Icon } from "./Icon";
 import { Cover } from "./NowPlayingCard";
+import { useBackToClose } from "./useBackToClose";
 
 interface SummaryModalProps {
   subject: SummarySubject;
@@ -66,6 +67,9 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
       });
     return () => ctrl.abort();
   }, [kind, sessionId]);
+
+  // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9).
+  useBackToClose(true, onClose);
 
   useEffect(() => {
     closeRef.current?.focus();

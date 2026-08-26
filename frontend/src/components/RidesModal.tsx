@@ -166,6 +166,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
             <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto" role="listbox" aria-label="Выбор поездки">
               {rides.map((r) => {
                 const isSel = r.id === selected.id;
+                const cost = formatRideCost(r); // «406 ₽ (доступ 399 + 7 сверх)» и прочие формы
                 return (
                   <li key={r.id} role="option" aria-selected={isSel}>
                     <button
@@ -197,9 +198,7 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
                       <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>
                         {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
                         {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
-                        {r.costKopecks != null
-                          ? ` · ${formatRideCost(r.costKopecks, r.coveredByTariffKopecks)}`
-                          : ""}
+                        {cost ? ` · ${cost}` : ""}
                       </div>
                       {(r.startAddress || r.finishAddress) && (
                         <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-modal-note)" }}>

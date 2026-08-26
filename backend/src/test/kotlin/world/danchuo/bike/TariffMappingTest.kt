@@ -63,36 +63,130 @@ class TariffMappingTest {
         assertNull(tariff.minutes)
     }
 
-    // --- Привязка бесплатной поездки к покрывающему тарифу (TariffAttribution) ---
+    // --- Привязка «Доступа» к поездке и покрытия к остальным (TariffAttribution) ---
 
-    private fun purchase(id: String, at: Instant, kopecks: Int) = BikeTariff().apply {
+    private fun purchase(id: String, at: Instant, kopecks: Int, name: String) = BikeTariff().apply {
         externalId = id
         purchasedAt = at
         priceKopecks = kopecks
+        this.name = name
     }
 
-    private val t0 = Instant.parse("2026-07-01T00:00:00Z")
+    private fun ride(id: Long, at: Instant, cost: Int, tariff: String) = Ride().apply {
+        externalId = id
+        startTime = at
+        finishTime = at.plusSeconds(600)
+        costKopecks = cost
+        tariffName = tariff
+    }
 
-    // Покупки, отсортированные по времени убыванием (как отдаёт репозиторий).
-    private val purchasesDesc = listOf(
-        purchase("pkg2", t0.plusSeconds(3000), 39900), // пакет 60 минут (399 ₽), позже
-        purchase("min1", t0.plusSeconds(1000), 4000), // поминутный (40 ₽), раньше
-    )
+    private val t0: Instant = Instant.parse("2026-07-10T09:00:00Z")
 
     @Test
-    fun `бесплатная поездка привязана к ближайшей предшествующей покупке`() {
-        // Поездка после покупки пакета ⇒ покрыта им (399 ₽), а не более ранним поминутным.
-        val covering = TariffAttribution.coveringKopecks(0, t0.plusSeconds(4000), purchasesDesc)
-        assertEquals(39900, covering)
+    fun `доступ куплен ради поездки — её и оплачивает`() {
+        // Реальная картина: «Доступ Пакет 60 минут» покупается за секунды до старта поездки.
+        val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
+        val r = ride(1, t0.plusSeconds(6), 749, "Пакет 60 минут")
+
+        val money = TariffAttribution.attribute(listOf(r), listOf(buy))[1L]!!
+
+        assertEquals(39900, money.accessKopecks) // 399 ₽ доступа — деньги ЭТОЙ поездки
+        assertNull(money.coveredByTariffKopecks) // она сама купила доступ, «в рамках» тут не о чем
     }
 
     @Test
-    fun `платная поездка тариф не подтягивает`() {
-        assertNull(TariffAttribution.coveringKopecks(5243, t0.plusSeconds(4000), purchasesDesc))
+    fun `следующие поездки под тем же пакетом доступ не оплачивают — только покрыты им`() {
+        val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
+        val first = ride(1, t0.plusSeconds(6), 0, "Пакет 60 минут")
+        val second = ride(2, t0.plusSeconds(4000), 0, "Пакет 60 минут")
+        val third = ride(3, t0.plusSeconds(20000), 15400, "Пакет 60 минут") // вылез за пакет
+
+        val money = TariffAttribution.attribute(listOf(first, second, third), listOf(buy))
+
+        assertEquals(39900, money[1L]!!.accessKopecks)
+        assertNull(money[2L]!!.accessKopecks) // второй раз те же 399 ₽ не берём
+        assertEquals(39900, money[2L]!!.coveredByTariffKopecks)
+        assertNull(money[3L]!!.accessKopecks)
+        assertEquals(39900, money[3L]!!.coveredByTariffKopecks) // превышение сверх пакета
     }
 
     @Test
-    fun `бесплатная поездка раньше любой покупки — без тарифа (останется «бесплатно»)`() {
-        assertNull(TariffAttribution.coveringKopecks(0, t0.minusSeconds(10), purchasesDesc))
+    fun `поминутный доступ оплачивает свою поездку — минуты идут сверх него`() {
+        val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
+        val r = ride(1, t0.plusSeconds(8), 1498, "Поминутный")
+
+        val money = TariffAttribution.attribute(listOf(r), listOf(buy))[1L]!!
+
+        assertEquals(4000, money.accessKopecks) // 40 ₽ платного старта — их и не хватало в витрине
+        assertNull(money.coveredByTariffKopecks)
+    }
+
+    @Test
+    fun `доступ другого тарифа к поездке не липнет`() {
+        val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
+        val r = ride(1, t0.plusSeconds(8), 0, "Пакет 60 минут")
+
+        val money = TariffAttribution.attribute(listOf(r), listOf(buy))[1L]!!
+
+        assertNull(money.accessKopecks)
+        assertNull(money.coveredByTariffKopecks)
+    }
+
+    @Test
+    fun `купленный и не откатанный доступ ни к какой поездке не привязывается`() {
+        // Доступ куплен, поездки в окне нет: следующая поминутная — только через трое суток.
+        val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
+        val far = ride(1, t0.plusSeconds(3 * 24 * 3600), 0, "Поминутный")
+
+        val money = TariffAttribution.attribute(listOf(far), listOf(buy))[1L]!!
+
+        assertNull(money.accessKopecks)
+    }
+
+    @Test
+    fun `поминутный доступ следующие поездки не покрывает — включённых минут в нём нет`() {
+        val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
+        val own = ride(1, t0.plusSeconds(8), 1498, "Поминутный")
+        val next = ride(2, t0.plusSeconds(7200), 0, "Поминутный") // своей покупки в истории нет
+
+        val money = TariffAttribution.attribute(listOf(own, next), listOf(buy))
+
+        assertNull(money[2L]!!.accessKopecks)
+        assertNull(money[2L]!!.coveredByTariffKopecks)
+    }
+
+    @Test
+    fun `поездка раньше любой покупки — ни доступа, ни покрытия`() {
+        val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
+        val before = ride(1, t0.minusSeconds(600), 5243, "Пакет 60 минут")
+
+        val money = TariffAttribution.attribute(listOf(before), listOf(buy))[1L]!!
+
+        assertNull(money.accessKopecks)
+        assertNull(money.coveredByTariffKopecks)
+    }
+
+    @Test
+    fun `покрытие не тянется из позапрошлой недели`() {
+        val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
+        val owner = ride(1, t0.plusSeconds(6), 0, "Пакет 60 минут")
+        val late = ride(2, t0.plusSeconds(14 * 24 * 3600), 0, "Пакет 60 минут")
+
+        val money = TariffAttribution.attribute(listOf(owner, late), listOf(buy))
+
+        assertNull(money[2L]!!.coveredByTariffKopecks)
+    }
+
+    @Test
+    fun `каждая покупка достаётся своей поездке, а не первой попавшейся`() {
+        val first = purchase("p1", t0, 4000, "Доступ Поминутный")
+        val second = purchase("p2", t0.plusSeconds(7200), 4000, "Доступ Поминутный")
+        val r1 = ride(1, t0.plusSeconds(5), 1498, "Поминутный")
+        val r2 = ride(2, t0.plusSeconds(7205), 2996, "Поминутный")
+
+        val money = TariffAttribution.attribute(listOf(r1, r2), listOf(first, second))
+
+        assertEquals(4000, money[1L]!!.accessKopecks)
+        assertEquals(4000, money[2L]!!.accessKopecks)
     }
 }

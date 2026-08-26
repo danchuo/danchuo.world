@@ -56,8 +56,8 @@ class BikeRideService(
     /**
      * Идемпотентно записать покупки тарифов (страница `purchases/history`). Из смешанной истории
      * берём только `TARIFF` (см. [TariffMapper.isTariffPurchase]) — `RENTAL` это списания за
-     * поездки, уже есть в истории поездок. Идемпотентность — по id платежа. Нужны для атрибуции
-     * бесплатных поездок «в рамках тарифа за N ₽» ([TariffAttribution]).
+     * поездки, уже есть в истории поездок. Идемпотентность — по id платежа. Покупка «Доступа» — это
+     * вход в тариф (платный старт или пакет минут), без неё цена поездки неполная ([TariffAttribution]).
      */
     @Transactional
     fun upsertTariffs(items: List<PurchaseItem>): UpsertResult {
@@ -84,16 +84,20 @@ class BikeRideService(
      * жмётся к лету, поэтому осью выдачи выбран год, а не число последних. Если в этом году ещё
      * ни одной поездки (зима/начало года) — показываем **одну** самую свежую (последняя прошлого
      * сезона), чтобы тайл не пустовал. Хранятся все запушенные; пусто до первого ingest — штатно.
+     *
+     * Деньги в проекции раскладываются [TariffAttribution]: купленный ради поездки «Доступ» +
+     * то, что натикало сверх него, — цена поездки не сводится к одной лишь `cost`.
      */
     fun publicList(): List<RideView> {
         val startOfYear = LocalDate.now(clock).withDayOfYear(1)
         val thisYear = rides.listFrom(startOfYear)
         val chosen = thisYear.ifEmpty { listOfNotNull(rides.latest()) }
-        // Покупки тарифов (новые сверху) — для атрибуции бесплатных поездок «в рамках тарифа за N ₽».
-        val purchases = tariffs.listOrderedDesc()
+        // Деньги считаем по ВСЕЙ истории, а не по видимому куску: доступ мог купить сосед по пакету,
+        // оставшийся за границей года, — иначе поездка присвоила бы себе чужую покупку.
+        val money = TariffAttribution.attribute(rides.listOrderedDesc(), tariffs.listOrderedDesc())
         // Координаты станций по адресу — рисуем пины по станции вместо сырого GPS (заброс в Шереметьево).
         val stationCoords = stations.foundCoords()
-        return chosen.map { toView(it, purchases, stationCoords) }
+        return chosen.map { toView(it, money, stationCoords) }
     }
 
 
@@ -140,12 +144,14 @@ class BikeRideService(
 
     private fun toView(
         r: Ride,
-        purchases: List<BikeTariff>,
+        money: Map<Long, RideMoney>,
         stationCoords: Map<String, Pair<Double, Double>>,
     ): RideView {
         // Точка станции (по адресу) надёжнее сырого GPS велосипеда — предпочитаем её, GPS = фолбэк.
         val start = r.startAddress?.let { stationCoords[it] }
         val finish = r.finishAddress?.let { stationCoords[it] }
+        val paid = money[r.externalId] ?: RideMoney(null, null)
+        val access = paid.accessKopecks
         return RideView(
             id = r.id!!,
             rideDate = r.rideDate.toString(),
@@ -155,7 +161,9 @@ class BikeRideService(
             durationSeconds = r.durationSeconds,
             calories = r.calories,
             costKopecks = r.costKopecks,
-            coveredByTariffKopecks = TariffAttribution.coveringKopecks(r.costKopecks, r.startTime, purchases),
+            accessKopecks = access,
+            coveredByTariffKopecks = paid.coveredByTariffKopecks,
+            totalKopecks = if (access == null && r.costKopecks == null) null else (access ?: 0) + (r.costKopecks ?: 0),
             vehicleType = r.vehicleType,
             tariffName = r.tariffName,
             startLat = start?.first ?: r.startLat,

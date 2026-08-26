@@ -61,18 +61,37 @@ export function formatStationAddress(address: string | null): string | null {
 }
 
 /**
- * Стоимость поездки для истории (модалка). Платная — «52 ₽». Бесплатная (`cost === 0`) едет в
- * рамках ранее купленного тарифа: если бэк нашёл покрывающую покупку — «в рамках тарифа за N ₽»
- * (её цена), иначе честное «бесплатно». `null` (нет данных о стоимости) ⇒ пустая строка.
+ * Стоимость поездки для истории (модалка). Велобайк берёт деньги **двумя** записями, и строка
+ * показывает обе, иначе она врёт: «Доступ» (вход в тариф — платный старт поминутного или пакет
+ * минут, `accessKopecks`) и то, что натикало **сверх** него (`costKopecks` — минуты/превышение).
+ *
+ * Формы:
+ *  - доступ куплен этой поездкой, сверху превышение → «406 ₽ (доступ 399 + 7 сверх)»;
+ *  - доступ куплен, превышения нет → «399 ₽»;
+ *  - едет под ранее купленным пакетом, есть превышение → «154 ₽ сверх тарифа» (сам пакет посчитан
+ *    у поездки, которая его купила, — второй раз денег не берём);
+ *  - едет под ранее купленным пакетом без превышения → «в рамках тарифа за 399 ₽»;
+ *  - покупок в истории нет (поездки до `bike_tariff`) → как раньше: «52 ₽» / «бесплатно»;
+ *  - данных о деньгах нет вовсе → пустая строка.
  */
-export function formatRideCost(
-  costKopecks: number | null,
-  coveredByTariffKopecks?: number | null,
-): string {
-  if (costKopecks == null) return "";
-  if (costKopecks > 0) return rubles(costKopecks);
-  if (coveredByTariffKopecks != null && coveredByTariffKopecks > 0) {
-    return `в рамках тарифа за ${rubles(coveredByTariffKopecks)}`;
+export function formatRideCost(ride: {
+  costKopecks: number | null;
+  accessKopecks?: number | null;
+  coveredByTariffKopecks?: number | null;
+}): string {
+  const access = ride.accessKopecks ?? 0;
+  const cost = ride.costKopecks ?? 0;
+  if (ride.costKopecks == null && access <= 0) return "";
+
+  if (access > 0) {
+    const a = rublesWhole(access);
+    const c = rublesWhole(Math.max(cost, 0));
+    if (c <= 0) return rubles(access);
+    return `${a + c} ₽ (доступ ${a} + ${c} сверх)`;
   }
+
+  const covered = ride.coveredByTariffKopecks ?? 0;
+  if (cost > 0) return covered > 0 ? `${rubles(cost)} сверх тарифа` : rubles(cost);
+  if (covered > 0) return `в рамках тарифа за ${rubles(covered)}`;
   return "бесплатно";
 }

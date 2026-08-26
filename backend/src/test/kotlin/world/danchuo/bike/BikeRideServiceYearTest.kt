@@ -22,6 +22,8 @@ class BikeRideServiceYearTest {
         override fun listFrom(from: LocalDate): List<Ride> =
             all.filter { !it.rideDate.isBefore(from) }.sortedByDescending { it.startTime }
 
+        override fun listOrderedDesc(): List<Ride> = all.sortedByDescending { it.startTime }
+
         override fun latest(): Ride? = all.maxByOrNull { it.startTime }
     }
 
@@ -35,11 +37,19 @@ class BikeRideServiceYearTest {
         override fun foundCoords(): Map<String, Pair<Double, Double>> = coords
     }
 
-    private fun ride(id: Long, date: String, cost: Int? = null, duration: Int = 600): Ride = Ride().apply {
+    private fun ride(
+        id: Long,
+        date: String,
+        cost: Int? = null,
+        duration: Int = 600,
+        tariff: String? = null,
+        at: String = "10:00:00",
+    ): Ride = Ride().apply {
         this.id = id
         externalId = id
         rideDate = LocalDate.parse(date)
-        startTime = Instant.parse("${date}T10:00:00Z")
+        tariffName = tariff
+        startTime = Instant.parse("${date}T${at}Z")
         finishTime = startTime.plusSeconds(duration.toLong())
         distanceMeters = 1000
         durationSeconds = duration
@@ -48,10 +58,16 @@ class BikeRideServiceYearTest {
         updatedAt = startTime
     }
 
-    private fun tariff(date: String, kopecks: Int): BikeTariff = BikeTariff().apply {
-        externalId = "t-$date"
-        purchasedAt = Instant.parse("${date}T09:00:00Z")
+    private fun tariff(
+        date: String,
+        kopecks: Int,
+        name: String? = null,
+        at: String = "09:00:00",
+    ): BikeTariff = BikeTariff().apply {
+        externalId = "t-$date-$at"
+        purchasedAt = Instant.parse("${date}T${at}Z")
         priceKopecks = kopecks
+        this.name = name
     }
 
     private fun serviceAt(
@@ -126,20 +142,54 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `бесплатная поездка в проекции несёт цену покрывающего тарифа, платная — нет`() {
+    fun `проекция несёт доступ, купленный ради поездки, и её полную стоимость`() {
+        // Ровно случай из витрины: «час за 399 ₽» + 2 минуты превышения (7,49 ₽) — 7 ₽ это НЕ вся цена.
+        val service = serviceAt(
+            today = "2026-07-10",
+            rides = listOf(ride(1, "2026-07-05", cost = 749, tariff = "Пакет 60 минут", at = "09:00:06")),
+            tariffs = listOf(tariff("2026-07-05", 39900, "Доступ Пакет 60 минут")),
+        )
+
+        val out = service.publicList().single()
+
+        assertEquals(39900, out.accessKopecks)
+        assertEquals(749, out.costKopecks)
+        assertEquals(40649, out.totalKopecks)
+        assertEquals(null, out.coveredByTariffKopecks) // доступ куплен этой же поездкой
+    }
+
+    @Test
+    fun `поездка под ранее купленным пакетом покрыта им, но денег за него не берёт`() {
         val service = serviceAt(
             today = "2026-07-10",
             rides = listOf(
-                ride(1, "2026-07-05", cost = 0), // бесплатная — под пакетом, купленным 07-01
-                ride(2, "2026-07-06", cost = 5243), // платная — тариф не подтягивается
+                ride(1, "2026-07-05", cost = 0, tariff = "Пакет 60 минут", at = "09:00:06"), // купила доступ
+                ride(2, "2026-07-05", cost = 15400, tariff = "Пакет 60 минут", at = "12:00:00"), // сверх пакета
             ),
-            tariffs = listOf(tariff("2026-07-01", 39900)),
+            tariffs = listOf(tariff("2026-07-05", 39900, "Доступ Пакет 60 минут")),
         )
 
-        val out = service.publicList().associateBy { it.rideDate }
+        val out = service.publicList().associateBy { it.id }
 
-        assertEquals(39900, out["2026-07-05"]!!.coveredByTariffKopecks)
-        assertEquals(null, out["2026-07-06"]!!.coveredByTariffKopecks)
+        assertEquals(39900, out[1L]!!.accessKopecks)
+        assertEquals(39900, out[1L]!!.totalKopecks)
+        assertEquals(null, out[2L]!!.accessKopecks) // те же 399 ₽ второй раз не считаем
+        assertEquals(39900, out[2L]!!.coveredByTariffKopecks)
+        assertEquals(15400, out[2L]!!.totalKopecks)
+    }
+
+    @Test
+    fun `поездка без покупок в истории — как была, без доступа и покрытия`() {
+        val service = serviceAt(
+            today = "2026-07-10",
+            rides = listOf(ride(1, "2026-07-06", cost = 5243, tariff = "Поминутный")),
+        )
+
+        val out = service.publicList().single()
+
+        assertEquals(null, out.accessKopecks)
+        assertEquals(null, out.coveredByTariffKopecks)
+        assertEquals(5243, out.totalKopecks)
     }
 
     @Test

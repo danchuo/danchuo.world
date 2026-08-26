@@ -35,21 +35,39 @@ describe("formatCost", () => {
 });
 
 describe("formatRideCost", () => {
-  it("платная поездка — рубли (тариф игнорируется)", () => {
-    expect(formatRideCost(5243)).toBe("52 ₽");
-    expect(formatRideCost(5243, 90000)).toBe("52 ₽");
+  const cost = (
+    costKopecks: number | null,
+    accessKopecks: number | null = null,
+    coveredByTariffKopecks: number | null = null,
+  ) => formatRideCost({ costKopecks, accessKopecks, coveredByTariffKopecks });
+
+  it("доступ куплен ради поездки, сверху превышение — целиком и с разбором", () => {
+    // Час за 399 ₽ + 2 минуты превышения: витрина показывала одни 7 ₽ и врала.
+    expect(cost(749, 39900)).toBe("406 ₽ (доступ 399 + 7 сверх)");
+    expect(cost(1498, 4000)).toBe("55 ₽ (доступ 40 + 15 сверх)");
   });
-  it("бесплатная с покрывающим тарифом — «в рамках тарифа за N ₽»", () => {
-    expect(formatRideCost(0, 90000)).toBe("в рамках тарифа за 900 ₽");
+  it("доступ куплен, превышения нет — цена доступа", () => {
+    expect(cost(0, 39900)).toBe("399 ₽");
+  });
+  it("поездка под ранее купленным пакетом — превышение помечено «сверх тарифа»", () => {
+    expect(cost(15400, null, 39900)).toBe("154 ₽ сверх тарифа");
+  });
+  it("бесплатная под ранее купленным пакетом — «в рамках тарифа за N ₽»", () => {
+    expect(cost(0, null, 90000)).toBe("в рамках тарифа за 900 ₽");
+  });
+  it("платная без покупок в истории — просто рубли (старые поездки)", () => {
+    expect(cost(5243)).toBe("52 ₽");
   });
   it("бесплатная без покрывающего тарифа — «бесплатно»", () => {
-    expect(formatRideCost(0)).toBe("бесплатно");
-    expect(formatRideCost(0, null)).toBe("бесплатно");
-    expect(formatRideCost(0, 0)).toBe("бесплатно");
+    expect(cost(0)).toBe("бесплатно");
+    expect(cost(0, null, 0)).toBe("бесплатно");
   });
   it("нет данных о стоимости — пусто", () => {
-    expect(formatRideCost(null)).toBe("");
-    expect(formatRideCost(null, 90000)).toBe("");
+    expect(cost(null)).toBe("");
+    expect(cost(null, null, 90000)).toBe("");
+  });
+  it("доступ есть, а стоимости нет — цена доступа", () => {
+    expect(cost(null, 4000)).toBe("40 ₽");
   });
 });
 

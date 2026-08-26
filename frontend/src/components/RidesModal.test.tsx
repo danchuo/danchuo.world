@@ -43,7 +43,9 @@ const base = (over: Partial<RideView>): RideView => ({
   durationSeconds: 2640,
   calories: 168,
   costKopecks: 5243,
+  accessKopecks: null,
   coveredByTariffKopecks: null,
+  totalKopecks: null,
   vehicleType: null,
   tariffName: null,
   startLat: 55.7,
@@ -113,6 +115,14 @@ describe("RidesModal — карта выбранной поездки", () => {
     render(<RidesModal rides={covered} today="2026-07-13" onClose={() => {}} />);
     expect(screen.getAllByText(/в рамках тарифа за 900 ₽/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/· бесплатно/).length).toBeGreaterThan(0);
+  });
+
+  it("час за 399 ₽ плюс превышение — строка показывает всю цену, а не одни 7 ₽", () => {
+    const hour: RideView[] = [
+      base({ id: 22, durationSeconds: 3720, costKopecks: 749, accessKopecks: 39900, totalKopecks: 40649 }),
+    ];
+    render(<RidesModal rides={hour} today="2026-07-13" onClose={() => {}} />);
+    expect(screen.getAllByText(/406 ₽ \(доступ 399 \+ 7 сверх\)/).length).toBeGreaterThan(0);
   });
 
   it("адрес-заглушка «Москва» (вне станции) показывается как «вне станции»", () => {

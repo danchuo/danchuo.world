@@ -65,8 +65,8 @@ const BODY = [
   "if(pj.finishParkingAddress)it.finishParkingAddress=pj.finishParkingAddress}}catch(e){}en++}",
   "for(let i=0;i<a.length;i+=5){await Promise.all(a.slice(i,i+5).map(pop));",
   "console.log('адреса: '+en+' из '+a.length)}",
-  // Покупки тарифов (страница purchase-history): нужны, чтобы бесплатные поездки (cost=0) показать
-  // как «в рамках тарифа за N ₽». История смешивает TARIFF (покупка) и RENTAL (списание за поездку) —
+  // Покупки «Доступа» (страница purchase-history): без них цена поездки неполная — cost поездки это
+  // лишь то, что натикало сверх входа в тариф. История смешивает TARIFF (покупка) и RENTAL (списание) —
   // берём только TARIFF, остальное у нас уже есть в поездках. Тем же одним заходом, без лишних кнопок.
   "const pt=[];for(let p=0;p<200;p++){",
   "const pr=await fetch('/api/purchases/history?size=50&page='+p,{headers:H});",

@@ -161,7 +161,8 @@ export async function importBikeRides(token: string, rides: unknown[]): Promise<
 /**
  * Импорт истории покупок тарифов Велобайка (B4, PRD §5.13) — `POST /api/ingest/bike/tariffs`.
  * `purchases` — записи `purchaseType === "TARIFF"` из `purchases/history`, собранные тем же
- * букмарклетом. Нужны, чтобы бесплатные поездки показать как «в рамках тарифа за N ₽». Записи
+ * букмарклетом. Нужны, чтобы цена поездки была полной: `cost` поездки — лишь то, что натикало
+ * сверх «Доступа» (входа в тариф), а сам доступ живёт в этих записях. Записи
  * `RENTAL` бэк отсеивает сам. Идемпотентно по id платежа.
  */
 export async function importBikeTariffs(token: string, purchases: unknown[]): Promise<BikeImportResultView> {

@@ -8,6 +8,7 @@ import type { ArtifactView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { Icon } from "./Icon";
 import { TileShell } from "./TileShell";
+import { useMarqueeDrag } from "./useMarqueeDrag";
 import { useTileData } from "./useTileData";
 
 interface ArtifactMarqueeProps {
@@ -108,6 +109,8 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
   const containerRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [scrolling, setScrolling] = useState(false);
+  /** Шаг петли — размер ОДНОЙ копии контента вдоль ленты. Им же меряется протяжка. */
+  const [span, setSpan] = useState(0);
 
   useEffect(() => {
     const box = containerRef.current;
@@ -118,7 +121,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
       const factor = scrolling ? 2 : 1;
       const content = (vertical ? track.scrollHeight : track.scrollWidth) / factor;
       const avail = vertical ? box.clientHeight : box.clientWidth;
-      setScrolling(content > avail + 1);
+      const over = content > avail + 1;
+      setScrolling(over);
+      setSpan(over ? content : 0);
     };
     measure();
     if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
@@ -137,7 +142,10 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
   }, [active]);
 
   // Темп ~ по числу артефактов, не быстрее 20с — чтобы читалось, а не мельтешило.
-  const duration = `${Math.max(20, artifacts.length * 6)}s`;
+  const seconds = Math.max(20, artifacts.length * 6);
+  // Собственный ход ленты и протяжка рукой — один механизм (§7.2): и то и другое двигает
+  // одно смещение, поэтому лента продолжает ехать оттуда, где её отпустили.
+  const marquee = useMarqueeDrag({ trackRef, span, vertical, seconds });
   const activeArtifact = active !== null ? artifacts[active] : null;
   // Дублируем контент только когда лента едет; иначе одна копия (без двоения).
   const items = scrolling ? [...artifacts, ...artifacts] : artifacts;
@@ -155,14 +163,21 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
       {phase === "loaded" && !isEmpty && (
         <div
           ref={containerRef}
+          {...marquee.handlers}
           className={`tile-frame relative flex h-full overflow-hidden ${
             vertical ? "justify-center" : scrolling ? "items-center" : "items-center justify-center"
           }`}
+          style={{
+            // Вдоль ленты жест забирает себе лента, поперёк — отдаём странице: на телефоне
+            // палец через тайл обязан прокручивать борд, а не залипать в ней.
+            touchAction: scrolling ? (vertical ? "pan-x" : "pan-y") : undefined,
+            userSelect: scrolling ? "none" : undefined,
+            cursor: scrolling ? "grab" : undefined,
+          }}
         >
           <div
             ref={trackRef}
             className={`artifact-track${vertical ? " artifact-track--vertical" : ""}${scrolling ? " is-scrolling" : ""}`}
-            style={{ "--artifact-duration": duration } as CSSProperties}
           >
             {items.map((a, i) => {
               const idx = i % artifacts.length;
@@ -178,7 +193,11 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                      был мёртвым. */
                   aria-hidden={dup || undefined}
                   tabIndex={dup ? -1 : 0}
-                  onFocus={dup ? undefined : () => setActive(idx)}
+                  /* Меню по фокусу — клавиатурный эквивалент клика (§9). Фокус ОТ УКАЗАТЕЛЯ
+                     сюда не годится: браузер даёт его на нажатии, меню открывалось до клика, а
+                     клик по тому же предмету — переключатель, и мышью меню закрывалось в тот же
+                     миг, что открылось. Держим только фокус без прижатого указателя. */
+                  onFocus={dup ? undefined : () => !marquee.isPointerDown() && setActive(idx)}
                   onClick={() => setActive((cur) => (cur === idx ? null : idx))}
                   /* Зазор картинка↔подпись — крупнее прежних 4px: на волне 01 подпись липла
                      к предмету и читалась его частью, а не отдельной строкой. */

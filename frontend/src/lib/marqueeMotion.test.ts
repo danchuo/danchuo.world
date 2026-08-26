@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import {
+  DRAG_SLOP,
+  FLING_MAX,
+  FLING_MIN,
+  decayVelocity,
+  driftSpeed,
+  flingVelocity,
+  wrapOffset,
+} from "./marqueeMotion";
+
+describe("wrapOffset — лента бесконечна в обе стороны", () => {
+  it("смещение внутри копии остаётся как есть", () => {
+    expect(wrapOffset(0, 500)).toBe(0);
+    expect(wrapOffset(120, 500)).toBe(120);
+  });
+
+  it("уехали вперёд за копию — возвращаемся в её начало", () => {
+    expect(wrapOffset(500, 500)).toBe(0);
+    expect(wrapOffset(620, 500)).toBe(120);
+  });
+
+  it("уехали НАЗАД за ноль — заходим с конца копии, а не упираемся в край", () => {
+    // Ради этого и заведён положительный остаток: листать назад можно бесконечно,
+    // как и вперёд, — иначе лента стопорилась бы на старте своего единственного круга.
+    expect(wrapOffset(-1, 500)).toBe(499);
+    expect(wrapOffset(-620, 500)).toBe(380);
+  });
+
+  it("копии нет (лента влезла) или счёт поехал — смещение нулевое, без NaN", () => {
+    for (const span of [0, -10, Number.NaN]) expect(wrapOffset(120, span)).toBe(0);
+    expect(wrapOffset(Number.NaN, 500)).toBe(0);
+  });
+});
+
+describe("flingVelocity — бросок считается по концу протяжки", () => {
+  it("равномерная протяжка → её же скорость (px/мс)", () => {
+    const v = flingVelocity([
+      { t: 0, pos: 0 },
+      { t: 50, pos: 50 },
+      { t: 100, pos: 100 },
+    ]);
+    expect(v).toBeCloseTo(1, 3);
+  });
+
+  it("знак сохраняется: назад — отрицательная скорость", () => {
+    expect(flingVelocity([{ t: 0, pos: 100 }, { t: 100, pos: 0 }])).toBeCloseTo(-1, 3);
+  });
+
+  it("палец остановился перед отпусканием ⇒ броска нет", () => {
+    // Считать по всей протяжке нельзя: «довёл и придержал» — это указание точки,
+    // а не бросок, и лента после отпускания обязана остаться там, где её оставили.
+    const v = flingVelocity([
+      { t: 0, pos: 0 },
+      { t: 400, pos: 300 },
+      { t: 480, pos: 300 },
+      { t: 500, pos: 300 },
+    ]);
+    expect(v).toBe(0);
+  });
+
+  it("две точки в один миг (события пришли пачкой) не дают бесконечной скорости", () => {
+    // Замер на живом борде: события указателя, отправленные подряд, легли в доли миллисекунды,
+    // и честная производная выкидывала ленту на сотни копий вперёд одним кадром.
+    const v = flingVelocity([
+      { t: 0, pos: 0 },
+      { t: 0.2, pos: -50 },
+    ]);
+    expect(Math.abs(v)).toBeLessThanOrEqual(FLING_MAX);
+    expect(v).toBeLessThan(0); // направление броска при этом сохраняется
+  });
+
+  it("одна точка или нулевой промежуток → ноль, без деления на ноль", () => {
+    expect(flingVelocity([{ t: 10, pos: 5 }])).toBe(0);
+    expect(flingVelocity([])).toBe(0);
+    expect(flingVelocity([{ t: 10, pos: 0 }, { t: 10, pos: 40 }])).toBe(0);
+  });
+});
+
+describe("decayVelocity — бросок гаснет по времени, а не по числу кадров", () => {
+  it("за одно и то же время затухание одинаково при любом fps", () => {
+    const one = decayVelocity(1, 32);
+    const two = decayVelocity(decayVelocity(1, 16), 16);
+    expect(one).toBeCloseTo(two, 3);
+  });
+
+  it("медленный остаток обнуляется, чтобы лента не ползла вечно", () => {
+    expect(decayVelocity(FLING_MIN / 2, 16)).toBe(0);
+  });
+
+  it("живой бросок замедляется, но не разворачивается", () => {
+    const v = decayVelocity(2, 16);
+    expect(v).toBeLessThan(2);
+    expect(v).toBeGreaterThan(0);
+  });
+});
+
+describe("driftSpeed — собственный ход ленты", () => {
+  it("копия проезжает ровно за отведённое время", () => {
+    const speed = driftSpeed(600, 30); // px/мс
+    expect(speed * 30_000).toBeCloseTo(600, 6);
+  });
+
+  it("нечего проезжать (копии нет) → лента стоит", () => {
+    expect(driftSpeed(0, 30)).toBe(0);
+    expect(driftSpeed(600, 0)).toBe(0);
+  });
+});
+
+describe("DRAG_SLOP", () => {
+  it("порог протяжки заметно больше дрожи руки на тапе", () => {
+    expect(DRAG_SLOP).toBeGreaterThanOrEqual(4);
+    expect(DRAG_SLOP).toBeLessThanOrEqual(12);
+  });
+});

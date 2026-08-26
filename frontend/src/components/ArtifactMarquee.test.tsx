@@ -156,6 +156,20 @@ describe("ArtifactMarquee", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("системное «Назад» закрывает меню предмета, а не уводит с сайта", async () => {
+    vi.spyOn(window.history, "back").mockImplementation(() => {});
+    window.history.replaceState(null, "");
+    getArtifactsMock.mockResolvedValue([camera]);
+    render(<ArtifactMarquee />);
+
+    fireEvent.click((await screen.findByText("Камера")).closest("button")!);
+    expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+
+    fireEvent(window, new PopStateEvent("popstate", { state: null }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("картинка в меню не сплющивается: потолки по обеим сторонам, без жёсткой ширины", async () => {
     getArtifactsMock.mockResolvedValue([camera]);
     render(<ArtifactMarquee />);

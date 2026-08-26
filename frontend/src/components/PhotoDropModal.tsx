@@ -23,6 +23,7 @@ import {
 } from "@/lib/dropMosaic";
 import type { ArtifactBoxView, FilmPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
+import { useBackToClose } from "./useBackToClose";
 import { useCoarsePointer } from "./useCoarsePointer";
 import { useTileData } from "./useTileData";
 
@@ -74,6 +75,11 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
     setZoomed(null);
     zoomTriggerRef.current?.focus();
   }, []);
+
+  // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9). Слоёв два, и порядок
+  // объявления есть порядок закрытия: сперва кадр во весь экран, потом сама галерея.
+  useBackToClose(true, onClose);
+  useBackToClose(zoomed !== null, closeZoom);
 
   // Первичный фокус — один раз на маунте: переоткрытие кадра не должно уводить фокус в шапку.
   useEffect(() => {

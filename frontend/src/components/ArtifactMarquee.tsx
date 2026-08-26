@@ -8,6 +8,7 @@ import type { ArtifactView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { Icon } from "./Icon";
 import { TileShell } from "./TileShell";
+import { useBackToClose } from "./useBackToClose";
 import { useMarqueeDrag } from "./useMarqueeDrag";
 import { useTileData } from "./useTileData";
 
@@ -132,6 +133,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
     ro.observe(track);
     return () => ro.disconnect();
   }, [vertical, scrolling, artifacts.length]);
+
+  // Системное «Назад» закрывает меню, а не уводит с сайта (DESIGN §9).
+  useBackToClose(active !== null, () => setActive(null));
 
   // Меню — модалка по центру экрана; закрытие по Esc (клик по фону/повторный клик — ниже).
   useEffect(() => {

@@ -7,6 +7,7 @@ import { relativeDayRu } from "@/lib/relativeDay";
 import { formatDuration, formatKm, formatRideCost, formatStationAddress, pluralRu, rublesWhole } from "@/lib/rideFormat";
 import { Icon } from "./Icon";
 import { RideMap } from "./RideMap";
+import { useBackToClose } from "./useBackToClose";
 
 interface RidesModalProps {
   rides: RideView[];
@@ -52,6 +53,9 @@ export function RidesModal({ rides, today, wave, onClose }: RidesModalProps) {
   const showSummary = summary != null && summary.rides > 0;
   const summaryMinutes = summary ? Math.round(summary.durationSeconds / 60) : 0;
   const summaryRubles = summary ? rublesWhole(summary.spentKopecks) : 0;
+
+  // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9).
+  useBackToClose(true, onClose);
 
   useEffect(() => {
     closeRef.current?.focus();

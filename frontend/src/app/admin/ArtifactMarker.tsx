@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { useBackToClose } from "@/components/useBackToClose";
 import { deleteArtifactBox, saveArtifactBox } from "@/lib/api/admin";
 import { boxFromDrag, type BoxRect } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
@@ -72,6 +73,9 @@ export function ArtifactMarker({
   const rectRef = useRef<DOMRect | null>(null);
 
   const marked = photo.artifacts ?? [];
+
+  // Системное «Назад» закрывает разметчик, а не уводит со страницы админки (DESIGN §9).
+  useBackToClose(true, onClose);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

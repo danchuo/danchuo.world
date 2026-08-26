@@ -18,7 +18,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: BASE_URL },
+  /**
+   * `reducedMotion` — не косметика прогона, а условие детерминизма. Лента артефактов (§7.2)
+   * едет покадрово из JS, и `animations: "disabled"` её не останавливает: это флаг для
+   * CSS-анимаций. В режиме «меньше движения» лента стоит на своём нулевом смещении — том же,
+   * в котором её ловил прежний снимок с CSS-анимацией, — и эталон снова воспроизводим.
+   */
+  use: { baseURL: BASE_URL, contextOptions: { reducedMotion: "reduce" } },
   expect: {
     // Небольшой допуск на субпиксельный антиалиасинг; крупная регрессия вёрстки всё равно ловится.
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide" },

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactView } from "@/lib/api/types";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
@@ -242,5 +242,134 @@ describe("ArtifactMarquee", () => {
     expect(await screen.findByText("Очки")).toBeInTheDocument();
     // Картинки нет ⇒ ни одного <img> (рисуем пиксель-плейсхолдер), вёрстка не ломается.
     expect(container.querySelector("img")).toBeNull();
+  });
+});
+
+describe("ArtifactMarquee — лента листается рукой (§7.2)", () => {
+  /**
+   * Собственный ход ленты в этих тестах выключен режимом «меньше движения»: он идёт по кадрам
+   * и сдвигал бы замеряемое смещение на случайные доли пикселя. Заодно это и проверка правила —
+   * ход борда режим гасит, а протяжку рукой нет: её затеял сам зритель.
+   */
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener() {},
+      removeEventListener() {},
+    }));
+  });
+
+  /** Точка указателя: в jsdom нет `PointerEvent`, а без координат протяжка считалась бы из NaN. */
+  function pointer(target: Window | HTMLElement, type: string, x: number) {
+    fireEvent(
+      target,
+      new MouseEvent(type, { clientX: x, clientY: 0, bubbles: true, cancelable: true }),
+    );
+  }
+
+  /** Протяжка по ленте: нажали на предмете, повели, отпустили. */
+  function dragBy(from: HTMLElement, startX: number, endX: number) {
+    pointer(from, "pointerdown", startX);
+    pointer(window, "pointermove", endX);
+    pointer(window, "pointerup", endX);
+  }
+
+  /** Едущая лента с одним предметом: контент дублирован, копия одна ⇒ шаг петли = scrollWidth/2. */
+  async function renderScrolling() {
+    forceScrolling();
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee />);
+    await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
+    const track = container.querySelector(".artifact-track") as HTMLElement;
+    const btn = screen.getAllByText("Камера")[0].closest("button")!;
+    return { track, btn };
+  }
+
+  it("тянем влево — лента уезжает вперёд ровно на пройденный путь", async () => {
+    const { track, btn } = await renderScrolling();
+
+    pointer(btn, "pointerdown", 200);
+    pointer(window, "pointermove", 140);
+
+    // Лента идёт за рукой в тот же кадр: ждать следующего тика анимации нельзя, иначе
+    // протяжка ощущается как «толкнул и посмотрел, что вышло».
+    expect(track.style.left).toBe("-60px");
+  });
+
+  it("тянем вправо — лента листается НАЗАД и заходит с конца копии, а не упирается в край", async () => {
+    // Полкопии ленты уже уехало? Неважно: назад можно листать бесконечно, как и вперёд.
+    // Шаг петли тут 500 (scrollWidth 1000 на две копии), поэтому −60 читается как 440.
+    const { track, btn } = await renderScrolling();
+
+    dragBy(btn, 200, 260);
+
+    // Точное число зависит от шага петли (он меряется по вёрстке), поэтому проверяем суть:
+    // лента ушла далеко ЗА пройденные 60px — то есть зашла с конца копии, а не встала в ноль.
+    expect(track.style.left).not.toBe("0px");
+    expect(Number.parseFloat(track.style.left)).toBeLessThan(-60);
+  });
+
+  it("после протяжки клик по предмету меню НЕ открывает", async () => {
+    // Протащить ленту за предмет — обычное дело: предметы занимают её почти целиком.
+    // Если такой жест ещё и открывает меню, листать ленту нельзя вовсе.
+    const { btn } = await renderScrolling();
+
+    dragBy(btn, 200, 140);
+    fireEvent.click(btn);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("тап без протяжки открывает меню, как и раньше", async () => {
+    const { btn } = await renderScrolling();
+
+    pointer(btn, "pointerdown", 200);
+    pointer(window, "pointerup", 200);
+    fireEvent.click(btn);
+
+    expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+  });
+
+  it("подавляется ровно один клик — следующий тап снова открывает меню", async () => {
+    const { btn } = await renderScrolling();
+
+    dragBy(btn, 200, 140);
+    fireEvent.click(btn);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    pointer(btn, "pointerdown", 140);
+    pointer(window, "pointerup", 140);
+    fireEvent.click(btn);
+    expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+  });
+
+  it("нажатие указателем не открывает меню фокусом — иначе клик мышью открывал и тут же закрывал", async () => {
+    // Браузер фокусирует кнопку на нажатии: фокус открывал меню, а следующий за ним клик
+    // (тот же предмет ⇒ переключатель) закрывал его. Мышью меню не открывалось вовсе.
+    const { btn } = await renderScrolling();
+
+    pointer(btn, "pointerdown", 200);
+    fireEvent.focus(btn);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("фокус с клавиатуры меню по-прежнему открывает", async () => {
+    const { btn } = await renderScrolling();
+
+    fireEvent.focus(btn);
+
+    expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+  });
+
+  it("лента влезла целиком ⇒ листать нечего: протяжка её не двигает", async () => {
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee />);
+    await screen.findByText("Камера");
+    const track = container.querySelector(".artifact-track") as HTMLElement;
+
+    dragBy(screen.getByText("Камера").closest("button")!, 200, 140);
+
+    expect(track.style.left).toBe("");
   });
 });

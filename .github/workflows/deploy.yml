@@ -21,6 +21,11 @@ name: Deploy
 on:
   push:
     branches: [ main ]
+  # Ручной запуск с вкладки Actions. Нужен, когда автозапуск по пушу не состоялся:
+  # прогон, поставленный в очередь во время аварии Actions, зависает в queued навсегда,
+  # rerun на него не действует («This workflow is already running»), а других способов
+  # перезапустить деплой без пустого коммита в main нет.
+  workflow_dispatch:
 
 # Serialize deploys: a second push waits for the running deploy instead of racing it.
 concurrency:

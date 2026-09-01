@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOSAIC_SLACK, dropCardWidth, mosaicWidth } from "./mosaic";
+import { GAP, MOSAIC_SLACK, buildMosaic, dropCardWidth, mosaicWidth } from "./mosaic";
 
 /**
  * Запас между мозаикой и краем карточки (DESIGN §7.5). Замер на живом стенде показал зазор
@@ -41,5 +41,38 @@ describe("мозаика дропа — запас до края карточк�
   it("ячейка не измерена или уже собственных полей — строить нечего", () => {
     expect(mosaicWidth(0, PAD)).toBe(0);
     expect(mosaicWidth(20, PAD)).toBe(0);
+  });
+});
+
+describe("buildMosaic — геометрия ячеек целочисленная", () => {
+  const photo = (w: number, h: number) => ({ imageUrl: "", thumbUrl: "", width: w, height: h });
+
+  it("ширина и высота каждой ячейки — целые пиксели", () => {
+    // Дробную ширину каждый бокс движок округляет сам и по-своему: ряд из четырёх кадров
+    // набирал до ~4px сверх расчёта, съедал запас и обрезался краем карточки в Safari.
+    for (const n of [1, 2, 3, 4, 5, 7]) {
+      const photos = Array.from({ length: n }, (_, i) => photo(120 + i * 37, 80 + i * 11));
+      const rows = buildMosaic(photos, 341, 260);
+      expect(rows).not.toBeNull();
+      for (const row of rows!) {
+        for (const cell of row) {
+          expect(Number.isInteger(cell.w)).toBe(true);
+          expect(Number.isInteger(cell.h)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("ряд не шире отпущенной ширины — сколько бы кадров в нём ни было", () => {
+    // Ряд из четырёх — тот самый случай, на котором всё и ломалось.
+    for (const n of [2, 3, 4, 5, 8]) {
+      const photos = Array.from({ length: n }, (_, i) => photo(200 + i * 53, 130 + i * 7));
+      const W = 341;
+      const rows = buildMosaic(photos, W, 260)!;
+      for (const row of rows) {
+        const used = row.reduce((s, c) => s + c.w, 0) + (row.length - 1) * GAP;
+        expect(used).toBeLessThanOrEqual(W);
+      }
+    }
   });
 });

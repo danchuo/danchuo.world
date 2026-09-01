@@ -176,7 +176,6 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
             // палец через тайл обязан прокручивать борд, а не залипать в ней.
             touchAction: scrolling ? (vertical ? "pan-x" : "pan-y") : undefined,
             userSelect: scrolling ? "none" : undefined,
-            cursor: scrolling ? "grab" : undefined,
           }}
         >
           <div

@@ -6,6 +6,7 @@ import {
   decayVelocity,
   driftSpeed,
   flingVelocity,
+  wheelDelta,
   wrapOffset,
   type DragSample,
 } from "@/lib/marqueeMotion";
@@ -13,6 +14,8 @@ import {
 interface MarqueeDragOptions {
   /** Трек ленты — то, что едет внутри окна тайла. */
   trackRef: RefObject<HTMLElement | null>;
+  /** Окно ленты — над ним ловится колесо (жест без нажатия принадлежит месту, а не предмету). */
+  containerRef: RefObject<HTMLElement | null>;
   /** Размер одной копии контента вдоль ленты (px). `0` ⇒ лента влезла: ни хода, ни протяжки. */
   span: number;
   /** Вертикальная лента едет и тянется по Y (ориентация тайла из layout волны, DESIGN §10.1). */
@@ -32,8 +35,11 @@ interface MarqueeDragOptions {
  *
  * Сдвиг применяется прямо в обработчике `pointermove`, а не в следующем кадре: лента идёт за
  * рукой, а не догоняет её.
+ *
+ * Третий вход в тот же механизм — колесо/тачпад при наведении, без нажатия: то же смещение,
+ * так что все три способа продолжают ленту с одного места.
  */
-export function useMarqueeDrag({ trackRef, span, vertical, seconds }: MarqueeDragOptions) {
+export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds }: MarqueeDragOptions) {
   const state = useRef({
     /** Текущее смещение ленты в пределах копии (px, растёт «вперёд»). */
     offset: 0,
@@ -140,6 +146,30 @@ export function useMarqueeDrag({ trackRef, span, vertical, seconds }: MarqueeDra
       window.removeEventListener("pointercancel", onUp);
     };
   }, [trackRef, span, axis, posOf]);
+
+  // Колесо и тачпад при наведении: листать, не прижимая указателя. Слушатель вешается руками и
+  // НЕ пассивным — React регистрирует `wheel` на корне пассивно, и `preventDefault` из `onWheel`
+  // молча ничего бы не дал: лента поехала бы вместе со страницей под ней.
+  //
+  // Своей инерции у колеса нет и не надо: докат после броска тачпад присылает сам, отдельными
+  // событиями, — свой поверх него читался бы как разгон после конца жеста.
+  useEffect(() => {
+    const box = containerRef.current;
+    // Лента влезла целиком ⇒ листать нечего, и колесо над тайлом остаётся страницы.
+    if (!box || span <= 0) return;
+    const s = state.current;
+    const onWheel = (e: WheelEvent) => {
+      const track = trackRef.current;
+      const delta = wheelDelta(e, vertical);
+      if (!track || delta === 0) return;
+      e.preventDefault();
+      s.velocity = 0;
+      s.offset = wrapOffset(s.offset + delta, span);
+      track.style[axis] = `${-s.offset}px`;
+    };
+    box.addEventListener("wheel", onWheel, { passive: false });
+    return () => box.removeEventListener("wheel", onWheel);
+  }, [containerRef, trackRef, span, vertical, axis]);
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLElement>) => {

@@ -24,3 +24,23 @@ describe("sleepPhases (§7.7)", () => {
     expect(sleepPhases({ rem: 0, deep: 0, light: 0, awake: 30 })).toBeNull();
   });
 });
+
+describe("sleepPhases — у каждой фазы своя подсказка", () => {
+  const stages = { rem: 90, deep: 60, light: 150, awake: 10 };
+
+  it("подсказка есть у всех трёх фаз и у каждой своя", () => {
+    // Подсказка отвечает на вопрос «а что это за фаза вообще» — три одинаковых текста
+    // отвечали бы на него хуже, чем ни одного.
+    const hints = sleepPhases(stages)!.map((p) => p.hint);
+    expect(hints.every((h) => h.length > 0)).toBe(true);
+    expect(new Set(hints).size).toBe(3);
+  });
+
+  it("подсказка короткая — на борде это одна мысль, а не абзац", () => {
+    for (const p of sleepPhases(stages)!) expect(p.hint.length).toBeLessThanOrEqual(70);
+  });
+
+  it("подсказка не повторяет саму подпись — рядом с ней уже стоят минуты и доля", () => {
+    for (const p of sleepPhases(stages)!) expect(p.hint).not.toContain(p.label);
+  });
+});

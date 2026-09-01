@@ -62,6 +62,32 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     expect(getDropMock).toHaveBeenCalledWith(2, expect.anything());
   });
 
+  it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
+    // Плитка несёт filter: drop-shadow, то есть свой композитный слой; тень волны 01 смещена
+    // вправо-вниз и выходит за бокс. WebKit не подчищает область, освобождённую сжимающимся
+    // слоем, и каждый кадр перегона ширины оставлял полосу тени — в Safari справа от карточки
+    // вырастала гребёнка из десятка полос (docs/pitfalls.md).
+    //
+    // Геометрию подставляем руками: без неё `frameW` нулевой, карточка идёт по ветке «ширина
+    // не задана», и замок сторожил бы ветку, в которой анимации не бывает и так.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
+    getDropsMock.mockResolvedValue([
+      { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
+    ]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
+
+    const { container } = render(<LatestDropTile />);
+    await screen.findByText("Июльская плёнка");
+
+    const card = container.querySelector(".pixel-tile") as HTMLElement;
+    // Ширина действительно посчиталась ⇒ замок стоит на той самой ветке.
+    expect(card.style.width).not.toBe("");
+    expect(card.style.transition).toBe("");
+    rect.mockRestore();
+  });
+
   it("блок мозаики зацеплен за .drop-mosaic — свою высоту ему даёт CSS", async () => {
     // Высота блока — вход расчёта рядов (`buildMosaic` при H<=0 возвращает null), а в мобильном
     // стеке родитель её не задаёт: без собственной высоты плитка оставалась без кадров навсегда

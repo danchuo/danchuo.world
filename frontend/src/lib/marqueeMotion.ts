@@ -84,3 +84,33 @@ export function driftSpeed(span: number, seconds: number): number {
   if (!Number.isFinite(span) || !Number.isFinite(seconds) || span <= 0 || seconds <= 0) return 0;
   return span / (seconds * 1000);
 }
+
+/** Строка колеса в пикселях (`deltaMode: 1`) — примерно строка текста борда. */
+export const WHEEL_LINE_PX = 16;
+
+/** Страница колеса в пикселях (`deltaMode: 2`) — экран прокрутки; жест редкий, точность тут ни к чему. */
+export const WHEEL_PAGE_PX = 400;
+
+/** Событие колеса в том объёме, в каком его читает счёт: без DOM. */
+export interface WheelLike {
+  deltaX: number;
+  deltaY: number;
+  /** 0 — пиксели, 1 — строки, 2 — страницы (`WheelEvent.deltaMode`). */
+  deltaMode: number;
+}
+
+/**
+ * Насколько прокрутить ленту по одному событию колеса (px, положительное — вперёд, туда же,
+ * куда идёт собственный ход).
+ *
+ * Берётся ГЛАВНАЯ ось жеста, а не ось ленты: у мыши поперечной оси нет вовсе, а на тачпаде
+ * привычный жест вертикальный — отдай мы ленте только её собственную ось, «покрутить при
+ * наведении» работало бы у единиц. Ничья (равные дельты) достаётся оси самой ленты.
+ */
+export function wheelDelta(e: WheelLike, vertical: boolean): number {
+  const unit = e.deltaMode === 1 ? WHEEL_LINE_PX : e.deltaMode === 2 ? WHEEL_PAGE_PX : 1;
+  const along = (vertical ? e.deltaY : e.deltaX) * unit;
+  const across = (vertical ? e.deltaX : e.deltaY) * unit;
+  const delta = Math.abs(along) >= Math.abs(across) ? along : across;
+  return Number.isFinite(delta) ? delta : 0;
+}

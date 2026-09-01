@@ -147,9 +147,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
 
   // Темп ~ по числу артефактов, не быстрее 20с — чтобы читалось, а не мельтешило.
   const seconds = Math.max(20, artifacts.length * 6);
-  // Собственный ход ленты и протяжка рукой — один механизм (§7.2): и то и другое двигает
-  // одно смещение, поэтому лента продолжает ехать оттуда, где её отпустили.
-  const marquee = useMarqueeDrag({ trackRef, span, vertical, seconds });
+  // Собственный ход, протяжка рукой и колесо/тачпад — один механизм (§7.2): все трое двигают
+  // одно смещение, поэтому лента продолжает ехать оттуда, где её оставили.
+  const marquee = useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds });
   const activeArtifact = active !== null ? artifacts[active] : null;
   // Дублируем контент только когда лента едет; иначе одна копия (без двоения).
   const items = scrolling ? [...artifacts, ...artifacts] : artifacts;

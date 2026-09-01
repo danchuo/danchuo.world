@@ -6,6 +6,9 @@ import {
   decayVelocity,
   driftSpeed,
   flingVelocity,
+  WHEEL_LINE_PX,
+  WHEEL_PAGE_PX,
+  wheelDelta,
   wrapOffset,
 } from "./marqueeMotion";
 
@@ -111,5 +114,41 @@ describe("DRAG_SLOP", () => {
   it("порог протяжки заметно больше дрожи руки на тапе", () => {
     expect(DRAG_SLOP).toBeGreaterThanOrEqual(4);
     expect(DRAG_SLOP).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("wheelDelta — лента крутится колесом/тачпадом при наведении", () => {
+  it("горизонтальная лента: поперечный свайп тачпада листает её на пройденные пиксели", () => {
+    expect(wheelDelta({ deltaX: 40, deltaY: 0, deltaMode: 0 }, false)).toBe(40);
+    expect(wheelDelta({ deltaX: -40, deltaY: 0, deltaMode: 0 }, false)).toBe(-40);
+  });
+
+  it("обычное колесо (только вниз/вверх) тоже листает горизонтальную ленту", () => {
+    // У мыши поперечной оси нет вовсе, и у тачпада привычный жест — вертикальный.
+    // Отдай мы ленте только свою ось — «покрутить при наведении» работало бы у единиц.
+    expect(wheelDelta({ deltaX: 0, deltaY: 50, deltaMode: 0 }, false)).toBe(50);
+  });
+
+  it("диагональный жест идёт по своей главной оси, а не суммой", () => {
+    expect(wheelDelta({ deltaX: 30, deltaY: -8, deltaMode: 0 }, false)).toBe(30);
+    expect(wheelDelta({ deltaX: 8, deltaY: -30, deltaMode: 0 }, false)).toBe(-30);
+  });
+
+  it("вертикальная лента считает главной свою ось", () => {
+    // Равные дельты — ничья, и достаётся она оси самой ленты.
+    expect(wheelDelta({ deltaX: 30, deltaY: 30, deltaMode: 0 }, true)).toBe(30);
+    expect(wheelDelta({ deltaX: 30, deltaY: 30, deltaMode: 0 }, false)).toBe(30);
+    expect(wheelDelta({ deltaX: 8, deltaY: 30, deltaMode: 0 }, true)).toBe(30);
+  });
+
+  it("дельта в строках и страницах переводится в пиксели", () => {
+    // Firefox шлёт колесо строками (deltaMode 1), а не пикселями: без перевода
+    // лента ползла бы по три пикселя за щелчок.
+    expect(wheelDelta({ deltaX: 0, deltaY: 3, deltaMode: 1 }, false)).toBe(3 * WHEEL_LINE_PX);
+    expect(wheelDelta({ deltaX: 0, deltaY: 1, deltaMode: 2 }, false)).toBe(WHEEL_PAGE_PX);
+  });
+
+  it("счёт поехал — дельта нулевая, без NaN", () => {
+    expect(wheelDelta({ deltaX: Number.NaN, deltaY: Number.NaN, deltaMode: 0 }, false)).toBe(0);
   });
 });

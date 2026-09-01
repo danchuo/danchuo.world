@@ -189,6 +189,21 @@ describe("MusicTile", () => {
     );
   });
 
+  it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
+    // Здесь это било чаще всего: ширина едет на КАЖДОЙ смене трека. Карточка несёт
+    // filter: drop-shadow (свой композитный слой), WebKit не подчищает освобождённую
+    // сжатием область, и каждый кадр перегона оставлял полосу тени — под плиткой в Safari
+    // копилась гребёнка (docs/pitfalls.md).
+    getNowPlayingMock.mockResolvedValue(nowView({ progressMs: 1000 }));
+    getRecentMock.mockResolvedValue([]);
+
+    const { container } = render(<MusicTile />);
+    await screen.findByTestId("now-playing");
+
+    const card = container.querySelector(".pixel-tile") as HTMLElement;
+    expect(card.style.transition).toBe("");
+  });
+
   it("источник (плейлист) показывается ссылкой с названием", async () => {
     getNowPlayingMock.mockResolvedValue(
       nowView({

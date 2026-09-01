@@ -37,6 +37,14 @@ const DAY_VIEW = {
   monsterCleanStreak: 5,
 };
 
+/**
+ * День с ДЛИННЫМ именем — отдельная дата фикстур: имя дня переносится на вторую строку, и это
+ * единственный вид плитки, где перенос виден. Строка — реальное имя дня с прода (2026-09-01,
+ * 75 символов): именно на нём владелец заметил, что ужатое в одну строку имя нечитаемо мелкое.
+ */
+const LONG_TITLE_DATE = "2026-06-17";
+const LONG_TITLE = "тройной пресс на работе еще и люстру не починили а она и не ломалась кстати";
+
 /** Детерминированные сводки для диапазона [from,to] — заполняют сетку календаря без сети. */
 function summaries(from: string, to: string) {
   const out: unknown[] = [];
@@ -48,7 +56,7 @@ function summaries(from: string, to: string) {
     const has = iso <= TODAY; // будущие дни — пустые (PRD §4)
     out.push({
       date: iso,
-      title: iso === TODAY ? "первый забег" : null,
+      title: iso === TODAY ? "первый забег" : iso === LONG_TITLE_DATE ? LONG_TITLE : null,
       hasData: has,
       steps: has ? 5000 + ((i * 311) % 6000) : null,
       sleepMinutes: has ? 400 + ((i * 17) % 80) : null,
@@ -146,7 +154,8 @@ export async function stubApi(page: Page): Promise<void> {
     // навигация по дням, и с константной датой любой клик по календарю возвращал бы ту же
     // проекцию (плитка так и оставалась бы воскресеньем, чем бы её ни просили).
     if (path.startsWith("/api/days/")) {
-      return json({ ...DAY_VIEW, date: path.slice("/api/days/".length) });
+      const date = path.slice("/api/days/".length);
+      return json({ ...DAY_VIEW, date, title: date === LONG_TITLE_DATE ? LONG_TITLE : DAY_VIEW.title });
     }
     if (path === "/api/days") return json(summaries(url.searchParams.get("from") ?? TODAY, url.searchParams.get("to") ?? TODAY));
     if (path === "/api/spotify/now-playing") return json(NOW_PLAYING);

@@ -96,9 +96,15 @@ export function buildMosaic(photos: FilmPhotoView[], W: number, H: number): Cell
     if (best && score <= best.score) continue;
 
     const scale = Math.min(1, H / totalH); // не даём вылезти за высоту
+    // ⚠️ Размеры ячеек — ЦЕЛЫЕ пиксели, и это не косметика расчёта. Дробную ширину каждый
+    // бокс движок округляет сам и по-своему: ряд из четырёх кадров набирал до ~4px сверх
+    // расчёта, съедал запас MOSAIC_SLACK и обрезался краем карточки в Safari (ряды из двух-
+    // трёх при этом влезали — оттого симптом и выглядел случайным). Целые числа округлять
+    // нечего: что посчитали, то и нарисовано, каким бы движок ни был.
+    // Округляем ВНИЗ: ряд может выйти у́же расчёта, но никогда шире.
     const rows: Cell[][] = groups.map((g, i) => {
-      const h = rowH[i] * scale;
-      return g.map((photo) => ({ photo, w: aspectOf(photo) * h, h }));
+      const h = Math.floor(rowH[i] * scale);
+      return g.map((photo) => ({ photo, w: Math.floor(aspectOf(photo) * h), h }));
     });
     best = { rows, score };
   }

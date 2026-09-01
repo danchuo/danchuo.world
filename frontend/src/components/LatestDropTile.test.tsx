@@ -62,6 +62,18 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     expect(getDropMock).toHaveBeenCalledWith(2, expect.anything());
   });
 
+  it("ширину кадров раздаёт флексбокс, а не пиксели из JS", () => {
+    // Пиксельная ширина в `style.width` держалась на том, что движок сложит числа так же,
+    // как их сложил расчёт. Safari складывал иначе, и правый кадр вылезал за карточку.
+    // `flex-grow` + `flex-basis: 0` заставляют ряд заполнить контейнер по определению.
+    const photos = [0, 1, 2, 3].map(landscape);
+    const mosaic = buildMosaic(photos, 341, 260)!;
+    expect(mosaic.flat().length).toBe(4);
+    // Сам контракт разметки проверяется рендером ниже — здесь фиксируем, что расчёт
+    // по-прежнему отдаёт целые ширины, из которых берутся grow-коэффициенты.
+    for (const cell of mosaic.flat()) expect(Number.isInteger(cell.w)).toBe(true);
+  });
+
   it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
     // Плитка несёт filter: drop-shadow, то есть свой композитный слой; тень волны 01 смещена
     // вправо-вниз и выходит за бокс. WebKit не подчищает область, освобождённую сжимающимся
@@ -104,5 +116,36 @@ describe("LatestDropTile (крупный последний дроп)", () => {
 
     const box = await screen.findByRole("button", { name: /Открыть дроп/ });
     expect(box).toHaveClass("drop-mosaic");
+  });
+});
+
+describe("LatestDropTile — ряд мозаики заполняет контейнер сам", () => {
+  it("у кадров flex-grow и нулевой базис, а жёсткой ширины в пикселях нет", async () => {
+    // Регрессионный замок на несущее решение: горизонталь не должна зависеть от того,
+    // как движок сложит записанные из JS пиксели. Вернётся `width: Npx` — вернётся и
+    // обрезка правого кадра в Safari.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
+    getDropsMock.mockResolvedValue([
+      { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
+    ]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2), landscape(3)]);
+
+    const { container } = render(<LatestDropTile />);
+    await screen.findByText("Июльская плёнка");
+
+    const imgs = [...container.querySelectorAll(".drop-mosaic img")] as HTMLImageElement[];
+    expect(imgs.length).toBeGreaterThan(0);
+    for (const img of imgs) {
+      expect(img.style.flexGrow).not.toBe("");
+      expect(img.style.flexBasis).toBe("0px");
+      expect(img.style.width).toBe("");
+      expect(img.style.aspectRatio).not.toBe("");
+    }
+    // Ряд тянется во всю ширину контейнера, а не по сумме пикселей.
+    const row = container.querySelector(".drop-mosaic > div") as HTMLElement;
+    expect(row.style.width).toBe("100%");
+    rect.mockRestore();
   });
 });

@@ -146,25 +146,51 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: GAP }}
                 aria-label={`Открыть дроп «${latest.title}»`}
               >
-                {mosaic?.map((row, ri) => (
-                  <div key={ri} className="flex" style={{ gap: GAP }}>
-                    {row.map((cell, ci) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={`${cell.photo.thumbUrl}-${ri}-${ci}`}
-                        src={mediaUrl(cell.photo.thumbUrl)}
-                        alt=""
-                        style={{
-                          width: cell.w,
-                          height: cell.h,
-                          objectFit: "cover", // бокс точно по пропорции кадра ⇒ без обрезки
-                          borderRadius: "var(--radius-sm)",
-                          display: "block",
-                        }}
-                      />
-                    ))}
-                  </div>
-                ))}
+                {/* ⚠️ Ширину ряда раздаёт САМ ФЛЕКСБОКС, а не пиксели из JS, — и это несущее
+                    решение, а не оптимизация. Прежде расчёт мерил ячейку, делил ширину на
+                    кадры и записывал результат в `style.width` каждой картинки, то есть
+                    держался на том, что движок сложит эти числа ровно так же. Safari
+                    складывал иначе, и правый кадр вылезал за карточку. Теперь ряд заполняет
+                    контейнер ПО ОПРЕДЕЛЕНИЮ: `flex-basis: 0` + `flex-grow` пропорционально
+                    ширине ячейки дают ровно justified-формулу `(W − зазоры)·aᵢ/Σa`, только
+                    считает её раскладчик — по своей же реальной ширине. Переполнение
+                    становится невозможным структурно, а не арифметически.
+                    Высоту держит `aspect-ratio`: ширины пропорциональны аспектам, значит
+                    высоты у кадров ряда совпадают сами, без общего числа из JS. */}
+                {mosaic?.map((row, ri) => {
+                  // Расчётная ширина ряда остаётся ПОТОЛКОМ: в ветке, где карточка упёрлась
+                  // в край ячейки, контейнер чуть шире расчёта, и без потолка ряд подрос бы
+                  // в высоту на пиксель-другой.
+                  const rowW = row.reduce((s, c) => s + c.w, 0) + (row.length - 1) * GAP;
+                  return (
+                    <div
+                      key={ri}
+                      className="flex"
+                      // `flex-start` по поперечной оси: иначе `stretch` тянул бы картинку по
+                      // высоте ряда и спорил с `aspect-ratio`.
+                      style={{ gap: GAP, width: "100%", maxWidth: rowW, alignItems: "flex-start" }}
+                    >
+                      {row.map((cell, ci) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={`${cell.photo.thumbUrl}-${ri}-${ci}`}
+                          src={mediaUrl(cell.photo.thumbUrl)}
+                          alt=""
+                          style={{
+                            // grow по ширине ячейки = grow по аспекту (высота в ряду общая).
+                            flex: `${cell.w} 1 0`,
+                            minWidth: 0,
+                            aspectRatio: `${cell.w} / ${cell.h}`,
+                            height: "auto",
+                            objectFit: "cover", // бокс точно по пропорции кадра ⇒ без обрезки
+                            borderRadius: "var(--radius-sm)",
+                            display: "block",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
               </button>
 
               <div className="flex items-baseline justify-between gap-2">

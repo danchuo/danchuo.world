@@ -296,7 +296,8 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
     await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
     const track = container.querySelector(".artifact-track") as HTMLElement;
     const btn = screen.getAllByText("Камера")[0].closest("button")!;
-    return { track, btn };
+    const frame = container.querySelector(".tile-frame") as HTMLElement;
+    return { track, btn, frame };
   }
 
   it("тянем влево — лента уезжает вперёд ровно на пройденный путь", async () => {
@@ -374,6 +375,57 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
     fireEvent.focus(btn);
 
     expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+  });
+
+  it("колесо/тачпад при наведении крутит ленту — без единого нажатия", async () => {
+    // Второй способ листать: рука на тачпаде, палец не нажат. Тянуть за предмет
+    // на ноутбуке неудобно, а привычный жест прокрутки над лентой напрашивался сам.
+    const { track, frame } = await renderScrolling();
+
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: 40 });
+
+    expect(track.style.left).toBe("-40px");
+  });
+
+  it("колесо в обратную сторону листает назад и заходит с конца копии", async () => {
+    const { track, frame } = await renderScrolling();
+
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: -40 });
+
+    expect(Number.parseFloat(track.style.left)).toBeLessThan(-40);
+  });
+
+  it("колесо накручивается щелчок за щелчком, а не начинает каждый раз с нуля", async () => {
+    const { track, frame } = await renderScrolling();
+
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: 40 });
+    fireEvent.wheel(frame, { deltaX: 30, deltaY: 0 });
+
+    expect(track.style.left).toBe("-70px");
+  });
+
+  it("колесо не открывает меню предмета и не гасит следующий клик", async () => {
+    // Прокрутка — не жест по предмету: она не должна ни открывать карточку,
+    // ни съедать клик, как это делает протяжка.
+    const { frame, btn } = await renderScrolling();
+
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: 40 });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(btn);
+    expect(await screen.findByRole("dialog", { name: "Камера" })).toBeInTheDocument();
+  });
+
+  it("лента влезла целиком ⇒ колесо над ней отдано странице, а не съедено тайлом", async () => {
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee />);
+    await screen.findByText("Камера");
+    const frame = container.querySelector(".tile-frame") as HTMLElement;
+
+    const wheel = new WheelEvent("wheel", { deltaY: 40, bubbles: true, cancelable: true });
+    fireEvent(frame, wheel);
+
+    expect(wheel.defaultPrevented).toBe(false);
   });
 
   it("лента влезла целиком ⇒ листать нечего: протяжка её не двигает", async () => {

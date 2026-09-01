@@ -403,9 +403,12 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
         emptyText="ничего не играет"
         onRetry={retry}
         ariaLabel="Музыка"
-        // Плавный перегон ширины на всех переходах (загрузка → трек → смена трека); reduced-motion
-        // гасит его глобально в common.css. Ширина задана всегда — нет скачка auto→px.
-        style={{ height: "100%", width: cardWidth, marginInline: "auto", transition: "width 180ms ease" }}
+        // Ширина задана ВСЕГДА (нет скачка auto→px), но БЕЗ `transition` — карточка несёт
+        // `filter: drop-shadow`, а WebKit не подчищает область, освобождённую сжимающимся
+        // композитным слоем: каждый кадр перегона оставлял полосу своей тени, и под плиткой
+        // вырастала гребёнка (docs/pitfalls.md). Здесь это било чаще всего — ширина едет на
+        // КАЖДОЙ смене трека, а не однажды при загрузке.
+        style={{ height: "100%", width: cardWidth, marginInline: "auto" }}
       >
       {state === "loaded" && !isEmpty && (
         <div ref={contentRef} className="flex h-full flex-col gap-1 overflow-hidden">

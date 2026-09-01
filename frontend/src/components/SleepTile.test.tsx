@@ -187,3 +187,29 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("SleepTile — подсказки к фазам сна", () => {
+  it("у каждой подписи фазы своя подсказка волны, а не нативный title", async () => {
+    // «REM/DEEP/LIGHT» ничего не говорят тому, кто в фазах не разбирался; минуты и доля
+    // рядом отвечают на другой вопрос. Подсказка — тот же HoverTip, что у огонька-стрика
+    // и у номера дня жизни: один язык подсказок на весь борд (§7.7).
+    render(
+      <SleepTile
+        day={day()}
+        state="loaded"
+      />,
+    );
+
+    const tips = screen.getAllByRole("tooltip");
+    expect(tips).toHaveLength(3);
+    for (const t of tips) {
+      expect(t.textContent!.length).toBeGreaterThan(0);
+      expect(t.className).toContain("hover-tip--phrase");
+      // ГЛАВНОЕ: подсказка живёт ВНЕ плитки. Плитка режет содержимое, и пока подсказка была
+      // её ребёнком, у длинного текста не было видно конца — сначала снизу, потом справа.
+      // Подгонять ширину и направление под края бессмысленно: край всегда найдётся.
+      expect(t.closest(".pixel-tile")).toBeNull();
+    }
+    expect(new Set(tips.map((t) => t.textContent)).size).toBe(3);
+  });
+});

@@ -124,9 +124,10 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
           ariaLabel="Последний фото-дроп"
           style={
             cardW !== null
-              ? // Width transition softens the one unavoidable jump (first-ever load, no cache);
-                // the global reduced-motion rule in common.css neutralizes it when asked.
-                { height: "100%", width: cardW, marginInline: "auto", transition: "width 180ms ease" }
+              ? // No `transition: width` here — see the note above the component: an animated
+                // width on this filtered card smears its drop-shadow across the side gaps in
+                // WebKit.
+                { height: "100%", width: cardW, marginInline: "auto" }
               : { height: "100%" }
           }
         >

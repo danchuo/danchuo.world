@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import type { DayView } from "@/lib/api/types";
 import { formatSleep, formatSleepShort } from "@/lib/format";
+import { HoverTip } from "./HoverTip";
 import { NightBand } from "./NightBand";
 import { STAGE_COLOR } from "./nightGeometry";
 import { SleepNoData } from "./SleepNoData";
@@ -126,8 +127,14 @@ export function SleepTile({ day, state, onRetry, style, className }: SleepTilePr
                 >
                   {phases.map((p) => (
                     <div key={p.key} className="flex items-center gap-1.5 text-xs">
+                      {/* Подпись фазы — якорь подсказки волны (тот же [HoverTip], что у номера
+                          дня жизни и у огонька-стрика): «REM/DEEP/LIGHT» ничего не говорят
+                          тому, кто не разбирался в фазах, а минуты и доля рядом отвечают уже
+                          на другой вопрос. */}
                       <span className="w-10 shrink-0 whitespace-nowrap font-medium" style={{ color: STAGE_COLOR[p.key] }}>
-                        {p.label}
+                        <HoverTip text={p.hint} phrase>
+                          {p.label}
+                        </HoverTip>
                       </span>
                       <PixelBar pct={p.pct} color={STAGE_COLOR[p.key]} />
                       <span className="w-12 shrink-0 whitespace-nowrap text-right" style={{ color: "var(--text-tertiary)" }}>

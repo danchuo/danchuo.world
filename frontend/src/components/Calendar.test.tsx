@@ -494,6 +494,22 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByRole("grid").style.aspectRatio).toBe("7 / 4");
   });
 
+  it("пропорции нечем задать ШИРИНУ сетки — иначе календарь выезжает за плитку", () => {
+    // Приём §8 работает только полной тройкой (эталон — `.quest-map`). Без `width: 100%`
+    // пропорция вольна считать не высоту, а ширину: Safari так и делал, и седьмая колонка
+    // («вс») уезжала за край плитки. Без `flex: 1 1 auto` (tailwind-`flex-1` даёт basis `0%`)
+    // высоту тоже забирает пропорция — сетка выходит ниже места, и под ней остаётся полоса
+    // голой поверхности карточки. Обе шалости — одна причина, поэтому и замок один.
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    const grid = screen.getByRole("grid");
+    expect(grid.style.width).toBe("100%");
+    expect(grid.style.flex).toBe("1 1 auto");
+    // Tailwind-класс с basis 0% не должен вернуться следом за инлайновым flex.
+    expect(grid.className).not.toMatch(/flex-1/);
+  });
+
   it("в состоянии error показывает тихий ретрай", async () => {
     const onRetry = vi.fn();
     render(

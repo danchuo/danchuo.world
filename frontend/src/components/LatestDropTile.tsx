@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { getDrop, getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
-import { GAP, buildMosaic } from "@/lib/mosaic";
+import { GAP, buildMosaic, dropCardWidth, mosaicWidth } from "@/lib/mosaic";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
 import { PhotoDropModal } from "./PhotoDropModal";
 import { TileShell } from "./TileShell";
@@ -101,7 +101,7 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
   }, [phase, isEmpty]);
 
   const mosaic = useMemo(
-    () => buildMosaic(sample, Math.max(0, frameW - CARD_PAD_X), boxH),
+    () => buildMosaic(sample, mosaicWidth(frameW, CARD_PAD_X), boxH),
     [sample, frameW, boxH],
   );
 
@@ -110,7 +110,10 @@ export function LatestDropTile({ style, className }: LatestDropTileProps) {
   const usedW = mosaic
     ? Math.max(...mosaic.map((row) => row.reduce((s, c) => s + c.w, 0) + (row.length - 1) * GAP))
     : 0;
-  const cardW = mosaic && frameW > 0 ? Math.min(frameW, Math.max(usedW + CARD_PAD_X, MIN_CARD_W)) : null;
+  // Ширина карточки — через `dropCardWidth`, а не руками: она держит инвариант «между
+  // мозаикой и краем карточки всегда есть запас». Раньше карточка жалась к ряду впритык
+  // (замер: зазор 0.00–0.02px), и в Safari правый кадр обрезался краем.
+  const cardW = mosaic && frameW > 0 ? dropCardWidth(usedW, frameW, CARD_PAD_X, MIN_CARD_W) : null;
 
   return (
     <>

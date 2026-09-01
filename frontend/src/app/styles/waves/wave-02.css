@@ -188,7 +188,8 @@
    spread (повторяет скруглённый угол), не меняет поток (нет наезда на соседей). */
 @media (hover: hover) {
   :root[data-wave="wave-02"] .pixel-tile:hover {
-    transform: none;
+    /* Волна 01 поднимает плитку `top`-ом (не `transform`) — гасим именно его. */
+    top: auto;
     filter: none;
     box-shadow: 0 0 0 2px var(--accent), 0 10px 22px rgba(15, 34, 52, 0.13);
   }

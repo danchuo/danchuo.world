@@ -198,7 +198,8 @@ body {
      прежней рамки: тень генерилась и тут же срезалась). Поэтому клип — на псевдо, тень — на
      родителе; альфа для drop-shadow берётся из непрозрачной формы псевдо-слоёв. */
   filter: var(--rest-elev);
-  transition: transform 180ms ease, filter 180ms ease;
+  /* Подъём по наведению едет `top`, а не `transform`, — см. правило ниже у :hover. */
+  transition: top 180ms ease, filter 180ms ease;
 }
 /* ВЕРХНЯЯ карточка, слой линии (§2.4): клипнутая clay-плашка под поверхностью и контентом,
    приподнятая над низом плитки на --tile-depth — в открывшуюся полосу выглядывает нижняя
@@ -381,13 +382,19 @@ body {
       calc(var(--px) * 2 + var(--tile-depth) + var(--tile-inner));
 }
 @media (hover: hover) {
+  /* ⚠️ Подъём — `top`, а НЕ `transform`, и это третий раз, когда проект наступает на одно
+     и то же (docs/pitfalls.md; до этого — бегущая строка карточки подкаста и тултип в
+     `foreignObject`). Плитка несёт `filter: drop-shadow`, а `transform` вдобавок выносит её
+     в собственный композитный слой WebKit: в Safari у наведённой плитки тень обрывалась
+     прямым краем — читалось светлой полосой вдоль низа. Плитка `position: relative`,
+     поэтому `top` двигает её ровно так же и на поток не влияет. */
   .pixel-tile:hover {
-    transform: translateY(-3px);
+    top: -3px;
     filter: var(--hover-elev);
   }
   /* Пиксельный «press» — клик утапливает плитку обратно к покою (быстрый отклик). */
   .pixel-tile:active {
-    transform: translateY(-1px);
+    top: -1px;
     filter: var(--rest-elev);
     transition-duration: 70ms;
   }
@@ -499,7 +506,11 @@ body {
 /* reduced-motion: тени остаются, но подъём не дёргается (§9). Лежит ПОСЛЕ :hover-правил
    волны 01 — порядок важен (равная специфичность). */
 @media (prefers-reduced-motion: reduce) {
-  .pixel-tile:hover,
+  /* Плитка поднимается `top`-ом, приглушённая — по-прежнему `transform`: у неё нет `filter`,
+     а значит и композитного слоя, из-за которого правило выше вообще появилось. */
+  .pixel-tile:hover {
+    top: auto;
+  }
   .muted-tile:hover {
     transform: none;
   }

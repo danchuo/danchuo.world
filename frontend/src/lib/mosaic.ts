@@ -14,6 +14,33 @@ export interface Cell {
 
 /** Зазор между кадрами мозаики (px) — тот же и в расчёте, и в разметке ряда. */
 export const GAP = 6;
+
+/**
+ * Запас между мозаикой и внутренним краем карточки (px).
+ *
+ * ⚠️ Не косметика, а ИНВАРИАНТ. Раскладка justified заполняет отпущенную ширину ровно, а
+ * карточка жалась к результату — замер на живом стенде давал зазор 0.00–0.02px. При нулевом
+ * запасе исход решает арифметика движка: ширины ячеек дробные, каждый вложенный бокс
+ * округляется по-своему, и у Safari сумма выходила чуть больше внутренней ширины — правый
+ * кадр обрезался краем карточки. Запас снимает вопрос целиком, вместо того чтобы подгонять
+ * округления под конкретный браузер.
+ */
+export const MOSAIC_SLACK = 2;
+
+/** Ширина, под которую строится мозаика: из ячейки вычтены поля карточки И запас. */
+export function mosaicWidth(frameW: number, padX: number): number {
+  return Math.max(0, frameW - padX - MOSAIC_SLACK);
+}
+
+/**
+ * Ширина карточки под готовую мозаику: жмётся к её самому широкому ряду, но не уже минимума
+ * и не шире своей ячейки. Ряд округляется ВВЕРХ — дробный остаток обязан достаться карточке,
+ * а не съесть запас.
+ */
+export function dropCardWidth(usedW: number, frameW: number, padX: number, minW: number): number {
+  const hug = Math.ceil(usedW) + padX + MOSAIC_SLACK;
+  return Math.min(frameW, Math.max(hug, minW));
+}
 /* A full 5-photo strip in a single row reads ugly (owner's call) — cap rows at 4 photos.
    A compliant split always exists (one photo per row at worst), so no re-sampling needed. */
 const MAX_PER_ROW = 4;

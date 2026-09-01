@@ -21,6 +21,24 @@ describe("FreshnessTile", () => {
     expect(await screen.findByTestId("freshness-ago")).toHaveTextContent("3 ч назад");
   });
 
+  it("вместо подписи «свежесть» — дозвон с той же ролью для скринридера", async () => {
+    getFreshnessMock.mockResolvedValue({ lastIngestAt: hoursAgo(3) });
+    render(<FreshnessTile />);
+    expect(await screen.findByRole("img", { name: "свежесть" })).toBeInTheDocument();
+    expect(screen.queryByText("свежесть")).not.toBeInTheDocument();
+    // Подсказка объясняет саму метрику, а не повторяет слово-ярлык.
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "время, когда последний раз обновлялись данные",
+    );
+  });
+
+  it("дозвон — это ярлык плитки: остаётся и когда приёмов не было", async () => {
+    getFreshnessMock.mockResolvedValue({ lastIngestAt: null } satisfies FreshnessView);
+    render(<FreshnessTile />);
+    await screen.findByText("нет приёмов");
+    expect(screen.getByRole("img", { name: "свежесть" })).toBeInTheDocument();
+  });
+
   it("нет приёмов (null) → тихое пустое состояние", async () => {
     getFreshnessMock.mockResolvedValue({ lastIngestAt: null } satisfies FreshnessView);
     render(<FreshnessTile />);

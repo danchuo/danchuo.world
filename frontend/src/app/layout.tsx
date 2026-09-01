@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Jersey_10, Manrope, IBM_Plex_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
+import { FaviconSpinner } from "@/components/FaviconSpinner";
 import { fetchDisplayTheme, serializeTokensToCss } from "@/lib/theme";
 import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 import "./globals.css";
@@ -69,6 +70,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         {children}
+        {/* Крутит Землю в иконке вкладки по активной волне (DESIGN §10.3). Ничего не рендерит;
+            статическая планета `app/icon.png` остаётся, если JS/канвас недоступны. */}
+        <FaviconSpinner />
         <AnalyticsBeacon />
       </body>
     </html>

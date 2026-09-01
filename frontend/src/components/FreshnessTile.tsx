@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { getFreshness } from "@/lib/api/client";
 import type { FreshnessView } from "@/lib/api/types";
 import { formatAgo } from "@/lib/format";
+import { HoverTip } from "./HoverTip";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
@@ -41,7 +42,16 @@ export function FreshnessTile({ style, className }: FreshnessTileProps) {
       state={isEmpty ? "empty" : phase}
       emptyText="нет приёмов"
       onRetry={retry}
-      label="свежесть"
+      /* Ярлык плитки — не слово, а 8-битный дозвон: компьютер, телефон и планета на проводе.
+         Он про то же, что и сама плитка (данные доехали по проводам), и занимает ровно строку
+         подписи. Слово никуда не делось: оно осталось именем картинки для скринридера, а
+         подсказка волны (HoverTip) объясняет саму метрику, а не повторяет ярлык — иконка
+         сама себя не объясняет, а «свежесть — это свежесть» ничего не добавляет. */
+      label={
+        <HoverTip phrase text="время, когда последний раз обновлялись данные">
+          <span data-testid="freshness-dialup" className="t-fresh-dialup" role="img" aria-label="свежесть" />
+        </HoverTip>
+      }
       ariaLabel="Свежесть данных"
       // Плитка крошечная (3 кол.) — базовый кегль гасим классом (.t-fresh), чтобы
       // empty/error-текст влезал; сам кегль — доля плитки, не пиксель (DESIGN §8.1).

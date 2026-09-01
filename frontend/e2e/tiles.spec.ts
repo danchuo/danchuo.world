@@ -85,6 +85,10 @@ test("per-tile visual regression", async ({ page }, testInfo) => {
  * навигация по дням, отдельного шва для «покажи другой день» не нужно.
  *
  * `todayWeekend.png` — воскресенье (дефолт фикстур): сцена отдыха со строкой монстра.
+ *
+ * `todayLongTitle.png` — будний день с длинным именем (75 символов, реальное имя с прода):
+ * имя переносится на вторую строку и держит кегль, вместо того чтобы ужиматься в одну
+ * нечитаемо мелкую. Отдельный эталон, потому что на остальных именах перенос не виден.
  */
 test("плитка «Сегодня»: будни (карта-тропа) и выходной (сцена отдыха)", async ({ page }, testInfo) => {
   const isMobile = testInfo.project.name === "mobile";
@@ -101,6 +105,12 @@ test("плитка «Сегодня»: будни (карта-тропа) и в�
   await container.locator('[data-testid="day-2026-06-21"]').first().click();
   await expect(tile.locator('[data-testid="weekend-scene"]')).toBeVisible();
   await expect.soft(tile).toHaveScreenshot("todayWeekend.png");
+
+  // 2026-06-17 — среда с длинным именем дня: шапка в две строки, карта-тропа ниже.
+  await container.locator('[data-testid="day-2026-06-17"]').first().click();
+  await expect(tile.locator('[data-testid="quest-map"]')).toBeVisible();
+  await expect(tile.getByTestId("today-title")).toContainText("тройной пресс");
+  await expect.soft(tile).toHaveScreenshot("todayLongTitle.png");
 });
 
 /**

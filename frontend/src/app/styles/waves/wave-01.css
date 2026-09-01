@@ -354,32 +354,61 @@ body {
  *     Так делает волна 02 «Obscura» (wave-02.css) — её карты не меняются.
  */
 
-/* Угловые заклёпки (§2.4) — подпись-деталь ТОЛЬКО на фокусной плитке «Сегодня»:
-   4 акцентных пикселя у углов, кратны 4px-сетке (8px @ 8px от края — вплотную к
-   ступенчатому углу). Отдельный элемент `.pixel-rivets` (не псевдо): оба псевдо-слота
-   .pixel-tile заняты силуэтом (::before линия, ::after поверхность), а заклёпки должны
-   лежать ПОВЕРХ поверхности (иначе их скрыл бы слой поверхности). Рисует их TileShell по
-   пропу `rivets`. z-index:0 поднимает над псевдо-слоями (z-index:-1); pointer-events:none.
-   Приглушённые и прочие заполненные плитки остаются без узла — это и есть иерархия. */
-.pixel-rivets {
+/* Пиксельная осыпь угла (§2.4) — подпись-деталь ТОЛЬКО на фокусной плитке «Сегодня»:
+   акцентные пиксели, плотные у самого угла и редеющие вглубь плитки. Пришла на смену четырём
+   угловым заклёпкам: одна деталь в одном углу читается как подпись, четыре одинаковые точки по
+   углам — как разметка (рассмотрено и отклонено, DESIGN §2.4).
+
+   Рисуется ОДНИМ элементом: сам он — угловая клетка, остальные 35 — его `box-shadow` со
+   смещениями, кратными клетке `--sc`; цвет теней берётся из `currentColor`, поэтому в списке
+   одни координаты. Отдельный элемент, а не псевдо: оба псевдо-слота .pixel-tile заняты силуэтом
+   края (::before линия, ::after поверхность), а осыпь должна лежать ПОВЕРХ поверхности. Рисует её
+   TileShell по пропу `scatter`. z-index:0 поднимает над псевдо-слоями (z-index:-1);
+   pointer-events:none — осыпь лежит под контентом плитки и мышь не ловит.
+
+   Раскладка клеток детерминирована и снята офлайн, не «на глаз»: поле 16×12 клеток, шанс
+   заполнения падает с расстоянием до угла ((1 - d/11)^1.35). Две поправки к чистой радиальной
+   формуле, обе по замечаниям владельца на живом борде:
+     • расстояние ЭЛЛИПТИЧЕСКОЕ, d = hypot(c/1.35, r) — осыпь уходит от угла ВЛЕВО дальше, чем
+       вверх, и стелется вдоль нижнего края;
+     • ПРОСЕДАНИЕ у самого угла: p умножается на 0.6 + 0.4 * min(1, d/3.5) — ближние клетки
+       заполняются лишь на 60%, и угол начинается крошкой, а не сплошной печатью. Сплошного
+       ядра нет вовсе; угловая клетка всегда на месте — это сам элемент, а не тень.
+   Хочется гуще/длиннее — меняются эти числа, и список пересобирается целиком.
+
+   Низ отсчитывается от нижнего края ПОВЕРХНОСТИ верхней карточки: низ плитки занят подложкой
+   (--tile-depth), без поправки осыпь села бы на шов торца. */
+.pixel-scatter {
+  /* Клетка осыпи — 8px, как заклёпки до неё: тот же шаг пиксель-сетки волны. */
+  --sc: calc(var(--px) * 2);
   position: absolute;
-  inset: 0;
+  right: calc(var(--px) * 2);
+  bottom: calc(var(--px) * 2 + var(--tile-depth) + var(--tile-inner));
   z-index: 0;
+  width: var(--sc);
+  height: var(--sc);
   pointer-events: none;
-  background-image: linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent)),
-    linear-gradient(var(--accent), var(--accent));
-  background-repeat: no-repeat;
-  background-size: calc(var(--px) * 2) calc(var(--px) * 2);
-  /* Нижние заклёпки отсчитываются от нижнего края ПОВЕРХНОСТИ верхней карточки: низ
-     плитки занят подложкой (--tile-depth), без поправки заклёпки сели бы на самый шов. */
-  background-position: calc(var(--px) * 2) calc(var(--px) * 2),
-    right calc(var(--px) * 2) top calc(var(--px) * 2),
-    left calc(var(--px) * 2) bottom
-      calc(var(--px) * 2 + var(--tile-depth) + var(--tile-inner)),
-    right calc(var(--px) * 2) bottom
-      calc(var(--px) * 2 + var(--tile-depth) + var(--tile-inner));
+  color: var(--accent);
+  background: currentColor;
+  box-shadow:
+    calc(var(--sc) * -1) 0, calc(var(--sc) * -3) 0,
+    calc(var(--sc) * -4) 0, calc(var(--sc) * -6) 0,
+    calc(var(--sc) * -3) calc(var(--sc) * -1), calc(var(--sc) * -4) calc(var(--sc) * -1),
+    calc(var(--sc) * -6) calc(var(--sc) * -1), calc(var(--sc) * -8) calc(var(--sc) * -1),
+    0 calc(var(--sc) * -2), calc(var(--sc) * -3) calc(var(--sc) * -2),
+    calc(var(--sc) * -8) calc(var(--sc) * -2), 0 calc(var(--sc) * -3),
+    calc(var(--sc) * -1) calc(var(--sc) * -3), calc(var(--sc) * -2) calc(var(--sc) * -3),
+    calc(var(--sc) * -3) calc(var(--sc) * -3), calc(var(--sc) * -4) calc(var(--sc) * -3),
+    calc(var(--sc) * -5) calc(var(--sc) * -3), calc(var(--sc) * -7) calc(var(--sc) * -3),
+    calc(var(--sc) * -9) calc(var(--sc) * -3), calc(var(--sc) * -11) calc(var(--sc) * -3),
+    calc(var(--sc) * -1) calc(var(--sc) * -4), calc(var(--sc) * -3) calc(var(--sc) * -4),
+    calc(var(--sc) * -4) calc(var(--sc) * -4), calc(var(--sc) * -1) calc(var(--sc) * -5),
+    calc(var(--sc) * -2) calc(var(--sc) * -5), calc(var(--sc) * -4) calc(var(--sc) * -5),
+    calc(var(--sc) * -5) calc(var(--sc) * -5), calc(var(--sc) * -10) calc(var(--sc) * -5),
+    calc(var(--sc) * -3) calc(var(--sc) * -6), calc(var(--sc) * -4) calc(var(--sc) * -6),
+    calc(var(--sc) * -10) calc(var(--sc) * -6), 0 calc(var(--sc) * -7),
+    calc(var(--sc) * -1) calc(var(--sc) * -8), calc(var(--sc) * -3) calc(var(--sc) * -8),
+    calc(var(--sc) * -5) calc(var(--sc) * -10);
 }
 @media (hover: hover) {
   /* ⚠️ Подъём — `top`, а НЕ `transform`, и это третий раз, когда проект наступает на одно

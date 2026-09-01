@@ -88,21 +88,47 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("monster-none")).not.toBeInTheDocument();
   });
 
-  it("длинное имя дня не переносится: кегль ужимается, шапка остаётся одной строкой", () => {
-    const long = "очень длинное имя дня про всё на свете"; // 38 символов, > 20
+  it("длинное имя дня переносится на вторую строку, а не ужимается в одну", () => {
+    const long = "очень длинное имя дня про всё на свете"; // 38 символов
     render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
 
     const title = screen.getByTestId("today-title");
-    expect(title.className).toContain("whitespace-nowrap");
+    // Перенос разрешён — именно он и даёт крупный кегль вместо ужимания в одну строку.
+    expect(title.className).not.toContain("whitespace-nowrap");
     expect(title.className).toContain("w-3/5"); // имя дня получает 3/5 строки
-    // 96/38 cqw ≈ 2.53cqw < общего 4cqw — имя влезает в свою 3/5 одной строкой
-    expect(title.style.fontSize).toBe("min(4cqw, 40px, 2.53cqw)");
+    // Ёмкость считается на ДВЕ строки: 192/38 ≈ 5.05cqw, потолок 4cqw побеждает.
+    expect(title.style.fontSize).toBe("clamp(max(2.2cqw, 11px), 5.05cqw, min(4cqw, 40px))");
   });
 
-  it("короткое имя дня держит общий кегль со строкой даты (мин не срабатывает)", () => {
+  it("очень длинное имя дня остаётся читаемым: вдвое крупнее прежнего и не ниже пола", () => {
+    // Реальное имя дня с прода (2026-09-01), 74 символа — на нём владелец и заметил «слишком мелко».
+    const long =
+      "тройной пресс на работе еще и люстру не починили а она и не ломалась кстати";
+    expect(long).toHaveLength(75);
+    render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
+
+    // Было 96/75 ≈ 1.28cqw одной строкой; стало 192/75 = 2.56cqw двумя — ровно вдвое крупнее.
+    expect(screen.getByTestId("today-title").style.fontSize).toBe(
+      "clamp(max(2.2cqw, 11px), 2.56cqw, min(4cqw, 40px))",
+    );
+  });
+
+  it("имя дня длиннее двух строк упирается в пол кегля, а не тает дальше", () => {
+    const huge = "и".repeat(200);
+    render(<TodayTile day={dayFixture({ title: huge })} today="2026-06-18" state="loaded" />);
+
+    // 192/200 = 0.96cqw — ниже пола: clamp отдаёт max(2.2cqw, 11px), имя занимает больше строк.
+    expect(screen.getByTestId("today-title").style.fontSize).toBe(
+      "clamp(max(2.2cqw, 11px), 0.96cqw, min(4cqw, 40px))",
+    );
+  });
+
+  it("короткое имя дня держит общий кегль со строкой даты (пол/потолок не мешают)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
-    // «первый забег» — 12 символов: 96/12 = 8cqw > 4cqw, размер остаётся 4cqw
-    expect(screen.getByTestId("today-title").style.fontSize).toBe("min(4cqw, 40px, 8.00cqw)");
+    // «первый забег» — 12 символов: 192/12 = 16cqw > 4cqw, размер остаётся 4cqw и одной строкой
+    expect(screen.getByTestId("today-title").style.fontSize).toBe(
+      "clamp(max(2.2cqw, 11px), 16.00cqw, min(4cqw, 40px))",
+    );
   });
 
   it("подпись плитки относительна выбранной дате (а не всегда «сегодня»)", () => {

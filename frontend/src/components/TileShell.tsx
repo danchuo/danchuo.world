@@ -12,8 +12,8 @@ interface TileShellProps {
   muted?: boolean;
   /** Пик высоты (плитка «Сегодня», §2.3 — лежит выше остальных). */
   elevated?: boolean;
-  /** Угловые заклёпки-акценты (§2.4) — только на фокусной плитке «Сегодня». */
-  rivets?: boolean;
+  /** Угловая пиксельная осыпь (§2.4) — только на фокусной плитке «Сегодня». */
+  scatter?: boolean;
   /** Тихая мета-подпись плитки (§3): даёт дашбордную структуру; не на лоадере.
    *  ReactNode, а не строка: календарь вешает сюда имя активной линзы с крестиком (§5.3). */
   label?: ReactNode;
@@ -36,7 +36,7 @@ export function TileShell({
   onRetry,
   muted = false,
   elevated = false,
-  rivets = false,
+  scatter = false,
   label,
   style,
   className = "",
@@ -66,9 +66,9 @@ export function TileShell({
         />
       )}
 
-      {/* Заклёпки-акценты (§2.4) — отдельный элемент поверх поверхности (оба псевдо-слота
+      {/* Пиксельная осыпь угла (§2.4) — отдельный элемент поверх поверхности (оба псевдо-слота
           .pixel-tile заняты силуэтом края). Только на фокусной плитке, не на приглушённой. */}
-      {rivets && !muted && <span className="pixel-rivets" aria-hidden />}
+      {scatter && !muted && <span className="pixel-scatter" aria-hidden />}
 
       {state !== "loading" && label && <div className="tile-label mb-1">{label}</div>}
 

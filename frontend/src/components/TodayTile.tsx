@@ -36,14 +36,24 @@ const DAY_MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /**
- * Day-name font size that always fits one line in its 3/5 of the header. Worst-case glyph
- * advance is mono's 0.6em (wave 01 maps --font-display to mono; other display faces are
- * narrower), and the name's share is ~60cqw, so a len-char name fits ~58cqw when
- * size = 58 / (0.6 * len) ≈ 96/len cqw. Short names keep the shared 4cqw cap. The name owning
- * 3/5 (was 1/2) is what keeps long names from shrinking to a suspicious-looking size.
+ * Day-name font size, fit to TWO lines of its 3/5 of the header. Worst-case glyph advance is
+ * mono's 0.6em (wave 01 maps --font-display to mono; other display faces are narrower), and the
+ * name's share is ~60cqw, so one line holds ~58 / (0.6 * size) chars — two lines hold twice that,
+ * i.e. a len-char name fits when size = 2 * 58 / (0.6 * len) ≈ 192/len cqw.
+ *
+ * Two lines, not one, because one line paid for length in KEGL: the real prod name of 2026-09-01
+ * is 75 chars, and squeezed into a single line it came out ≈1.3cqw — unreadable on the board
+ * (owner's report). The same name across two lines is ≈2.6cqw, exactly twice as large.
+ *
+ * The clamp holds both ends: names up to ~24 chars still take the shared 4cqw cap on ONE line
+ * (they simply fit), and nothing drops below the floor — a name too long even for two lines takes
+ * a third rather than melting away. The floor is `max(2.2cqw, 11px)`, container units AND pixels:
+ * on the phone stack the tile is ~350px wide, where 2.2cqw is under 8px — legible on paper, not on
+ * a phone. The quest map below absorbs the extra header height by letterboxing, so the tile keeps
+ * its geometry.
  */
 function titleFontSize(title: string): string {
-  return `min(4cqw, 40px, ${(96 / title.length).toFixed(2)}cqw)`;
+  return `clamp(max(2.2cqw, 11px), ${(192 / title.length).toFixed(2)}cqw, min(4cqw, 40px))`;
 }
 
 /**
@@ -100,23 +110,25 @@ export function TodayTile({
       state={state}
       onRetry={onRetry}
       elevated
-      rivets
+      scatter
       label={label}
       ariaLabel="Сегодня"
       style={tileStyle}
-      // Заклёпки (§2.4) — только на фокусной плитке (проп rivets); кант из .pixel-tile.
+      // Осыпь в углу (§2.4) — только на фокусной плитке (проп scatter); кант из .pixel-tile.
       className={className}
     >
       {day && (
         <div className="flex h-full flex-col gap-3" style={{ containerType: "inline-size" }}>
-          {/* Date and day name share one line, split 2/5 (date) — 3/5 (name): the name gets the
+          {/* Date and day name share the header, split 2/5 (date) — 3/5 (name): the name gets the
               larger share so long day names render at a confident size instead of shrinking to a
-              suspiciously tiny one (was 50/50). Each side fits its own box via container units and
-              never wraps (nowrap): the date shrinks to fit its 2/5 (dateFontSize), the name to fit
-              its 3/5 (titleFontSize). Without a name the date keeps the base size on the full width.
+              suspiciously tiny one (was 50/50). Each side fits its own box via container units: the
+              date shrinks to fit its 2/5 on ONE line (dateFontSize, nowrap — a date is one token
+              and breaking it would read as a bug), while the name WRAPS and is sized to two lines
+              (titleFontSize). Without a name the date keeps the base size on the full width.
               Name uses --font-display (wave 01 maps it to mono, wave 02 to the pixel face) and hugs
-              the right edge of its share. The header must stay EXACTLY one line: a wrapped name
-              steals height from the quest map below, which letterboxes (shrinks whole + side gaps). */}
+              the right edge of its share. Baseline alignment (items-baseline) pins the date to the
+              name's FIRST line, so extra lines grow downward; the quest map below letterboxes
+              (shrinks whole + side gaps) to pay for that height. */}
           <div
             className="flex items-baseline"
             style={{ fontSize: "min(4cqw, 40px)", lineHeight: 1.2 }}
@@ -136,7 +148,7 @@ export function TodayTile({
             {day.title && (
               <div
                 data-testid="today-title"
-                className="w-3/5 whitespace-nowrap text-right"
+                className="w-3/5 text-right"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--accent)",

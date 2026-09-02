@@ -7,6 +7,7 @@
  *   2. styles/common.css  — ОБЩИЙ слой волн (нейтральные сбросы/доступность/механика анимаций).
  *   3. waves/wave-01.css  — скин волны 01 (базовый/фолбэк, :root-токены, без data-wave).
  *   4. waves/wave-02.css  — скин волны 02 «Obscura» (под [data-wave="wave-02"], перекрывает 01).
+ *   5. waves/wave-03.css  — скин волны 03 «PRIME» (под [data-wave="wave-03"], тёмная).
  *
  * Добавить волну = новый файл styles/waves/wave-NN.css (правила под `[data-wave="wave-NN"]`) +
  * строка @import ниже. Прежние волны при этом не трогаются — диффы локальны (PRD §5.9, DESIGN §10.2).
@@ -14,3 +15,4 @@
 @import "./styles/common.css";
 @import "./styles/waves/wave-01.css";
 @import "./styles/waves/wave-02.css";
+@import "./styles/waves/wave-03.css";

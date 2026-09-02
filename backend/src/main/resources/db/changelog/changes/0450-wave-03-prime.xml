@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME» (DESIGN §10.2) — первая ТЁМНАЯ волна борда.
+
+      Холст: простой градиент плюс лента прожитых дней, набранная через точку и повторённая
+      до края экрана (её рисует общий шов WaveBackdrop, см. фронт). Стекло на плитках приходит
+      следующей веткой; здесь только палитра и холст.
+
+      Layout НЕ задан намеренно ⇒ фронт берёт дефолт `layout.ts`, то есть расположение
+      виджетов волны 01. Раскладку в этой волне не трогаем (решение владельца).
+
+      Токен-набор ПОЛНЫЙ, а не дельта: клиентский своп волн перекрывает весь :root, и
+      недостающий ключ утёк бы из предыдущей волны — на тёмном холсте это персиковое пятно.
+
+      Волна неактивна — включается переключателем, борду ничего не грозит.
+    -->
+    <changeSet id="0450-theme-seed-wave03-prime" author="danchuo">
+        <sql><![CDATA[
+INSERT INTO theme (key, name, tokens, active, released_at) VALUES (
+  'wave-03',
+  'Волна 03 «PRIME»',
+  $J${
+    "bg-page": "#0a0e14",
+    "bg-surface": "#141b23",
+    "bg-surface-2": "#19212b",
+    "bg-surface-muted": "#101720",
+    "text-primary": "#e9f1f7",
+    "text-secondary": "#9fb0bf",
+    "text-tertiary": "#93a5b4",
+    "border": "rgba(180, 210, 230, 0.14)",
+    "border-pixel": "#cfe4f0",
+    "border-tile": "rgba(160, 205, 230, 0.22)",
+    "accent": "#6fe3ff",
+    "accent-warm": "#9d8cff",
+    "accent-clean": "#58d9a6",
+    "accent-code": "#8fd964",
+    "success": "#46c58c",
+    "danger": "#ff7a6b",
+    "cal-weekend": "#0e1620",
+    "cal-othermonth": "#0b111a",
+    "surface-othermonth": "linear-gradient(180deg, #131b24, #0e151d)",
+    "radius-sm": "6px",
+    "radius-md": "12px",
+    "radius-lg": "20px",
+    "elev-1": "0 1px 2px rgba(0, 0, 0, 0.5)",
+    "elev-2": "0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px rgba(0, 0, 0, 0.45), 0 14px 30px rgba(0, 0, 0, 0.4)",
+    "elev-3": "0 2px 4px rgba(0, 0, 0, 0.45), 0 10px 22px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.45)",
+    "drop-2": "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)) drop-shadow(0 7px 11px rgba(0, 0, 0, 0.5))",
+    "drop-3": "drop-shadow(0 2px 1px rgba(0, 0, 0, 0.55)) drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55))",
+    "drop-4": "drop-shadow(0 3px 2px rgba(0, 0, 0, 0.6)) drop-shadow(0 18px 26px rgba(0, 0, 0, 0.6))",
+    "surface-fill": "linear-gradient(180deg, var(--bg-surface), var(--bg-surface-2))",
+    "px": "4px",
+    "pixel-corners": "polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px))",
+    "tile-line": "1px",
+    "tile-depth": "0px",
+    "tile-slab-1": "#1b2530",
+    "tile-slab-2": "#121a23",
+    "tile-inner": "1px",
+    "tile-inner-color": "rgba(190, 230, 250, 0.16)",
+    "font-display": "var(--font-mono)"
+  }$J$::jsonb,
+  false,
+  now()
+);
+        ]]></sql>
+        <rollback><![CDATA[
+DELETE FROM theme WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

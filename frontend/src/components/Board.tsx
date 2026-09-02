@@ -21,6 +21,7 @@ import { SleepTile } from "./SleepTile";
 import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
 import { TodayTile } from "./TodayTile";
+import { WaveBackdrop } from "./WaveBackdrop";
 import { useCalendarWindow } from "./useCalendarWindow";
 import { useDayRange } from "./useDayRange";
 import { useSelectedDay } from "./useSelectedDay";
@@ -151,6 +152,10 @@ export function Board() {
 
   return (
     <main className="min-h-screen p-4">
+      {/* Фоновый слой волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином.
+          Волне 03 он рисует холст — ленту прожитых дней из того же окна календаря, что и сетка. */}
+      <WaveBackdrop summaries={summaries} wave={activeKey} />
+
       {/* Десктоп (мышь/трекпад, окно шире страховочного пола): полный bento без скролла
           (DESIGN §3, §8). Условие режима — в `.board-bento`/`.board-stack` (common.css):
           решает тип указателя, а не ширина, иначе браузерный зум ронял борд в стек. */}

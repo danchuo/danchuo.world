@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: лестница светлот календаря под ТЁМНЫЙ борд (DESIGN §5.3, §10.2).
+
+      Правило лестницы задано в 0290 и остаётся тем же: чем тише день, тем ближе его клетка
+      к фону страницы. Меняется только направление — на светлом борде «ближе к фону» значит
+      светлее, на тёмном темнее. Первый сид волны это направление сохранил, но шаги взял
+      узкими (три оттенка в пределах шести единиц яркости), и на живом борде выходные не
+      отличались от будних вовсе — снято скриншотом на 1536px.
+
+      Лестница теперь: обычный день > будущий будний > выходной, шаг около восьми единиц по
+      каналу. Пол лестницы упирается в фон страницы, поэтому потолок поднят: bg-surface стал
+      светлее, и заодно чуть светлее стало всё, что рисуется поверхности внутри стекла.
+    -->
+    <changeSet id="0470-wave-03-calendar-ladder" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${
+  "bg-surface": "#161e27",
+  "bg-surface-muted": "#0e151d",
+  "cal-weekend": "#090f16",
+  "cal-othermonth": "#080d13",
+  "surface-othermonth": "linear-gradient(180deg, #0e151d, #090f16)"
+}$J$::jsonb WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${
+  "bg-surface": "#141b23",
+  "bg-surface-muted": "#101720",
+  "cal-weekend": "#0e1620",
+  "cal-othermonth": "#0b111a",
+  "surface-othermonth": "linear-gradient(180deg, #131b24, #0e151d)"
+}$J$::jsonb WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1607,3 +1607,27 @@ body {
 .leaflet-tooltip.ride-pin-tooltip.leaflet-tooltip-top::before {
   border-top-color: var(--bg-surface);
 }
+
+/* ── Фоновый слой волны: механика шва (DESIGN §10.2) ─────────────────────────────────
+   Разметку рендерит [WaveBackdrop] всегда, но по умолчанию слой ВЫКЛЮЧЕН: волна,
+   которой он не нужен, не платит за него ничем. Волна включает его у себя в скине
+   (`display: block`) и там же решает, как он выглядит.
+
+   Здесь только механика, общая для любой волны: слой прибит к вьюпорту, лежит ЗА
+   бордом и не ловит ни курсор, ни выделение — это фон, а не контент. Лента внутри
+   обрезается своим `overflow`, потому что заполнение считает именно её переполнение
+   (`scrollHeight > clientHeight`, см. комментарий в компоненте). */
+.wave-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  user-select: none;
+}
+.wave-backdrop-ribbon {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+}

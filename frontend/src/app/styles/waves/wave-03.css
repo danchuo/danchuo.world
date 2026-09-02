@@ -6,16 +6,12 @@
  * прожитых дней через точку, повторённая до края экрана. Рисует её общий шов
  * [WaveBackdrop] (механика — в common.css), а эта волна его включает и одевает.
  *
- * Стекло на плитках приходит следующей веткой; здесь плитки ещё наследуют край волны 01,
- * только в тёмных токенах. Лента поэтому пока видна в воздушных каналах сетки и по полю
- * борда — сплошной она станет, когда плитки станут прозрачными.
- *
  * @import-ится ПОСЛЕ волн 01 и 02, поэтому перекрывает их по специфичности
  * (`:root[data-wave="wave-03"] body` > `body`).
  */
 
-/* Холст: спокойный тёмный градиент. Три мягких пятна дают глубину, которую стекло
-   следующей ветки будет преломлять; ровная заливка под стеклом читалась бы плоско.
+/* Холст: спокойный тёмный градиент. Три мягких пятна дают глубину, которую преломляет
+   стекло плиток; ровная заливка под стеклом читалась бы плоско.
    `fixed` — пятна не едут при скролле стека на тач-устройствах. */
 :root[data-wave="wave-03"] body {
   background-color: var(--bg-page);
@@ -59,11 +55,178 @@
   );
 }
 
-/* Читатель попросил меньше прозрачности — лента уходит целиком. Она декоративна, и
-   именно она даёт борду переменный контраст, от которого этот режим и защищает
-   (DESIGN §9). Градиент холста остаётся: он ровный и читаемости не мешает. */
+/* ══════════════════ СТЕКЛО НА ПЛИТКАХ ══════════════════
+ * Край — параметр скина (врез «Как волна выбирает край» в wave-01.css): PRIME идёт путём 2,
+ * рисует край сама и гасит слои ступеньки волны 01.
+ *
+ * ГЛАВНОЕ ПРАВИЛО ЭТОГО БЛОКА: на самой плитке не должно остаться ни `filter`, ни
+ * `clip-path`, ни `mask`, ни `opacity` — каждое из них делает её **Backdrop Root**, и
+ * `backdrop-filter` внутри начинает размывать пустоту. Волна 01 держит на `.pixel-tile`
+ * `filter: var(--rest-elev)`, поэтому снятие фильтра здесь несущее, а не косметическое
+ * (docs/pitfalls.md).
+ *
+ * Приём — прогрессивный блюр: три прохода с нарастающим радиусом под градиентными масками,
+ * поэтому плитка не «панель с блюром», а стекло, которое густеет книзу. Проходы кладём в те
+ * же три слота, что волна 01 занимала под ступеньку, — разметка не меняется ни на узел:
+ *   ::before → .pixel-lid → ::after  (порядок отрисовки = порядок в дереве при равном z).
+ * Четвёртый слот (.pixel-slab) под проход НЕ годится: у него z-index:-2, то есть он лёг бы
+ * ПОД ленту холста (.wave-backdrop, z-index:-1) и размывал бы не её, а пустоту.
+ *
+ * Светящаяся кромка — не отдельный слой, а inset-тени самой плитки: на тёмном именно она,
+ * а не блюр, читается как «стекло», и стоит она ноль композитных слоёв.
+ */
+/* Плотность материала — ТОКЕНЫ волны (сид 0460): приглушить служебные плитки или снять
+   блюр целиком можно правкой БД, без единой строчки CSS. Фолбэк стоит прямо в `var()`, а не
+   отдельным объявлением на `:root[data-wave]`: токены из БД приезжают инлайн-стилем (клиентский
+   своп) и `:root{}`-блоком (SSR), и своё объявление в скине дралось бы с ними по специфичности
+   по-разному в этих двух случаях. Фолбэк в `var()` от специфичности не зависит вовсе. */
+
+:root[data-wave="wave-03"] .pixel-tile {
+  clip-path: none;
+  filter: none;
+  border: 1px solid var(--glass-edge, rgba(160, 205, 230, 0.18));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(to bottom, rgba(120, 160, 190, 0.04), var(--glass-tint, rgba(120, 160, 190, 0.13)));
+  box-shadow: inset 0 1px 0 var(--glass-sheen, rgba(190, 230, 250, 0.22)), inset 0 -1px 0 rgba(190, 230, 250, 0.08),
+    0 24px 60px -28px rgba(0, 0, 0, 0.9);
+  /* Подъём по наведению — `transform`, а НЕ размер: у элемента с композитным слоем
+     анимация размера оставляет в WebKit гребёнку из своих теней (docs/pitfalls.md). */
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+/* Общее для трёх проходов: слои-невидимки строго по коробке плитки, за контентом. */
+:root[data-wave="wave-03"] .pixel-tile::before,
+:root[data-wave="wave-03"] .pixel-lid,
+:root[data-wave="wave-03"] .pixel-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Скругление живёт НА СЛОЕ БЛЮРА, а не на предке: обрезать предком нельзя (см. выше). */
+  border-radius: var(--radius-lg);
+  clip-path: none;
+  background: none;
+  box-shadow: none;
+}
+
+/* Проход 1 — верх стекла почти прозрачен: сквозь него читается лента холста. */
+:root[data-wave="wave-03"] .pixel-tile::before {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.15));
+  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.15));
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 48%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 48%);
+}
+/* Проход 2 — середина. */
+:root[data-wave="wave-03"] .pixel-lid {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.45)) saturate(1.15);
+  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.45)) saturate(1.15);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 14%, #000 42%, #000 66%, transparent 88%);
+  mask-image: linear-gradient(to bottom, transparent 14%, #000 42%, #000 66%, transparent 88%);
+}
+/* Проход 3 — низ: полный радиус, под цифрами данных фон уже глухой. Насыщенность добавлена
+   намеренно: блюр без неё делает цвета мутными. */
+:root[data-wave="wave-03"] .pixel-tile::after {
+  -webkit-backdrop-filter: blur(var(--glass-blur, 20px)) saturate(1.3);
+  backdrop-filter: blur(var(--glass-blur, 20px)) saturate(1.3);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 52%, #000 92%);
+  mask-image: linear-gradient(to bottom, transparent 52%, #000 92%);
+}
+
+/* Нижняя подложка «коробочки» и угловая осыпь — пиксель-детали волны 01, стеклу чужие. */
+:root[data-wave="wave-03"] .pixel-scatter,
+:root[data-wave="wave-03"] .pixel-slab {
+  display: none;
+}
+
+/* Лоадер-шиммер: ступенчатый клип волны 01 и подъём под её торец стеклу не нужны. */
+:root[data-wave="wave-03"] .pixel-shimmer {
+  clip-path: none;
+  bottom: 0;
+  border-radius: var(--radius-lg);
+}
+
+/* «Сегодня» — доминанта: стекло чище (меньше тинта), кромка ярче, тень глубже. Иерархия
+   закодирована в ПЛОТНОСТИ материала, а не в ещё одном цвете. Скан-блик волны 01 снимаем:
+   слот ::after теперь несёт проход блюра, и градиент блика лёг бы поверх него. */
+:root[data-wave="wave-03"] .pixel-tile[data-elevated="true"] {
+  background: linear-gradient(to bottom, rgba(120, 160, 190, 0.02), rgba(120, 160, 190, 0.09));
+  border-color: rgba(160, 205, 230, 0.26);
+  box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.3), inset 0 -1px 0 rgba(190, 230, 250, 0.1),
+    0 32px 80px -30px rgba(0, 0, 0, 0.95);
+}
+:root[data-wave="wave-03"] .pixel-tile[data-elevated="true"]::after {
+  background-image: none;
+  background-size: auto;
+}
+
+/* Приглушённая плитка — то же стекло, но глуше и в два прохода: своих слотов у неё
+   ровно два (::before/::after), и оба заняты пиксель-декором волны 01 — перебиваем
+   и геометрию (искра в углу задавала свои width/height), и фоновые картинки. */
+:root[data-wave="wave-03"] .muted-tile {
+  background: linear-gradient(to bottom, rgba(120, 160, 190, 0.03), rgba(120, 160, 190, 0.09));
+  border: 1px solid rgba(160, 205, 230, 0.12);
+  box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.12);
+}
+:root[data-wave="wave-03"] .muted-tile::before,
+:root[data-wave="wave-03"] .muted-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: var(--radius-md);
+  background-image: none;
+}
+:root[data-wave="wave-03"] .muted-tile::before {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.25));
+  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.25));
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%);
+}
+:root[data-wave="wave-03"] .muted-tile::after {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.7)) saturate(1.2);
+  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.7)) saturate(1.2);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
+  mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
+}
+
+/* Ховер: плитка всплывает и стекло чуть густеет. Размеры не трогаем — см. комментарий выше. */
+@media (hover: hover) {
+  :root[data-wave="wave-03"] .pixel-tile:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(to bottom, rgba(120, 160, 190, 0.07), rgba(140, 180, 210, 0.18));
+    border-color: rgba(160, 205, 230, 0.3);
+    box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.34), inset 0 -1px 0 rgba(190, 230, 250, 0.12),
+      0 34px 74px -28px rgba(0, 0, 0, 0.95);
+  }
+  :root[data-wave="wave-03"] .muted-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.18), 0 20px 46px -26px rgba(0, 0, 0, 0.9);
+  }
+}
+
+/* Читатель попросил меньше прозрачности — лента уходит целиком, стекло становится плотной
+   поверхностью. Она декоративна, и именно она даёт борду переменный контраст, от которого
+   этот режим и защищает (DESIGN §9). Градиент холста остаётся: он ровный и не мешает. */
 @media (prefers-reduced-transparency: reduce) {
   :root[data-wave="wave-03"] .wave-backdrop {
+    display: none;
+  }
+  :root[data-wave="wave-03"] .pixel-tile,
+  :root[data-wave="wave-03"] .muted-tile {
+    background: var(--bg-surface);
+  }
+  :root[data-wave="wave-03"] .pixel-tile[data-elevated="true"] {
+    background: var(--bg-surface-2);
+  }
+  :root[data-wave="wave-03"] .pixel-tile::before,
+  :root[data-wave="wave-03"] .pixel-lid,
+  :root[data-wave="wave-03"] .pixel-tile::after,
+  :root[data-wave="wave-03"] .muted-tile::before,
+  :root[data-wave="wave-03"] .muted-tile::after {
     display: none;
   }
 }

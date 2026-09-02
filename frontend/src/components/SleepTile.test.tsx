@@ -105,9 +105,11 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     await openBand();
 
     const band = await screen.findByTestId("night-band");
-    ["не спал", "REM", "лёгкий", "глубокий"].forEach((label) => {
+    // Подпись дорожки — та же, что в «Здоровье» (Core / базовый), а не общепринятый «лёгкий».
+    ["не спал", "REM", "базовый", "глубокий"].forEach((label) => {
       expect(within(band).getByText(label)).toBeInTheDocument();
     });
+    expect(within(band).queryByText("лёгкий")).not.toBeInTheDocument();
     // Отдельной строки-легенды больше нет: её высота отдана графику.
     expect(screen.queryByTestId("night-legend")).not.toBeInTheDocument();
   });
@@ -122,8 +124,8 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     const top = (i: number) => Number(/top:\s*calc\((-?[\d.]+)%/.exec(parts[i].getAttribute("style")!)![1]);
     // Порядок кусков в фикстуре: light, deep, awake, rem.
     expect(top(2)).toBeLessThan(top(3)); // не спал выше REM
-    expect(top(3)).toBeLessThan(top(0)); // REM выше лёгкого
-    expect(top(0)).toBeLessThan(top(1)); // лёгкий выше глубокого
+    expect(top(3)).toBeLessThan(top(0)); // REM выше базового
+    expect(top(0)).toBeLessThan(top(1)); // базовый выше глубокого
   });
 
   it("сравнения со средней ночью не показывает — среднее уже есть в «активности»", async () => {
@@ -190,7 +192,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
 describe("SleepTile — подсказки к фазам сна", () => {
   it("у каждой подписи фазы своя подсказка волны, а не нативный title", async () => {
-    // «REM/DEEP/LIGHT» ничего не говорят тому, кто в фазах не разбирался; минуты и доля
+    // «REM/DEEP/CORE» ничего не говорят тому, кто в фазах не разбирался; минуты и доля
     // рядом отвечают на другой вопрос. Подсказка — тот же HoverTip, что у огонька-стрика
     // и у номера дня жизни: один язык подсказок на весь борд (§7.7).
     render(

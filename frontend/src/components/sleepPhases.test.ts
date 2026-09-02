@@ -18,6 +18,14 @@ describe("sleepPhases (§7.7)", () => {
     expect(p!.find((x) => x.key === "deep")!.pct).toBe(50);
   });
 
+  it("подписи фаз — те же, что в «Здоровье»: REM / DEEP / CORE", () => {
+    // Фазы читателю не с чем сверить, кроме приложения Apple, а там нет никакого «light»:
+    // самая долгая фаза называется Core. Ключ остаётся `light` (так её зовёт HealthKit
+    // в `asleepCore`≈light и наш ingest), подпись на борде — CORE.
+    const p = sleepPhases({ rem: 90, deep: 60, light: 150, awake: 10 });
+    expect(p!.map((x) => x.label)).toEqual(["REM", "DEEP", "CORE"]);
+  });
+
   it("нет фаз (null) или пусто ⇒ null (деградация до одной длительности)", () => {
     expect(sleepPhases(null)).toBeNull();
     expect(sleepPhases(undefined)).toBeNull();

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Плотность стекла волны 03 «PRIME» (DESIGN §10.2) — четыре токена материала.
+
+      Зачем в БД, а не только в скине: владелец выбрал стекло на ВСЕХ плитках, против
+      совета Apple держать его в одном навигационном слое. Страховка от этого выбора —
+      не отказ, а ручка: если замер на собранном борде покажет просадку, блюр можно
+      приглушить или снять правкой одной записи, не переписывая скин и не пересобирая фронт.
+
+      Те же значения лежат CSS-фолбэком прямо в `var()` внутри wave-03.css — борд не
+      теряет стекло, если бэкенд недоступен.
+
+      UPDATE поверх сида 0450 (checksum сида трогать нельзя); две вертикальные палки
+      перезаписывают существующие ключи и добавляют новые.
+    -->
+    <changeSet id="0460-wave-03-glass-density" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${
+  "glass-blur": "20px",
+  "glass-tint": "rgba(120, 160, 190, 0.13)",
+  "glass-edge": "rgba(160, 205, 230, 0.18)",
+  "glass-sheen": "rgba(190, 230, 250, 0.22)"
+}$J$::jsonb WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET tokens = tokens - 'glass-blur' - 'glass-tint' - 'glass-edge' - 'glass-sheen'
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

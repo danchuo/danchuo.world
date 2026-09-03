@@ -97,24 +97,42 @@ export function Cover({
   alt,
   size = 44,
   height = size,
+  fallback,
+  onError,
 }: {
   url: string | null;
   alt: string;
   size?: number;
   height?: number;
+  /**
+   * Чем заменить картинку, когда её нет или она не загрузилась. Не задан — прежний глухой
+   * прямоугольник: у карточек книги и подкаста своя история, и подменять её музыкальной
+   * плашкой Spotify им незачем.
+   */
+  fallback?: ReactNode;
+  /** Картинка не загрузилась. Плитке это нужно знать: волна вправе перестроиться (§7.1). */
+  onError?: () => void;
 }) {
-  if (!url) {
+  /* Помним НЕ факт «сломалось», а КАКОЙ адрес сломался: при смене трека приезжает новый
+     url, сравнение перестаёт совпадать, и картинка пробуется заново — без эффекта на сброс
+     флага и без риска, что один битый кадр похоронит все следующие. */
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const broken = url != null && failedUrl === url;
+
+  if (!url || broken) {
     return (
-      <div
-        aria-hidden
-        style={{
-          width: size,
-          height,
-          flexShrink: 0,
-          background: "var(--bg-surface-muted)",
-          borderRadius: "var(--radius-sm)",
-        }}
-      />
+      fallback ?? (
+        <div
+          aria-hidden
+          style={{
+            width: size,
+            height,
+            flexShrink: 0,
+            background: "var(--bg-surface-muted)",
+            borderRadius: "var(--radius-sm)",
+          }}
+        />
+      )
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
@@ -124,6 +142,10 @@ export function Cover({
       alt={alt}
       width={size}
       height={height}
+      onError={() => {
+        setFailedUrl(url);
+        onError?.();
+      }}
       // Кадрируем, а не мнём: пропорции обложки на экране должны остаться её собственными,
       // даже если книга оказалась не ровно 2:3.
       style={{ flexShrink: 0, borderRadius: "var(--radius-sm)", objectFit: "cover" }}
@@ -166,17 +188,29 @@ export function NowPlayingCard({
   track,
   coverSize,
   testId,
+  coverFallback,
+  onCoverError,
   children,
 }: {
   track: TrackView;
   /** Сторона обложки в единицах контекста (по умолчанию 44 CSS-пикселя плитки). */
   coverSize?: number;
   testId?: string;
+  /** Запасная обложка (см. [Cover]); не задана — прежний глухой прямоугольник. */
+  coverFallback?: ReactNode;
+  /** Обложка не загрузилась — сообщаем наверх (см. [Cover]). */
+  onCoverError?: () => void;
   /** Подвал карточки: плашка источника у плитки, строка минут у карточки подкаста. */
   children?: ReactNode;
 }) {
   const cover = (
-    <Cover url={track.albumImageUrl} alt={`Обложка: ${track.album?.name ?? track.title}`} size={coverSize} />
+    <Cover
+      url={track.albumImageUrl}
+      alt={`Обложка: ${track.album?.name ?? track.title}`}
+      size={coverSize}
+      fallback={coverFallback}
+      onError={onCoverError}
+    />
   );
   return (
     <div data-testid={testId} className="flex min-w-0 items-start gap-3">

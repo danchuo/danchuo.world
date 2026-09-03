@@ -547,23 +547,23 @@
     display: none;
   }
 }
-
 /* ══════════ МУЗЫКА: ЧЁРНАЯ ПЛАШКА SPOTIFY (DESIGN §7.5, §10.2) ══════════
- * Единственная плитка борда, которая ВЫХОДИТ из стекла. Решение владельца: под играющий
- * трек виджет должен читаться плеером Spotify, а не плиткой борда с зелёной полоской, —
- * поэтому здесь нет ни одного из трёх проходов блюра, нет стеклянной кромки и нет тинта.
- * Чёрный корпус #121212, крупный радиус, зелёное на своих местах.
+ * Единственная плитка борда, которая ВЫХОДИТ из стекла. Решение владельца: виджет должен
+ * читаться плеером Spotify, а не плиткой борда с зелёной полоской, — поэтому здесь нет ни
+ * одного из трёх проходов блюра, нет стеклянной кромки и нет тинта. Чёрный корпус #121212,
+ * крупный радиус, зелёное на своих местах.
  *
- * Действует ТОЛЬКО в режимах `playing`/`paused` (атрибут ставит [MusicTile]). Список
- * недавних остаётся стеклом волны — его вид ещё не решён, и подменять его заодно значило бы
- * решить за владельца.
+ * Скоуп — ВСЯ плитка (`.t-music-vars`), а не отдельные её режимы. Сперва плашка стояла
+ * только под играющим треком: список недавних тогда ещё не был решён, и подменять его
+ * заодно значило бы решить за владельца. Теперь решён (очередь ниже), и привязка к режиму
+ * стала вредной — виджет мигал бы стеклом ровно в ту секунду, когда трек кончился. Корпус
+ * прибора не зависит от того, что внутри него сейчас звучит.
  *
  * ⚠️ Зелёный знак Spotify стоит здесь по гайдлайну, а не вопреки ему: зелёный логотип
  * разрешён на чёрном и белом, и чёрный корпус — единственное место на этом борде, где он
  * законен. На стекле знак пришлось бы делать монохромным (так он и сделан у Obscura).
  */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-tile,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-tile {
+:root[data-wave="wave-03"] .t-music-vars .pixel-tile {
   /* Сжатие-к-контенту отменяем: плашка — корпус прибора, её ширина не должна ездить
      от длины названия трека (см. `--music-card-w` в common.css). */
   width: 100%;
@@ -573,24 +573,23 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 26px 60px -26px rgba(0, 0, 0, 0.92);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  padding: 16px 18px;
+  /* Поля ужаты по вертикали (было 16): 16px снизу складывались с запасом подгонки списка
+     (§7.1) в 29px воздуха под последней строкой — при 12px над шапкой. Плашка читалась
+     недозаполненной, а треков в неё влезало меньше, чем позволяла её высота. */
+  padding: 12px 18px 8px;
 }
 /* Три прохода блюра (::before → .pixel-lid → ::after) и подложка «коробочки» — всё, чем
    стекло держится. Гасим целиком: под плашкой холста быть не должно. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-tile::before,
-:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-tile::after,
-:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-lid,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-tile::before,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-tile::after,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-lid {
+:root[data-wave="wave-03"] .t-music-vars .pixel-tile::before,
+:root[data-wave="wave-03"] .t-music-vars .pixel-tile::after,
+:root[data-wave="wave-03"] .t-music-vars .pixel-lid {
   display: none;
 }
 
 /* Своя шкала светлот вместо токенов волны: на #121212 работает палитра Spotify, а не
    холодная сине-серая лестница PRIME — иначе плашка выглядит куском борда, покрашенным
    в чёрный. Красим по ролям, значениями Spotify. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .music-body,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .music-body {
+:root[data-wave="wave-03"] .t-music-vars .music-body {
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.62);
   --text-tertiary: rgba(255, 255, 255, 0.42);
@@ -600,8 +599,11 @@
    больше ничего нет, эта марка выглядит приколотой булавкой. Ширину/высоту у `img` задают
    АТРИБУТЫ (см. [Cover]), поэтому CSS их перебивает без `!important` — в отличие от радиуса,
    который там inline и остаётся токеном волны. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] [data-testid="now-playing"] img,
-:root[data-wave="wave-03"] [data-music-mode="paused"] [data-testid="now-playing"] img {
+:root[data-wave="wave-03"] .t-music-vars [data-testid="now-playing"] img,
+:root[data-wave="wave-03"] .t-music-vars [data-testid="now-playing"] .cover-plate {
+  /* 84px оказались на шаг больше, чем держит плашка: блок трека вырастал и выдавливал шкалу
+     головки за нижний край (замечание владельца). 72 — размер, при котором шкала стоит
+     внутри со своим воздухом, а обложка всё ещё крупнее прежней марки в 44px. */
   width: 72px;
   height: 72px;
 }
@@ -609,9 +611,19 @@
    а обложка с названием — его содержимое, и на общем `gap` в 4px они читались одним столбцом.
    Отступ идёт сверху блока, а не снизу шапки: шкала головки прижата к низу `margin-top: auto`,
    и всё, что добавлено выше, забирает воздух у неё, а не у плашки. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] [data-testid="now-playing"],
-:root[data-wave="wave-03"] [data-music-mode="paused"] [data-testid="now-playing"] {
+:root[data-wave="wave-03"] .t-music-vars [data-testid="now-playing"] {
   margin-top: 10px;
+  /* Блок трека отодвинут от левого поля плашки — на волосок, не на отступ. Служебная строка
+     идёт от самого края (она рамка прибора), а содержимое стоит чуть внутри: у плеера Spotify
+     так же, и без сдвига обложка читалась приклеенной к канту. */
+  margin-left: 6px;
+  /* Исполнитель и альбом на шаг крупнее общих. Кегли приходят в блок ИНЛАЙНОМ (`artistsStyle`,
+     `albumStyle` в [NowPlayingCard]), поэтому скин правит не сами правила, а переменные, из
+     которых те инлайны считаны, — и только внутри блока трека: в служебной строке и в списке
+     недавних эти же переменные означают другое. Формулы те же, что в `.t-music-vars`,
+     умноженные примерно на 1.12. */
+  --fs-music-artists: clamp(11px, calc(6.7px + 2.26cqw), 29px);
+  --fs-music-meta: clamp(10px, calc(6.2px + 2.07cqw), 27px);
 }
 
 /* Строка состояния и атрибуция — ЕДИНСТВЕННОЕ место плашки, где набор не моноширинный.
@@ -621,8 +633,7 @@
    геометрический гротеск, и это ближайшее, что есть в наборе проекта.
    Название трека, исполнитель и альбом остаются моноширинными: это данные, и они говорят
    голосом борда — плашка отвечает за материал, а не за содержание. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .music-status-row,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .music-status-row {
+:root[data-wave="wave-03"] .t-music-vars .music-status-row {
   font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
   font-size: var(--fs-music-meta);
   font-weight: 600;
@@ -631,32 +642,27 @@
   color: #1ed760;
 }
 /* …а слово «Spotify» рядом со знаком остаётся тихим: знак уже назвал сервис. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .spotify-credit,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .spotify-credit {
+:root[data-wave="wave-03"] .t-music-vars .spotify-credit {
   font-size: var(--fs-music-meta);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.5);
 }
-:root[data-wave="wave-03"] [data-music-mode="playing"] .spotify-mark,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .spotify-mark {
+:root[data-wave="wave-03"] .t-music-vars .spotify-mark {
   display: block;
   color: #1ed760;
   --spotify-mark-hole: #121212;
 }
 
 /* Шкала головки: включаем шов и красим зелёным Spotify. */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .music-progress,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .music-progress {
+:root[data-wave="wave-03"] .t-music-vars .music-progress {
   display: flex;
   color: rgba(255, 255, 255, 0.45);
 }
-:root[data-wave="wave-03"] [data-music-mode="playing"] .music-progress__track,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .music-progress__track {
+:root[data-wave="wave-03"] .t-music-vars .music-progress__track {
   height: 4px;
   background: rgba(255, 255, 255, 0.16);
 }
-:root[data-wave="wave-03"] [data-music-mode="playing"] .music-progress__fill,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .music-progress__fill {
+:root[data-wave="wave-03"] .t-music-vars .music-progress__fill {
   background: #1ed760;
 }
 
@@ -673,15 +679,141 @@
  * Плейлист уходит целиком: у плеера в этой строке стоит источник только тогда, когда он
  * часть управления. У нас он справочный, и на плашке из четырёх строк четвёртая — лишняя.
  */
-:root[data-wave="wave-03"] [data-music-mode="playing"] .marquee-inner,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .marquee-inner {
+:root[data-wave="wave-03"] .t-music-vars .marquee-inner {
   animation: none;
   left: 0;
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-:root[data-wave="wave-03"] [data-music-mode="playing"] .music-source,
-:root[data-wave="wave-03"] [data-music-mode="paused"] .music-source {
+:root[data-wave="wave-03"] .t-music-vars .music-source {
   display: none;
+}
+
+/* ── «Недавно»: очередь плейлиста (DESIGN §10.2) ───────────────────────────────────────
+ * Список недавних на плашке перестаёт быть перечнем строк и становится тем, чем он и был по
+ * смыслу, — очередью: обложка · название над исполнителем · альбом · сколько времени назад.
+ * Из трёх разобранных вариантов (очередь / последнее крупно / полка обложек) владелец выбрал
+ * этот: он единственный влезает в плитку как есть, без торга за её высоту.
+ *
+ * Бюджет высоты жёсткий и определяет всю геометрию. Плитка 10×6 треков = 175px, поля плашки
+ * съедают 32, служебная строка и отступ до списка — ещё ~27 ⇒ списку достаётся 111px, из
+ * которых 6 держит запас подгонки (FIT_MARGIN в [MusicTile]: строка обязана кончиться ВЫШЕ
+ * края, иначе гасится целиком). Ряд ростом с обложку (30px) плюс 4px между рядами укладывает
+ * три ряда в 98px — 7px слака, то есть три ряда стоят твёрдо, а не на грани округления;
+ * с обложкой 32px слака оставалось 1.3px, и любой сдвиг метрик шрифта ронял третий ряд.
+ * Четвёртый не влезает никак: ему нужно ещё 34px, а есть 7.
+ */
+:root[data-wave="wave-03"] .t-music-vars .music-recent {
+  /* Меньше, чем у блока играющего трека (10px): там шапку от содержимого отделяет пустота,
+     здесь — обложка первого ряда, которая и так держит границу. */
+  margin-top: 4px;
+}
+/* Зазор между рядами — не вкусовое число, а способ РАСПРЕДЕЛИТЬ остаток. Списку достаётся
+   119px (за вычетом запаса подгонки), три ряда по 34 занимают 102: четвёртый не влезет ни при
+   каком зазоре, и лишние 17px иначе копились бы одним комком под последней строкой — плашка
+   выглядела недозаполненной снизу при плотной шапке сверху. Зазор 6px разносит их между
+   рядами и оставляет 3px слака, чтобы сдвиг метрик шрифта не ронял третий ряд. */
+:root[data-wave="wave-03"] .t-music-vars .music-recent > ul {
+  gap: 6px;
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.25;
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-cover img,
+:root[data-wave="wave-03"] .t-music-vars .recent-cover .cover-plate {
+  /* Крупнее разметочных 30px: освободившиеся поля плашки отданы рядам, а не воздуху. */
+  width: 34px;
+  height: 34px;
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-cover {
+  display: block;
+  flex: none;
+  /* Строчный бокс вокруг картинки добавляет пару пикселей под ней — ряд от этого выше
+     обложки, и три ряда перестают влезать. */
+  line-height: 0;
+}
+/* Текстовая колонка ряда. `min-width: 0` обязателен: внутри `white-space: nowrap`, поэтому
+   min-content колонки равен ПОЛНОЙ ширине названия, и без него flex-строка не сжималась бы —
+   название выдавливало бы альбом и время за край. */
+:root[data-wave="wave-03"] .t-music-vars .recent-row .marquee-clip {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Название над исполнителем, как в списке Spotify. Разделитель «·» гасим — он держал их
+   в одной строке. */
+:root[data-wave="wave-03"] .t-music-vars .recent-row .marquee-inner {
+  display: flex;
+  flex-direction: column;
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-sep {
+  display: none;
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-title,
+:root[data-wave="wave-03"] .t-music-vars .recent-artists {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-title {
+  /* Белым, а не `--text-secondary`: в очереди название — главное, что читают. Ссылка внутри
+     наследует цвет (у неё inline `color: inherit`). */
+  color: #ffffff;
+  font-size: var(--fs-music-artists);
+}
+:root[data-wave="wave-03"] .t-music-vars .recent-artists {
+  font-size: var(--fs-music-source);
+}
+
+/* Альбом — колонка между названием и временем (просьба владельца: занять пустое место
+   посередине ряда). Прижат ВПРАВО, чтобы у рядов совпадали правые края и колонка читалась
+   колонкой, а не рваным хвостом за названием разной длины. Синглов и одноимённых релизов
+   здесь не бывает — бэкенд их отфильтровал (SpotifyViews), так что пустых ячеек в этой
+   колонке нет: есть ряды с альбомом и ряды без. */
+:root[data-wave="wave-03"] .t-music-vars .recent-album {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 32%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: var(--fs-music-source);
+  color: rgba(255, 255, 255, 0.34);
+}
+/* В узкой плитке (мобильный стек, чужая раскладка волны) альбом уходит первым: он —
+   уточнение, а название и время ряда обязательны. Усечь его до двух букв с многоточием
+   было бы хуже, чем не показать вовсе. */
+@container tile (max-width: 300px) {
+  :root[data-wave="wave-03"] .t-music-vars .recent-album {
+    display: none;
+  }
+}
+
+/* Давность прослушивания. Табличные цифры — чтобы «9 мин» и «14 мин» стояли колонкой,
+   а не плясали по ширине. */
+:root[data-wave="wave-03"] .t-music-vars .recent-ago {
+  display: block;
+  flex: none;
+  font-size: var(--fs-music-source);
+  font-variant-numeric: tabular-nums;
+  /* Колонка фиксированной ширины с прижимом вправо. Без неё «3 ч» у́же «14 мин», левый край
+     колонки времени гуляет от ряда к ряду — и вместе с ним гуляет правый край альбома,
+     который к этой колонке прижат. Ширина взята по самой длинной метке лестницы («59 мин»)
+     в моноширинном наборе: 6 знаков ≈ 3.7em. */
+  min-width: 3.7em;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.42);
+}
+/* Верхний ряд — самый свежий, и зелёным здесь помечено именно это: в плеере Spotify зелёным
+   светится строка, ближайшая к «сейчас». Играющего трека в этом режиме нет (иначе списка бы
+   не было), и верхняя строка — ближайшее, что есть. */
+:root[data-wave="wave-03"] .t-music-vars .recent-row:first-child .recent-ago {
+  color: #1ed760;
 }

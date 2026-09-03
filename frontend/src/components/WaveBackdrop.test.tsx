@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
 import { WaveBackdrop } from "./WaveBackdrop";
 
+const TODAY = "2026-09-02";
+
 function day(over: Partial<DaySummary> = {}): DaySummary {
   return {
     date: "2026-08-24",
@@ -27,7 +29,7 @@ function ribbonOf(container: HTMLElement): HTMLElement {
 
 describe("WaveBackdrop", () => {
   it("шов рендерится всегда — волна включает его скином, а не наличием разметки", () => {
-    const { container } = render(<WaveBackdrop summaries={[]} wave="wave-01" />);
+    const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-01" />);
     const root = container.querySelector(".wave-backdrop");
     expect(root).not.toBeNull();
     // Фон — не контент: скринридер его не читает.
@@ -35,24 +37,25 @@ describe("WaveBackdrop", () => {
   });
 
   it("кладёт в ленту прожитые дни окна календаря", () => {
-    const { container } = render(<WaveBackdrop summaries={[day()]} wave="wave-03" />);
+    const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
     expect(ribbonOf(container).textContent).toBe(
       "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
     );
   });
 
   it("окно без данных не оставляет на холсте мусора", () => {
-    const { container } = render(<WaveBackdrop summaries={[]} wave="wave-03" />);
+    const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-03" />);
     expect(ribbonOf(container).textContent).toBe("");
   });
 
   it("новое окно календаря переписывает ленту, а не дописывает её", () => {
     const { container, rerender } = render(
-      <WaveBackdrop summaries={[day()]} wave="wave-03" />,
+      <WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />,
     );
     rerender(
       <WaveBackdrop
         summaries={[day({ date: "2026-08-25", title: "день длинных созвонов" })]}
+        today={TODAY}
         wave="wave-03"
       />,
     );

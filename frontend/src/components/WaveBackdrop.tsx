@@ -28,9 +28,18 @@ const MAX_REPEATS = 40;
 /** Тот же разделитель, что внутри ленты, — стык дублей не должен быть заметен. */
 const DOT = " · ";
 
-export function WaveBackdrop({ summaries, wave }: { summaries: DaySummary[]; wave: string | null }) {
+export function WaveBackdrop({
+  summaries,
+  today,
+  wave,
+}: {
+  summaries: DaySummary[];
+  /** Опора «сегодня» (MSK): дни после неё на холст не едут — они ещё не прожиты. */
+  today: string;
+  wave: string | null;
+}) {
   const ref = useRef<HTMLParagraphElement>(null);
-  const ribbon = useMemo(() => buildRibbon(summaries), [summaries]);
+  const ribbon = useMemo(() => buildRibbon(summaries, today), [summaries, today]);
 
   useEffect(() => {
     const el = ref.current;

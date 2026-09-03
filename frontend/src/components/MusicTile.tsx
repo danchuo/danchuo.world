@@ -14,9 +14,11 @@ import {
 } from "react";
 import { readCache, writeCache } from "@/lib/api/cache";
 import { getNowPlaying, getRecent } from "@/lib/api/client";
+import { elapsedMs, formatClock, headSample, progressRatio } from "@/lib/musicProgress";
 import { collapseConsecutiveRecent } from "@/lib/recentTracks";
 import type { AlbumRef, ArtistRef, NowPlayingView, RecentTrackView, SourceRef, TrackView } from "@/lib/api/types";
 import { Album, Artists, Cover, Marquee, NowPlayingCard, artistsStyle } from "./NowPlayingCard";
+import { SpotifyMark } from "./SpotifyMark";
 import { TileShell, type TileState } from "./TileShell";
 import { Icon } from "./Icon";
 
@@ -31,6 +33,16 @@ interface MusicTileProps {
 
 /** Сколько недавних показывать в простое (когда нет играющего трека). */
 const RECENT_WHEN_IDLE = 5;
+
+/**
+ * Профиль владельца в Spotify — цель ссылки на слове «Spotify» (PRD §5.5).
+ *
+ * Константа, а не поле из API: это атрибуция сервиса, а не контент борда. Соцссылки живут в
+ * своём слайсе, потому что их состав меняется; здесь же ссылка одна и она часть требования
+ * Spotify — метаданные обязаны идти с упоминанием сервиса И ссылкой обратно в него.
+ * Параметр `si` из адреса поделиться убран: он метка приглашения, а не часть профиля.
+ */
+const SPOTIFY_PROFILE_URL = "https://open.spotify.com/user/q7lxpi1rk0dipyt65pj5z2mc0";
 
 /**
  * Запас (px) у нижнего края списка недавних: строка обязана кончиться выше него, иначе гасим
@@ -60,6 +72,12 @@ const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffec
 interface MusicSnapshot {
   now: NowPlayingView | null;
   recent: RecentTrackView[];
+  /**
+   * Когда снимок записан. Кэш свою метку хранит, но наружу не отдаёт (см. `api/cache.ts`), а
+   * шкале головки она нужна как ОПОРА: без неё копия, прочитанная после F5, встала бы в
+   * позицию двадцатисекундной давности и догоняла рывком.
+   */
+  at: number;
 }
 const MUSIC_CACHE_KEY = "music";
 
@@ -146,6 +164,39 @@ function visibleBottom(el: HTMLElement): number {
   return bottom;
 }
 
+/**
+ * Живая головка воспроизведения: опора — снимок сервера, ход — часы клиента (арифметика
+ * целиком в `@/lib/musicProgress`). Тикаем раз в секунду и **только пока играет**: на паузе
+ * головка стоит, и будить рендер незачем.
+ *
+ * Тикер перезапускается на каждом ответе опроса (`now` приходит новым объектом), поэтому
+ * дрейф клиентских часов не копится — раз в ~20с его обнуляет свежий снимок.
+ */
+function useHeadPosition(
+  now: NowPlayingView | null,
+  /** Момент, которым датирован [now]: `Date.now()` живого ответа или метка копии из кэша. */
+  nowAt: number,
+): { elapsed: number | null; ratio: number | null } {
+  const [clockMs, setClockMs] = useState(() => Date.now());
+
+  const sample = useMemo(
+    () => (now ? headSample(now.progressMs, nowAt, now.isPlaying, Date.now()) : null),
+    [now, nowAt],
+  );
+
+  const running = sample?.isPlaying === true && sample.progressMs != null;
+  useEffect(() => {
+    setClockMs(Date.now());
+    if (!running) return;
+    const id = window.setInterval(() => setClockMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [running, sample]);
+
+  const duration = now?.track?.durationMs ?? null;
+  const elapsed = sample ? elapsedMs(sample, clockMs, duration) : null;
+  return { elapsed, ratio: progressRatio(elapsed, duration) };
+}
+
 /** Mono-стиль — статичен, держим вне компонента. */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
@@ -215,7 +266,11 @@ function NowPlaying({
           в DOM (данные грузятся: задел под расширение виджета), но если нижний край плитки её
           обрезает — прячем через visibility (место сохраняется, замер не осциллирует). */}
       {source && (
-        <div ref={sourceRef} style={sourceClipped ? { visibility: "hidden" } : undefined}>
+        <div
+          ref={sourceRef}
+          className="music-source"
+          style={sourceClipped ? { visibility: "hidden" } : undefined}
+        >
           <Source source={source} />
         </div>
       )}
@@ -234,6 +289,8 @@ function NowPlaying({
 export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, pollMs = 20_000 }: MusicTileProps) {
   const [state, setState] = useState<TileState>("loading");
   const [now, setNow] = useState<NowPlayingView | null>(null);
+  // Дата снимка едет рядом с ним: живой ответ датируется приёмом, копия — своей записью.
+  const [nowAt, setNowAt] = useState(() => Date.now());
   const [recent, setRecent] = useState<RecentTrackView[]>([]);
   // Первичная загрузка отмечена в ref: опрос now-playing не должен дёргать общий state.
   const loaded = useRef(false);
@@ -241,10 +298,12 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   const pollNow = useCallback((signal?: AbortSignal) => {
     return getNowPlaying({ signal })
       .then((data) => {
+        const at = Date.now();
         setNow(data);
+        setNowAt(at);
         // Держим now-playing в кэш-копии свежим (recent опрос не трогает — берём из копии).
         const prev = readCache<MusicSnapshot>(MUSIC_CACHE_KEY);
-        writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: data, recent: prev?.recent ?? [] });
+        writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: data, recent: prev?.recent ?? [], at });
       })
       .catch(() => {
         /* опрос тих: разовый сбой не роняет уже показанную плитку */
@@ -258,6 +317,9 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
       const cached = readCache<MusicSnapshot>(MUSIC_CACHE_KEY);
       if (cached) {
         setNow(cached.now);
+        // Копия датируется СВОЕЙ записью, а не чтением — иначе шкала стартовала бы с позиции
+        // двадцатисекундной давности и догоняла рывком (см. [headSample]).
+        setNowAt(cached.at ?? Date.now());
         setRecent(cached.recent);
         loaded.current = true;
         setState("loaded");
@@ -267,11 +329,13 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
     }
     return Promise.all([getNowPlaying({ signal }), getRecent(recentLimit, { signal })])
       .then(([np, rec]) => {
+        const at = Date.now();
         setNow(np);
+        setNowAt(at);
         setRecent(rec);
         loaded.current = true;
         setState("loaded");
-        writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: np, recent: rec });
+        writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: np, recent: rec, at });
       })
       .catch((err) => {
         if (signal?.aborted) return;
@@ -320,6 +384,8 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   }, [loadAll]);
 
   const playing = now?.track ?? null;
+  // Головка воспроизведения — живая, между опросами досчитывается по часам (§5.5).
+  const { elapsed, ratio } = useHeadPosition(now, nowAt);
   // Подряд идущие одинаковые недавние треки схлопываем в один ряд (§5.5).
   const collapsedRecent = useMemo(() => collapseConsecutiveRecent(recent), [recent]);
   // Играет трек ⇒ недавние не показываем (плитка маленькая, чтобы ничего не наезжало).
@@ -395,31 +461,88 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   const cardWidth: CSSProperties["width"] =
     shrinkW ?? (frameW > 0 ? Math.min(frameW, LOADING_W) : `min(100%, ${LOADING_W}px)`);
 
+  // Режим плитки — зацепка для скина (§10.2): чёрная плашка PRIME и обложка-фон Obscura
+  // существуют только под играющий (или поставленный на паузу) трек, а список недавних
+  // остаётся тем, чем был. Атрибут ставится на обёртке, чтобы скин доставал и саму плитку,
+  // и всё внутри неё одним селектором.
+  const mode = playing ? (now?.isPlaying ? "playing" : "paused") : showRecent ? "recent" : "quiet";
+  const coverUrl = playing?.albumImageUrl ?? null;
+
   return (
     // Обёртка держит полный след ячейки; карточка внутри может быть у́же и центрируется.
-    <div ref={frameRef} style={style} className={`tile-frame t-music-vars ${className ?? ""}`}>
+    <div
+      ref={frameRef}
+      data-music-mode={mode}
+      style={{
+        ...style,
+        // Ширина карточки — ПЕРЕМЕННОЙ, а не inline-стилем на плитке: скин волны вправе
+        // отменить сжатие-к-контенту (`width: 100%`), а inline он не перебьёт ничем, кроме
+        // `!important`. Значение то же самое, меняется только способ доставки.
+        "--music-card-w": typeof cardWidth === "number" ? `${cardWidth}px` : cardWidth,
+        // Обложка играющего трека — материал для скина (§10.2): Obscura стелет её фоном
+        // виджета. Волне, которой она не нужна, переменная не стоит ничего.
+        ...(coverUrl ? { "--music-cover": `url("${coverUrl}")` } : null),
+      } as CSSProperties}
+      className={`tile-frame t-music-vars ${className ?? ""}`}
+    >
       <TileShell
         state={state === "loaded" && isEmpty ? "empty" : state}
         emptyText="ничего не играет"
         onRetry={retry}
         ariaLabel="Музыка"
+        className="music-card"
+        // Подложка во всю карточку: по умолчанию выключена (common.css), волна включает
+        // её у себя и решает, что на ней нарисовано.
+        backdrop={
+          <>
+            {/* Заливка кадра: та же обложка, растянутая и размытая. Нужна волне, которая
+                показывает обложку ЦЕЛИКОМ (`contain`): квадрат в прямоугольной плитке
+                оставляет поля, и размытая копия закрывает их своим же цветом. */}
+            <span className="music-art-fill" aria-hidden />
+            <span className="music-art" aria-hidden />
+            {/* Та же ссылка, что на обложке-марке, но по самому кадру: волне, у которой
+                обложка растянута на всю плитку, кликать не во что — марки там нет. По
+                умолчанию слой выключен, как и обе подложки. */}
+            {playing?.url && (
+              <a
+                className="music-art-link"
+                href={playing.url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Открыть «${playing.title}» в Spotify`}
+              />
+            )}
+          </>
+        }
         // Ширина задана ВСЕГДА (нет скачка auto→px), но БЕЗ `transition` — карточка несёт
         // `filter: drop-shadow`, а WebKit не подчищает область, освобождённую сжимающимся
         // композитным слоем: каждый кадр перегона оставлял полосу своей тени, и под плиткой
         // вырастала гребёнка (docs/pitfalls.md). Здесь это било чаще всего — ширина едет на
         // КАЖДОЙ смене трека, а не однажды при загрузке.
-        style={{ height: "100%", width: cardWidth, marginInline: "auto" }}
+        style={{ height: "100%" }}
       >
       {state === "loaded" && !isEmpty && (
-        <div ref={contentRef} className="flex h-full flex-col gap-1 overflow-hidden">
+        <div ref={contentRef} className="music-body flex h-full flex-col gap-1 overflow-hidden">
           {/* Статус слева, атрибуция Spotify справа в той же строке — освобождает
               вертикаль под список недавних (плитка низкая). */}
-          <div
-            className="flex items-center justify-between"
-            style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-music-artists)" }}
-          >
+          {/* Набор и цвет строки — В КЛАССЕ, а не инлайном: инлайн-стиль скин волны не
+              перебивает ничем, кроме `!important`, а PRIME меняет здесь и шрифт, и цвет
+              (плашка Spotify говорит не голосом борда). Значения те же, что стояли инлайном. */}
+          <div className="music-status-row">
             <span>{playing ? (now?.isPlaying ? "сейчас играет" : "на паузе") : "недавно"}</span>
-            <span style={{ fontSize: "var(--fs-music-source)" }}>Spotify</span>
+            {/* Атрибуция сервиса: слово плюс знак. Знак по умолчанию скрыт — его включает
+                волна (см. [SpotifyMark]); слово остаётся при любой волне, потому что
+                метаданные Spotify обязаны идти со ссылкой и упоминанием сервиса. */}
+            <a
+              className="spotify-credit"
+              href={SPOTIFY_PROFILE_URL}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Профиль danchuo в Spotify"
+            >
+              <SpotifyMark />
+              Spotify
+            </a>
           </div>
 
           {playing && (
@@ -429,6 +552,21 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
               sourceRef={sourceRef}
               sourceClipped={sourceClipped}
             />
+          )}
+
+          {/* Шкала головки. Как и знак сервиса, по умолчанию выключена: волна 01 её не
+              заводила. Доля едет переменной, поэтому скину достаточно покрасить полосу. */}
+          {playing && (
+            <div
+              className="music-progress"
+              style={{ "--music-progress": `${(ratio ?? 0) * 100}%` } as CSSProperties}
+            >
+              <span className="music-progress__t">{formatClock(elapsed)}</span>
+              <span className="music-progress__track">
+                <i className="music-progress__fill" />
+              </span>
+              <span className="music-progress__t">{formatClock(playing.durationMs)}</span>
+            </div>
           )}
 
           {showRecent && (

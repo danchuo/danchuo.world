@@ -426,8 +426,20 @@
   pointer-events: none;
 }
 
-/* Прогрессивный блюр над лентой — тот же приём, что держит стекло плиток, сжатый в карту:
-   верх строки читается, низ уходит в муть, и на этой мути стоит сигнальный торец волны.
+/* Первый проход блюра — по ВСЕЙ карте, без маски. Слабый, «на единицу»: лента не должна
+   быть резкой нигде. Резкий верх при мутном низе читался не материалом, а расфокусом объектива
+   — глаз цеплялся за чёткие буквы и пытался их прочесть (замечание владельца). Теперь текст
+   проглядывается везде и нигде не зовёт себя читать. */
+:root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-03"] .wave-chip__ribbon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(0.7px);
+  backdrop-filter: blur(0.7px);
+}
+
+/* Второй проход — тот же приём, что держит стекло плиток, сжатый в карту: книзу муть
+   густеет, и на ней стоит сигнальный торец волны.
    Блюру есть что размывать, хотя карта и не окно наружу: `.wave-chip` несёт `filter`
    (тень «коробочки»), а значит она — Backdrop Root, и backdrop-filter внутри неё берёт
    содержимое САМОЙ карты, то есть ленту. Обычно это ловушка (docs/pitfalls.md), здесь —
@@ -436,10 +448,13 @@
   content: "";
   position: absolute;
   inset: 0;
-  -webkit-backdrop-filter: blur(1.1px) saturate(1.2);
-  backdrop-filter: blur(1.1px) saturate(1.2);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 28%, #000 86%);
-  mask-image: linear-gradient(to bottom, transparent 28%, #000 86%);
+  -webkit-backdrop-filter: blur(1.6px) saturate(1.2);
+  backdrop-filter: blur(1.6px) saturate(1.2);
+  /* Маска начинается не с нуля, а с частичной альфы: проход подмешивается к первому уже
+     сверху и нарастает вниз — переход идёт по всей высоте карты, без границы, на которой
+     лента вдруг становилась чёткой. */
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.7) 46%, #000 88%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.7) 46%, #000 88%);
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0), rgba(120, 160, 190, 0.18));
 }
 
@@ -477,6 +492,25 @@
   mask: var(--social-mask) center / contain no-repeat;
 }
 
+/* Жест наведения PRIME объявляется ТОКЕНАМИ (контракт — во врезе у `.pixel-tile` в
+   wave-01.css), а не отменой чужого правила. Волна 01 поднимает плитку и углубляет тень;
+   здесь всё четыре значения нейтральны, потому что жест этой волны — свет, а не движение.
+
+   Это не косметика. `filter` на наведённой плитке делает её **Backdrop Root**, то есть у
+   стеклянной карты на ховере пропадал бы сам блюр — три прохода размывали бы пустоту
+   (docs/pitfalls.md). Пока подъём волны 01 доставался PRIME по наследству, плитка на ховере
+   и подпрыгивала, и теряла стекло.
+   Приглушённая плитка поднималась `transform`-ом — та же история и то же лечение. */
+:root[data-wave="wave-03"] .pixel-tile {
+  --tile-hover-top: auto;
+  --tile-press-top: auto;
+  --tile-hover-filter: none;
+  --tile-press-filter: none;
+}
+:root[data-wave="wave-03"] .muted-tile {
+  --muted-hover-shift: 0px;
+}
+
 /* Ховер — ТОЛЬКО свет в торце: ни подъёма, ни густеющего тинта.
  * Подъём был жестом волны 01, перекрашенным; густеющее стекло вдобавок врало про материал —
  * стекло от прикосновения не мутнеет. Здесь плитка не двигается вовсе, а меняется освещение:
@@ -512,4 +546,142 @@
   :root[data-wave="wave-03"] .muted-tile::after {
     display: none;
   }
+}
+
+/* ══════════ МУЗЫКА: ЧЁРНАЯ ПЛАШКА SPOTIFY (DESIGN §7.5, §10.2) ══════════
+ * Единственная плитка борда, которая ВЫХОДИТ из стекла. Решение владельца: под играющий
+ * трек виджет должен читаться плеером Spotify, а не плиткой борда с зелёной полоской, —
+ * поэтому здесь нет ни одного из трёх проходов блюра, нет стеклянной кромки и нет тинта.
+ * Чёрный корпус #121212, крупный радиус, зелёное на своих местах.
+ *
+ * Действует ТОЛЬКО в режимах `playing`/`paused` (атрибут ставит [MusicTile]). Список
+ * недавних остаётся стеклом волны — его вид ещё не решён, и подменять его заодно значило бы
+ * решить за владельца.
+ *
+ * ⚠️ Зелёный знак Spotify стоит здесь по гайдлайну, а не вопреки ему: зелёный логотип
+ * разрешён на чёрном и белом, и чёрный корпус — единственное место на этом борде, где он
+ * законен. На стекле знак пришлось бы делать монохромным (так он и сделан у Obscura).
+ */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-tile,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-tile {
+  /* Сжатие-к-контенту отменяем: плашка — корпус прибора, её ширина не должна ездить
+     от длины названия трека (см. `--music-card-w` в common.css). */
+  width: 100%;
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 26px 60px -26px rgba(0, 0, 0, 0.92);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 16px 18px;
+}
+/* Три прохода блюра (::before → .pixel-lid → ::after) и подложка «коробочки» — всё, чем
+   стекло держится. Гасим целиком: под плашкой холста быть не должно. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-tile::before,
+:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-tile::after,
+:root[data-wave="wave-03"] [data-music-mode="playing"] .pixel-lid,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-tile::before,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-tile::after,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .pixel-lid {
+  display: none;
+}
+
+/* Своя шкала светлот вместо токенов волны: на #121212 работает палитра Spotify, а не
+   холодная сине-серая лестница PRIME — иначе плашка выглядит куском борда, покрашенным
+   в чёрный. Красим по ролям, значениями Spotify. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .music-body,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .music-body {
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.62);
+  --text-tertiary: rgba(255, 255, 255, 0.42);
+}
+
+/* Обложка крупнее: 44px рисовались под тесную плитку в ряду виджетов, а на плашке, где
+   больше ничего нет, эта марка выглядит приколотой булавкой. Ширину/высоту у `img` задают
+   АТРИБУТЫ (см. [Cover]), поэтому CSS их перебивает без `!important` — в отличие от радиуса,
+   который там inline и остаётся токеном волны. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] [data-testid="now-playing"] img,
+:root[data-wave="wave-03"] [data-music-mode="paused"] [data-testid="now-playing"] img {
+  width: 72px;
+  height: 72px;
+}
+/* Блок трека отодвинут от служебной строки: «сейчас играет» и атрибуция — это шапка прибора,
+   а обложка с названием — его содержимое, и на общем `gap` в 4px они читались одним столбцом.
+   Отступ идёт сверху блока, а не снизу шапки: шкала головки прижата к низу `margin-top: auto`,
+   и всё, что добавлено выше, забирает воздух у неё, а не у плашки. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] [data-testid="now-playing"],
+:root[data-wave="wave-03"] [data-music-mode="paused"] [data-testid="now-playing"] {
+  margin-top: 10px;
+}
+
+/* Строка состояния и атрибуция — ЕДИНСТВЕННОЕ место плашки, где набор не моноширинный.
+   Моноширинный — голос данных борда (цифры шагов, минуты сна), и на плашке Spotify он звучал
+   чужим: «СЕЙЧАС ИГРАЕТ» вразрядку читалось строкой дашборда, а не подписью плеера. Ставим
+   гротеск (Manrope — он уже грузится ради Obscura, новых шрифтов не заводим): у Spotify
+   геометрический гротеск, и это ближайшее, что есть в наборе проекта.
+   Название трека, исполнитель и альбом остаются моноширинными: это данные, и они говорят
+   голосом борда — плашка отвечает за материал, а не за содержание. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .music-status-row,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .music-status-row {
+  font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  font-size: var(--fs-music-meta);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #1ed760;
+}
+/* …а слово «Spotify» рядом со знаком остаётся тихим: знак уже назвал сервис. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .spotify-credit,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .spotify-credit {
+  font-size: var(--fs-music-meta);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+:root[data-wave="wave-03"] [data-music-mode="playing"] .spotify-mark,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .spotify-mark {
+  display: block;
+  color: #1ed760;
+  --spotify-mark-hole: #121212;
+}
+
+/* Шкала головки: включаем шов и красим зелёным Spotify. */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .music-progress,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .music-progress {
+  display: flex;
+  color: rgba(255, 255, 255, 0.45);
+}
+:root[data-wave="wave-03"] [data-music-mode="playing"] .music-progress__track,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .music-progress__track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.16);
+}
+:root[data-wave="wave-03"] [data-music-mode="playing"] .music-progress__fill,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .music-progress__fill {
+  background: #1ed760;
+}
+
+/* ── Плашка Spotify: без бегущей строки и без плейлиста ────────────────────────────────
+ * Оба решения владельца, и оба про одно: плашка должна читаться плеером Spotify, а не
+ * виджетом борда.
+ *
+ * Бегущая строка — приём БОРДА: она заведена, чтобы в тесной плитке не терять длинное
+ * название (§7.1). Spotify длинное название просто усекает многоточием и никуда не едет,
+ * и на чёрной плашке едущий текст сразу выдаёт, что это чужой виджет. Гасим анимацию и
+ * возвращаем строке обычное усечение: `.marquee-inner` шринк-врапнут под текст
+ * (`width: max-content`), поэтому одного `text-overflow` мало — сперва ширина.
+ *
+ * Плейлист уходит целиком: у плеера в этой строке стоит источник только тогда, когда он
+ * часть управления. У нас он справочный, и на плашке из четырёх строк четвёртая — лишняя.
+ */
+:root[data-wave="wave-03"] [data-music-mode="playing"] .marquee-inner,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .marquee-inner {
+  animation: none;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-wave="wave-03"] [data-music-mode="playing"] .music-source,
+:root[data-wave="wave-03"] [data-music-mode="paused"] .music-source {
+  display: none;
 }

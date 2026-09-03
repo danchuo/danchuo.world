@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: плашка Spotify сужается на колонку с каждой стороны (DESIGN §7.5).
+
+      Двенадцать колонок плитка получила, пока карточка внутри жалась к содержимому и лишняя
+      ширина шла в запас под длинное название. Плашка запас не использует: она растянута во всю
+      ячейку (`width: 100%` в скине), поэтому каждая лишняя колонка идёт не в текст, а в пустое
+      чёрное поле справа от него.
+
+      Десять колонок при той же высоте — та же плашка, только собраннее. Центр плитки остаётся
+      на оси переключателя волн: 15→16 при 12→10 двигает обе границы внутрь симметрично.
+    -->
+    <changeSet id="0550-wave-03-music-frame" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 16, "row": 8, "colSpan": 10, "rowSpan": 7}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 15, "row": 8, "colSpan": 12, "rowSpan": 7}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -14,6 +14,12 @@ interface TileShellProps {
   elevated?: boolean;
   /** Угловая пиксельная осыпь (§2.4) — только на фокусной плитке «Сегодня». */
   scatter?: boolean;
+  /**
+   * Слот ПОД содержимым, прямым ребёнком плитки (§10.2). Нужен слоям, которым мало места
+   * внутри полей: подложке во всю карточку, обрезанной её же краем. Из контента такой слой
+   * не дотянуться — он лежит за `p-4` и за колонкой `flex-1`.
+   */
+  backdrop?: ReactNode;
   /** Тихая мета-подпись плитки (§3): даёт дашбордную структуру; не на лоадере.
    *  ReactNode, а не строка: календарь вешает сюда имя активной линзы с крестиком (§5.3). */
   label?: ReactNode;
@@ -37,6 +43,7 @@ export function TileShell({
   muted = false,
   elevated = false,
   scatter = false,
+  backdrop,
   label,
   style,
   className = "",
@@ -57,6 +64,10 @@ export function TileShell({
           Скины без объёма (волна 02) гасят их у себя в CSS. */}
       {!muted && <span className="pixel-slab" aria-hidden />}
       {!muted && <span className="pixel-lid" aria-hidden />}
+
+      {/* Подложка волны (§10.2): лежит между слоями края и содержимым, обрезана
+          `overflow-hidden` самой плитки — то есть её собственным радиусом/силуэтом. */}
+      {backdrop}
 
       {state === "loading" && (
         <div

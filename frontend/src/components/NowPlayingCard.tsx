@@ -175,9 +175,27 @@ export function NowPlayingCard({
   /** Подвал карточки: плашка источника у плитки, строка минут у карточки подкаста. */
   children?: ReactNode;
 }) {
+  const cover = (
+    <Cover url={track.albumImageUrl} alt={`Обложка: ${track.album?.name ?? track.title}`} size={coverSize} />
+  );
   return (
     <div data-testid={testId} className="flex min-w-0 items-start gap-3">
-      <Cover url={track.albumImageUrl} alt={`Обложка: ${track.album?.name ?? track.title}`} size={coverSize} />
+      {/* Обложка ведёт на трек — как в самом Spotify, где картинка и есть кнопка «открыть».
+          Ссылка оборачивает обложку, а не подменяет её: без `url` (бэк его не отдал) остаётся
+          прежняя картинка без ссылки, а не битый якорь. */}
+      {track.url ? (
+        <a
+          className="np-cover-link"
+          href={track.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Открыть «${track.title}» в Spotify`}
+        >
+          {cover}
+        </a>
+      ) : (
+        cover
+      )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden" style={nowPlayingBody}>
         <Marquee>
           {track.url ? (
@@ -194,7 +212,7 @@ export function NowPlayingCard({
           </Marquee>
         )}
         {track.album && (
-          <div className="truncate fit-measure">
+          <div className="np-album truncate fit-measure">
             <Album album={track.album} />
           </div>
         )}

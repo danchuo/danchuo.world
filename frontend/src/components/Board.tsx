@@ -309,7 +309,17 @@ function BoardTile({
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":
-      return <WaveSwitcher orientation={orientation} style={style} className={className} />;
+      // Окно календаря едет в переключатель тем же материалом, что и в холст борда: карта
+      // волны, чей фон сделан из данных, показывает кусок этого фона (DESIGN §2.6).
+      return (
+        <WaveSwitcher
+          orientation={orientation}
+          summaries={data.summaries}
+          today={data.today}
+          style={style}
+          className={className}
+        />
+      );
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
     default:

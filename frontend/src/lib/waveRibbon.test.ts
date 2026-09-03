@@ -14,8 +14,6 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
     steps: 8340,
     sleepMinutes: 432,
     contributions: 3,
-    disciplineDone: 4,
-    disciplineTotal: 7,
     monster: null,
     ...over,
   };
@@ -24,25 +22,19 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
 describe("ribbonDay", () => {
   it("собирает день через точку: дата, имя дня, метрики", () => {
     expect(ribbonDay(day())).toBe(
-      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
+      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3",
     );
   });
 
   it("день без имени просто не несёт его — дырки в ленте не остаётся", () => {
     expect(ribbonDay(day({ title: null }))).toBe(
-      "пн 24.08 · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
+      "пн 24.08 · сон 7ч 12м · шаги 8 340 · вклады +3",
     );
   });
 
   it("null ≠ 0: не собранная метрика выпадает, честный ноль остаётся", () => {
     expect(ribbonDay(day({ steps: null, contributions: 0, sleepMinutes: null }))).toBe(
-      "пн 24.08 · тихий понедельник · вклады +0 · 4/7",
-    );
-  });
-
-  it("дисциплина без активных пунктов не печатает 0/0", () => {
-    expect(ribbonDay(day({ disciplineDone: 0, disciplineTotal: 0 }))).toBe(
-      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3",
+      "пн 24.08 · тихий понедельник · вклады +0",
     );
   });
 
@@ -54,8 +46,6 @@ describe("ribbonDay", () => {
           steps: null,
           sleepMinutes: null,
           contributions: null,
-          disciplineDone: 0,
-          disciplineTotal: 0,
           hasData: false,
         }),
       ),
@@ -71,11 +61,11 @@ describe("buildRibbon", () => {
     const ribbon = buildRibbon(
       [
         day(),
-      day({ date: "2026-08-25", title: "день длинных созвонов", steps: 12907, sleepMinutes: 408, contributions: 5, disciplineDone: 6 }),
+      day({ date: "2026-08-25", title: "день длинных созвонов", steps: 12907, sleepMinutes: 408, contributions: 5 }),
     ], TODAY);
     expect(ribbon).toBe(
-      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7 · " +
-        "вт 25.08 · день длинных созвонов · сон 6ч 48м · шаги 12 907 · вклады +5 · 6/7",
+      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · " +
+        "вт 25.08 · день длинных созвонов · сон 6ч 48м · шаги 12 907 · вклады +5",
     );
   });
 
@@ -86,12 +76,10 @@ describe("buildRibbon", () => {
       steps: null,
       sleepMinutes: null,
       contributions: null,
-      disciplineDone: 0,
-      disciplineTotal: 0,
       hasData: false,
     });
     expect(buildRibbon([day(), empty], TODAY)).toBe(
-      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
+      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3",
     );
   });
 
@@ -105,15 +93,12 @@ describe("buildRibbon", () => {
       title: null,
       steps: null,
       sleepMinutes: null,
-      // Вклады за будущий день приезжают нулём (день собрали, вкладов нет), а пунктов
-      // дисциплины всегда шесть — без опоры на «сегодня» такой день печатался бы
-      // как прожитый: «чт 27.08 · вклады +0 · 0/6».
+      // Вклады за будущий день приезжают нулём (день собрали, вкладов нет) — без опоры
+      // на «сегодня» такой день печатался бы как прожитый: «чт 27.08 · вклады +0».
       contributions: 0,
-      disciplineDone: 0,
-      disciplineTotal: 6,
     });
     expect(buildRibbon([day(), future], TODAY)).toBe(
-      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
+      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3",
     );
   });
 

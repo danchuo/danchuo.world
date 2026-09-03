@@ -10,15 +10,29 @@
  * (`:root[data-wave="wave-03"] body` > `body`).
  */
 
-/* Холст: спокойный тёмный градиент. Три мягких пятна дают глубину, которую преломляет
-   стекло плиток; ровная заливка под стеклом читалась бы плоско.
-   `fixed` — пятна не едут при скролле стека на тач-устройствах. */
+/* Холст: тёмный градиент с подсветкой. Четыре мягких источника света дают глубину,
+   которую преломляет стекло плиток; ровная заливка под стеклом читалась бы плоско.
+   Первый — «подсветка сзади»: широкое световое пятно ровно за бордом, чтобы стеклу было
+   что нести. Три остальных уходят за края экрана (центры вынесены за 0%/100%), поэтому
+   на холсте видно их склон, а не круг с краем.
+   `fixed` — пятна не едут при скролле стека на тач-устройствах.
+
+   ⚠️ `background-repeat`/`background-size` перечислены ЯВНО, и это несущая строчка, а не
+   гигиена. Базовое правило `body` живёт в скине волны 01 (тёплый свет + зерно-тайл) и
+   ставит `background-size: auto, 140px 140px` под свои ДВА слоя. Волна 03 меняет только
+   `background-image`, а список размеров остаётся прежним и циклически растягивается на её
+   ЧЕТЫРЕ слоя: 2-й и 4-й получают 140×140 и повторяются сеткой — холст покрывался ровными
+   светящимися точками, обрезанными по правому краю. Волна, переопределяющая `background-image`
+   базы, обязана переопределить и обе эти longhand-строки (DESIGN §10.2). */
 :root[data-wave="wave-03"] body {
   background-color: var(--bg-page);
-  background-image: radial-gradient(48% 42% at 16% 12%, #243a7a 0%, rgba(36, 58, 122, 0) 64%),
-    radial-gradient(44% 40% at 84% 26%, #0f5560 0%, rgba(15, 85, 96, 0) 62%),
-    radial-gradient(56% 48% at 52% 96%, #3d1c52 0%, rgba(61, 28, 82, 0) 66%),
+  background-image: radial-gradient(52% 46% at 50% 44%, rgba(80, 132, 196, 0.3) 0%, rgba(48, 88, 142, 0.13) 48%, rgba(10, 16, 26, 0) 80%),
+    radial-gradient(82% 72% at 2% -10%, rgba(46, 76, 160, 0.7) 0%, rgba(32, 54, 116, 0.22) 44%, rgba(10, 16, 26, 0) 72%),
+    radial-gradient(76% 66% at 106% 14%, rgba(16, 112, 128, 0.62) 0%, rgba(14, 78, 92, 0.2) 42%, rgba(10, 16, 26, 0) 70%),
+    radial-gradient(92% 70% at 46% 118%, rgba(86, 38, 116, 0.68) 0%, rgba(56, 28, 80, 0.22) 42%, rgba(10, 16, 26, 0) 72%),
     linear-gradient(168deg, #0b1018 0%, #0a0f16 55%, #080b10 100%);
+  background-repeat: no-repeat;
+  background-size: auto;
   background-attachment: fixed;
 }
 
@@ -30,7 +44,8 @@
 
 /* Набор — моноширинный, как цифры данных на плитках: лента и борд говорят одним голосом.
    Прозрачность низкая намеренно: это подложка, а не второй текст на экране. Замер на
-   макете показал, что на 17% лента честно выигрывает у мелкого текста — отсюда 10%. */
+   макете показал, что на 17% лента честно выигрывает у мелкого текста — 11.5% берём как
+   потолок, на котором лента ещё читается СКВОЗЬ стекло: за ним она проигрывает блюру. */
 :root[data-wave="wave-03"] .wave-backdrop-ribbon {
   padding: 18px 22px;
   font-family: var(--font-mono);
@@ -38,20 +53,23 @@
   line-height: 2.15;
   letter-spacing: 0.01em;
   word-spacing: 0.08em;
-  color: rgba(210, 229, 241, 0.1);
+  color: rgba(210, 229, 241, 0.115);
 }
 
-/* Скрим: мягкое затемнение к центру, где борд плотнее всего. Лента остаётся живой
-   по краям экрана, где её никто не читает поверх контента. */
+/* Виньетка: тьма собирается по КРАЯМ кадра, центр остаётся освещённым.
+   Прежде здесь стоял обратный скрим — затемнение к центру. Он гасил ленту ровно там, где
+   стоит борд, и стекло плиток размывало уже почти чёрное поле: смазанного текста за плиткой
+   не было видно вовсе, а стекло читалось непрозрачной панелью. Свет и тьма поменялись
+   местами: подсветка холста и лента живут под бордом, а к рамке экрана кадр закрывается. */
 :root[data-wave="wave-03"] .wave-backdrop::after {
   content: "";
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    72% 62% at 50% 48%,
-    rgba(8, 11, 16, 0.66) 0%,
-    rgba(8, 11, 16, 0.32) 58%,
-    rgba(8, 11, 16, 0) 100%
+    126% 104% at 50% 46%,
+    rgba(8, 11, 16, 0) 32%,
+    rgba(8, 11, 16, 0.45) 66%,
+    rgba(8, 11, 16, 0.88) 100%
   );
 }
 
@@ -81,6 +99,30 @@
    своп) и `:root{}`-блоком (SSR), и своё объявление в скине дралось бы с ними по специфичности
    по-разному в этих двух случаях. Фолбэк в `var()` от специфичности не зависит вовсе. */
 
+/* ── ХОВЕР: КРОМКА ЛОВИТ СВЕТ ───────────────────────────────────────────────────────────
+ * Опт-ин для общего шва [TileEdgeLight]: он вешает слушателя, ТОЛЬКО если волна объявила
+ * это свойство, и пишет в плитку под курсором `--tile-dx`/`--tile-dy` — вектор от её центра
+ * к указателю в [-1, 1]. Волна, которой ховер не нужен, свойство не объявляет и не платит
+ * ни одним слушателем. Ключа волны в коде шва нет — правило §10.1 цело.
+ */
+:root[data-wave="wave-03"] {
+  --tile-edge-light: 1;
+}
+
+/* Сам свет — четвёртая (у приглушённой плитки вторая) `inset`-тень в списке. Она стоит и в
+   покое, с нулевой альфой: списки теней интерполируются, только если РАВНОЙ длины, иначе
+   переход схлопывается в скачок.
+   Знак смещения обратный вектору: `inset` с положительным X кладёт тень на ЛЕВУЮ внутреннюю
+   грань, поэтому курсор справа (`--tile-dx` = +1) должен давать отрицательный сдвиг.
+   `--tile-dx` по умолчанию 0 — и это рабочий фолбэк, а не заглушка: без шва (тач, «меньше
+   движения», волна-без-опт-ина) тень ложится ровным свечением по всей кромке. */
+:root[data-wave="wave-03"] .pixel-tile,
+:root[data-wave="wave-03"] .muted-tile {
+  --edge-a: 0;
+  --edge-light: inset calc(var(--tile-dx, 0) * -14px) calc(var(--tile-dy, 0) * -14px) 26px -12px
+    rgb(190 230 250 / var(--edge-a));
+}
+
 :root[data-wave="wave-03"] .pixel-tile {
   clip-path: none;
   filter: none;
@@ -88,10 +130,12 @@
   border-radius: var(--radius-lg);
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.04), var(--glass-tint, rgba(120, 160, 190, 0.13)));
   box-shadow: inset 0 1px 0 var(--glass-sheen, rgba(190, 230, 250, 0.22)), inset 0 -1px 0 rgba(190, 230, 250, 0.08),
-    0 24px 60px -28px rgba(0, 0, 0, 0.9);
-  /* Подъём по наведению — `transform`, а НЕ размер: у элемента с композитным слоем
-     анимация размера оставляет в WebKit гребёнку из своих теней (docs/pitfalls.md). */
-  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    var(--edge-light), 0 24px 60px -28px rgba(0, 0, 0, 0.9);
+  /* 120ms, а не 180: тень тянется и за появлением света, и за его ездой по кромке. На 180
+     свет заметно отставал от курсора и читался лагом; на 120 отставание работает на материал —
+     стекло тяжёлое и свет по нему течёт, а не прыгает. Размеры не анимируем никогда: у элемента
+     с композитным слоем это оставляет в WebKit гребёнку из своих теней (docs/pitfalls.md). */
+  transition: box-shadow 120ms ease, border-color 160ms ease;
 }
 
 /* Общее для трёх проходов: слои-невидимки строго по коробке плитки, за контентом. */
@@ -112,23 +156,23 @@
 
 /* Проход 1 — верх стекла почти прозрачен: сквозь него читается лента холста. */
 :root[data-wave="wave-03"] .pixel-tile::before {
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.15));
-  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.15));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.15));
+  backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.15));
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 48%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 48%);
 }
 /* Проход 2 — середина. */
 :root[data-wave="wave-03"] .pixel-lid {
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.45)) saturate(1.15);
-  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.45)) saturate(1.15);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.45)) saturate(1.15);
+  backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.45)) saturate(1.15);
   -webkit-mask-image: linear-gradient(to bottom, transparent 14%, #000 42%, #000 66%, transparent 88%);
   mask-image: linear-gradient(to bottom, transparent 14%, #000 42%, #000 66%, transparent 88%);
 }
 /* Проход 3 — низ: полный радиус, под цифрами данных фон уже глухой. Насыщенность добавлена
    намеренно: блюр без неё делает цвета мутными. */
 :root[data-wave="wave-03"] .pixel-tile::after {
-  -webkit-backdrop-filter: blur(var(--glass-blur, 20px)) saturate(1.3);
-  backdrop-filter: blur(var(--glass-blur, 20px)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.3);
+  backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.3);
   -webkit-mask-image: linear-gradient(to bottom, transparent 52%, #000 92%);
   mask-image: linear-gradient(to bottom, transparent 52%, #000 92%);
 }
@@ -153,7 +197,7 @@
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.02), rgba(120, 160, 190, 0.09));
   border-color: rgba(160, 205, 230, 0.26);
   box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.3), inset 0 -1px 0 rgba(190, 230, 250, 0.1),
-    0 32px 80px -30px rgba(0, 0, 0, 0.95);
+    var(--edge-light), 0 32px 80px -30px rgba(0, 0, 0, 0.95);
 }
 :root[data-wave="wave-03"] .pixel-tile[data-elevated="true"]::after {
   background-image: none;
@@ -166,7 +210,8 @@
 :root[data-wave="wave-03"] .muted-tile {
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.03), rgba(120, 160, 190, 0.09));
   border: 1px solid rgba(160, 205, 230, 0.12);
-  box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.12);
+  box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.12), var(--edge-light);
+  transition: box-shadow 120ms ease, border-color 160ms ease;
 }
 :root[data-wave="wave-03"] .muted-tile::before,
 :root[data-wave="wave-03"] .muted-tile::after {
@@ -181,16 +226,88 @@
   background-image: none;
 }
 :root[data-wave="wave-03"] .muted-tile::before {
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.25));
-  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.25));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.25));
+  backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.25));
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 62%);
 }
 :root[data-wave="wave-03"] .muted-tile::after {
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.7)) saturate(1.2);
-  backdrop-filter: blur(calc(var(--glass-blur, 20px) * 0.7)) saturate(1.2);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.7)) saturate(1.2);
+  backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.7)) saturate(1.2);
   -webkit-mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
   mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
+}
+
+/* ── Переключатель волн: чипы во всю плитку (DESIGN §2.6) ─────────────────────────────
+ * Это правка ряда НА БОРДЕ PRIME (обёртка `:root[data-wave="wave-03"]`), а не вида чипа
+ * этой волны на чужом борде — тот блок ниже и живёт по `[data-chip-wave]`.
+ *
+ * Ряд перестаёт быть строчкой мелких свотчей: три карты делят плитку поровну, тянутся на её
+ * высоту и отделены друг от друга и от края одним и тем же просветом. Плитка волн — теперь
+ * единственный виджет на борде, и мелкие квадраты по центру пустого экрана читались значком,
+ * а не выбором. Крупная карта показывает волну тем, чем волна и является: холст, край, акцент.
+ *
+ * `flex: 1 1 0` вместо ширины из `--chip-size`: доля контейнера, а не clamp от `cqw` — карта
+ * обязана делить плитку поровну при любом зуме, а демпфер §8.1 держал бы её мельче ряда.
+ * `aspect-ratio` снят намеренно: квадрат был формой свотча, у карты форму задаёт плитка. */
+:root[data-wave="wave-03"] .wave-chip-row {
+  gap: 12px;
+}
+
+:root[data-wave="wave-03"] .wave-chip {
+  flex: 1 1 0;
+  width: auto;
+  height: 100%;
+  aspect-ratio: auto;
+  /* Торец «коробочки» — единственный носитель сигнального цвета волны (врез в common.css).
+     На карте вчетверо крупнее прежнего свотча двухпиксельная полоска пропадала совсем,
+     поэтому глубина растёт вместе с картой: выбор по-прежнему читается и формой, и цветом. */
+  --chip-depth: 5px;
+  /* Ступень силуэта — ОТ ШИРИНЫ РЯДА, а не константой. Базовые 2/4px рисовались под свотч
+     в 34px и на карте в восемьдесят с лишним вырождались в скруглённый угол; но и обратная
+     беда реальна: фиксированный срез в 8px на узкой карте отъедает по четверти угла и
+     возвращает «крестик» из вреза §2.6. Плитка переключателя — число в дельте волны, скину
+     оно не видно, поэтому шаг считается от контейнера (`cqw` разрешается на `.tile-frame`,
+     см. common.css): три карты с просветами делят ряд, то есть карта ≈ треть его ширины,
+     а ступень ≈ десятая часть карты.
+     `round(down, …, 1px)` обязателен: полушаг попадает между физическими пикселями и на краю
+     исчезает в антиалиасинге — лесенка теряет зуб (та же пара приёмов, что у `--chip-size`).
+     Бьёт только по волне 01: волны 02 и 03 рисуют свой край сами и силуэт гасят. */
+  --chip-step: clamp(2px, 3.2cqw, 5px);
+  --chip-step: round(down, clamp(2px, 3.2cqw, 5px), 1px);
+  --chip-cut: calc(var(--chip-step) * 2);
+  --chip-corners: polygon(
+    0 var(--chip-cut),
+    var(--chip-step) var(--chip-cut),
+    var(--chip-step) var(--chip-step),
+    var(--chip-cut) var(--chip-step),
+    var(--chip-cut) 0,
+    calc(100% - var(--chip-cut)) 0,
+    calc(100% - var(--chip-cut)) var(--chip-step),
+    calc(100% - var(--chip-step)) var(--chip-step),
+    calc(100% - var(--chip-step)) var(--chip-cut),
+    100% var(--chip-cut),
+    100% calc(100% - var(--chip-cut)),
+    calc(100% - var(--chip-step)) calc(100% - var(--chip-cut)),
+    calc(100% - var(--chip-step)) calc(100% - var(--chip-step)),
+    calc(100% - var(--chip-cut)) calc(100% - var(--chip-step)),
+    calc(100% - var(--chip-cut)) 100%,
+    var(--chip-cut) 100%,
+    var(--chip-cut) calc(100% - var(--chip-step)),
+    var(--chip-step) calc(100% - var(--chip-step)),
+    var(--chip-step) calc(100% - var(--chip-cut)),
+    0 calc(100% - var(--chip-cut))
+  );
+}
+:root[data-wave="wave-03"] .wave-chip[data-active="true"] {
+  --chip-depth: 9px;
+}
+
+/* Отступ от края плитки до карты — тот же просвет, что между картами: ряд читается одной
+   сеткой, а не «контентом внутри отступов вёрстки». Плиточный `p-4` (16px) под это не годится:
+   он задавался под подпись сверху, которой у PRIME нет. */
+:root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .pixel-tile {
+  padding: 12px;
 }
 
 /* ── Чип волны 03 в переключателе (DESIGN §2.6) ─────────────────────────────────────────
@@ -208,14 +325,46 @@
   clip-path: none;
   border-radius: var(--chip-radius);
 }
-/* Верхняя карта — сам холст волны (--chip-bg): у стеклянных карт нет обводки-канта, край
-   держат радиус и светлая кромка. Без этой строки заливкой служил бы --chip-line. */
+/* Верхняя карта — сам холст волны: у стеклянных карт нет обводки-канта, край держат радиус
+   и светлая кромка. Без этой строки заливкой служил бы --chip-line.
+   Холст берётся градиентом, а не одним `--chip-bg`: на тёмном плоская заливка сливается
+   с бордом PRIME в чёрный прямоугольник, у которого читается только цветной торец. Те же
+   четыре источника света, что у `body` волны, сжатые в коробку карты. */
 .wave-chip[data-chip-wave="wave-03"] .wave-chip__face {
-  background: var(--chip-bg);
+  background-color: var(--chip-bg);
+  background-image: radial-gradient(58% 50% at 50% 44%, rgba(80, 132, 196, 0.34) 0%, rgba(10, 16, 26, 0) 78%),
+    radial-gradient(86% 74% at 2% -10%, rgba(46, 76, 160, 0.72) 0%, rgba(10, 16, 26, 0) 70%),
+    radial-gradient(80% 68% at 106% 14%, rgba(16, 112, 128, 0.62) 0%, rgba(10, 16, 26, 0) 68%),
+    radial-gradient(96% 72% at 46% 118%, rgba(86, 38, 116, 0.7) 0%, rgba(10, 16, 26, 0) 70%),
+    linear-gradient(168deg, #0b1018 0%, #0a0f16 55%, #080b10 100%);
   box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.22);
 }
 /* Вложенный слой заливки стеклу не нужен — карта остаётся одной поверхностью. */
 .wave-chip[data-chip-wave="wave-03"] .wave-chip__face::after {
+  display: none;
+}
+
+/* ── Подписи плиток: в PRIME их нет ────────────────────────────────────────────────────
+   «Параметр волны», как и у Obscura: дашбордная мета сверху виджета убрана, содержимое
+   растягивается на освободившееся место. Стекло держит структуру борда само — светящаяся
+   кромка отделяет плитку от холста лучше, чем слово над ней, а на тёмном лишняя строка
+   мелкого текста спорит с лентой холста, просвечивающей сквозь верх стекла.
+
+   Уходит вместе с подписью и сценка дозвона на плитке свежести (§7.3): она стоит В СТРОКЕ
+   ЯРЛЫКА вместо слова «свежесть», то есть она ярлык, а не содержимое плитки. Тот же размен,
+   что приняла волна 02. */
+:root[data-wave="wave-03"] .tile-label {
+  display: none;
+}
+/* Исключение ровно одно, и то же, что у волны 02: строка ярлыка календаря несёт ЛИСТАНИЕ
+   недель (§5.3) — это навигация, а не подпись, и спрятать её значило бы отобрать доступ
+   к истории. Возвращается только ряд управления; само слово «календарь» (и имя месяца,
+   и линза) остаётся скрытым, как все мета-ярлыки волны. */
+:root[data-wave="wave-03"] .tile-label:has(.cal-nav) {
+  display: flex;
+  justify-content: flex-end;
+}
+:root[data-wave="wave-03"] .cal-label-row > :not(.cal-nav) {
   display: none;
 }
 
@@ -229,18 +378,17 @@
   mask: var(--social-mask) center / contain no-repeat;
 }
 
-/* Ховер: плитка всплывает и стекло чуть густеет. Размеры не трогаем — см. комментарий выше. */
+/* Ховер — ТОЛЬКО свет в торце: ни подъёма, ни густеющего тинта.
+ * Подъём был жестом волны 01, перекрашенным; густеющее стекло вдобавок врало про материал —
+ * стекло от прикосновения не мутнеет. Здесь плитка не двигается вовсе, а меняется освещение:
+ * зажигается кромка со стороны курсора. Из всей плитки правится РОВНО альфа света и цвет
+ * канта — потому этот ховер и не стоит ни композитного слоя, ни лишнего узла.
+ * Выбран владельцем из пяти прототипов; отвергнутые — в DESIGN §10.2. */
 @media (hover: hover) {
-  :root[data-wave="wave-03"] .pixel-tile:hover {
-    transform: translateY(-2px);
-    background: linear-gradient(to bottom, rgba(120, 160, 190, 0.07), rgba(140, 180, 210, 0.18));
-    border-color: rgba(160, 205, 230, 0.3);
-    box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.34), inset 0 -1px 0 rgba(190, 230, 250, 0.12),
-      0 34px 74px -28px rgba(0, 0, 0, 0.95);
-  }
+  :root[data-wave="wave-03"] .pixel-tile:hover,
   :root[data-wave="wave-03"] .muted-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.18), 0 20px 46px -26px rgba(0, 0, 0, 0.9);
+    --edge-a: 0.55;
+    border-color: rgba(160, 205, 230, 0.32);
   }
 }
 

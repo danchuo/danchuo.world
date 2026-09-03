@@ -107,11 +107,18 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     frame = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(frame);
-      // Смена оси (ориентация волны) не должна оставить ленту сдвинутой по прежней.
-      track.style.left = "";
-      track.style.top = "";
     };
   }, [trackRef, span, seconds, axis]);
+
+  // Keep the current position while the measured loop span changes. Clear only
+  // the axis that is no longer active when switching between orientations.
+  useEffect(() => {
+    return () => {
+      const track = trackRef.current;
+      if (!track) return;
+      track.style[axis === "left" ? "top" : "left"] = "";
+    };
+  }, [trackRef, axis]);
 
   // Протяжка. Слушаем окно, а не сам трек: рука почти всегда уходит за пределы ленты, и на
   // `pointerleave` жест обрывался бы на полпути. Слушатели живут независимо от того, едет ли

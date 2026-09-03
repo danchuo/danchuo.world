@@ -17,8 +17,6 @@ const day = (over: Partial<DaySummary>): DaySummary => ({
   steps: 8000,
   sleepMinutes: 400,
   contributions: null,
-  disciplineDone: 0,
-  disciplineTotal: 3,
   disciplineCounts: {},
   monster: null,
   ...over,

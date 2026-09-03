@@ -19,8 +19,6 @@ function buildWindow(today: string = TODAY): DaySummary[] {
     steps: date === today ? 8421 : null,
     sleepMinutes: null,
     contributions: null,
-    disciplineDone: 0,
-    disciplineTotal: 5,
     // Растяжка сделана по чётным числам — материал для линзы.
     disciplineCounts: { stretch: Number(date.slice(8)) % 2 === 0 ? 1 : 0, reading: 2 },
     // Монстра отмечали в каждый день с записью — иначе линза молчала бы всюду.
@@ -531,8 +529,6 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
       steps: null,
       sleepMinutes: null,
       contributions: null,
-      disciplineDone: 0,
-      disciplineTotal: 5,
       disciplineCounts: { stretch: 0, reading: 0 },
       monster: null,
     }));

@@ -47,11 +47,6 @@ export function formatSleepAxis(minutes: number): string {
   return `${Math.round(minutes / 60)}ч`;
 }
 
-/** Прогресс пункта дисциплины дробью `2/2` (DESIGN §4). */
-export function formatFraction(count: number, target: number): string {
-  return `${count}/${target}`;
-}
-
 /** Пункт закрыт (для подсветки `--success`, DESIGN §4). */
 export function isDisciplineDone(count: number, target: number): boolean {
   return count >= target;

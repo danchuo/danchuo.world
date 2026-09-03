@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: плитка переключателя 8x5 → 5x4 (DESIGN §2.6, §10.2).
+
+      Восемь ячеек в ширину владелец посмотрел на живом борде и сбавил: карты во всю плитку
+      читаются и на пяти, а плитка перестаёт быть главным пятном пустого экрана. Высота
+      прежняя по факту (rowSpan 4 и 5 дают одну и ту же высоту карты после отступов), ширина
+      уходит с 298 до 185 пикселей на экране 1536.
+
+      Ступень силуэта чипа теперь считается от ширины ряда (wave-03.css), поэтому смена
+      размера плитки не требует правки скина: лесенка волны 01 подстраивается сама.
+
+      Позиция пересчитана под центр сетки 40x28.
+    -->
+    <changeSet id="0520-wave-03-switcher-5x4" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,waveSwitcher}',
+        $J${"col": 18, "row": 13, "colSpan": 5, "rowSpan": 4}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,waveSwitcher}',
+        $J${"col": 17, "row": 12, "colSpan": 8, "rowSpan": 5}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

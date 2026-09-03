@@ -20,6 +20,7 @@ import { RideTile } from "./RideTile";
 import { SleepTile } from "./SleepTile";
 import { SocialTile } from "./SocialTile";
 import { StatsTile } from "./StatsTile";
+import { TileEdgeLight } from "./TileEdgeLight";
 import { TodayTile } from "./TodayTile";
 import { WaveBackdrop } from "./WaveBackdrop";
 import { useCalendarWindow } from "./useCalendarWindow";
@@ -155,6 +156,10 @@ export function Board() {
       {/* Фоновый слой волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином.
           Волне 03 он рисует холст — ленту прожитых дней из того же окна календаря, что и сетка. */}
       <WaveBackdrop summaries={summaries} today={today} wave={activeKey} />
+
+      {/* Ховер-шов волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином
+          через `--tile-edge-light`. Волне 03 он даёт кромку, ловящую свет курсора. */}
+      <TileEdgeLight wave={activeKey} />
 
       {/* Десктоп (мышь/трекпад, окно шире страховочного пола): полный bento без скролла
           (DESIGN §3, §8). Условие режима — в `.board-bento`/`.board-stack` (common.css):

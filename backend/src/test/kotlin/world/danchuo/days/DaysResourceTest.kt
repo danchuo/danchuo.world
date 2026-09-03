@@ -236,7 +236,11 @@ class DaysResourceTest {
             .body("size()", equalTo(5)) // непрерывная сетка [from, to] включительно
             .body("find { it.date == '$seeded' }.hasData", equalTo(true))
             .body("find { it.date == '$seeded' }.monster.accentColor", notNullValue())
-            .body("find { it.date == '$seeded' }.disciplineDone", greaterThan(0))
+            // Свёртки «N из M закрыто» в сводке БОЛЬШЕ НЕТ: её единственным потребителем была
+            // лента холста волны 03, и та от дробей отказалась (см. DaySummary). Линза считает
+            // по disciplineCounts — это проверяет тест ниже.
+            .body("find { it.date == '$seeded' }.disciplineDone", nullValue())
+            .body("find { it.date == '$seeded' }.disciplineTotal", nullValue())
             .body("find { it.date == '$empty' }.hasData", equalTo(false))
     }
 

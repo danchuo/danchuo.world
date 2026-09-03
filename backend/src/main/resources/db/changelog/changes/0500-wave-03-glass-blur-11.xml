@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: блюр стекла 12px → 11px (DESIGN §10.2).
+
+      Ещё один шаг той же доводки, что и сид 0490: лента за плиткой должна читаться, а не
+      угадываться. Числу больше нечего объяснять, кроме «на глаз владельца на живом борде» —
+      ручка в БД ровно для этого и заведена.
+
+      Фолбэк в var() внутри wave-03.css обновлён тем же числом.
+    -->
+    <changeSet id="0500-wave-03-glass-blur-11" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"glass-blur": "11px"}$J$::jsonb WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"glass-blur": "12px"}$J$::jsonb WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

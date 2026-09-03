@@ -10,8 +10,6 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
     steps: null,
     sleepMinutes: null,
     contributions: null,
-    disciplineDone: 0,
-    disciplineTotal: 5,
     disciplineCounts: {},
     monster: null,
     ...over,

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   formatAgo,
-  formatFraction,
   formatSleep,
   formatSleepAxis,
   formatSleepShort,
@@ -30,8 +29,7 @@ describe("format (null != 0, PRD 5.4)", () => {
     expect(formatSleep(45)).toBe("45 мин");
   });
 
-  it("дисциплина - дробью, закрытый пункт детектится", () => {
-    expect(formatFraction(2, 2)).toBe("2/2");
+  it("закрытый пункт дисциплины детектится по порогу", () => {
     expect(isDisciplineDone(2, 2)).toBe(true);
     expect(isDisciplineDone(1, 2)).toBe(false);
   });

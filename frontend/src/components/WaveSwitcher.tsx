@@ -107,8 +107,11 @@ export function WaveSwitcher({ style, className, orientation = "horizontal" }: W
         // столбец (жалоба владельца «почему волны встают вертикально на 110%»); теперь
         // направление задаёт ТОЛЬКО раскладка волны, а чипы в тесноте жмутся (см. flex-shrink
         // и aspect-ratio у .wave-chip).
+        // `wave-chip-row` — зацепка для скина, а не оформление: волна вправе перекроить ряд
+        // (PRIME растягивает чипы на всю плитку и разводит их своим просветом). Класс
+        // wave-агностичный, в базе за ним ничего не стоит.
         <div
-          className={`tile-frame flex h-full flex-nowrap content-center items-center gap-1.5 ${
+          className={`wave-chip-row tile-frame flex h-full flex-nowrap content-center items-center gap-1.5 ${
             vertical ? "flex-col" : "flex-row"
           }`}
         >

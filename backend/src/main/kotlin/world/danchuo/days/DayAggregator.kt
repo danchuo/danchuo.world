@@ -166,7 +166,6 @@ class DayAggregator(
      */
     fun summaries(from: LocalDate, to: LocalDate): List<DaySummary> {
         val items = checklistItems.listActive()
-        val total = items.size
         val records = days.listByDateRange(from, to).associateBy { it.date }
         val entriesByDate = checklistEntries.listByDateRange(from, to).groupBy { it.date }
         val flavorsById = monsterFlavors.listAll().associateBy { it.id }
@@ -176,7 +175,6 @@ class DayAggregator(
             .map { date ->
                 val record = records[date]
                 val counts = entriesByDate[date].orEmpty().associate { it.itemId to it.count }
-                val done = items.count { (counts[it.id] ?: 0) >= it.target }
                 val monster = record?.monsterFlavorId
                     ?.let { flavorsById[it] }
                     ?.let { MonsterMark(it.key, it.name, it.accentColor) }
@@ -188,10 +186,8 @@ class DayAggregator(
                     steps = record?.steps,
                     sleepMinutes = record?.sleepMinutes,
                     contributions = record?.contributions,
-                    disciplineDone = done,
-                    disciplineTotal = total,
                     // Ключи — активных пунктов, не только отмеченных: линза должна отличать
-                    // «пункт есть, не сделан» от «пункта нет». Тот же набор, что у disciplineTotal.
+                    // «пункт есть, не сделан» от «пункта нет».
                     disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
                     monster = monster,
                     // Отметка есть ⇒ шорткат за день отработал; выбранный вкус засчитываем сам

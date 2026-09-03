@@ -16,14 +16,19 @@
 
 import type { DaySummary } from "./api/types";
 import { weekdayShortRu } from "./date";
-import { formatFraction, formatSleepShort, formatSteps } from "./format";
+import { formatSleepShort, formatSteps } from "./format";
 
 /** Разделитель и внутри дня, и между днями: лента должна читаться как одна строка. */
 const DOT = " · ";
 
 /**
- * День в ленте: `пн 25.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7`.
+ * День в ленте: `пн 25.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3`.
  * `null` — дню нечего сказать (одна голая дата строкой не считается).
+ *
+ * Дроби дисциплины (`4/7`) в ленте НЕТ: на холсте они читались как второй голос данных и
+ * мешали — фон обязан оставаться подложкой. Вместе с ними из `DaySummary` ушли и сами
+ * свёртки `disciplineDone`/`disciplineTotal`: лента была их единственным потребителем,
+ * а линза календаря считает по `disciplineCounts` (§5.3).
  */
 export function ribbonDay(summary: DaySummary): string | null {
   const parts: string[] = [];
@@ -32,11 +37,6 @@ export function ribbonDay(summary: DaySummary): string | null {
   if (summary.sleepMinutes !== null) parts.push(`сон ${formatSleepShort(summary.sleepMinutes)}`);
   if (summary.steps !== null) parts.push(`шаги ${formatSteps(summary.steps)}`);
   if (summary.contributions !== null) parts.push(`вклады +${summary.contributions}`);
-  // Дисциплина без активных пунктов — это «пунктов нет», а не «ни одного не сделал»:
-  // 0/0 в ленте читалось бы как провал дня.
-  if (summary.disciplineTotal > 0) {
-    parts.push(formatFraction(summary.disciplineDone, summary.disciplineTotal));
-  }
 
   if (parts.length === 0) return null;
   return [`${weekdayShortRu(summary.date)} ${dayMonth(summary.date)}`, ...parts].join(DOT);
@@ -46,10 +46,10 @@ export function ribbonDay(summary: DaySummary): string | null {
  * Окно календаря одной строкой. Пустые дни выпадают, двойных точек не остаётся.
  *
  * `today` (MSK, ISO) — опора: **дни после неё в ленту не попадают**. Без неё холст врал бы:
- * окно календаря заходит на неделю вперёд, вклады за будущий день приезжают честным нулём,
- * а пунктов дисциплины всегда шесть — и непрожитый день печатался бы наравне с прожитым
- * («чт 27.08 · вклады +0 · 0/6»). Холст называется лентой ПРОЖИТЫХ дней; сегодняшний в ней
- * остаётся. Сравнение строковое: ISO-даты сортируются лексикографически.
+ * окно календаря заходит на неделю вперёд, а вклады за будущий день приезжают честным нулём —
+ * и непрожитый день печатался бы наравне с прожитым («чт 27.08 · вклады +0»). Холст называется
+ * лентой ПРОЖИТЫХ дней; сегодняшний в ней остаётся. Сравнение строковое: ISO-даты
+ * сортируются лексикографически.
  */
 export function buildRibbon(summaries: DaySummary[], today: string): string {
   return summaries

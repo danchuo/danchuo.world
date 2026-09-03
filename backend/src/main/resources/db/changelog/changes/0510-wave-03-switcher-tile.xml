@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: плитка переключателя вырастает 4x4 → 8x5 (DESIGN §2.6, §10.2).
+
+      Скин растянул чипы на всю плитку, но на четырёх ячейках сетки 40x28 (около 147x115px
+      на экране владельца) три карты выходили узкими полосками по 31px. Плитка волн сейчас
+      единственный виджет на борде — место под ней есть, и карта волны должна быть картой,
+      а не полоской.
+
+      Это состояние РАБОЧЕЕ, как и сам одинокий переключатель из сида 0480: когда виджеты
+      начнут возвращаться, плитка вернётся к своему размеру правкой этих двух чисел.
+      Позиция пересчитана так, чтобы плитка осталась по центру сетки.
+
+      UPDATE по jsonb-пути: остальная дельта (скрытые тайлы, mobileOrder) не трогается.
+    -->
+    <changeSet id="0510-wave-03-switcher-tile" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,waveSwitcher}',
+        $J${"col": 17, "row": 12, "colSpan": 8, "rowSpan": 5}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,waveSwitcher}',
+        $J${"col": 19, "row": 13, "colSpan": 4, "rowSpan": 4}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

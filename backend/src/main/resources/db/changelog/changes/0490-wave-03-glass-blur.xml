@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: блюр стекла 20px → 12px (DESIGN §10.2).
+
+      Ручка из сида 0460 сработала ровно так, как задумывалась: правка одной записи, без
+      строчки CSS. Причина — не производительность, а читаемость холста: лента прожитых
+      дней набрана 12.5px и живёт на 11.5% прозрачности, и полный проход в 20px растирал
+      её за плиткой в ровное поле — стекло переставало быть стеклом. На 12px нижний проход
+      всё ещё глушит фон под цифрами данных, а смазанный текст за плиткой виден.
+
+      Фолбэк в `var()` внутри wave-03.css обновлён тем же числом. (В комментарии XML нельзя
+      писать двойной дефис, поэтому имя токена здесь без него.)
+    -->
+    <changeSet id="0490-wave-03-glass-blur" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"glass-blur": "12px"}$J$::jsonb WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET tokens = tokens || $J${"glass-blur": "20px"}$J$::jsonb WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

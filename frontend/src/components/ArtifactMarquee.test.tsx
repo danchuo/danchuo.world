@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactView } from "@/lib/api/types";
 import { ArtifactMarquee } from "./ArtifactMarquee";
@@ -437,5 +437,69 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
     dragBy(screen.getByText("Камера").closest("button")!, 200, 140);
 
     expect(track.style.left).toBe("");
+  });
+});
+
+describe("ArtifactMarquee — смена волны не оставляет ленту уехавшей (§7.2)", () => {
+  beforeEach(() => {
+    getArtifactsMock.mockReset();
+  });
+
+  it("смена ориентации чистит ось, по которой лента ехала", async () => {
+    // Волна задаёт направление ленты (§10.1), и посетитель переключает волны сколько хочет.
+    // Пока горизонтальный эффект чистил за собой ЧУЖУЮ ось, `left` оставался от прошлой
+    // волны: в вертикальной ленте предметы стояли сдвинутыми вбок и с каждым переключением
+    // уползали дальше за край виджета (замечание владельца с живого борда).
+    forceScrolling();
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container, rerender } = render(<ArtifactMarquee />);
+    await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
+
+    const track = container.querySelector(".artifact-track") as HTMLElement;
+    const frame = container.querySelector(".tile-frame") as HTMLElement;
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: 120 });
+    expect(track.style.left).not.toBe("");
+
+    rerender(<ArtifactMarquee orientation="vertical" />);
+
+    await waitFor(() => expect(track.style.left).toBe(""));
+  });
+
+  it("лента, которая перестала ехать, возвращается на место, а не застывает уехавшей", async () => {
+    // Другая волна — другой размер плитки, и предметы в неё могут просто влезть. Шаг петли
+    // тогда нулевой, копии контента нет, ходу неоткуда взяться — но сдвиг от прошлой волны
+    // оставался в стиле, и единственная копия стояла наполовину за краем.
+    //
+    // Пересчёт размеров в жизни запускает ResizeObserver, поэтому здесь он не заглушка, а
+    // рабочий: тест дёргает ровно тот механизм, что и смена волны на борде.
+    const observers: (() => void)[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          observers.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 1000 });
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 100 });
+    getArtifactsMock.mockResolvedValue([camera]);
+    const { container } = render(<ArtifactMarquee />);
+    await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
+
+    const track = container.querySelector(".artifact-track") as HTMLElement;
+    const frame = container.querySelector(".tile-frame") as HTMLElement;
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: 120 });
+    expect(track.style.left).not.toBe("");
+
+    // Предметы стали влезать: одна копия у́же окна ⇒ лента больше не едет.
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 50 });
+    await act(async () => {
+      observers.forEach((cb) => cb());
+    });
+
+    await waitFor(() => expect(track.style.left).toBe(""));
   });
 });

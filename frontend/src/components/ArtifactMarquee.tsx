@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { getArtifacts } from "@/lib/api/client";
 import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
@@ -11,6 +11,10 @@ import { TileShell } from "./TileShell";
 import { useBackToClose } from "./useBackToClose";
 import { useMarqueeDrag } from "./useMarqueeDrag";
 import { useTileData } from "./useTileData";
+
+/* `useLayoutEffect` шумит предупреждением при серверном рендере клиентского компонента —
+   на сервере падаем на обычный эффект (тот же приём, что в [MusicTile]). */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface ArtifactMarqueeProps {
   style?: CSSProperties;
@@ -113,7 +117,11 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
   /** Шаг петли — размер ОДНОЙ копии контента вдоль ленты. Им же меряется протяжка. */
   const [span, setSpan] = useState(0);
 
-  useEffect(() => {
+  /* Замер идёт СИНХРОННО после коммита (`useLayoutEffect`), а не в следующем тике: до него
+     `span` равен нулю, а нулевой шаг петли значит «лента влезла» — и ни ход, ни протяжка, ни
+     колесо не работают вовсе. Один пропущенный кадр невидим, но пойманный в этот зазор жест
+     терялся молча (ловилось тестом ленты, падавшим через раз). */
+  useIsomorphicLayoutEffect(() => {
     const box = containerRef.current;
     const track = trackRef.current;
     if (!box || !track) return;
@@ -132,7 +140,11 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
     ro.observe(box);
     ro.observe(track);
     return () => ro.disconnect();
-  }, [vertical, scrolling, artifacts.length]);
+    /* `phase` в зависимостях не для красоты: контент рендерится только в состоянии `loaded`,
+       и до него обеих ссылок нет — эффект уходит в ранний `return`. Без этой зависимости
+       он больше не перезапустится, если состав ленты при этом не изменился (данные приехали
+       из кэша ровно те же), и лента останется с нулевым шагом навсегда. */
+  }, [vertical, scrolling, artifacts.length, phase]);
 
   // Системное «Назад» закрывает меню, а не уводит с сайта (DESIGN §9).
   useBackToClose(active !== null, () => setActive(null));

@@ -80,8 +80,17 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
   // позицию в этот момент ведёт сам `pointermove`.
   useEffect(() => {
     const track = trackRef.current;
-    if (!track || span <= 0) return;
     const s = state.current;
+    /* Лента больше не едет (другая волна — другой размер плитки, предметы влезли): смещения
+       быть не может, и оставлять его в стиле нельзя. Единственная копия контента стояла бы
+       наполовину за краем виджета — с каждым переключением волн всё дальше (замечание
+       владельца). Обнуляем и позицию, и накопленное смещение: ходу неоткуда взяться. */
+    if (!track || span <= 0) {
+      if (track) track.style[axis] = "";
+      s.offset = 0;
+      s.velocity = 0;
+      return;
+    }
     const drift = driftSpeed(span, seconds);
     let frame = 0;
     let prev = performance.now();
@@ -110,13 +119,21 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     };
   }, [trackRef, span, seconds, axis]);
 
-  // Keep the current position while the measured loop span changes. Clear only
-  // the axis that is no longer active when switching between orientations.
+  /* Смена ориентации (её задаёт волна, DESIGN §10.1) уводит ленту на ДРУГУЮ ось, и позицию
+     по прежней надо снять — иначе она остаётся в стиле навсегда: вертикальная лента ехала бы
+     по `top`, сохраняя сдвиг по `left` от горизонтальной, и предметы стояли бы вбок от окна.
+     Эффект чистит именно ТУ ось, которую вёл (`axis`), — раньше здесь чистилась
+     противоположная, то есть та, которой этот эффект никогда не касался, и сдвиг копился от
+     переключения к переключению (замечание владельца с живого борда). */
   useEffect(() => {
     return () => {
       const track = trackRef.current;
       if (!track) return;
-      track.style[axis === "left" ? "top" : "left"] = "";
+      track.style[axis] = "";
+      /* Смещение считано в пикселях ПРЕЖНЕЙ оси, и на новой оно значит другое расстояние
+         (копия вдоль высоты короче, чем вдоль ширины). Начинаем с нуля. */
+      state.current.offset = 0;
+      state.current.velocity = 0;
     };
   }, [trackRef, axis]);
 

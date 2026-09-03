@@ -1,3 +1,6 @@
+import type { CSSProperties } from "react";
+import { coverPlate } from "@/lib/coverPlate";
+
 /**
  * Знак Spotify (PRD §5.5, DESIGN §7.5). Отдельный компонент, а не глиф в [Icon]: набор
  * волны 01 — одноцветные line-символы на `currentColor`, а этот знак двуцветный по своей
@@ -12,10 +15,21 @@
  * По умолчанию знак НЕ виден (`.spotify-mark { display: none }` в common.css): волна 01 его
  * не заводила, и появление знака сдвинуло бы её эталоны. Волна включает его у себя в скине.
  */
-export function SpotifyMark({ size = 18 }: { size?: number }) {
+export function SpotifyMark({
+  size = 18,
+  /**
+   * Класс знака. По умолчанию `.spotify-mark` — тот самый шов, выключенный в базе. Внутри
+   * запасной обложки [CoverPlate] знак обязан быть виден при любой волне (иначе от плашки
+   * остаётся цветной квадрат), и она передаёт свой класс.
+   */
+  className = "spotify-mark",
+}: {
+  size?: number;
+  className?: string;
+}) {
   return (
     <svg
-      className="spotify-mark"
+      className={className}
       width={size}
       height={size}
       /* ⚠️ viewBox с полем, а не `0 0 24 24`: диск знака описан как `r=12` из центра `12,12`,
@@ -40,5 +54,29 @@ export function SpotifyMark({ size = 18 }: { size?: number }) {
         <path d="M19.081 10.68C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3" />
       </g>
     </svg>
+  );
+}
+
+/**
+ * Запасная обложка — знак Spotify на фирменном поле (DESIGN §7.1). Встаёт туда, где картинки
+ * нет: CDN не отдал её или трек приехал без неё вовсе.
+ *
+ * Цвета берёт не компонент, а CSS по `[data-plate]` (common.css): дуги знака красятся в цвет
+ * ФОНА плашки, поэтому знак читается вырезанным в диске — ровно так же, как в служебной строке.
+ * Сторона едет переменной, а не шириной: скин волны переопределяет размер плашки тем же
+ * правилом, что и размер `img` обложки, и inline-ширина ему бы помешала.
+ */
+export function CoverPlate({ seed, size }: { seed: string | null; size: number }) {
+  return (
+    <span
+      className="cover-plate"
+      data-plate={coverPlate(seed)}
+      style={{ "--cover-plate-size": `${size}px` } as CSSProperties}
+      aria-hidden
+    >
+      {/* Знак занимает чуть больше половины стороны: у логотипа Spotify по гайдлайну есть
+          обязательное свободное поле вокруг, и вплотную к краю квадрата он стоять не должен. */}
+      <SpotifyMark size={Math.round(size * 0.54)} className="plate-mark" />
+    </span>
   );
 }

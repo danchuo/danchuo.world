@@ -279,6 +279,38 @@ describe("MusicTile", () => {
     expect(await screen.findByTestId("recent-track")).toHaveTextContent("Ghosts 'n' Stuff");
   });
 
+  it("ряд недавнего несёт давность прослушивания и альбом — по ним волна строит очередь", async () => {
+    // Метка относительная, поэтому «сейчас» в тесте фиксируем: иначе тест стареет вместе
+    // с системными часами.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-06-18T10:14:00Z"));
+    restore.push(() => vi.useRealTimers());
+
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue([
+      { track: track({ title: "Ghosts", album: { name: "Random Album Title", url: null } }), playedAt: "2026-06-18T10:00:00Z" },
+    ]);
+
+    render(<MusicTile />);
+
+    const row = await vi.waitFor(() => screen.getByTestId("recent-track"));
+    expect(row.querySelector(".recent-ago")).toHaveTextContent("14 мин");
+    expect(row.querySelector(".recent-album")).toHaveTextContent("Random Album Title");
+    // Обложка ряда — материал для волны; в разметке она есть при любой волне (скин её
+    // включает или прячет), поэтому проверяем именно наличие картинки.
+    expect(row.querySelector(".recent-cover img")).toHaveAttribute("src", "/cover.png");
+  });
+
+  it("без метки времени ряд рисуется без колонки давности, а не с пустой", async () => {
+    getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+    getRecentMock.mockResolvedValue([{ track: track({ title: "Ghosts" }), playedAt: null }]);
+
+    render(<MusicTile />);
+
+    const row = await screen.findByTestId("recent-track");
+    expect(row.querySelector(".recent-ago")).toBeNull();
+  });
+
   it("трек, не влезающий по высоте, гасится целиком — обрезанной строки не бывает", async () => {
     // Возврат старой беды: нижний трек «срезался на половине» краем виджета, и полстроки букв
     // читались как мусор. В jsdom геометрия нулевая, поэтому задаём её сами: список 100px,

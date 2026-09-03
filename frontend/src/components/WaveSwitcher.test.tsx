@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import type { ThemeView } from "@/lib/api/types";
+import type { DaySummary, ThemeView } from "@/lib/api/types";
 import { WaveProvider } from "./WaveProvider";
 import { WaveSwitcher } from "./WaveSwitcher";
 
@@ -24,6 +24,21 @@ function theme(over: Partial<ThemeView> = {}): ThemeView {
     releasedAt: "2026-01-01T00:00:00Z",
     ...over,
   };
+}
+
+/** Сводка дня для ленты прожитых дней (только поля, которые лента и читает). */
+function summary(date: string, over: Partial<DaySummary> = {}): DaySummary {
+  return {
+    date,
+    title: null,
+    hasData: true,
+    steps: null,
+    sleepMinutes: null,
+    contributions: null,
+    monster: null,
+    monsterReported: false,
+    ...over,
+  } as DaySummary;
 }
 
 /** Переключатель живёт внутри контекста волны — оборачиваем в провайдер с активной волной. */
@@ -191,5 +206,70 @@ describe("WaveSwitcher", () => {
     const first = await screen.findByLabelText("Волна: Волна 01");
     await waitFor(() => expect(first).toHaveAttribute("aria-pressed", "true"));
     expect(document.cookie).not.toContain("danchuo_wave");
+  });
+  // ── Материал карты: лента прожитых дней (DESIGN §2.6, §10.2) ───────────────────────
+  // Карта волны на борде PRIME показывает не эмблему, а КУСОК ХОЛСТА своей волны, а холст
+  // PRIME — сами данные. Поэтому переключатель несёт тот же шов, что и фон борда: слой с
+  // лентой лежит в каждой карте, а показывает его только та волна, которой он нужен
+  // (в базе он выключен — правило «новая волна = запись в БД», DESIGN §10.1).
+  it("кладёт в карту ленту прожитых дней", async () => {
+    getThemesMock.mockResolvedValue([theme()]);
+    const { container } = render(
+      withWave(
+        <WaveSwitcher
+          summaries={[summary("2026-06-20", { title: "тихий день", steps: 8340 })]}
+          today="2026-06-21"
+        />,
+      ),
+    );
+    await screen.findByLabelText("Волна: Волна 01");
+
+    const ribbon = container.querySelector(".wave-chip__ribbon");
+    expect(ribbon).not.toBeNull();
+    expect(ribbon!.textContent).toContain("тихий день");
+    expect(ribbon!.textContent).toContain("шаги");
+  });
+
+  // Лента — материал, а не подпись: скринридеру она не читается и на выбор волны не влияет.
+  it("прячет ленту от скринридера", async () => {
+    getThemesMock.mockResolvedValue([theme()]);
+    const { container } = render(
+      withWave(<WaveSwitcher summaries={[summary("2026-06-20", { steps: 1 })]} today="2026-06-21" />),
+    );
+    await screen.findByLabelText("Волна: Волна 01");
+
+    expect(container.querySelector(".wave-chip__ribbon")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  // Данных ещё нет (борд грузится) или волна фон не рисует — карта обязана оставаться
+  // цельной поверхностью, а не пустым слоем с отступами. Тот же размен, что у WaveBackdrop.
+  it("не рисует слой ленты, когда борду нечего сказать", async () => {
+    getThemesMock.mockResolvedValue([theme()]);
+    const { container } = render(withWave(<WaveSwitcher />));
+    await screen.findByLabelText("Волна: Волна 01");
+
+    expect(container.querySelector(".wave-chip__ribbon")).toBeNull();
+  });
+
+  // Будущие дни в ленту не едут (та же опора «сегодня», что у холста борда): непрожитый
+  // день печатался бы наравне с прожитым.
+  it("не пускает в ленту дни после сегодня", async () => {
+    getThemesMock.mockResolvedValue([theme()]);
+    const { container } = render(
+      withWave(
+        <WaveSwitcher
+          summaries={[
+            summary("2026-06-21", { title: "прожитый" }),
+            summary("2026-06-22", { title: "завтрашний" }),
+          ]}
+          today="2026-06-21"
+        />,
+      ),
+    );
+    await screen.findByLabelText("Волна: Волна 01");
+
+    const ribbon = container.querySelector(".wave-chip__ribbon")!;
+    expect(ribbon.textContent).toContain("прожитый");
+    expect(ribbon.textContent).not.toContain("завтрашний");
   });
 });

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { getThemes } from "@/lib/api/client";
-import type { ThemeView } from "@/lib/api/types";
+import type { DaySummary, ThemeView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
+import { buildRibbon } from "@/lib/waveRibbon";
 import { readWaveCookie } from "@/lib/waveCookie";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
@@ -17,6 +18,13 @@ interface WaveSwitcherProps {
    * как у `projects`/`photoDrops`/`marquee`. Дефолт — горизонтальный ряд.
    */
   orientation?: TileOrientation;
+  /**
+   * Окно календаря — материал для ленты прожитых дней внутри карт (см. врез ниже).
+   * Необязательно: переключатель в админке данных борда не тянет и живёт без ленты.
+   */
+  summaries?: DaySummary[];
+  /** Опора «сегодня» (MSK) для ленты: дни после неё в неё не едут. */
+  today?: string;
 }
 
 /**
@@ -59,7 +67,13 @@ function chipVars(tokens: Record<string, string>): CSSProperties {
  * (без перезагрузки) — компоненты не трогаются. Только реально выпущенные волны — без
  * слотов-заглушек под будущие (DESIGN §2.6).
  */
-export function WaveSwitcher({ style, className, orientation = "horizontal" }: WaveSwitcherProps) {
+export function WaveSwitcher({
+  style,
+  className,
+  orientation = "horizontal",
+  summaries,
+  today,
+}: WaveSwitcherProps) {
   const vertical = orientation === "vertical";
   const { phase, data, retry } = useTileData<ThemeView[]>(
     useCallback((signal) => getThemes({ signal }), []),
@@ -84,6 +98,16 @@ export function WaveSwitcher({ style, className, orientation = "horizontal" }: W
   }, [activeKey, themes, applyWave]);
 
   const isEmpty = phase === "loaded" && themes.length === 0;
+
+  // Лента прожитых дней — МАТЕРИАЛ карты, а не подпись (DESIGN §2.6). Волна, чей холст сделан
+  // из данных, показывает в своей карте кусок этого холста; шов лежит в КАЖДОЙ карте и
+  // wave-агностичен — `common.css` держит его выключенным, включает его скин волны (§10.1).
+  // Пустая строка (борд ещё грузится, все дни молчат, переключатель в админке) слой снимает
+  // целиком: карта обязана оставаться цельной поверхностью, а не пустым прямоугольником.
+  const ribbon = useMemo(
+    () => (summaries && today ? buildRibbon(summaries, today) : ""),
+    [summaries, today],
+  );
 
   return (
     <TileShell
@@ -138,7 +162,16 @@ export function WaveSwitcher({ style, className, orientation = "horizontal" }: W
                     карточка. Мини-борд внутри карточки (и белая вложенная карта у волны 02)
                     пробовались и сняты — «картинка в картинке», замечание владельца. */}
                 <span className="wave-chip__slab" aria-hidden />
-                <span className="wave-chip__face" aria-hidden />
+                <span className="wave-chip__face" aria-hidden>
+                  {/* Слой сам помечен aria-hidden, хотя и лежит внутри скрытой карты:
+                      материал не должен читаться скринридеру, даже если разметку карты
+                      однажды перекроят. */}
+                  {ribbon && (
+                    <span className="wave-chip__ribbon" aria-hidden>
+                      {ribbon}
+                    </span>
+                  )}
+                </span>
               </button>
             );
           })}

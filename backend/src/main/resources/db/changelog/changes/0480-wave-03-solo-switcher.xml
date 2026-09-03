@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: на борде остаётся ОДИН переключатель волн (DESIGN §10.2).
+
+      Это рабочее состояние, а не финальный вид волны: холст с лентой правится на пустом
+      экране, а виджеты возвращаются по одному, когда каждый одет под стекло. Раскладка
+      прежних волн не трогается — прятанье живёт в layout-дельте этой волны.
+
+      Переключатель встаёт по центру сетки 40x28 (был прижат к левому краю рядом с плиткой
+      «Сегодня» — без соседей этот угол читался как обрезок). Спрятать сам переключатель
+      нельзя: [UNHIDEABLE] во фронте держит его видимым, иначе посетитель залочил бы себя
+      в волне без выхода.
+
+      Оговорка на будущее: дельта перечисляет тайлы ПОИМЁННО, потому что механизм умеет
+      только это. Тайл, добавленный в код позже, в списке не окажется и приедет на борд
+      видимым — это осознанная плата за forward-compat мержа (§10.1), а не недосмотр.
+    -->
+    <changeSet id="0480-wave-03-solo-switcher" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET layout = $J${
+  "tiles": {
+    "waveSwitcher": { "col": 19, "row": 13, "colSpan": 4, "rowSpan": 4 },
+    "identity":   { "hidden": true },
+    "latestDrop": { "hidden": true },
+    "freshness":  { "hidden": true },
+    "music":      { "hidden": true },
+    "photoDrops": { "hidden": true },
+    "stats":      { "hidden": true },
+    "sleep":      { "hidden": true },
+    "today":      { "hidden": true },
+    "calendar":   { "hidden": true },
+    "projects":   { "hidden": true },
+    "ride":       { "hidden": true },
+    "hero":       { "hidden": true },
+    "social":     { "hidden": true },
+    "marquee":    { "hidden": true }
+  },
+  "mobileOrder": ["waveSwitcher"]
+}$J$::jsonb WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET layout = NULL WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

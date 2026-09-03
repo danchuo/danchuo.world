@@ -42,9 +42,18 @@ export function ribbonDay(summary: DaySummary): string | null {
   return [`${weekdayShortRu(summary.date)} ${dayMonth(summary.date)}`, ...parts].join(DOT);
 }
 
-/** Окно календаря одной строкой. Пустые дни выпадают, двойных точек не остаётся. */
-export function buildRibbon(summaries: DaySummary[]): string {
+/**
+ * Окно календаря одной строкой. Пустые дни выпадают, двойных точек не остаётся.
+ *
+ * `today` (MSK, ISO) — опора: **дни после неё в ленту не попадают**. Без неё холст врал бы:
+ * окно календаря заходит на неделю вперёд, вклады за будущий день приезжают честным нулём,
+ * а пунктов дисциплины всегда шесть — и непрожитый день печатался бы наравне с прожитым
+ * («чт 27.08 · вклады +0 · 0/6»). Холст называется лентой ПРОЖИТЫХ дней; сегодняшний в ней
+ * остаётся. Сравнение строковое: ISO-даты сортируются лексикографически.
+ */
+export function buildRibbon(summaries: DaySummary[], today: string): string {
   return summaries
+    .filter((s) => s.date <= today)
     .map(ribbonDay)
     .filter((line): line is string => line !== null)
     .join(DOT);

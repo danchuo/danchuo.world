@@ -154,7 +154,7 @@ export function Board() {
     <main className="min-h-screen p-4">
       {/* Фоновый слой волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином.
           Волне 03 он рисует холст — ленту прожитых дней из того же окна календаря, что и сетка. */}
-      <WaveBackdrop summaries={summaries} wave={activeKey} />
+      <WaveBackdrop summaries={summaries} today={today} wave={activeKey} />
 
       {/* Десктоп (мышь/трекпад, окно шире страховочного пола): полный bento без скролла
           (DESIGN §3, §8). Условие режима — в `.board-bento`/`.board-stack` (common.css):

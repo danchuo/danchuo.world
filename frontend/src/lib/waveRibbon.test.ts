@@ -63,12 +63,16 @@ describe("ribbonDay", () => {
   });
 });
 
+/** Опора «сегодня» для ленты: дни после неё ещё не прожиты. */
+const TODAY = "2026-08-26";
+
 describe("buildRibbon", () => {
   it("сшивает дни тем же разделителем, что и поля внутри дня — лента непрерывна", () => {
-    const ribbon = buildRibbon([
-      day(),
+    const ribbon = buildRibbon(
+      [
+        day(),
       day({ date: "2026-08-25", title: "день длинных созвонов", steps: 12907, sleepMinutes: 408, contributions: 5, disciplineDone: 6 }),
-    ]);
+    ], TODAY);
     expect(ribbon).toBe(
       "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7 · " +
         "вт 25.08 · день длинных созвонов · сон 6ч 48м · шаги 12 907 · вклады +5 · 6/7",
@@ -86,12 +90,35 @@ describe("buildRibbon", () => {
       disciplineTotal: 0,
       hasData: false,
     });
-    expect(buildRibbon([day(), empty])).toBe(
+    expect(buildRibbon([day(), empty], TODAY)).toBe(
       "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
     );
   });
 
   it("окно без единого прожитого дня — пустая лента, а не строка из разделителей", () => {
-    expect(buildRibbon([])).toBe("");
+    expect(buildRibbon([], TODAY)).toBe("");
+  });
+
+  it("будущие дни в ленту не попадают — холст про прожитое, а не про календарь", () => {
+    const future = day({
+      date: "2026-08-27",
+      title: null,
+      steps: null,
+      sleepMinutes: null,
+      // Вклады за будущий день приезжают нулём (день собрали, вкладов нет), а пунктов
+      // дисциплины всегда шесть — без опоры на «сегодня» такой день печатался бы
+      // как прожитый: «чт 27.08 · вклады +0 · 0/6».
+      contributions: 0,
+      disciplineDone: 0,
+      disciplineTotal: 6,
+    });
+    expect(buildRibbon([day(), future], TODAY)).toBe(
+      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3 · 4/7",
+    );
+  });
+
+  it("сегодняшний день — прожитый: он в ленте остаётся", () => {
+    const today = day({ date: TODAY, title: "сегодня" });
+    expect(buildRibbon([today], TODAY)).toContain("ср 26.08 · сегодня");
   });
 });

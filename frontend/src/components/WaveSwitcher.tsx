@@ -124,8 +124,10 @@ export function WaveSwitcher({ style, className, orientation = "horizontal" }: W
                 data-chip-wave={t.key}
                 data-active={isActive}
                 aria-pressed={isActive}
+                // `aria-label` остаётся (скринридеру чип без подписи — «кнопка»), а
+                // нативной подсказки НЕТ намеренно: имя волны («Волна 01 «Студия / Персик»»)
+                // посетителю ничего не говорит — он выбирает вид глазами, по самому чипу.
                 aria-label={`Волна: ${t.name}`}
-                title={t.name}
                 onClick={() => applyWave(t)}
                 style={chipVars(t.tokens)}
               >

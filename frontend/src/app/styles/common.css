@@ -1644,3 +1644,152 @@ body {
   margin: 0;
   overflow: hidden;
 }
+
+/* ── Музыка: швы, которыми пользуются волны (DESIGN §7.5, §10.2) ────────────────────────
+   Четыре слоя, которые плитка рендерит ВСЕГДА, но которые по умолчанию ВЫКЛЮЧЕНЫ. Причина
+   одна на все: волна 01 — канон, и её пер-тайл эталоны Playwright сняты без них. Появись
+   любой из этих слоёв в базе, канон пришлось бы переснимать ради волн, которых он не
+   касается. Волна включает нужное у себя в скине и там же решает, как оно выглядит — тот
+   же приём, что у фонового [WaveBackdrop] и у ленты в картах переключателя. */
+
+/* Ширина карточки внутри ячейки. Значение считает компонент (сжатие-к-контенту), но приходит
+   оно ПЕРЕМЕННОЙ — чтобы волна могла сжатие отменить (`width: 100%`). Inline-стиль на плитке
+   скин перебить не смог бы ничем, кроме `!important`. */
+.music-card {
+  width: var(--music-card-w, 100%);
+  margin-inline: auto;
+}
+
+/* Подложка во всю карточку (слот `backdrop` в [TileShell]) — обрезана краем самой плитки.
+   Волна кладёт сюда обложку играющего трека через `--music-cover`.
+
+   Слоёв два, и оба нужны волне, которая показывает обложку ЦЕЛИКОМ: плитка прямоугольная,
+   обложка квадратная, поэтому `contain` оставляет поля по бокам. `.music-art-fill` лежит
+   ниже и закрывает их размытой копией той же обложки — поля получаются её собственного
+   цвета, а не заливкой карты. Волне, которой хватает кадрирования (`cover`), заливка не
+   нужна, и она её не включает. */
+.music-art-fill,
+.music-art {
+  display: none;
+  position: absolute;
+  inset: 0;
+  /* Без `z-index`: слой позиционирован и стоит в разметке ПЕРЕД содержимым, поэтому красится
+     над фоном плитки и под текстом — ровно то, что нужно. Отрицательный z-index уронил бы его
+     ЗА фон карточки (`position: relative` без своего z-index стекового контекста не создаёт),
+     и на волне с непрозрачной картой обложка не показалась бы вовсе. */
+  pointer-events: none;
+  user-select: none;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* Обложка-ссылка: обёртка не должна ни сжиматься в flex-строке, ни добавлять строчного
+   интерлиньяжа под картинкой. Радиус повторяет обложку, чтобы кольцо фокуса шло по её краю. */
+.np-cover-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+  border-radius: var(--radius-sm);
+}
+.np-cover-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ссылка по всему кадру — для волны, где обложка растянута на плитку и марки нет. Выключена
+   по умолчанию: волна включает её и САМА задаёт, какую часть плитки отдать под клик (текст
+   внизу кадра накрывать нельзя — там свои ссылки). */
+.music-art-link {
+  display: none;
+  position: absolute;
+  z-index: 1;
+}
+.music-art-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+  border-radius: var(--radius-lg);
+}
+
+/* Строка состояния: «сейчас играет / на паузе / недавно» слева, атрибуция сервиса справа.
+   Набор, кегль и цвет живут ЗДЕСЬ, а не инлайном в компоненте: PRIME меняет в этой строке и
+   шрифт, и цвет (плашка Spotify говорит своим голосом), а инлайн-стиль скин не перебивает. */
+.music-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-music-artists);
+  color: var(--text-tertiary);
+}
+/* В узкой плитке двум концам строки места не хватает, и `space-between` начинает выталкивать
+   правый за край (у квадратного кадра Obscura знак сервиса срезало по вертикали). Уступает
+   ЛЕВЫЙ конец: «сейчас играет» усекается, а атрибуция остаётся целой — её обрезать нельзя,
+   это требование Spotify, а не украшение. */
+.music-status-row > :first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spotify-credit {
+  flex: none;
+}
+
+/* Знак сервиса рядом со словом «Spotify». Слово остаётся при любой волне (метаданные Spotify
+   обязаны идти с упоминанием сервиса и ссылкой), знак включает волна. */
+.spotify-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-music-source);
+  /* Цвет наследуется от строки состояния: атрибуция — не акцент, и подчёркивать её нечем.
+     Что это ссылка, читается по курсору и по знаку рядом. */
+  color: inherit;
+}
+/* Подчёркивания на ховере НЕТ намеренно: атрибуция стоит в служебной строке виджета, и
+   линия под ней читалась подписью к чему-то, а не ссылкой. Что это ссылка, говорит курсор. */
+.spotify-credit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.spotify-mark {
+  display: none;
+}
+
+/* Шкала головки (§5.5): «прошло — полоса — всего». Доля приезжает переменной
+   `--music-progress`, поэтому волне достаточно покрасить полосу и залить её. */
+.music-progress {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-music-source);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.music-progress__track {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+  overflow: hidden;
+}
+.music-progress__fill {
+  display: block;
+  height: 100%;
+  width: var(--music-progress, 0%);
+  border-radius: inherit;
+  background: var(--accent);
+  /* Головка едет раз в секунду — без сглаживания полоса дёргается ступенькой. */
+  transition: width 1s linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .music-progress__fill {
+    transition: none;
+  }
+}

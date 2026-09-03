@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 02 «Obscura»: плитка музыки сужается ещё на колонку с каждой стороны (DESIGN §7.5).
+
+      Второй шаг того же сужения, что и сид 0540, и по той же причине: кадр с обложкой хочет
+      пропорцию ближе к квадрату. 9 колонок на 8 строк — это 338x238 на экране владельца,
+      то есть уже почти 1.4:1 против 2.2:1, с которых начинали.
+
+      Центр плитки снова остаётся на месте: 17→18 при 11→9.
+    -->
+    <changeSet id="0560-wave-02-music-square" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 18, "row": 21, "colSpan": 9, "rowSpan": 8}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 17, "row": 21, "colSpan": 11, "rowSpan": 8}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

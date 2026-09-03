@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Кадры музыки на волнах 02 и 03 встают в свой окончательный размер (DESIGN §7.5).
+
+      ВОЛНА 02 — КВАДРАТ. Обложка квадратная, значит и кадр должен быть квадратным: тогда
+      `contain` заполняет плитку целиком, а размытая заливка по бокам вырождается в кайму
+      в пару пикселей. Считаем по реальной геометрии борда, а не «на глаз»:
+
+        ширина(n)  = 33.7px * n + 4px * (n-1)      (40 колонок на 1504px, gap 4)
+        высота(m)  = 25.86px * m + 4px * (m-1)     (28 строк на 832px, gap 4)
+
+      Отступы взаимно сокращаются, и условие квадрата сводится к n/m = 0.792. Из целых пар
+      ближе всего 7x9 (263x267, промах 1.6%); соседние 6x8 и 8x10 промахиваются на 5% и 1.2%,
+      но 7 колонок дают ещё и ТОЧНОЕ центрирование под «Сегодня» (13 колонок, центр 21.5 —
+      совпадает только при нечётном спане).
+
+      Девяти строк на прежнем месте не хватало: плитка стоит в нижней полосе, и низ упирается
+      в край сетки. Поэтому «Сегодня» отдаёт одну строку (15→14): освободившаяся строка 19
+      становится прослойкой-воздухом, а кадр встаёт на 20-ю. Доминанта теряет 26 пикселей
+      высоты — на карте-тропе это незаметно, а кадр получает свою пропорцию.
+
+      ⚠️ Квадрат точен на экране владельца (1536x864). Высота борда — `calc(100vh - 32px)`,
+      поэтому на экране другой высоты строки меняют шаг и кадр слегка вытягивается. Лечить
+      это нечем без ухода от пропорциональной сетки; заливка по бокам как раз и закрывает
+      эту разницу.
+
+      ВОЛНА 03 — на строку ниже. Плашка Spotify лишилась строки плейлиста (скин), и высота
+      под неё больше не нужна. Семь строк вместо восьми — «изюминка» владельца: плашка
+      заметно площе всего остального на борде, и это её примета.
+    -->
+    <changeSet id="0570-music-frames-final" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(layout, '{tiles,music}', $J${"col": 19, "row": 20, "colSpan": 7, "rowSpan": 9}$J$::jsonb),
+        '{tiles,today}',
+        $J${"col": 16, "row": 5, "colSpan": 13, "rowSpan": 14}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 16, "row": 8, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(layout, '{tiles,music}', $J${"col": 18, "row": 21, "colSpan": 9, "rowSpan": 8}$J$::jsonb),
+        '{tiles,today}',
+        $J${"col": 16, "row": 5, "colSpan": 13, "rowSpan": 15}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 16, "row": 8, "colSpan": 10, "rowSpan": 7}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

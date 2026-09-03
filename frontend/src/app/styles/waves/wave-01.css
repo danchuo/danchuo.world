@@ -199,6 +199,23 @@ body {
 .pixel-tile {
   --rest-elev: var(--drop-2);
   --hover-elev: var(--drop-3);
+  /* ── ЖЕСТ НАВЕДЕНИЯ — ПАРАМЕТР ВОЛНЫ (DESIGN §2.3, §10.2) ────────────────────────────
+     Ниже объявлен жест волны 01: физический подъём плитки и углубление тени. Он же служит
+     базой, поэтому живёт токенами, а не значениями прямо в `:hover`.
+
+     Так волна ЗАМЕНЯЕТ жест, а не отменяет чужой. Раньше правило `:hover` держало числа у
+     себя, и волне со своим жестом приходилось знать, чем именно поднята плитка (`top`, а не
+     `transform`), и гасить это вручную. Кто забывал — получал два жеста разом: подъём волны 01
+     плюс собственный. Так и случилось у PRIME, и цена там не косметическая: `filter` на
+     наведённой плитке делает её **Backdrop Root**, то есть на ховере у стеклянной плитки
+     пропадал сам блюр (docs/pitfalls.md).
+
+     Волна переопределяет четыре токена на `:root[data-wave=…] .pixel-tile` — и жест сменился
+     целиком, без единого правила `:hover`. */
+  --tile-hover-top: -3px;
+  --tile-press-top: -1px;
+  --tile-hover-filter: var(--hover-elev);
+  --tile-press-filter: var(--rest-elev);
   position: relative;
   /* Тень висит на НЕклипнутом .pixel-tile, поэтому drop-shadow уходит наружу за силуэт.
      Ступенчатую форму (и линию края, и поверхность) рисуют клипнутые псевдо-слои ниже.
@@ -427,19 +444,24 @@ body {
      прямым краем — читалось светлой полосой вдоль низа. Плитка `position: relative`,
      поэтому `top` двигает её ровно так же и на поток не влияет. */
   .pixel-tile:hover {
-    top: -3px;
-    filter: var(--hover-elev);
+    top: var(--tile-hover-top);
+    filter: var(--tile-hover-filter);
   }
   /* Пиксельный «press» — клик утапливает плитку обратно к покою (быстрый отклик). */
   .pixel-tile:active {
-    top: -1px;
-    filter: var(--rest-elev);
+    top: var(--tile-press-top);
+    filter: var(--tile-press-filter);
     transition-duration: 70ms;
   }
 }
 
 /* Приглушённая плитка (§2.4): мягкая рамка, ниже по высоте, без углового узора. */
 .muted-tile {
+  /* Тот же контракт, что у `.pixel-tile` выше: жест — параметр волны. Приглушённая плитка
+     поднимается `transform`-ом (у неё нет `filter`, значит нет и композитного слоя, ради
+     которого у большой плитки подъём едет `top`-ом). */
+  --muted-hover-shift: -2px;
+  --muted-hover-shadow: var(--elev-2);
   position: relative;
   background: var(--bg-surface-muted);
   border: 1px solid var(--border);
@@ -449,8 +471,8 @@ body {
 }
 @media (hover: hover) {
   .muted-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--elev-2);
+    transform: translateY(var(--muted-hover-shift));
+    box-shadow: var(--muted-hover-shadow);
   }
 }
 

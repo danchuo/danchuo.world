@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 02 «Obscura»: плитка музыки сужается на колонку с каждой стороны (DESIGN §7.5).
+
+      13 колонок сетки 40x28 (около 490px на экране владельца) плитка получила, когда была
+      строкой текста с маленькой обложкой сбоку: ширина шла под бегущую строку с длинным
+      названием. Теперь плитка — КАДР, у неё обложка во всю карту, и лишняя ширина работает
+      против неё: кадр растягивается в панораму, а обложка квадратная и кадрируется по бокам.
+
+      11 колонок при той же высоте дают пропорцию ближе к квадрату — обложке остаётся больше
+      себя. Колонка слева и справа уходит в тот же воздух, из которого сделана вся сетка
+      (см. шапку layout.ts), поэтому соседей двигать не пришлось: 16→17 при 13→11 оставляет
+      центр плитки на месте.
+    -->
+    <changeSet id="0540-wave-02-music-frame" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 17, "row": 21, "colSpan": 11, "rowSpan": 8}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 16, "row": 21, "colSpan": 13, "rowSpan": 8}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 02 «Obscura»: последний дроп — КОНТАКТНЫЙ ЛИСТ (`edition: "sheet"`, DESIGN §7.5,
+      §10.2), и плитка под него квадратнее (решение владельца: «снизу ещё ряд точно, остальное
+      по компоновке — сам»).
+
+      Лист — четыре случайных кадра justified-рядами (два по два) под строкой данных, без
+      обрезки и без поворота. Сколько строк сетки ему нужно, считается от ширины колонки:
+      10 колонок = 376px на опоре 1536, внутри плитки 344; два лежачих кадра 3:2 в ряд — ряд
+      112px, два ряда с зазором — 228, плюс шапка ~22 и поля 32 — 282. Одиннадцать строк
+      (308px) — первое целое, в которое лист влезает: десять дают 280. 10×11 при этом заметно
+      квадратнее прежних 10×9 (1.22 против 1.49). Первый заход — сетка 3×3 клеток 3:2 с
+      поворотом стоячих кадров — снят владельцем после живого прогона: нагружено, а
+      переворачивать снимки не хочется.
+
+      Две строки берутся у соседей по левой колонке, по одной у каждого: календарь 10→9
+      (280→252px; клетка дня ~44px — тач-таргет), статы 7→6 (196→168px). Забрать обе у одного
+      значило бы либо сжать календарь до 8 строк (клетки мельче тач-таргета), либо статы до 5
+      (график в 108px внутренней высоты). Остальные колонны не тронуты: правая и центральная
+      живут своими осями.
+
+      Столбец после сида: дроп 1–11 · календарь 13–21 · статы 23–28 (прослойки 12 и 22).
+    -->
+    <changeSet id="0600-wave-02-drop-sheet" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(
+            jsonb_set(layout, '{tiles,latestDrop}', $J${"col": 5, "row": 1, "colSpan": 10, "rowSpan": 11, "edition": "sheet"}$J$::jsonb),
+            '{tiles,calendar}',
+            $J${"col": 5, "row": 13, "colSpan": 10, "rowSpan": 9}$J$::jsonb
+        ),
+        '{tiles,stats}',
+        $J${"col": 5, "row": 23, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(
+            jsonb_set(layout, '{tiles,latestDrop}', $J${"col": 5, "row": 1, "colSpan": 10, "rowSpan": 9}$J$::jsonb),
+            '{tiles,calendar}',
+            $J${"col": 5, "row": 11, "colSpan": 10, "rowSpan": 10}$J$::jsonb
+        ),
+        '{tiles,stats}',
+        $J${"col": 5, "row": 22, "colSpan": 10, "rowSpan": 7}$J$::jsonb
+    )
+WHERE key = 'wave-02';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

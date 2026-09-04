@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
@@ -575,6 +575,102 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     );
     await userEvent.click(screen.getByTestId("calendar-prev"));
     expect(onShiftWeeks).toHaveBeenCalledWith(-1);
+  });
+
+  it("колесо вверх листает назад, а страницу при этом не прокручивает", () => {
+    const onShiftWeeks = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+      />,
+    );
+    const tile = screen.getByLabelText("Календарь");
+    const consumed = !fireEvent.wheel(tile, { deltaY: -100 });
+    expect(onShiftWeeks).toHaveBeenCalledWith(-1);
+    expect(consumed).toBe(true);
+  });
+
+  it("дома колесо вниз не листает и не перехватывает прокрутку страницы", () => {
+    // Вперёд от сегодня идти некуда — жест обязан уйти странице, как если бы плитки не было.
+    const onShiftWeeks = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+      />,
+    );
+    const consumed = !fireEvent.wheel(screen.getByLabelText("Календарь"), { deltaY: 100 });
+    expect(onShiftWeeks).not.toHaveBeenCalled();
+    expect(consumed).toBe(false);
+  });
+
+  it("у генезиса колесо вверх молчит: листать назад уже некуда", () => {
+    const onShiftWeeks = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+        canGoBack={false}
+      />,
+    );
+    fireEvent.wheel(screen.getByLabelText("Календарь"), { deltaY: -100 });
+    expect(onShiftWeeks).not.toHaveBeenCalled();
+  });
+
+  it("в сдвинутом окне колесо вниз листает вперёд", () => {
+    const onShiftWeeks = vi.fn();
+    const anchor = "2026-06-11";
+    render(
+      <Calendar
+        days={windowAround(anchor, "2026-07-02")}
+        selected={"2026-07-02"}
+        today="2026-07-02"
+        anchor={anchor}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+      />,
+    );
+    fireEvent.wheel(screen.getByLabelText("Календарь"), { deltaY: 100 });
+    expect(onShiftWeeks).toHaveBeenCalledWith(1);
+  });
+
+  it("мелкие дельты тачпада складываются в один шаг, а инерция после него глотается", () => {
+    const onShiftWeeks = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={onShiftWeeks}
+      />,
+    );
+    const tile = screen.getByLabelText("Календарь");
+    for (let i = 0; i < 8; i++) fireEvent.wheel(tile, { deltaY: -20 });
+    expect(onShiftWeeks).toHaveBeenCalledTimes(1);
+  });
+
+  it("без обработчика листания колесо ничего не перехватывает", () => {
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    const consumed = !fireEvent.wheel(screen.getByLabelText("Календарь"), { deltaY: -100 });
+    expect(consumed).toBe(false);
   });
 
   it("сдвинутое окно даёт шаг вперёд и возврат к сегодня", async () => {

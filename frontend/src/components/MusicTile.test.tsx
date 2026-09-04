@@ -327,6 +327,39 @@ describe("MusicTile", () => {
     expect(rows[4].style.visibility).toBe("hidden");
   });
 
+  it("список, смонтированный заново (трек доиграл, пока вкладка была в фоне), подгоняется заново", async () => {
+    // Возврат беды владельца: после долгого отсутствия во вкладке виден четвёртый трек,
+    // обрезанный низом плитки. Пока играл трек, списка на экране не было; трек доиграл,
+    // список смонтировался заново с ТЕМ ЖЕ составом — и подгонка, привязанная к составу,
+    // не перезапускалась: все пять строк оставались видимыми, лишние резал край.
+    stubRowGeometry({ listHeight: 100, rowHeight: 30 });
+    getNowPlayingMock.mockResolvedValue(nowView());
+    getRecentMock.mockResolvedValue(fiveRecent());
+    const setVisibility = (value: DocumentVisibilityState) => {
+      Object.defineProperty(document, "visibilityState", { value, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+
+    try {
+      render(<MusicTile />);
+      expect(await screen.findByTestId("now-playing")).toBeInTheDocument();
+      expect(screen.queryAllByTestId("recent-track")).toHaveLength(0);
+
+      // Вкладка ушла в фон, трек доиграл; возврат приносит «ничего не играет».
+      getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
+      await act(async () => setVisibility("hidden"));
+      await act(async () => setVisibility("visible"));
+
+      const rows = await screen.findAllByTestId("recent-track");
+      expect(rows).toHaveLength(5);
+      await waitFor(() => expect(rows[3].style.visibility).toBe("hidden"));
+      expect(rows.slice(0, 3).map((r) => r.style.visibility)).toEqual(["", "", ""]);
+      expect(rows[4].style.visibility).toBe("hidden");
+    } finally {
+      delete (document as unknown as Record<string, unknown>).visibilityState;
+    }
+  });
+
   it("список, свисающий ниже края плитки, режется по КРАЮ ПЛИТКИ, а не по своему низу", async () => {
     // Замер на живом борде: колонка плитки кончалась на 119.6px, а список (его min-height
     // задан ради мобильного стека) висел до 150.3 — то есть на 30px ниже видимого края.

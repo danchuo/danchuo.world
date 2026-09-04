@@ -43,4 +43,6 @@ data class TileSpanSpec(
     val hidden: Boolean? = null,
     /** Поток контента тайла: `horizontal` | `vertical` (DESIGN §10.1); интерпретирует фронт. */
     val orientation: String? = null,
+    /** Редакция тайла — имя одной из его вёрсток (DESIGN §10.1); набор знает только сам тайл. */
+    val edition: String? = null,
 )

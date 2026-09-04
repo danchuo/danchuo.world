@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
 export type TileState = "loading" | "empty" | "error" | "loaded";
 
@@ -26,6 +26,8 @@ interface TileShellProps {
   style?: CSSProperties;
   className?: string;
   ariaLabel?: string;
+  /** Корневая `<section>` плитки — для нативных слушателей (календарь вешает сюда `wheel`). */
+  ref?: Ref<HTMLElement>;
 }
 
 /**
@@ -48,11 +50,13 @@ export function TileShell({
   style,
   className = "",
   ariaLabel,
+  ref,
 }: TileShellProps) {
   const tileClass = muted ? "muted-tile" : "pixel-tile";
 
   return (
     <section
+      ref={ref}
       aria-label={ariaLabel}
       aria-busy={state === "loading"}
       data-elevated={!muted && elevated ? "true" : undefined}

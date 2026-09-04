@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useRef, type CSSProperties } from "react";
 import type { DaySummary } from "@/lib/api/types";
 import { monthEdges } from "@/lib/calendarWindow";
 import { dayOfMonth, monthNameRu, monthOf, monthShortRu, weekdayMondayIndex } from "@/lib/date";
@@ -13,6 +13,7 @@ import {
 import { formatSleep, formatSteps } from "@/lib/format";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { TileShell, type TileState } from "./TileShell";
+import { useWheelPaging } from "./useWheelPaging";
 
 interface CalendarProps {
   days: DaySummary[];
@@ -110,8 +111,15 @@ export function Calendar({
   const canPage = Boolean(onShiftWeeks);
   const heading = shifted ? monthNameRu(windowAnchor, today) : "календарь";
 
+  // Листание колесом/тачпадом по всей плитке (PRD §5.3): те же шаги, что у стрелок, и те же
+  // границы — дома вперёд некуда, у генезиса некуда назад. Стрелки остаются: жест их не
+  // заменяет, а дополняет (на таче колеса нет, а видимый орган управления нужен всегда).
+  const shellRef = useRef<HTMLElement>(null);
+  useWheelPaging(shellRef, onShiftWeeks, { back: canGoBack, forward: shifted });
+
   return (
     <TileShell
+      ref={shellRef}
       state={state}
       onRetry={onRetry}
       // Ярлык называет линзу и даёт её снять. Это не украшение: в выходной карта-тропа уступает

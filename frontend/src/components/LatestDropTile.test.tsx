@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LatestDropTile } from "./LatestDropTile";
+import { writeCache } from "@/lib/api/cache";
 import { buildMosaic } from "@/lib/mosaic";
 import type { FilmPhotoView } from "@/lib/api/types";
 
@@ -9,7 +10,10 @@ import { getDrop, getDrops } from "@/lib/api/client";
 const getDropsMock = vi.mocked(getDrops);
 const getDropMock = vi.mocked(getDrop);
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  localStorage.clear();
+});
 
 const landscape = (seq: number): FilmPhotoView => ({
   imageUrl: `/api/film-media/1/${seq}/web`,
@@ -35,6 +39,185 @@ describe("buildMosaic (justified-раскладка кадров)", () => {
     expect(mosaic).not.toBeNull();
     expect(mosaic!).toHaveLength(1);
     expect(mosaic![0]).toHaveLength(4);
+  });
+});
+
+const portrait = (seq: number): FilmPhotoView => ({
+  imageUrl: `/api/film-media/1/${seq}/web`,
+  thumbUrl: `/api/film-media/1/${seq}/thumb`,
+  width: 80,
+  height: 120,
+});
+
+const DROP = {
+  id: 2,
+  title: "Июльская плёнка",
+  droppedOn: "2026-07-02",
+  monthLabel: "июль 2026",
+  photoCount: 12,
+  coverPhotoUrl: "/api/film-media/2/0/thumb",
+};
+
+/** Предзагрузка кадра в jsdom: картинки не грузятся, `load` симулируем. */
+class ImageStub {
+  onload: (() => void) | null = null;
+  set src(_v: string) {
+    if (ImageStub.loads) queueMicrotask(() => this.onload?.());
+  }
+  static loads = true;
+}
+
+describe("LatestDropTile — редакции (волна выбирает через layout, DESIGN §7.5)", () => {
+  beforeEach(() => {
+    ImageStub.loads = true;
+    vi.stubGlobal("Image", ImageStub);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("до ответа сети карточки нет — копия из кэша не мелькает «на секунду до свежего»", async () => {
+    writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
+    getDropsMock.mockReturnValue(new Promise(() => {})); // сеть молчит
+    const { container } = render(<LatestDropTile />);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(container.querySelector(".pixel-tile")).toBeNull();
+    expect(screen.queryByText("Из кэша")).toBeNull();
+  });
+
+  it("сеть ответила сбоем (рейтлимит) — появляется копия из кэша, один раз", async () => {
+    writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
+    getDropsMock.mockRejectedValue(new Error("rate_limited"));
+    const { container } = render(<LatestDropTile />);
+    expect(await screen.findByText("Из кэша")).toBeInTheDocument();
+    expect(container.querySelector(".pixel-tile")).not.toBeNull();
+  });
+
+  it("с копией в кэше кадры мозаики всё равно рисуются: замер идёт после появления карточки", async () => {
+    // Вторая загрузка страницы: копия есть, фаза «loaded» ещё до ответа сети, карточка
+    // появляется после него — и замер блока обязан пойти по самому узлу, а не по фазе.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
+    writeCache("latest-drop", { latest: DROP, photos: [landscape(0), landscape(1), landscape(2)] });
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
+    const { container } = render(<LatestDropTile />);
+    await screen.findByText("Июльская плёнка");
+    await waitFor(() => expect(container.querySelectorAll(".drop-mosaic img").length).toBeGreaterThan(0));
+    rect.mockRestore();
+  });
+
+  it("сеть ответила успехом — на экране свежие кадры, а не копия", async () => {
+    writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(1)]);
+    render(<LatestDropTile />);
+    expect(await screen.findByText("Июльская плёнка")).toBeInTheDocument();
+    expect(screen.queryByText("Из кэша")).toBeNull();
+  });
+
+  it("edition=frame: пока снимок не пришёл, карточки нет вовсе — ни полоски стекла", async () => {
+    ImageStub.loads = false;
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0)]);
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    await screen.findByText("Июльская плёнка").catch(() => {});
+    // Данные пришли, но кадр ещё грузится: стекла на экране быть не должно.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.querySelector(".pixel-tile")).toBeNull();
+  });
+
+
+  it("edition=frame: один кадр во всю карточку, карточка берёт пропорцию кадра", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    await screen.findByText("Июльская плёнка");
+
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+    expect(screen.getByText(/12 кадров/)).toBeInTheDocument();
+    // Подпись лежит ВНУТРИ полосы блюра: высота полосы = растушёвка + подпись, длинное
+    // название углубляет полосу само.
+    expect(container.querySelector(".drop-frame__band .drop-frame__caption")).not.toBeNull();
+    // Размытые копии под подписью берут тот же кадр, что и сам снимок.
+    const band = container.querySelector(".drop-frame__band") as HTMLElement;
+    expect(band.style.getPropertyValue("--drop-frame-src")).toContain("/api/film-media/1/");
+    expect(container.querySelectorAll(".drop-frame__blur")).toHaveLength(2);
+    // Пропорция — у карточки (стекла), а не у картинки: лежачий кадр — лежачая карточка.
+    const card = container.querySelector(".pixel-tile") as HTMLElement;
+    expect(card.style.aspectRatio).toBe("120 / 80");
+    expect(container.querySelector(".drop-mosaic")).toBeNull();
+  });
+
+  it("edition=frame: стоячий кадр — стоячая карточка", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([portrait(0)]);
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    await screen.findByText("Июльская плёнка");
+
+    const card = container.querySelector(".pixel-tile") as HTMLElement;
+    expect(card.style.aspectRatio).toBe("80 / 120");
+  });
+
+  it("edition=frame: кадр открывает модалку так же, как мозаика", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0)]);
+
+    render(<LatestDropTile edition="frame" />);
+    const box = await screen.findByRole("button", { name: /Открыть дроп/ });
+    expect(box).toHaveClass("drop-frame");
+  });
+
+  it("edition=sheet: четыре кадра justified-рядами — без обрезки и без поворота, строка данных сверху", async () => {
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
+    getDropsMock.mockResolvedValue([DROP]);
+    const photos = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (i % 2 === 1 ? portrait(i) : landscape(i)));
+    getDropMock.mockResolvedValue(photos);
+
+    const { container } = render(<LatestDropTile edition="sheet" />);
+    await screen.findByText("Июльская плёнка");
+
+    const imgs = [...container.querySelectorAll(".drop-sheet img")] as HTMLImageElement[];
+    expect(imgs).toHaveLength(4);
+    expect(container.querySelector("[data-rotated]")).toBeNull();
+    // Каждый кадр несёт СВОЮ пропорцию: стоячий остаётся стоячим, лежачий — лежачим.
+    for (const img of imgs) {
+      const seq = Number(img.getAttribute("src")!.match(/\/(\d+)\/thumb$/)![1]);
+      const [w, h] = img.style.aspectRatio.split("/").map((v) => Number(v.trim()));
+      const expected = seq % 2 === 1 ? 80 / 120 : 120 / 80;
+      expect(Math.abs(w / h - expected) / expected).toBeLessThan(0.05);
+    }
+    expect(screen.getByText(/12 кадров/)).toBeInTheDocument();
+    // В стеке высоту блоку даёт CSS-контракт `.drop-mosaic` (§8) — лист его не теряет.
+    expect(screen.getByRole("button", { name: /Открыть дроп/ })).toHaveClass("drop-mosaic");
+    rect.mockRestore();
+  });
+
+  it("edition=sheet: кадров меньше четырёх — лист показывает столько, сколько есть", async () => {
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
+    getDropsMock.mockResolvedValue([{ ...DROP, photoCount: 2 }]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1)]);
+
+    const { container } = render(<LatestDropTile edition="sheet" />);
+    await screen.findByText("Июльская плёнка");
+    expect(container.querySelectorAll(".drop-sheet img")).toHaveLength(2);
+    expect(screen.getByText(/2 кадра/)).toBeInTheDocument();
+    rect.mockRestore();
+  });
+
+  it("незнакомая редакция ⇒ мозаика (дефолт)", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0)]);
+
+    const { container } = render(<LatestDropTile edition="hologram" />);
+    await screen.findByText("Июльская плёнка");
+    expect(container.querySelector(".drop-mosaic")).not.toBeNull();
   });
 });
 

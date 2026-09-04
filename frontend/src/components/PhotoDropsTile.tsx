@@ -75,8 +75,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
           // sideways; no visible scrollbar — the cut-off card at the edge is the affordance.
           <ul
             ref={shelfRef}
-            className="tile-frame flex h-full items-stretch gap-3 overflow-x-auto overflow-y-hidden"
-            style={{ scrollbarWidth: "none" }}
+            className="scroll-invisible tile-frame flex h-full items-stretch gap-3 overflow-x-auto overflow-y-hidden"
           >
             {drops.map((d) => (
               <li key={d.id} className="flex h-full min-w-0 shrink-0">
@@ -124,7 +123,10 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
             ))}
           </ul>
         ) : (
-          <ul className="tile-frame flex h-full flex-col gap-1.5 overflow-y-auto">
+          // Вертикальный список листается тем же жестом и БЕЗ ползунка — как полка выше:
+          // серая полоса поверх обложек читалась элементом интерфейса, а не подсказкой
+          // (`scroll-invisible` в common.css; прокрутка колесом и тачпадом на месте).
+          <ul className="scroll-invisible tile-frame flex h-full flex-col gap-1.5 overflow-y-auto">
             {drops.map((d) => (
               <li key={d.id} className="min-w-0">
                 <button

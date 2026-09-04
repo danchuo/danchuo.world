@@ -14,6 +14,16 @@ import type { AlbumRef, ArtistRef, TrackView } from "@/lib/api/types";
  */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
+/**
+ * Сколько ждём обложку, прежде чем считать её неприехавшей (см. врез в [Cover]).
+ *
+ * Восемь секунд — не «сколько грузится картинка», а «после чего пустое место хуже заглушки».
+ * Обложка Spotify весит десятки килобайт и на мобильной сети приезжает за секунды; всё, что
+ * дольше, посетитель уже читает как дырку в виджете. Ждать меньше нельзя — заглушка мигала бы
+ * на медленной сети вместо честной картинки.
+ */
+const COVER_WAIT_MS = 8000;
+
 /** Альбом прижат к исполнителям (меньше воздуха), чем низ карточки — к альбому. */
 export const albumStyle = {
   color: "var(--text-tertiary)",
@@ -117,7 +127,28 @@ export function Cover({
      url, сравнение перестаёт совпадать, и картинка пробуется заново — без эффекта на сброс
      флага и без риска, что один битый кадр похоронит все следующие. */
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const broken = url != null && failedUrl === url;
+  /* …и отдельно — адрес, которого мы просто НЕ ДОЖДАЛИСЬ (см. врез у COVER_WAIT_MS). */
+  const [timedOutUrl, setTimedOutUrl] = useState<string | null>(null);
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const broken = url != null && (failedUrl === url || timedOutUrl === url);
+
+  /* Ждём картинку не вечно. Ошибку браузер отдаёт, только когда запрос ЗАВЕРШИЛСЯ неудачей;
+     недоступный CDN (у Spotify это `i.scdn.co` — с мобильной сети он у владельца просто не
+     отвечает) держит соединение открытым, `onerror` не приходит НИКОГДА, и на месте обложки
+     остаётся пустое место вместо оговорённой заглушки (замечание владельца с телефона).
+     Поэтому «не приехала за отведённое время» — такой же отказ, как ошибка: показываем ту же
+     запасную плашку. Ожидание считается по АДРЕСУ, поэтому новый трек пробует загрузку
+     заново, а картинка, успевшая приехать, ожидание снимает. */
+  const notifyError = useRef(onError);
+  notifyError.current = onError;
+  useEffect(() => {
+    if (!url || loadedUrl === url || failedUrl === url || timedOutUrl === url) return;
+    const id = window.setTimeout(() => {
+      setTimedOutUrl(url);
+      notifyError.current?.();
+    }, COVER_WAIT_MS);
+    return () => window.clearTimeout(id);
+  }, [url, loadedUrl, failedUrl, timedOutUrl]);
 
   if (!url || broken) {
     return (
@@ -142,6 +173,13 @@ export function Cover({
       alt={alt}
       width={size}
       height={height}
+      // Картинка из кэша успевает загрузиться до того, как React повесит `onLoad`, — поэтому
+      // готовность проверяем ещё и на самом узле (`complete` + ненулевая ширина), иначе
+      // ожидание досчитало бы до конца над уже нарисованной обложкой.
+      ref={(el) => {
+        if (el?.complete && el.naturalWidth > 0) setLoadedUrl(url);
+      }}
+      onLoad={() => setLoadedUrl(url)}
       onError={() => {
         setFailedUrl(url);
         onError?.();

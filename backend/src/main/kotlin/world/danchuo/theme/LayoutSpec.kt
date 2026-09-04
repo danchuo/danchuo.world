@@ -16,6 +16,12 @@ data class LayoutSpec(
     val grid: GridSpec? = null,
     val tiles: Map<String, TileSpanSpec>? = null,
     val mobileOrder: List<String>? = null,
+    /**
+     * Редакция ГАЛЕРЕИ дропа: `mosaic` (дефолт фронта) | `roll` — плёнка (DESIGN §7.5, §10.1).
+     * В корне layout, а не в спане плитки: галерею открывают обе дроп-плитки, и редакция у
+     * волны одна. Как и остальные поля, здесь только форма контракта — интерпретирует фронт.
+     */
+    val gallery: String? = null,
 )
 
 /** Размер bento-сетки волны (по умолчанию 40×28 — см. `layout.ts`). */

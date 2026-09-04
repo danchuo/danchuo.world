@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: галерея дропа открывается ПЛЁНКОЙ (`gallery: "roll"`, DESIGN §7.5).
+      Дроп в 37 кадров читается катушкой — крупный кадр, лента миниатюр, засечка на каждый
+      кадр, — а не сеткой: выбор владельца из пяти прототипов (контрольный лист с лупой ·
+      бесконечный стол · плёнка · стопка в глубину · стол разбора).
+
+      Поле лежит в КОРНЕ layout, а не в спане плитки: галерею открывают обе дроп-плитки
+      (последний дроп и лента прошлых), и редакция у волны одна — иначе один и тот же дроп
+      открывался бы по-разному в зависимости от точки входа. Волны 01 и 02 поля не имеют и
+      остаются на мозаике (дефолт кода).
+    -->
+    <changeSet id="0620-wave-03-drop-roll" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(layout, '{gallery}', $J$"roll"$J$::jsonb)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = layout - 'gallery'
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

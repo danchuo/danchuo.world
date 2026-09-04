@@ -25,6 +25,8 @@ interface LatestDropTileProps {
   className?: string;
   /** Редакция из раскладки волны (строка как есть; проверяется здесь). */
   edition?: string;
+  /** Редакция галереи дропа из раскладки волны (см. [PhotoDropModal]). */
+  gallery?: string;
 }
 
 interface LatestData {
@@ -120,7 +122,12 @@ function renderRows(mosaic: Cell[][] | null) {
  * Клик → модалка-галерея со всеми кадрами. Прошлые дропы — лентой [PhotoDropsTile]. До первой
  * загрузки через /admin — тихий empty «пока нет дропов».
  */
-export function LatestDropTile({ style, className, edition: editionRaw }: LatestDropTileProps) {
+export function LatestDropTile({
+  style,
+  className,
+  edition: editionRaw,
+  gallery,
+}: LatestDropTileProps) {
   const edition = resolveEdition(editionRaw);
   const { phase, data, settled, retry } = useTileData<LatestData>(
     useCallback(async (signal) => {
@@ -247,6 +254,12 @@ export function LatestDropTile({ style, className, edition: editionRaw }: Latest
     return { aspectRatio: aspect, width: w, height: h };
   }, [frame, frameW, frameH, style?.height]);
 
+  // Жмёмся к мозаике ТОЛЬКО в бенто. В стеке слот высоты не задаёт, и блок кадров берёт её
+  // от собственной ширины (`aspect-ratio` у `.drop-mosaic`, §8) — а раз так, подгонка ширины
+  // замыкает петлю: у́же карточка ⇒ ниже блок ⇒ другая раскладка рядов ⇒ другая нужная ширина
+  // ⇒ снова у́же. На телефоне это видно как виджет, который не может встать на месте (волна 02,
+  // замечание владельца). Центровать в стеке всё равно не в чем: карточка и есть ряд стека.
+  const hugCard = style?.height !== undefined;
   const cardStyle: CSSProperties =
     edition === "frame"
       ? frame
@@ -254,7 +267,7 @@ export function LatestDropTile({ style, className, edition: editionRaw }: Latest
         : // Пустота/ошибка в редакции кадра: карточка нужна (в ней «пока нет дропов» и
           // «повторить»), а пропорции кадра нет — берём плёночные 3:2 во всю ширину слота.
           { width: "100%", aspectRatio: "3 / 2" }
-      : cardW !== null
+      : hugCard && cardW !== null
         ? // No `transition: width` here — see the note above the component: an animated
           // width on this filtered card smears its drop-shadow across the side gaps in
           // WebKit.
@@ -376,6 +389,11 @@ export function LatestDropTile({ style, className, edition: editionRaw }: Latest
           dropId={latest.id}
           title={latest.title}
           monthLabel={latest.monthLabel}
+          gallery={gallery}
+          // Редакция кадра показывает ОДИН снимок — галерея обязана открыться именно на нём,
+          // а не с начала дропа: клик по кадру спрашивает про этот кадр. В остальных редакциях
+          // на плитке несколько кадров, и «тот самый» не определён — открываем с первого.
+          startAt={edition === "frame" ? (frame?.imageUrl ?? null) : null}
           onClose={() => setOpen(false)}
         />
       )}

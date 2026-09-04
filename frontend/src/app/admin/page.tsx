@@ -280,8 +280,14 @@ export default function AdminPage() {
         />
 
         <div className="flex items-center gap-4">
-          {/* Same wave switcher tile as the board — the admin follows waves too. */}
-          <WaveSwitcher style={{ width: 110 }} />
+          {/* Same wave switcher tile as the board — the admin follows waves too.
+              The tile needs an explicit HEIGHT, not just a width: on the board it is a grid
+              cell, here it is a header item, and a wave whose chip fills the plate (PRIME
+              cards are `height: 100%`) collapsed to zero-height buttons — the switcher
+              rendered as an empty pill that could not be clicked at all. 160×62 is measured,
+              not guessed: it is the smallest box where wave-01 square chips still land at a
+              44px tap target once the row splits it three ways. */}
+          <WaveSwitcher className="admin-wave-switcher" style={{ width: 160, height: 62 }} />
           <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
             выйти
           </button>

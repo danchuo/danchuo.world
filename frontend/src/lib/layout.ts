@@ -150,6 +150,12 @@ export interface WaveLayout {
   /** Ключи — машинные id тайлов; неизвестные коду игнорируются (forward-compat). */
   tiles?: Record<string, WaveTileSpan>;
   mobileOrder?: string[];
+  /**
+   * Редакция галереи дропа (DESIGN §10.1): `mosaic` (дефолт) | `roll` — плёнка. Поле волны, а
+   * не тайла: галерею открывают И плитка последнего дропа, И лента прошлых дропов, а редакция
+   * у волны одна — иначе один дроп открывался бы по-разному в зависимости от точки входа.
+   */
+  gallery?: string;
 }
 
 /** Разрешённый layout (волна, смерженная с дефолтом) — на нём рендерит борд. */
@@ -158,6 +164,8 @@ export interface ResolvedLayout {
   rows: number;
   tiles: Record<TileId, TileSpan>;
   mobileOrder: TileId[];
+  /** Редакция галереи дропа; дефолт — `mosaic` (см. [WaveLayout.gallery]). */
+  gallery: string;
 }
 
 /** Тайлы, которые волна прятать НЕ вправе — иначе можно залочить переключение волн. */
@@ -212,6 +220,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
   return {
     cols: wave?.grid?.cols ?? BENTO_COLS,
     rows: wave?.grid?.rows ?? BENTO_ROWS,
+    gallery: sanitizeEdition(wave?.gallery) ?? "mosaic",
     tiles,
     mobileOrder,
   };

@@ -11,8 +11,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { getDrop } from "@/lib/api/client";
-import { boxesAt, padHighlight } from "@/lib/artifactHighlight";
-import { laysOnSide } from "@/lib/artifactBox";
+import { boxesAt } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
 import {
   MOSAIC_NARROW_PX,
@@ -21,7 +20,9 @@ import {
   columnMajorMosaic,
   type MosaicCell,
 } from "@/lib/dropMosaic";
-import type { ArtifactBoxView, FilmPhotoView } from "@/lib/api/types";
+import type { FilmPhotoView } from "@/lib/api/types";
+import { ArtifactBoxes } from "./ArtifactBoxes";
+import { DropRoll } from "./DropRoll";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
 import { useCoarsePointer } from "./useCoarsePointer";
@@ -31,15 +32,31 @@ interface PhotoDropModalProps {
   dropId: number;
   title: string;
   monthLabel: string | null;
+  /**
+   * Редакция галереи из раскладки волны (`layout.gallery`, DESIGN §10.1): `roll` — плёнка,
+   * всё остальное (и отсутствие) — мозаика. Строка как есть; проверяется здесь, как редакция
+   * плитки: набор редакций — знание галереи, реестр раскладки о нём не знает.
+   */
+  gallery?: string;
+  /**
+   * Адрес кадра, с которого открывать галерею: плитка в редакции кадра показывает ОДИН снимок,
+   * и открывать дроп с начала значило бы потерять тот кадр, по которому кликнули. Мозаика поле
+   * игнорирует — там на экране сразу весь дроп, «открыть на кадре» не про что.
+   */
+  startAt?: string | null;
   onClose: () => void;
 }
 
 /**
  * Модалка-галерея фото-дропа (PRD §5.12, DESIGN §7.5) — большое всплывающее окно (НЕ новая
  * вкладка). Затемнённый фон, закрытие по `×`/`Esc`/клику по фону, фокус-трап, вертикальный
- * скролл (≈36 кадров длиннее экрана). Композиция — квантованная мозаика: кадр занимает целое
- * число клеток сетки (лежачий 3×2, стоячий 2×3 — по шесть клеток у обоих), кадры идут по полосам
- * сверху вниз (`dropMosaic.ts`). Кадров нет — пустое состояние.
+ * скролл (≈36 кадров длиннее экрана). Композиция по умолчанию — квантованная мозаика: кадр
+ * занимает целое число клеток сетки (лежачий 3×2, стоячий 2×3 — по шесть клеток у обоих), кадры
+ * идут по полосам сверху вниз (`dropMosaic.ts`). Кадров нет — пустое состояние.
+ *
+ * **Редакцию галереи выбирает волна** (`layout.gallery`, DESIGN §10.1), как и редакцию плитки:
+ * `roll` — плёнка ([DropRoll]), где дроп читается одной катушкой; всё остальное — мозаика.
+ * Модалка о волнах не знает, ей приходит имя редакции строкой.
  *
  * Загрузка кадров — **blur-up**: сразу виден крошечный `thumbUrl` (размытый, он лёгкий и обычно
  * уже в кэше борда), полноразмерный `imageUrl` грузится `loading="lazy"` (только видимое) и по
@@ -51,7 +68,15 @@ interface PhotoDropModalProps {
  * ([PhotoLightbox]). Слой именно поверх, а не вместо: закрыл кадр — набор дропа на месте, и
  * закрытие кадра не закрывает галерею (Esc гасит верхний слой, следующий Esc — саму галерею).
  */
-export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDropModalProps) {
+export function PhotoDropModal({
+  dropId,
+  title,
+  monthLabel,
+  gallery,
+  startAt,
+  onClose,
+}: PhotoDropModalProps) {
+  const roll = gallery === "roll";
   const { phase, data } = useTileData<FilmPhotoView[]>(
     useCallback((signal) => getDrop(dropId, { signal }), [dropId]),
   );
@@ -159,7 +184,19 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
           {phase === "loaded" && photos.length === 0 && (
             <p style={monoTertiary}>в этом дропе пока нет кадров</p>
           )}
-          {phase === "loaded" && photos.length > 0 && (
+          {phase === "loaded" && photos.length > 0 && roll && (
+            // Плёнка: одна лента вместо сетки (DESIGN §7.5). Кадр во весь экран открывает
+            // только кнопка лупы — по самому снимку водят мышью, разглядывая находки.
+            <DropRoll
+              photos={photos}
+              startAt={startAt}
+              onZoom={(index, trigger) => {
+                zoomTriggerRef.current = trigger;
+                setZoomed(index);
+              }}
+            />
+          )}
+          {phase === "loaded" && photos.length > 0 && !roll && (
             // Квантованная мозаика: кадр занимает целое число клеток базовой сетки — горизонтальный
             // 3×2, вертикальный 2×3. Площади равны по построению (6 клеток у обоих), поэтому
             // вертикальный кадр не выходит вдвое мельче соседа, как это было бы у justified
@@ -191,6 +228,9 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
           photo={photos[zoomed]}
           index={zoomed}
           total={photos.length}
+          // Из плёнки кадр открывается ЧИСТЫМ (решение владельца): находки разглядывают на
+          // самой плёнке, а полный экран существует ради снимка — рамки поверх него мешают.
+          artifacts={!roll}
           onClose={closeZoom}
         />
       )}
@@ -206,8 +246,15 @@ export function PhotoDropModal({ dropId, title, monthLabel, onClose }: PhotoDrop
  */
 const PhotoLightbox = forwardRef<
   HTMLDivElement,
-  { photo: FilmPhotoView; index: number; total: number; onClose: () => void }
->(function PhotoLightbox({ photo, index, total, onClose }, ref) {
+  {
+    photo: FilmPhotoView;
+    index: number;
+    total: number;
+    /** Показывать ли находки поверх кадра; `false` — чистый снимок (плёнка, см. [DropRoll]). */
+    artifacts?: boolean;
+    onClose: () => void;
+  }
+>(function PhotoLightbox({ photo, index, total, artifacts = true, onClose }, ref) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);
   const coarse = useCoarsePointer();
@@ -240,7 +287,9 @@ const PhotoLightbox = forwardRef<
             сразу. «Постоянные подписи — шум» тут не применимо: кадр ровно один, а не 36.
             На мыши полный экран не несёт находок вовсе (решение владельца): там их показывает
             наведение в самой галерее, а поверх открытого снимка объяснять уже нечего. */}
-        {ratio && coarse && <ArtifactBoxes boxes={boxes} shown={boxes.map((a) => a.artifactId)} />}
+        {artifacts && ratio && coarse && (
+          <ArtifactBoxes boxes={boxes} shown={boxes.map((a) => a.artifactId)} />
+        )}
       </span>
       <button
         ref={closeRef}
@@ -260,81 +309,6 @@ const monoTertiary = {
   fontSize: "var(--fs-modal-meta)",
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
-
-/**
- * Рамки находок поверх кадра (§5.12). Позиция — **в процентах**: координаты приходят долями
- * кадра, а кадр рендерится в разном размере (мозаика, галерея, полный экран), так что множитель
- * задаёт вёрстка.
- *
- * [shown] — чьи карточки сейчас раскрыты, **в порядке появления**: индекс задаёт высоту слоя,
- * поэтому в пересечении рамок сверху оказывается та, что открылась позже. В галерее это порядок
- * наведения, в полноэкранном кадре — просто все находки (тач-флоу, см. [PhotoLightbox]).
- */
-function ArtifactBoxes({ boxes, shown }: { boxes: ArtifactBoxView[]; shown: number[] }) {
-  return (
-    <>
-      {boxes.map((a) => {
-        // Рамка намеренно шире находки: показываем область, а не обводим предмет по краю.
-        const r = padHighlight(a);
-        return (
-          <span
-            key={a.artifactId}
-            className="artifact-box"
-            style={{
-              left: `${r.x0 * 100}%`,
-              top: `${r.y0 * 100}%`,
-              width: `${r.width * 100}%`,
-              height: `${r.height * 100}%`,
-            }}
-          >
-            {/* Имя — в разметке ВСЕГДА: подсказка живёт по наведению, а ховера у скринридера
-                нет, и без этого находка для него просто не существовала бы. */}
-            <span className="sr-only">{a.name}</span>
-            {shown.includes(a.artifactId) && (
-              // Карточка предмета: сам предмет картинкой + имя под ней. Имя словами не объясняет,
-              // что это за надпись на фото, — знакомый вырезанный предмет объясняет сразу.
-              <span
-                className="artifact-card"
-                aria-hidden
-                style={{ zIndex: shown.indexOf(a.artifactId) + 1 }}
-              >
-                {a.imageUrl && (
-                  <ArtifactCardImage src={a.imageUrl} rotatable={a.rotatable === true} />
-                )}
-                <span className="artifact-card__name">{a.name}</span>
-              </span>
-            )}
-          </span>
-        );
-      })}
-    </>
-  );
-}
-
-/**
- * Предмет внутри карточки-подсказки. Слот карточки **лежачий**, а предмет бывает нарисован
- * стоймя (ракетка ~1:3.3) — в contain он вырождается в нитку и опознать его нельзя. Поэтому
- * карточка уважает тот же флаг «можно набок», что и лента (DESIGN §7.2): флаг разрешает,
- * решает пропорция самой картинки, и меряется она только по факту загрузки — до `onLoad`
- * пропорции нет, а повернуть «на всякий случай» значит показать предмет боком.
- */
-function ArtifactCardImage({ src, rotatable }: { src: string; rotatable: boolean }) {
-  const [ratio, setRatio] = useState(0);
-  // Слот лежачий ⇒ vertical = false.
-  const tilted = laysOnSide(ratio, rotatable, false);
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=""
-      className={`artifact-card__img${tilted ? " artifact-card__img--tilted" : ""}`}
-      onLoad={(e) => {
-        const img = e.currentTarget;
-        if (img.naturalHeight > 0) setRatio(img.naturalWidth / img.naturalHeight);
-      }}
-    />
-  );
-}
 
 /**
  * Один кадр с blur-up-загрузкой: размытый `thumbUrl` виден сразу, полноразмерный `imageUrl`

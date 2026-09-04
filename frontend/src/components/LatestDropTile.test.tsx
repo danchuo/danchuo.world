@@ -197,6 +197,26 @@ describe("LatestDropTile — редакции (волна выбирает че�
     rect.mockRestore();
   });
 
+  it("в стеке карточка НЕ жмётся к мозаике: ширина стека и есть ширина карточки", async () => {
+    // Прыгающий виджет на телефоне (волна 02, замечание владельца): в стеке высота блока кадров
+    // считается от его же ширины (`aspect-ratio` §8), а карточка жалась по ширине к разложенным
+    // рядам — ширина меняла высоту, высота меняла раскладку, раскладка меняла ширину. Петля
+    // рвётся тем, что в стеке карточка ширину не подгоняет: центровать её всё равно не в чем.
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([0, 1, 2, 3].map((i) => (i % 2 === 1 ? portrait(i) : landscape(i))));
+
+    const { container } = render(<LatestDropTile edition="sheet" />);
+    await screen.findByText("Июльская плёнка");
+
+    const card = container.querySelector(".pixel-tile") as HTMLElement;
+    expect(card.style.width).toBe("");
+    expect(card.style.marginInline).toBe("");
+    rect.mockRestore();
+  });
+
   it("edition=sheet: кадров меньше четырёх — лист показывает столько, сколько есть", async () => {
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
@@ -273,7 +293,9 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     ]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
 
-    const { container } = render(<LatestDropTile />);
+    // Высота слота (бенто) обязательна: жмётся к мозаике только там, в стеке карточка берёт
+    // всю ширину ряда (см. тест про прыгающий виджет выше).
+    const { container } = render(<LatestDropTile style={{ height: 300 }} />);
     await screen.findByText("Июльская плёнка");
 
     const card = container.querySelector(".pixel-tile") as HTMLElement;

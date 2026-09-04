@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: плашка Spotify теряет ещё одну строку по высоте (7 → 6, строки 8–13).
+      Просьба владельца на живом борде: плашка приплюснута сознательно (её примета, сид 0570),
+      и после возвращения дропа рядом она снова смотрелась высоковатой.
+
+      Верх столбика и низ переключателя не двигаются (8 … 19), поэтому пара «дроп + столбик»
+      остаётся на прежней горизонтальной оси; освободившаяся строка 14 уходит в прослойку
+      между музыкой и переключателем.
+    -->
+    <changeSet id="0610-wave-03-music-shorter" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 22, "row": 8, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        layout,
+        '{tiles,music}',
+        $J${"col": 22, "row": 8, "colSpan": 10, "rowSpan": 7}$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

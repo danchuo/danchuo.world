@@ -196,6 +196,7 @@ export function Board() {
                 data={data}
                 orientation={span.orientation}
                 edition={span.edition}
+                gallery={layout.gallery}
                 style={{ height: "100%", width: "100%" }}
               />
             </div>
@@ -213,7 +214,7 @@ export function Board() {
           layout.tiles[id]?.hidden ? null : (
             <div key={id} data-tile-id={id}>
               {/* Редакция едет и в стек: это выбор вёрстки, а не потока, и она общая для обоих режимов. */}
-              <BoardTile id={id} data={data} edition={layout.tiles[id]?.edition} />
+              <BoardTile id={id} data={data} edition={layout.tiles[id]?.edition} gallery={layout.gallery} />
             </div>
           ),
         )}
@@ -231,6 +232,7 @@ function BoardTile({
   data,
   orientation,
   edition,
+  gallery,
   style,
   className,
 }: {
@@ -240,6 +242,8 @@ function BoardTile({
   orientation?: TileOrientation;
   /** Редакция тайла из layout волны (DESIGN §10.1) — и в bento, и в стеке. */
   edition?: string;
+  /** Редакция ГАЛЕРЕИ дропа (общая на волну): её открывают обе дроп-плитки. */
+  gallery?: string;
   style?: CSSProperties;
   className?: string;
 }) {
@@ -312,9 +316,11 @@ function BoardTile({
     case "hero":
       return <HeroTile style={style} className={className} />;
     case "photoDrops":
-      return <PhotoDropsTile orientation={orientation} style={style} className={className} />;
+      return (
+        <PhotoDropsTile orientation={orientation} gallery={gallery} style={style} className={className} />
+      );
     case "latestDrop":
-      return <LatestDropTile edition={edition} style={style} className={className} />;
+      return <LatestDropTile edition={edition} gallery={gallery} style={style} className={className} />;
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":

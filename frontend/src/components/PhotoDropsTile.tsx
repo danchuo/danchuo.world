@@ -17,6 +17,8 @@ interface PhotoDropsTileProps {
    * (readable, no truncation to nothing); "vertical" (default) — the compact list of rows.
    */
   orientation?: TileOrientation;
+  /** Редакция галереи из раскладки волны (см. [PhotoDropModal]). */
+  gallery?: string;
 }
 
 /**
@@ -25,7 +27,12 @@ interface PhotoDropsTileProps {
  * отдельной страницы нет. Крупно последний дроп показывает отдельный [LatestDropTile]. До первой
  * загрузки через /admin дропов нет ⇒ тихий empty «пока нет дропов».
  */
-export function PhotoDropsTile({ style, className, orientation = "vertical" }: PhotoDropsTileProps) {
+export function PhotoDropsTile({
+  style,
+  className,
+  orientation = "vertical",
+  gallery,
+}: PhotoDropsTileProps) {
   const { phase, data, retry } = useTileData<FilmDropView[]>(
     useCallback((signal) => getDrops({ signal }), []),
     "drops",
@@ -163,6 +170,7 @@ export function PhotoDropsTile({ style, className, orientation = "vertical" }: P
           dropId={openDrop.id}
           title={openDrop.title}
           monthLabel={openDrop.monthLabel}
+          gallery={gallery}
           onClose={() => setOpenDrop(null)}
         />
       )}

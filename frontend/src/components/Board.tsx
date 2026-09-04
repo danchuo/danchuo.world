@@ -195,6 +195,7 @@ export function Board() {
                 id={id}
                 data={data}
                 orientation={span.orientation}
+                edition={span.edition}
                 style={{ height: "100%", width: "100%" }}
               />
             </div>
@@ -211,7 +212,8 @@ export function Board() {
         {layout.mobileOrder.map((id) =>
           layout.tiles[id]?.hidden ? null : (
             <div key={id} data-tile-id={id}>
-              <BoardTile id={id} data={data} />
+              {/* Редакция едет и в стек: это выбор вёрстки, а не потока, и она общая для обоих режимов. */}
+              <BoardTile id={id} data={data} edition={layout.tiles[id]?.edition} />
             </div>
           ),
         )}
@@ -228,6 +230,7 @@ function BoardTile({
   id,
   data,
   orientation,
+  edition,
   style,
   className,
 }: {
@@ -235,6 +238,8 @@ function BoardTile({
   data: BoardData;
   /** Ориентация контента из layout волны (DESIGN §10.1) — только bento; в стеке всё full-width. */
   orientation?: TileOrientation;
+  /** Редакция тайла из layout волны (DESIGN §10.1) — и в bento, и в стеке. */
+  edition?: string;
   style?: CSSProperties;
   className?: string;
 }) {
@@ -309,7 +314,7 @@ function BoardTile({
     case "photoDrops":
       return <PhotoDropsTile orientation={orientation} style={style} className={className} />;
     case "latestDrop":
-      return <LatestDropTile style={style} className={className} />;
+      return <LatestDropTile edition={edition} style={style} className={className} />;
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":

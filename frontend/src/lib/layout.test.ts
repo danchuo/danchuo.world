@@ -63,6 +63,21 @@ describe("resolveLayout", () => {
     expect(r.tiles.social.orientation).toBeUndefined();
   });
 
+  it("волна может выбрать редакцию тайла (edition); дефолт — редакция не задана", () => {
+    const r = resolveLayout({ tiles: { latestDrop: { edition: "frame" } } });
+    expect(r.tiles.latestDrop.edition).toBe("frame");
+    expect(r.tiles.music.edition).toBeUndefined();
+  });
+
+  it("битое значение edition отбрасывается: не строка, пустая строка, мусор", () => {
+    const bad = (v: unknown) =>
+      resolveLayout({ tiles: { latestDrop: { edition: v as unknown as string } } }).tiles.latestDrop.edition;
+    expect(bad(42)).toBeUndefined();
+    expect(bad("")).toBeUndefined();
+    expect(bad("Frame Edition!")).toBeUndefined();
+    expect(bad("x".repeat(40))).toBeUndefined();
+  });
+
   it("битое значение orientation из JSON волны отбрасывается", () => {
     const r = resolveLayout({
       tiles: { marquee: { orientation: "diagonal" as unknown as "vertical" } },

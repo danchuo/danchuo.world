@@ -94,11 +94,15 @@ const MUSIC_CACHE_KEY = "music";
  * В jsdom (тесты) геометрия нулевая ⇒ ничего не прячем. Спан считаем по
  * `getBoundingClientRect` относительно контейнера — независимо от offsetParent.
  */
-function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
-  const ref = useRef<HTMLUListElement>(null);
+function useFitOverflow(signature: string): (el: HTMLUListElement | null) => void {
+  // Элемент — в state, а не в ref: список живёт только пока ничего не играет и монтируется
+  // ЗАНОВО, когда трек доиграл. Эффект на одном составе списка при этом не перезапускался,
+  // и свежий `<ul>` выходил без подгонки — пять строк, четвёртую резал край плитки (владелец
+  // ловил это, вернувшись во вкладку после долгого отсутствия). Callback-ref делает сам узел
+  // зависимостью эффекта: новый узел — новый замер.
+  const [el, setEl] = useState<HTMLUListElement | null>(null);
 
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const apply = () => {
       const kids = Array.from(el.children) as HTMLElement[];
@@ -135,13 +139,20 @@ function useFitOverflow(signature: string): RefObject<HTMLUListElement | null> {
     document.fonts?.ready.then(() => {
       if (alive) apply();
     });
+    // Возврат во вкладку — контрольный замер: в фоне браузер может отложить и ResizeObserver,
+    // и раскладку, а показать полстроки при первом же взгляде нельзя.
+    const onVisibility = () => {
+      if (document.visibilityState !== "hidden") requestAnimationFrame(apply);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       alive = false;
       ro?.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [signature]);
+  }, [el, signature]);
 
-  return ref;
+  return setEl;
 }
 
 /**

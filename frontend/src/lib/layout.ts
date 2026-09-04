@@ -45,6 +45,13 @@ export interface TileSpan {
   hidden?: boolean;
   /** Волна может развернуть контент тайла (см. [TileOrientation]). */
   orientation?: TileOrientation;
+  /**
+   * Редакция тайла (DESIGN §10.1): имя одной из нескольких вёрсток, которые тайл умеет сам
+   * (`latestDrop`: `mosaic` | `frame` | `sheet`). Строка, а не перечисление здесь: набор
+   * редакций — знание тайла, реестр раскладки о нём не знает; незнакомое имя тайл трактует
+   * как дефолт. Тайлы с одной вёрсткой поле молча игнорируют.
+   */
+  edition?: string;
 }
 
 export const BENTO_COLS = 40;
@@ -134,6 +141,7 @@ export interface WaveTileSpan {
   rowSpan?: number;
   hidden?: boolean;
   orientation?: TileOrientation;
+  edition?: string;
 }
 
 /** Layout-блок волны (`ThemeView.layout`); любое поле опционально (фолбэк — дефолт ниже). */
@@ -166,6 +174,11 @@ function sanitizeOrientation(value: unknown): TileOrientation | undefined {
   return value === "horizontal" || value === "vertical" ? value : undefined;
 }
 
+/** Имя редакции из JSON волны: короткий kebab-case идентификатор, всё остальное ⇒ `undefined`. */
+function sanitizeEdition(value: unknown): string | undefined {
+  return typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value) ? value : undefined;
+}
+
 /**
  * Мержит layout волны поверх дефолта [TILE_LAYOUT] и отдаёт готовый [ResolvedLayout].
  * `null`/`undefined` (нет активной волны / бэк недоступен / волна без layout) ⇒ чистый дефолт
@@ -185,6 +198,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       hidden: (ov?.hidden ?? base.hidden ?? false) && !UNHIDEABLE.has(id),
       // Битые значения из JSON волны отбрасываем — тайл вернётся к своему дефолту.
       orientation: sanitizeOrientation(ov?.orientation) ?? base.orientation,
+      edition: sanitizeEdition(ov?.edition) ?? base.edition,
     };
   }
 

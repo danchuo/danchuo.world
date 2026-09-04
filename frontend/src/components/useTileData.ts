@@ -9,6 +9,13 @@ interface TileState<T> {
   phase: Phase;
   data: T | null;
   stale: boolean;
+  /**
+   * Сеть ответила (успехом или сбоем) — то есть показанное уже НЕ сменится само. Копия из
+   * кэша показывается до ответа (`settled: false`), и тайлу, которому важнее один спокойный
+   * кадр, чем мгновенная копия (последний дроп), это даёт право подождать: успех — свежие
+   * данные, сбой (рейтлимит после серии F5) — копия, но в обоих случаях один раз.
+   */
+  settled: boolean;
 }
 
 type TileAction<T> =
@@ -20,13 +27,13 @@ type TileAction<T> =
 function tileReducer<T>(state: TileState<T>, action: TileAction<T>): TileState<T> {
   switch (action.type) {
     case "seeded":
-      return { phase: "loaded", data: action.data, stale: true };
+      return { phase: "loaded", data: action.data, stale: true, settled: false };
     case "loading":
-      return { ...state, phase: "loading" };
+      return { ...state, phase: "loading", settled: false };
     case "resolved":
-      return { phase: "loaded", data: action.data, stale: false };
+      return { phase: "loaded", data: action.data, stale: false, settled: true };
     case "failed":
-      return { ...state, phase: action.hasCopy ? "loaded" : "error" };
+      return { ...state, phase: action.hasCopy ? "loaded" : "error", settled: true };
   }
 }
 
@@ -47,10 +54,16 @@ export function useTileData<T>(
   phase: Phase;
   data: T | null;
   stale: boolean;
+  settled: boolean;
   retry: () => void;
 } {
   // Phase/data/stale always change together — one reducer transition instead of three setStates.
-  const [state, dispatch] = useReducer(tileReducer<T>, { phase: "loading", data: null, stale: false });
+  const [state, dispatch] = useReducer(tileReducer<T>, {
+    phase: "loading",
+    data: null,
+    stale: false,
+    settled: false,
+  });
   const [nonce, setNonce] = useState(0);
 
   // fetcher приходит как стрелка из рендера тайла — оборачиваем в стабильный колбэк по nonce,

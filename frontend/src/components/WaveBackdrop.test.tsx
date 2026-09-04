@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
 import { WaveBackdrop } from "./WaveBackdrop";
 
@@ -25,6 +25,34 @@ function ribbonOf(container: HTMLElement): HTMLElement {
   return el;
 }
 
+/**
+ * Стена в jsdom: верстки нет, поэтому обе меры подменяем моделью «строка = один пиксель на
+ * символ». `clientHeight` — высота стены, `scrollHeight` — сколько её закрыл текущий текст.
+ * Модель грубая намеренно: проверяем не раскладку, а то, что заполнение ДОХОДИТ до края.
+ */
+function mockWall(height: number): () => void {
+  const proto = HTMLElement.prototype;
+  const client = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+  const scroll = Object.getOwnPropertyDescriptor(proto, "scrollHeight");
+  Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => height });
+  Object.defineProperty(proto, "scrollHeight", {
+    configurable: true,
+    get(this: HTMLElement) {
+      return this.textContent?.length ?? 0;
+    },
+  });
+  return () => {
+    Object.defineProperty(proto, "clientHeight", client ?? { configurable: true, value: 0 });
+    Object.defineProperty(proto, "scrollHeight", scroll ?? { configurable: true, value: 0 });
+  };
+}
+
+let restoreWall: (() => void) | null = null;
+afterEach(() => {
+  restoreWall?.();
+  restoreWall = null;
+});
+
 describe("WaveBackdrop", () => {
   it("шов рендерится всегда — волна включает его скином, а не наличием разметки", () => {
     const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-01" />);
@@ -44,6 +72,15 @@ describe("WaveBackdrop", () => {
   it("окно без данных не оставляет на холсте мусора", () => {
     const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-03" />);
     expect(ribbonOf(container).textContent).toBe("");
+  });
+
+  it("закрывает стену целиком, даже когда она в сотни раз выше ленты (зум наружу)", () => {
+    // 60 000 против ленты в полсотни символов — тысяча повторов. Линейный шаг «ещё один
+    // дубль за проход» упирался в свой потолок задолго до края, и низ холста оставался пустым.
+    restoreWall = mockWall(60_000);
+    const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
+    const el = ribbonOf(container);
+    expect(el.scrollHeight).toBeGreaterThan(el.clientHeight);
   });
 
   it("новое окно календаря переписывает ленту, а не дописывает её", () => {

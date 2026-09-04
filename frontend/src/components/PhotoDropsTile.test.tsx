@@ -33,6 +33,27 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(screen.getByText("Июньская плёнка")).toBeInTheDocument();
   });
 
+  /**
+   * Полоса прокрутки у обеих лент — БЕЗ визуала (замечание владельца: вертикальный ползунок
+   * в дропах на волне 02 читался лишним элементом интерфейса поверх карточек). Прокрутка
+   * колесом, тачпадом и с клавиатуры остаётся: `overflow` на месте, снят только ползунок.
+   * Класс общий (`scroll-invisible` в common.css) — inline-стилем это волна не переопределит.
+   */
+  it("ползунок прокрутки не рисуется ни в вертикальном списке, ни в горизонтальной полке", async () => {
+    getDropsMock.mockResolvedValue(TWO_DROPS);
+    const { container, rerender } = render(<PhotoDropsTile />);
+    await screen.findByText("Июльская плёнка");
+    const list = container.querySelector("ul") as HTMLElement;
+    expect(list).toHaveClass("scroll-invisible");
+    expect(list.className).toContain("overflow-y-auto");
+    expect(list.style.scrollbarWidth).toBe("");
+
+    rerender(<PhotoDropsTile orientation="horizontal" />);
+    const shelf = container.querySelector("ul") as HTMLElement;
+    expect(shelf).toHaveClass("scroll-invisible");
+    expect(shelf.style.scrollbarWidth).toBe("");
+  });
+
   it("горизонтальная полка (orientation=horizontal) — карточки с названием и месяцем", async () => {
     getDropsMock.mockResolvedValue([
       { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },

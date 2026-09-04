@@ -60,10 +60,13 @@ export function SocialTile({ style, className }: SocialTileProps) {
             // слишком узка для текста, оставляя узнаваемые иконки. Зазор, иконка и подпись —
             // доли своих контейнеров, а не пиксельные константы (DESIGN §8.1).
             className="social-grid grid h-full"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-              gridAutoRows: "minmax(0, 1fr)",
-            }}
+            // Раскладка приезжает ПЕРЕМЕННЫМИ, а сами колонки объявлены в common.css — тот же
+            // приём, что у ширины карточки музыки. Причина: в мобильном стеке квадратная сетка
+            // становится ОДНИМ РЯДОМ (2×2 из крупных спрайтов съедало пол-экрана), а inline
+            // `grid-template-columns` CSS не перебивает ничем, кроме `!important`.
+            // `--social-count` едет отдельно от `--social-cols`: число ссылок из числа колонок
+            // не вывести (3 колонки — это и 5 ссылок, и 9), а ряду нужно именно оно.
+            style={{ "--social-cols": cols, "--social-count": links.length } as CSSProperties}
           >
             {links.map((l) => (
               <li key={l.platform} className="min-h-0 min-w-0">

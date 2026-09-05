@@ -27,9 +27,15 @@ const scale = (v: number) => Math.round(v * 1e4) / 1e4;
  * центральный, и сдвиг по углу пришлось бы поправлять на половину разницы размеров — лишняя
  * арифметика, которая рассыпается при первом же изменении `transform-origin` в скине.
  *
- * Масштаб по осям независимый: пропорции боксов в редакции `frame` совпадают по построению
- * (карточка плитки берёт пропорцию кадра, сцена галереи — тоже), но обещать это здесь нечем,
- * а честный неравномерный масштаб хотя бы не врёт про размеры.
+ * **Масштаб РАВНОМЕРНЫЙ, и это несущее.** Прежде оси считались независимо, и кадр,
+ * возвращаясь в плитку с другой пропорцией, заметно сплющивался (замечание владельца о ленте
+ * дропов: слот шире кадра). У редакции `frame` этого видно не было — там карточка плитки
+ * берёт пропорцию кадра, и оси совпадали сами. Теперь кадр по дороге не искажается вовсе:
+ * он едет целым и **кадрируется** — ровно то же, что делает `object-fit: cover` в плитке,
+ * куда он приезжает.
+ *
+ * Берём БОЛЬШИЙ из двух масштабов: меньший вписал бы кадр внутрь плитки с полями по одной
+ * оси, а плитка показывает снимок без полей. Лишнее по короткой оси срезает [morphClip].
  *
  * `null` — если любой из боксов вырожден: плитка ещё не отрисована или у сцены пока нет
  * размеров. Морфить не из чего, и вызывающий просто показывает галерею без движения.
@@ -38,7 +44,35 @@ export function morphTransform(from: MorphBox, to: MorphBox): string | null {
   if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0) return null;
   const dx = from.left + from.width / 2 - (to.left + to.width / 2);
   const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-  return `translate(${px(dx)}px, ${px(dy)}px) scale(${scale(from.width / to.width)}, ${scale(from.height / to.height)})`;
+  const s = morphScale(from, to);
+  return `translate(${px(dx)}px, ${px(dy)}px) scale(${scale(s)})`;
+}
+
+/** Общий масштаб морфа: по большей из осей, чтобы кадр закрывал плитку без полей. */
+export function morphScale(from: MorphBox, to: MorphBox): number {
+  return Math.max(from.width / to.width, from.height / to.height);
+}
+
+/**
+ * Клип кадра на время движения: что от снимка видно, пока он стоит в границах плитки.
+ *
+ * Масштаб теперь равномерный, поэтому по короткой оси кадр вылезает за плитку — и вылезающее
+ * надо срезать, иначе снимок не сядет в плитку, а накроет её соседей. Инсет считается в
+ * СОБСТВЕННЫХ координатах кадра (до трансформации), потому что `clip-path` применяется до неё:
+ * половина разницы между кадром и тем куском, который в плитку помещается.
+ *
+ * Ноль по оси, вдоль которой масштаб и выбирался, — там кадр совпал с плиткой ровно.
+ * Скругление уезжает в клип тем же числом, что и радиус: угол режется вместе с краем.
+ *
+ * `null` — на вырожденных боксах, как и у [morphTransform].
+ */
+export function morphClip(from: MorphBox, to: MorphBox, radius: number): string | null {
+  if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0) return null;
+  const s = morphScale(from, to);
+  const insetX = Math.max(0, (to.width - from.width / s) / 2);
+  const insetY = Math.max(0, (to.height - from.height / s) / 2);
+  const r = radius > 0 ? ` round ${px(radius / s)}px` : "";
+  return `inset(${px(insetY)}px ${px(insetX)}px${r})`;
 }
 
 /**
@@ -50,15 +84,15 @@ export function morphTransform(from: MorphBox, to: MorphBox): string | null {
  * щёлкает углами в момент подмены — прямые становятся круглыми на один кадр (замечание
  * владельца). Приехавший с этим — садится незаметно.
  *
- * Масштаб берём по ширине: скругление в CSS одно на угол, выбирать между осями всё равно не из
- * чего, а пропорции боксов в редакции `frame` совпадают по построению (см. [morphTransform]).
+ * Масштаб — общий для обеих осей ([morphScale]), как и у самой трансформации: с равномерным
+ * масштабом выбирать между осями больше не приходится.
  *
  * `null` — на вырожденных боксах и отрицательном радиусе: как и в [morphTransform], это «морфа
  * нет», а не «радиус 0».
  */
 export function morphRadius(from: MorphBox, to: MorphBox, radius: number): string | null {
-  if (from.width <= 0 || to.width <= 0 || radius < 0) return null;
-  return `${px(radius / (from.width / to.width))}px`;
+  if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0 || radius < 0) return null;
+  return `${px(radius / morphScale(from, to))}px`;
 }
 
 /** `320ms` / `.32s` / `0.44s` — и ничего больше: голое число в CSS не длительность. */

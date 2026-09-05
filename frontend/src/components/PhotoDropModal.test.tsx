@@ -485,6 +485,18 @@ describe("PhotoDropModal — подпись артефакта не обреза
   });
 });
 
+/**
+ * Прокрутить кадры отрисовки, пока проявка не начнётся. Ждём СОБЫТИЯ, а не заранее известного
+ * числа кадров: шов принимает замер, только когда размер галереи устоялся, и число кадров до
+ * этого — его внутреннее дело. Тест, знающий это число, ломается от каждой правки шва, ничего
+ * при этом не проверяя.
+ */
+async function untilMorph(scene: HTMLElement, state: string, maxFrames = 12): Promise<void> {
+  for (let i = 0; i < maxFrames && scene.dataset.morph !== state; i += 1) {
+    await act(async () => new Promise<void>((done) => requestAnimationFrame(() => done())));
+  }
+}
+
 describe("PhotoDropModal — кадры с плитки", () => {
   const photo = {
     imageUrl: "/api/film-media/1/0/web",
@@ -535,14 +547,12 @@ describe("PhotoDropModal — кадры с плитки", () => {
     );
     const scene = container.querySelector<HTMLElement>(".drop-scene")!;
 
+    // Стартовый кадр ставится не мгновенно: шов сперва дожидается, пока размер галереи
+    // перестанет меняться, — иначе кадр «выезжал» бы из почти конечного размера.
+    await untilMorph(scene, "from");
     expect(scene.dataset.morph).toBe("from");
 
-    await act(
-      async () =>
-        new Promise<void>((done) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => done()));
-        }),
-    );
+    await untilMorph(scene, "in");
     expect(scene.dataset.morph).toBe("in");
 
     document.documentElement.style.removeProperty("--drop-morph");
@@ -580,12 +590,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
       />,
     );
     const scene = container.querySelector<HTMLElement>(".drop-scene")!;
-    await act(
-      async () =>
-        new Promise<void>((done) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => done()));
-        }),
-    );
+    await untilMorph(scene, "in");
 
     vi.useFakeTimers();
     fireEvent.click(scene);

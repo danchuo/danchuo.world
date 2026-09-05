@@ -317,7 +317,7 @@ function BoardTile({
       return <HeroTile style={style} className={className} />;
     case "photoDrops":
       return (
-        <PhotoDropsTile orientation={orientation} gallery={gallery} style={style} className={className} />
+        <PhotoDropsTile orientation={orientation} edition={edition} gallery={gallery} style={style} className={className} />
       );
     case "latestDrop":
       return <LatestDropTile edition={edition} gallery={gallery} style={style} className={className} />;

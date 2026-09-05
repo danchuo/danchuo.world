@@ -26,26 +26,25 @@ function ribbonOf(container: HTMLElement): HTMLElement {
 }
 
 /**
- * Стена в jsdom: верстки нет, поэтому обе меры подменяем моделью «строка = один пиксель на
- * символ». `clientHeight` — высота стены, `scrollHeight` — сколько её закрыл текущий текст.
- * Модель грубая намеренно: проверяем не раскладку, а то, что заполнение ДОХОДИТ до края.
+ * Стена в jsdom: вёрстки нет, поэтому обе меры подменяем. Замер ширины знака в jsdom тоже
+ * не состоится (проба меряется нулём) — шов падает на моноширинную оценку по кеглю, и это
+ * ровно тот путь, которым он пойдёт в скрытом табе. Модель грубая намеренно: проверяем не
+ * раскладку, а то, что строк ХВАТАЕТ на всю высоту стены.
  */
-function mockWall(height: number): () => void {
+function mockWall(height: number, width = 1000): () => void {
   const proto = HTMLElement.prototype;
   const client = Object.getOwnPropertyDescriptor(proto, "clientHeight");
-  const scroll = Object.getOwnPropertyDescriptor(proto, "scrollHeight");
+  const clientW = Object.getOwnPropertyDescriptor(proto, "clientWidth");
   Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => height });
-  Object.defineProperty(proto, "scrollHeight", {
-    configurable: true,
-    get(this: HTMLElement) {
-      return this.textContent?.length ?? 0;
-    },
-  });
+  Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => width });
   return () => {
     Object.defineProperty(proto, "clientHeight", client ?? { configurable: true, value: 0 });
-    Object.defineProperty(proto, "scrollHeight", scroll ?? { configurable: true, value: 0 });
+    Object.defineProperty(proto, "clientWidth", clientW ?? { configurable: true, value: 0 });
   };
 }
+
+/** Самый широкий правдоподобный межстрочный интервал — верхняя оценка для счёта строк. */
+const MAX_LEADING_PX = 30;
 
 let restoreWall: (() => void) | null = null;
 afterEach(() => {
@@ -79,8 +78,26 @@ describe("WaveBackdrop", () => {
     // дубль за проход» упирался в свой потолок задолго до края, и низ холста оставался пустым.
     restoreWall = mockWall(60_000);
     const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
-    const el = ribbonOf(container);
-    expect(el.scrollHeight).toBeGreaterThan(el.clientHeight);
+    const lines = ribbonOf(container).querySelectorAll(".wave-backdrop-line");
+    expect(lines.length).toBeGreaterThanOrEqual(Math.ceil(60_000 / MAX_LEADING_PX));
+  });
+
+  /**
+   * Выключка через строку — правило волны, но возможна она только потому, что КАЖДАЯ строка
+   * приезжает своим узлом: `text-align` в CSS правит абзац целиком, а не отдельную строку.
+   * Поэтому разбиение — обязательство шва, и проверяется здесь, а не глазами на борде.
+   */
+  it("ломает ленту на строки-узлы, чтобы волна могла выключать их по очереди", () => {
+    restoreWall = mockWall(600);
+    const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
+    const lines = ribbonOf(container).querySelectorAll<HTMLElement>(".wave-backdrop-line");
+    expect(lines.length).toBeGreaterThan(1);
+    const lengths = [...lines].map((line) => (line.textContent ?? "").length);
+    // Пустых строк нет, и строки одной длины с точностью до слова: перенос считает шов по
+    // ширине, а не браузер по своему усмотрению. Точную длину тест не знает намеренно — она
+    // зависит от замера знака, а проверяется здесь СВОЙСТВО разбиения, не его арифметика.
+    expect(Math.min(...lengths)).toBeGreaterThan(0);
+    expect(Math.max(...lengths) - Math.min(...lengths)).toBeLessThan(24);
   });
 
   it("новое окно календаря переписывает ленту, а не дописывает её", () => {

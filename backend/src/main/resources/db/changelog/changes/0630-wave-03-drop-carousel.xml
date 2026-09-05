@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: на борд возвращается лента прошлых дропов — в редакции `carousel`
+      (DESIGN §7.5, §10.2).
+
+      Дропы едут вертикальной лентой, и главный тот, что встал в СЕРЕДИНУ окна: вид кадра —
+      чистая функция расстояния до середины, раскладка при этом не пересчитывается вовсе.
+      Поэтому плитка ведёт себя одинаково на трёх дропах и на трёхстах, а архив листается
+      бесконечно в обе стороны.
+
+      Путь к этому виду занял два захода прототипов на живом холсте, и оба стоит помнить.
+      Первый — раскрытие кадра по наведению (корешки архива): упирается в стену, которую не
+      обойти подкруткой чисел, потому что раскрытый кадр забирает место у колонки —
+      «обложка ≤ окно − 32 × соседей», то есть 137px на четырёх дропах и 41px на семи.
+      Второй заход снимался уже с прокруткой в роли механизма (плёнка · карусель · слоты ·
+      разворот · скраббер); владелец выбрал карусель.
+
+      Геометрия. Колонка стоит между кадром последнего дропа и плашкой Spotify — вплотную к
+      снимку, из которого выросла. Ради неё кластер пересобран: кадр ушёл левее (10 → 5),
+      музыка и переключатель правее (22 → 27, 24 → 29), и борд снова встал по центру сетки
+      40x28 (5..36 при центре 21). Сама колонка поднята к ВЕРХНЕМУ краю холста (ряд 3): в
+      середине сетки она делила высоту с кадром и читалась второй такой же колонкой.
+
+      Размер — 8 треков ширины на 9 высоты. Высота слота фиксирована (83px), поэтому число
+      видимых кадров задаёт не архив, а плитка: в её окне их два с половиной, и обрезанный
+      снизу третий — та самая подсказка, что лента продолжается.
+
+      `orientation` не задаём намеренно: у карусели вёрстка вертикальная по своей природе,
+      и тайл гасит ориентацию сам. Волны 01 и 02 поля `edition` не имеют и остаются на
+      прежних лентах (дефолт кода).
+    -->
+    <changeSet id="0630-wave-03-drop-carousel" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(
+            jsonb_set(
+                jsonb_set(
+                    jsonb_set(layout, '{tiles,photoDrops}', $J${"col": 17, "row": 3, "colSpan": 8, "rowSpan": 9, "edition": "carousel"}$J$::jsonb),
+                    '{tiles,latestDrop}',
+                    $J${"col": 5, "row": 6, "colSpan": 11, "rowSpan": 16, "edition": "frame"}$J$::jsonb
+                ),
+                '{tiles,music}',
+                $J${"col": 27, "row": 8, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+            ),
+            '{tiles,waveSwitcher}',
+            $J${"col": 29, "row": 16, "colSpan": 6, "rowSpan": 4}$J$::jsonb
+        ),
+        '{mobileOrder}',
+        $J$["music", "latestDrop", "photoDrops", "waveSwitcher"]$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(
+            jsonb_set(
+                jsonb_set(
+                    jsonb_set(layout, '{tiles,photoDrops}', $J${"hidden": true}$J$::jsonb),
+                    '{tiles,latestDrop}',
+                    $J${"col": 10, "row": 6, "colSpan": 11, "rowSpan": 16, "edition": "frame"}$J$::jsonb
+                ),
+                '{tiles,music}',
+                $J${"col": 22, "row": 8, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+            ),
+            '{tiles,waveSwitcher}',
+            $J${"col": 24, "row": 16, "colSpan": 6, "rowSpan": 4}$J$::jsonb
+        ),
+        '{mobileOrder}',
+        $J$["music", "latestDrop", "waveSwitcher"]$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

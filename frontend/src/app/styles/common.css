@@ -1476,6 +1476,123 @@ body {
    живого прогона владельцем): сетка 3×3 клеток 3:2 с поворотом стоячих кадров — «нагружено»,
    а переворачивать снимки не хочется. */
 
+/* ── Редакция ленты дропов `carousel` — карусель архива (DESIGN §7.5) ────────────────────
+   Кадры едут вертикальной лентой, и главный тот, что встал в СЕРЕДИНУ окна. Прокрутка и
+   есть орган управления: наведение в раскладке не участвует вообще, поэтому лента не
+   дёргается под курсором, который просто проходит мимо.
+
+   Масштаб и яркость пишет JS (`slotLook` в `src/lib/dropCarousel.ts`) — это функция
+   расстояния до середины окна, а не состояние элемента, и CSS такую зависимость не выражает.
+   Здесь остаётся то, что от прокрутки не зависит: размер слота, снап и вид карточки.
+
+   Высота слота — КОНСТАНТА (78px), а не доля архива: именно она делает плитку независимой
+   от числа дропов. ⚠️ Значение обязано совпадать с `CAROUSEL_SLOT_PX`: по нему JS считает
+   боковой запас ленты, и разъехавшись, они дадут кадр, который не встаёт в середину окна. Рассмотрено и отклонено: раскрытие кадра по наведению (редакция
+   `spines`, пять живых прототипов) — пока раскрытый кадр забирает место у колонки, высота
+   обложки связана с числом соседей формулой «окно − 32 × соседей», то есть 137px на
+   четырёх дропах и 41px на семи. На седьмом дропе обложка перестаёт быть обложкой, и
+   подкруткой чисел эта стена не обходится. */
+.drop-carousel {
+  --drop-slot: 78px;
+  /* Ближний кадр кладётся поверх дальнего собственным `z-index` (см. `slotLook`), и без
+     своего контекста наложения эти номера всплывали бы на весь документ: лента оказывалась
+     ПОВЕРХ открытой галереи, и кадры дропа приходилось смотреть сквозь неё. `isolation`
+     запирает нумерацию внутри ленты, не заводя ни позиционирования, ни фильтра, каждый из
+     которых сделал бы плитку Backdrop Root и сломал бы стекло волны (docs/pitfalls.md). */
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  /* Просвет тот же, что у остальных лент волны без плиты: на 4px кадры слипались. */
+  gap: 6px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  /* До первой доехавшей обложки ленты не видно вовсе: плиты у неё нет (скин волны), и
+     пустой каркас читался мигающим прямоугольником на холсте при жёсткой перезагрузке.
+     Гасим прозрачностью, а не размонтированием: узел нужен на месте, чтобы картинки начали
+     грузиться и было чему доехать. Прозрачность здесь безопасна — `backdrop-filter` внутри
+     ленты не живёт (плита снята), так что Backdrop Root она не ломает. */
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+  /* Снап — только для пальца и трекпада (жест непрерывный, доводка ему к месту). Колесо
+     мыши лента разбирает сама (см. `wheelStep` в PhotoDropsTile): щелчок = ровно один дроп,
+     всегда одинаково. Со снапом на колесе они спорили за одну и ту же прокрутку. */
+  scroll-snap-type: y proximity;
+}
+.drop-carousel.is-ready {
+  opacity: 1;
+}
+.drop-carousel__slot {
+  flex: 0 0 var(--drop-slot);
+  /* `min-height: auto` у флекс-элемента не даёт слоту стать меньше своего содержимого, а
+     картинка считает содержимое по натуральному размеру — без явного нуля высота слота
+     просто игнорируется, и кадр распирает ленту изнутри. */
+  min-height: 0;
+  scroll-snap-align: center;
+  /* Переходов здесь НЕТ намеренно. Масштаб и яркость пишутся заново на каждом кадре
+     прокрутки, и переход поверх этого заставлял каждое новое значение догонять предыдущее:
+     лента то шла ровно, то вязла — «замедляется время от времени» (замечание владельца).
+     Плавность даёт сама прокрутка, дублировать её анимацией не нужно. */
+}
+.drop-carousel__card {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: var(--tile-line, 1px) solid var(--border-tile, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.drop-carousel__cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.drop-carousel__cover--blank {
+  background: var(--bg-surface-muted);
+}
+/* Скрим под подписью: она обязана читаться и на светлом кадре. Тот же приём, что у полосы
+   под кадром выше, — `color-mix` от фона страницы, чтобы волна перекрашивала его собой. */
+.drop-carousel__label {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bg-page) 82%, transparent) 0,
+    color-mix(in srgb, var(--bg-page) 30%, transparent) 70%,
+    color-mix(in srgb, var(--bg-page) 0%, transparent) 100%
+  );
+}
+.drop-carousel__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+.drop-carousel__month {
+  flex: none;
+  font-family: var(--font-mono);
+  line-height: 1.2;
+  color: var(--text-tertiary);
+}
+
 /* Полка дропов (опора: внутр. 228px) */
 .t-drops-title {
   font-size: clamp(10px, calc(6px + 2.63cqw), 26px);
@@ -1756,6 +1873,9 @@ body {
   display: block;
   max-width: 100%;
   max-height: 100%;
+  /* Горизонталь на кадре — жест ленты, вертикаль остаётся странице: без этого браузер
+     забирает себе оба направления и свайп по кадру не доходит до обработчика. */
+  touch-action: pan-y;
 }
 .drop-roll__photo,
 .drop-roll__thumb {
@@ -1979,8 +2099,23 @@ body {
   z-index: -3;
   background: var(--modal-scrim, rgba(33, 26, 22, 0.55));
 }
-/* Стартовый кадр: борд ещё открыт, кадр ещё на плитке — затемнения нет. */
-.drop-scene[data-morph="from"]::before {
+/* Стартовый кадр: борд ещё открыт, кадр ещё на плитке — затемнения нет. То же и на время
+   ожидания замера (`wait`): борд ещё не должен темнеть, движение даже не началось. */
+.drop-scene[data-morph="from"]::before,
+.drop-scene[data-morph="wait"]::before {
+  opacity: 0;
+}
+/* Ожидание замера: галерея уже в разметке (иначе её нечем мерить), но показывать её нельзя —
+   она разложена в свой полный размер, и один отрисованный кадр читается вспышкой перед
+   движением. Гасим только САМ КАДР: панель с подписью появляется вместе с ним. */
+.drop-scene[data-morph="wait"] [data-morph-hero] {
+  opacity: 0;
+}
+/* Панель прячется тоже. Из плитки последнего дропа кадры уже на руках, и галерея открывается
+   разложенной; из ленты дропов они грузятся после клика, и панель со стеклом успевала
+   появиться до начала движения — «что-то мигает перед выезжанием» (замечание владельца).
+   Ждать бесконечно нельзя: если кадры не приедут, шов снимает метку сам (см. useDropMorph). */
+.drop-scene[data-morph="wait"] .drop-modal__panel {
   opacity: 0;
 }
 .drop-scene[data-morph="in"]::before {
@@ -2037,14 +2172,42 @@ body {
      а не сцена, — `overflow` на сцене срезал бы подписи артефактов, которым положено выходить
      за кадр. */
   --drop-morph-radius: var(--drop-morph-radius-from, var(--radius-sm));
+  /* Клип — пара к равномерному масштабу кадра (`morphClip`). Кадр едет ЦЕЛЫМ и садится в
+     плитку кадрированным сверху и снизу — ровно так, как показывает снимок сама плитка
+     (`object-fit: cover`). Прежде масштаб считался по осям независимо, и кадр на посадке
+     заметно сплющивался: у ленты дропов слот шире снимка (замечание владельца). Значение по
+     умолчанию — `inset(0)`, а не `none`: между `inset` и `none` перехода нет, и кадр щёлкал
+     бы клипом вместо того, чтобы раскрываться. */
+  --drop-morph-clip: var(--drop-morph-clip-from, inset(0));
+}
+.drop-scene[data-morph] [data-morph-hero] img {
+  clip-path: var(--drop-morph-clip, inset(0));
 }
 .drop-scene[data-morph="in"] [data-morph-hero] img,
 .drop-scene[data-morph="out"] [data-morph-hero] img {
-  transition: border-radius var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
-    var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition:
+    border-radius var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
+      var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    clip-path var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
+      var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 .drop-scene[data-morph="in"] [data-morph-hero] img {
   transition-duration: var(--drop-morph-ms, 560ms);
+}
+/* Раскрытие кадрирования идёт ТОЙ ЖЕ кривой и той же длительностью, что и сам полёт: срез
+   раскрывается ПО МЕРЕ выезжания, а не после него.
+
+   Замер объяснил обе прежние жалобы разом. Кривые расходились: полёт шёл сильным ease-out
+   (72% пути за первую четверть времени), а срез — мягким ease-in-out (23% за ту же четверть).
+   Кадр успевал приехать, и только потом разворачивался в снимок — «выезжает именно фрейм,
+   а только потом раскрывается в картинку». Одна кривая на оба свойства убирает рассинхрон,
+   и никакой третьей кривой подбирать не нужно: у морфа она одна и приезжает от скина. */
+.drop-scene[data-morph="in"] [data-morph-hero] img {
+  transition:
+    border-radius var(--drop-morph-ms, 560ms)
+      var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    clip-path var(--drop-morph-ms, 560ms)
+      var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 /* Закрытие началось — сцена больше не ловит указатель: борд под ней уже вернулся, а на время
    досадки кадр висит поверх него прозрачным для мыши слоем. */
@@ -2057,7 +2220,11 @@ body {
    а по краям уже чётко (у блюра края полупрозрачны, сквозь них видно плитку) → чётко. Ступень
    посередине читается поломкой (замечание владельца). Резкий кадр садится в свой прямоугольник
    незаметно — подменять нечего. */
-.drop-scene[data-morph="from"] [data-morph-hero] {
+.drop-scene[data-morph="from"] [data-morph-hero],
+.drop-scene[data-morph="out"] [data-morph-hero] {
+  /* Расфокус и на уходе тоже: последние пиксели посадки кадр проходит уже мягким, и работа
+     клипа на них в глаза не бросается (просьба владельца — «пускай заезжает с блюром»).
+     Приходил кадр размытым и раньше; уходил резким, и посадка читалась резче, чем взлёт. */
   filter: var(--drop-morph-focus, blur(10px) saturate(0.72));
 }
 /* Уход короче прихода: назад кадр едет по уже знакомой дороге, и та же длительность читается
@@ -2089,11 +2256,21 @@ body {
     transform: translateY(8px);
   }
 }
+/* Ожидание замера (`wait`) одето РОВНО как стартовый кадр: движение ещё не началось, и
+   зритель не должен видеть ничего, что появится только в конце. Иначе выходило наоборот —
+   шапка и гребёнка показывались первыми, пропадали на время полёта кадра и возвращались
+   вместе с ним (замечание владельца). Список тот же, что у `from`, и это не дубль ради
+   дубля: `wait` — это и есть `from` до того, как стало чем мерить. */
 .drop-scene[data-morph="from"] .drop-modal__head,
 .drop-scene[data-morph="from"] .drop-roll__ribbon,
 .drop-scene[data-morph="from"] .drop-roll__strip,
 .drop-scene[data-morph="from"] .drop-roll__scrub,
-.drop-scene[data-morph="from"] .drop-gallery {
+.drop-scene[data-morph="from"] .drop-gallery,
+.drop-scene[data-morph="wait"] .drop-modal__head,
+.drop-scene[data-morph="wait"] .drop-roll__ribbon,
+.drop-scene[data-morph="wait"] .drop-roll__strip,
+.drop-scene[data-morph="wait"] .drop-roll__scrub,
+.drop-scene[data-morph="wait"] .drop-gallery {
   opacity: 0;
 }
 .drop-scene[data-morph="in"] .drop-modal__head,
@@ -2268,6 +2445,15 @@ body {
   position: absolute;
   inset: 0;
   margin: 0;
+  overflow: hidden;
+}
+/* Строка ленты — свой узел, а не перенос браузера: только так волна может выключать строки
+   ПО ОЧЕРЕДИ в разные стороны (`text-align` в CSS правит абзац целиком, а не строку). Здесь
+   лежит лишь структура — строка не переносится и обрезается по краю; сама выключка это уже
+   выбор волны, и живёт она в её скине. */
+.wave-backdrop-line {
+  display: block;
+  white-space: pre;
   overflow: hidden;
 }
 

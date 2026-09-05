@@ -16,6 +16,7 @@ import {
   rollMotionStep,
   startFrameIndex,
   stripPadding,
+  swipeStep,
   tickIndexAt,
   toothHeight,
   wheelStep,
@@ -314,6 +315,63 @@ export function DropRoll({
     return () => host.removeEventListener("wheel", onWheel);
   }, [current, photos.length, scrollTo]);
 
+  // Свайп по САМОМУ кадру (DESIGN §7.5). На телефоне гребёнка и полоса миниатюр — цели в
+  // несколько миллиметров, а самый большой объект на экране до сих пор на жест не отвечал.
+  // Мышь сюда не пускаем: у неё уже есть колесо и гребёнка, а протяжка мышью по кадру
+  // перехватывала бы наведение на находки.
+  const swipeRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    acc: number;
+    locked: boolean;
+  } | null>(null);
+
+  const onStagePointerDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.pointerType === "mouse") return;
+    swipeRef.current = {
+      id: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      acc: 0,
+      locked: false,
+    };
+  };
+
+  const onStagePointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const swipe = swipeRef.current;
+    if (!swipe || swipe.id !== e.pointerId) return;
+    const totalX = e.clientX - swipe.startX;
+    const totalY = e.clientY - swipe.startY;
+    if (!swipe.locked) {
+      // Пока жест не определился, ничего не двигаем. Определившись вертикальным, отдаём его
+      // странице совсем: диагональ, начатую как скролл, лента перехватывать не вправе.
+      if (Math.abs(totalX) < 8 && Math.abs(totalY) < 8) return;
+      if (Math.abs(totalY) > Math.abs(totalX)) {
+        swipeRef.current = null;
+        return;
+      }
+      swipe.locked = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    const step = swipeStep(e.clientX - swipe.lastX, swipe.acc);
+    swipe.lastX = e.clientX;
+    swipe.acc = step.acc;
+    if (step.dir === 0) return;
+    // Считаем от последнего ЗАКАЗАННОГО кадра, как и колесо: движение ещё едет, и длинный
+    // свайп иначе топтался бы на месте.
+    const base = targetRef.current ?? current;
+    const next = Math.min(photos.length - 1, Math.max(0, base + step.dir));
+    targetRef.current = next;
+    scrollTo(next, true);
+  };
+
+  const endSwipe = () => {
+    swipeRef.current = null;
+  };
+
   // Полные кадры соседей — заранее. Иначе при листании крупный кадр стоит размытой миниатюрой,
   // пока едет web-версия: «заметно плохое качество» (замечание владельца). Окно узкое: тянуть
   // все 37 кадров вперёд значило бы выкачивать дроп целиком ради одного просмотренного.
@@ -440,6 +498,10 @@ export function DropRoll({
           style={ratio ? { aspectRatio: ratio } : undefined}
           onMouseMove={trackPointer}
           onMouseLeave={() => setUnder([])}
+          onPointerDown={onStagePointerDown}
+          onPointerMove={onStagePointerMove}
+          onPointerUp={endSwipe}
+          onPointerCancel={endSwipe}
         >
           {/* Миниатюра — подложка только пока полного кадра НЕТ в кэше. Соседи предзагружены,
               поэтому при листании её обычно не видно вовсе: кадр сразу полного качества. */}

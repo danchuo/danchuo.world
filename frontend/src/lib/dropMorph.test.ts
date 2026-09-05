@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { cssDurationMs, morphRadius, morphTransform } from "./dropMorph";
+import { cssDurationMs, morphClip, morphRadius, morphTransform } from "./dropMorph";
+
+describe("morphClip", () => {
+  it("режет кадр по короткой оси — ровно то, что не влезло в плитку", () => {
+    // Плитка 100×100, герой 400×200: масштаб 0.5, в плитку помещается кусок 200×200,
+    // значит по ширине надо срезать (400 − 200) / 2 = 100 с каждой стороны.
+    const from = { left: 0, top: 0, width: 100, height: 100 };
+    const to = { left: 0, top: 0, width: 400, height: 200 };
+    expect(morphClip(from, to, 0)).toBe("inset(0px 100px)");
+  });
+
+  it("вдоль оси, по которой масштаб и выбран, не режет ничего", () => {
+    const from = { left: 0, top: 0, width: 200, height: 100 };
+    const to = { left: 0, top: 0, width: 400, height: 200 };
+    // Пропорции совпадают ⇒ кадр садится в плитку ровно, срезать нечего.
+    expect(morphClip(from, to, 0)).toBe("inset(0px 0px)");
+  });
+
+  it("скругление уезжает в клип, поделённое на масштаб", () => {
+    const from = { left: 0, top: 0, width: 100, height: 100 };
+    const to = { left: 0, top: 0, width: 400, height: 200 };
+    expect(morphClip(from, to, 6)).toBe("inset(0px 100px round 12px)");
+  });
+
+  it("отдаёт null на вырожденных боксах — как и трансформация", () => {
+    expect(morphClip({ left: 0, top: 0, width: 0, height: 10 }, { left: 0, top: 0, width: 10, height: 10 }, 4)).toBeNull();
+  });
+});
 
 describe("morphTransform", () => {
   it("ставит героя ровно в границы плитки: центр в центр, размер в размер", () => {
@@ -7,19 +34,20 @@ describe("morphTransform", () => {
     const from = { left: 100, top: 200, width: 300, height: 200 };
     const to = { left: 500, top: 100, width: 900, height: 600 };
     // Центры: плитка (250, 300), герой (950, 400) ⇒ сдвиг (−700, −100), масштаб 1/3.
-    expect(morphTransform(from, to)).toBe("translate(-700px, -100px) scale(0.3333, 0.3333)");
+    expect(morphTransform(from, to)).toBe("translate(-700px, -100px) scale(0.3333)");
   });
 
-  it("считает масштаб по осям независимо — пропорции боксов совпадать не обязаны", () => {
+  it("масштаб РАВНОМЕРНЫЙ — кадр по дороге не сплющивается", () => {
     const from = { left: 0, top: 0, width: 100, height: 100 };
     const to = { left: 0, top: 0, width: 400, height: 200 };
-    // Центры: (50, 50) и (200, 100) ⇒ сдвиг (−150, −50), масштаб 0.25 по X и 0.5 по Y.
-    expect(morphTransform(from, to)).toBe("translate(-150px, -50px) scale(0.25, 0.5)");
+    // Центры: (50, 50) и (200, 100) ⇒ сдвиг (−150, −50). По осям вышло бы 0.25 и 0.5;
+    // берём больший, чтобы кадр закрыл плитку без полей, а лишнее срежет morphClip.
+    expect(morphTransform(from, to)).toBe("translate(-150px, -50px) scale(0.5)");
   });
 
   it("на совпадающих боксах не двигает кадр вовсе", () => {
     const box = { left: 40, top: 60, width: 320, height: 240 };
-    expect(morphTransform(box, box)).toBe("translate(0px, 0px) scale(1, 1)");
+    expect(morphTransform(box, box)).toBe("translate(0px, 0px) scale(1)");
   });
 
   it("отдаёт null, если любой из боксов вырожден", () => {
@@ -35,7 +63,7 @@ describe("morphTransform", () => {
   it("округляет числа — строка трансформации должна быть стабильной между кадрами", () => {
     const from = { left: 10.006, top: 0, width: 100, height: 100 };
     const to = { left: 0, top: 0, width: 300, height: 300 };
-    expect(morphTransform(from, to)).toBe("translate(-89.99px, -100px) scale(0.3333, 0.3333)");
+    expect(morphTransform(from, to)).toBe("translate(-89.99px, -100px) scale(0.3333)");
   });
 });
 

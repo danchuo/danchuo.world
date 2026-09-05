@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { cssDurationMs, morphRadius, morphTransform } from "@/lib/dropMorph";
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { cssDurationMs, morphClip, morphRadius, morphTransform } from "@/lib/dropMorph";
 
 /**
  * Длительность проявки, если скин её не назвал (уход берёт её же, пока не назван свой,
@@ -36,6 +36,16 @@ const FALLBACK_MS = 560;
  *
  * Под `prefers-reduced-motion` шва нет вовсе: галерея появляется и исчезает без движения.
  */
+/**
+ * Потолок попыток снять замер (кадров отрисовки). Двадцать — треть секунды: этого хватает и
+ * на доводку ленты, и на раскладку галереи, и при этом отсутствие героя (мозаика) не
+ * превращается в вечный цикл rAF.
+ */
+const MAX_PLAY_RETRIES = 40;
+
+/** Сколько ждать первого кадра галереи, прежде чем показать её вовсе без движения. */
+const WAIT_CAP_MS = 500;
+
 export function useDropMorph({
   origin,
   sceneRef,
@@ -54,6 +64,13 @@ export function useDropMorph({
   requestClose: () => void;
 } {
   const playedRef = useRef(false);
+  /** Сколько раз ещё пробовать снять замер, прежде чем признать, что морфить не из чего. */
+  const retriesRef = useRef(0);
+  /**
+   * Ссылка на свежий [playIn] — через неё повтор зовёт САМ СЕБЯ. Прямая рекурсия в
+   * `useCallback` невозможна: функция не может стоять в списке собственных зависимостей.
+   */
+  const playInRef = useRef<(() => void) | null>(null);
   const leavingRef = useRef(false);
   /** Отложенный старт движения (см. [playIn]); 0 — ничего не запланировано. */
   const frameRef = useRef(0);
@@ -81,6 +98,41 @@ export function useDropMorph({
     },
     [cancelStart, showSource],
   );
+
+  /**
+   * Будет ли проявка вообще — БЕЗ кадра галереи, которого на первом рендере ещё нет.
+   *
+   * Нужно отдельно от [parts] ровно поэтому: галерея грузит кадры, и до их приезда сцена
+   * рисуется панелью с шапкой и без снимка. Если не пометить её ожиданием СРАЗУ, зритель
+   * видит «меню без фотки», а гребёнка и лента миниатюр показываются раньше кадра, потом
+   * прячутся на время его полёта и возвращаются вместе с ним (замечание владельца).
+   */
+  const morphPossible = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    if (!sceneRef.current || !origin?.current) return false;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
+    return getComputedStyle(document.documentElement).getPropertyValue("--drop-morph").trim() === "1";
+  }, [origin, sceneRef]);
+
+  // Помечаем сцену ожиданием ДО первой отрисовки: layout-эффект, потому что метка обязана
+  // лечь раньше, чем браузер покажет панель.
+  //
+  // И снимаем её по таймеру, если движение так и не началось. Ожидание прячет галерею
+  // целиком, а кадры к ней грузятся по сети: без потолка медленный ответ означал бы клик,
+  // после которого не происходит НИЧЕГО. Полсекунды — предел, за которым отсутствие движения
+  // честнее пустого экрана; проявку после этого не играем вовсе, иначе кадр прыгнул бы на
+  // уже показанной галерее.
+  useLayoutEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || scene.dataset.morph || !morphPossible()) return;
+    scene.dataset.morph = "wait";
+    const timer = window.setTimeout(() => {
+      if (scene.dataset.morph !== "wait") return;
+      delete scene.dataset.morph;
+      playedRef.current = true;
+    }, WAIT_CAP_MS);
+    return () => window.clearTimeout(timer);
+  }, [morphPossible, sceneRef]);
 
   /** Слой, кадр галереи и кадр плитки разом — либо все трое есть, либо морфа нет. */
   const parts = useCallback(() => {
@@ -136,14 +188,46 @@ export function useDropMorph({
     );
     const r = Number.isFinite(radius) ? morphRadius(tileBox, heroBox, radius) : null;
     if (r) p.scene.style.setProperty("--drop-morph-radius-from", r);
+    // Клип — пара к равномерному масштабу: кадр едет целым, а в плитку садится кадрированным
+    // сверху и снизу, ровно как его показывает сама плитка (`object-fit: cover`).
+    const clip = morphClip(tileBox, heroBox, Number.isFinite(radius) ? radius : 0);
+    if (clip) p.scene.style.setProperty("--drop-morph-clip-from", clip);
     return true;
   }, []);
 
   const playIn = useCallback(() => {
     if (playedRef.current) return;
     const p = parts();
-    if (!p) return;
-    if (!placeOnTile(p)) return;
+    // Мерить пока нечего — пробуем ещё раз на следующем кадре. Замер бывает не готов не
+    // потому, что морфа нет, а потому, что галерея ещё раскладывается: кадр ленты дропов
+    // открывается после доводки ленты в середину, и первый замер попадал в незаконченную
+    // прокрутку — морф не играл вовсе, кроме самого верхнего дропа, которому доводка не
+    // нужна (замечание владельца: «выезжает только первый»). Попытки ограничены: у мозаики
+    // героя нет вообще, и молчаливый бесконечный цикл там был бы хуже отсутствия движения.
+    // Замер принимается СРАЗУ, как только он годен. Ждать «устоявшегося» размера пробовали
+    // и откатили: галерее последнего дропа кадры известны на момент открытия, ей ждать
+    // нечего, и лишние кадры отсрочки читались подтормаживанием в начале движения
+    // (замечание владельца). Повтор нужен не для точности замера, а для того, что мерить
+    // бывает НЕЧЕГО: галерея ленты дропов грузит кадры после клика, и первая попытка
+    // приходится на сцену без кадра вовсе — раньше шов на этом сдавался, и проявка играла
+    // только у верхнего дропа, которому доводка ленты не нужна.
+    if (!p || !placeOnTile(p)) {
+      if (retriesRef.current >= MAX_PLAY_RETRIES) {
+        // Сдались — галерея показывается как есть, без движения. Метку ожидания снимаем,
+        // иначе кадр остался бы невидимым навсегда.
+        if (sceneRef.current?.dataset.morph === "wait") delete sceneRef.current.dataset.morph;
+        return;
+      }
+      // Метка ожидания обычно уже стоит с монтирования; ставим и здесь — на случай, когда
+      // проявка стала возможна позже (плитка появилась на борде после открытия галереи).
+      if (p?.scene && !p.scene.dataset.morph) p.scene.dataset.morph = "wait";
+      retriesRef.current += 1;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = 0;
+        playInRef.current?.();
+      });
+      return;
+    }
     playedRef.current = true;
     // Стартовый кадр ставится БЕЗ перехода (`from`) — и движение отпускается только после того,
     // как браузер этот кадр ОТРИСОВАЛ. Двойной rAF здесь не суеверие, а плата за то, что первая
@@ -162,6 +246,7 @@ export function useDropMorph({
       });
     });
   }, [parts, placeOnTile]);
+  playInRef.current = playIn;
 
   const requestClose = useCallback(() => {
     if (leavingRef.current) return;

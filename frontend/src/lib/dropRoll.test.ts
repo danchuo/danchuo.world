@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  SWIPE_NOTCH,
   nearestFrameIndex,
   rollMotionStep,
   startFrameIndex,
   stripPadding,
+  swipeStep,
   tickIndexAt,
   toothHeight,
   wheelStep,
@@ -176,5 +178,31 @@ describe("rollMotionStep", () => {
 
   it("нулевое время — лента на месте", () => {
     expect(rollMotionStep(500, 1000, 0, cell)).toBe(500);
+  });
+});
+
+describe("swipeStep — перетаскивание кадра пальцем", () => {
+  it("короткое движение кадр не листает, но копится", () => {
+    const step = swipeStep(20, 0);
+    expect(step.dir).toBe(0);
+    expect(step.acc).toBe(20);
+  });
+
+  it("накопленное движение через порог стоит один кадр, остаток переносится", () => {
+    // 20 уже лежало в накопителе, пришло ещё 40 — порог перейдён вправо, значит назад по ленте.
+    const step = swipeStep(40, 20);
+    expect(step.dir).toBe(-1);
+    expect(step.acc).toBe(60 - SWIPE_NOTCH);
+  });
+
+  it("палец влево уводит ленту вперёд, вправо — назад", () => {
+    expect(swipeStep(-SWIPE_NOTCH, 0).dir).toBe(1);
+    expect(swipeStep(SWIPE_NOTCH, 0).dir).toBe(-1);
+  });
+
+  it("длинное движение не копит долг: остаток меньше порога", () => {
+    const step = swipeStep(-SWIPE_NOTCH * 3, 0);
+    expect(step.dir).toBe(1);
+    expect(Math.abs(step.acc)).toBeLessThan(SWIPE_NOTCH * 3);
   });
 });

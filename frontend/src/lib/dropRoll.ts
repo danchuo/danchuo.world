@@ -85,49 +85,35 @@ export function wheelStep(deltaX: number, deltaY: number, deltaMode: number, acc
   return { dir: 0, acc: next };
 }
 
-/** Размер и положение ползунка на дорожке (px). */
-export interface SliderGeometry {
-  width: number;
-  offset: number;
-}
-
 /**
- * Ползунок над засечками: он говорит две вещи разом — **где** мы в дропе и **сколько** дропа
- * видно в ленте. Поэтому ширина пропорциональна видимой доле, как у полосы прокрутки: на
- * 37 кадрах видно ~4, и короткий ползунок честно показывает, что впереди ещё много.
+ * Высота засечки под магнитом гребёнки: чем ближе курсор, тем выше зубец.
  *
- * [minThumb] — пол ширины: за ползунок надо уметь схватиться мышью, а пропорция на длинном
- * дропе даёт нитку в пару пикселей.
+ * Спад — **косинус в квадрате**, а не линейный: линейный даёт ряду острый угол в точке
+ * курсора и хорошо видимый излом на границе радиуса, а квадрат косинуса подходит к обоим
+ * концам с нулевой производной, поэтому горб выглядит вылепленным, а не собранным из отрезков.
+ * Тот же спад несёт увеличение иконок в доке — приём, у которого гребёнка и заимствована.
+ *
+ * [base] у каждой засечки свой: у текущего кадра он выше остальных, и магнит обязан его
+ * ПОДНИМАТЬ, а не ронять до общего уровня — иначе, проводя мышью мимо, мы бы теряли из виду
+ * тот кадр, на котором стоим.
  */
-export function sliderGeometry(
-  scrollLeft: number,
-  clientW: number,
-  scrollW: number,
-  trackW: number,
-  minThumb: number,
-): SliderGeometry {
-  if (scrollW <= clientW || trackW <= 0) return { width: trackW, offset: 0 };
-  const width = Math.max(minThumb, Math.min(trackW, (clientW / scrollW) * trackW));
-  const progress = scrollLeft / (scrollW - clientW);
-  const offset = Math.max(0, Math.min(trackW - width, progress * (trackW - width)));
-  return { width, offset };
+export function toothHeight(distance: number, radius: number, base: number, peak: number): number {
+  if (radius <= 0) return base;
+  const d = Math.min(radius, Math.abs(distance));
+  const k = Math.cos((d / radius) * (Math.PI / 2));
+  return base + (peak - base) * k * k;
 }
 
 /**
- * Куда прокрутить ленту, когда по дорожке ткнули или потащили ползунок. Точка считается
- * ЦЕНТРОМ ползунка (палец держит середину, а не левый край), поэтому у краёв дорожки ход
- * ограничен половиной его ширины — и клик по самому краю всё равно доводит ленту до конца.
+ * Засечка под точкой ряда. Ряд — равные доли на всю ширину (`flex: 1` у каждой), поэтому
+ * попадание считается долей, а не поиском по замерам: 37 засечек мерить по одной незачем,
+ * а на движении мыши это ещё и лишний пересчёт раскладки на каждый пиксель.
+ *
+ * Промах за край отдаёт крайнюю засечку: гребёнка узкая, и жест, ушедший чуть выше или ниже
+ * ряда, должен доводить плёнку до конца, а не бросать её на полпути.
  */
-export function scrollFromPointer(
-  pointerX: number,
-  trackW: number,
-  thumbW: number,
-  clientW: number,
-  scrollW: number,
-): number {
-  const span = trackW - thumbW;
-  const maxScroll = Math.max(0, scrollW - clientW);
-  if (span <= 0 || maxScroll === 0) return 0;
-  const offset = Math.max(0, Math.min(span, pointerX - thumbW / 2));
-  return (offset / span) * maxScroll;
+export function tickIndexAt(pointerX: number, rowW: number, count: number): number {
+  if (rowW <= 0 || count <= 0) return 0;
+  const i = Math.floor((pointerX / rowW) * count);
+  return Math.max(0, Math.min(count - 1, i));
 }

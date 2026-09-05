@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   nearestFrameIndex,
-  scrollFromPointer,
-  sliderGeometry,
   startFrameIndex,
   stripPadding,
+  tickIndexAt,
+  toothHeight,
   wheelStep,
 } from "./dropRoll";
 
@@ -96,44 +96,49 @@ describe("wheelStep", () => {
   });
 });
 
-describe("sliderGeometry", () => {
-  it("ползунок занимает ту же долю дорожки, что видимая часть ленты", () => {
-    expect(sliderGeometry(0, 500, 1000, 400, 24)).toEqual({ width: 200, offset: 0 });
+
+describe("toothHeight", () => {
+  it("прямо под курсором засечка вырастает до потолка", () => {
+    expect(toothHeight(0, 78, 8, 30)).toBe(30);
   });
 
-  it("в конце ленты ползунок прижат к концу дорожки", () => {
-    expect(sliderGeometry(500, 500, 1000, 400, 24)).toEqual({ width: 200, offset: 200 });
+  it("за радиусом магнита засечка стоит на своей высоте", () => {
+    expect(toothHeight(78, 78, 8, 30)).toBe(8);
+    expect(toothHeight(400, 78, 8, 30)).toBe(8);
   });
 
-  it("в середине — ровно посередине", () => {
-    expect(sliderGeometry(250, 500, 1000, 400, 24)).toEqual({ width: 200, offset: 100 });
+  it("на половине радиуса добирает ровно половину прибавки (косинус в квадрате)", () => {
+    expect(toothHeight(39, 78, 8, 30)).toBeCloseTo(19, 6);
   });
 
-  it("на длинном дропе ползунок не тоньше минимума — за него надо уметь схватиться", () => {
-    const g = sliderGeometry(0, 500, 20000, 400, 24);
-    expect(g.width).toBe(24);
+  it("спад симметричен: сторона курсора не важна", () => {
+    expect(toothHeight(-30, 78, 8, 30)).toBe(toothHeight(30, 78, 8, 30));
   });
 
-  it("лента влезает целиком ⇒ ползунок во всю дорожку", () => {
-    expect(sliderGeometry(0, 500, 500, 400, 24)).toEqual({ width: 400, offset: 0 });
+  it("у текущего кадра своя, большая база — под магнитом он не проваливается", () => {
+    expect(toothHeight(78, 78, 26, 30)).toBe(26);
+    expect(toothHeight(0, 78, 26, 30)).toBe(30);
+  });
+
+  it("радиус ещё не измерен ⇒ высота базовая, а не деление на ноль", () => {
+    expect(toothHeight(0, 0, 8, 30)).toBe(8);
   });
 });
 
-describe("scrollFromPointer", () => {
-  it("клик по началу дорожки уводит ленту в начало", () => {
-    expect(scrollFromPointer(0, 400, 200, 500, 1000)).toBe(0);
+describe("tickIndexAt", () => {
+  it("засечка под курсором: ряд поделён на равные доли", () => {
+    expect(tickIndexAt(0, 370, 37)).toBe(0);
+    expect(tickIndexAt(105, 370, 37)).toBe(10);
+    expect(tickIndexAt(369, 370, 37)).toBe(36);
   });
 
-  it("клик по концу — в конец", () => {
-    expect(scrollFromPointer(400, 400, 200, 500, 1000)).toBe(500);
+  it("промах за край ряда отдаёт крайнюю засечку, а не пустоту", () => {
+    expect(tickIndexAt(-40, 370, 37)).toBe(0);
+    expect(tickIndexAt(9999, 370, 37)).toBe(36);
   });
 
-  it("клик по середине — на середину прокрутки", () => {
-    expect(scrollFromPointer(200, 400, 200, 500, 1000)).toBe(250);
-  });
-
-  it("промах за дорожку не уводит ленту за её края", () => {
-    expect(scrollFromPointer(-90, 400, 200, 500, 1000)).toBe(0);
-    expect(scrollFromPointer(9999, 400, 200, 500, 1000)).toBe(500);
+  it("ряд ещё не измерен ⇒ первая засечка", () => {
+    expect(tickIndexAt(100, 0, 37)).toBe(0);
+    expect(tickIndexAt(100, 370, 0)).toBe(0);
   });
 });

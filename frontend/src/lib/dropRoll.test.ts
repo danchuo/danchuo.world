@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   nearestFrameIndex,
+  rollMotionStep,
   startFrameIndex,
   stripPadding,
   tickIndexAt,
@@ -140,5 +141,40 @@ describe("tickIndexAt", () => {
   it("ряд ещё не измерен ⇒ первая засечка", () => {
     expect(tickIndexAt(100, 0, 37)).toBe(0);
     expect(tickIndexAt(100, 370, 0)).toBe(0);
+  });
+});
+
+describe("rollMotionStep", () => {
+  const cell = 124;
+
+  it("в полупикселе от цели — встаёт ровно на неё, а не дрожит вечно", () => {
+    expect(rollMotionStep(1000.3, 1000, 16.7, cell)).toBe(1000);
+  });
+
+  it("за кадр приближается к цели и никогда не проскакивает её", () => {
+    const right = rollMotionStep(1000, 1124, 16.7, cell);
+    expect(right).toBeGreaterThan(1000);
+    expect(right).toBeLessThan(1124);
+    const left = rollMotionStep(1124, 1000, 16.7, cell);
+    expect(left).toBeLessThan(1124);
+    expect(left).toBeGreaterThan(1000);
+  });
+
+  it("чем дальше отстала лента, тем большую ДОЛЮ пути берёт за кадр: быстрый щелчок догоняется быстрее", () => {
+    const near = rollMotionStep(0, cell, 16.7, cell) / cell;
+    const far = rollMotionStep(0, cell * 6, 16.7, cell) / (cell * 6);
+    expect(far).toBeGreaterThan(near);
+  });
+
+  it("доля растёт не без предела: очень далёкая цель всё ещё не берётся одним прыжком", () => {
+    expect(rollMotionStep(0, cell * 40, 16.7, cell)).toBeLessThan(cell * 40 * 0.6);
+  });
+
+  it("зависший кадр отрисовки не превращается в прыжок: время считается не больше чем за два кадра", () => {
+    expect(rollMotionStep(0, cell, 200, cell)).toBeCloseTo(rollMotionStep(0, cell, 1000 / 30, cell), 6);
+  });
+
+  it("нулевое время — лента на месте", () => {
+    expect(rollMotionStep(500, 1000, 0, cell)).toBe(500);
   });
 });

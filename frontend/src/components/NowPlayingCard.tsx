@@ -283,8 +283,11 @@ export function NowPlayingCard({
             <Artists artists={track.artists} color="var(--text-secondary)" />
           </Marquee>
         )}
+        {/* Цвет альбома — на обёртке, а не только на ссылке: многоточие усечения рисует тот
+            элемент, что режет строку, и берёт ЕГО цвет. Со цветом на одной ссылке длинный альбом
+            кончался белыми точками при сером тексте (замечание владельца, волна 03). */}
         {track.album && (
-          <div className="np-album truncate fit-measure">
+          <div className="np-album truncate fit-measure" style={{ color: albumStyle.color }}>
             <Album album={track.album} />
           </div>
         )}

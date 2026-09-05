@@ -13,6 +13,7 @@ import { boxesAt } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
 import {
   nearestFrameIndex,
+  rollMotionStep,
   startFrameIndex,
   stripPadding,
   tickIndexAt,
@@ -88,25 +89,80 @@ export function DropRoll({
   // щелчков колеса, считающая от видимого кадра, топталась бы на месте. Сбрасывается, когда
   // лента доехала, и когда за неё берутся рукой (тогда заказ уже неактуален).
   const targetRef = useRef<number | null>(null);
+  /**
+   * Собственное движение ленты — вместо нативного `scrollTo({behavior: "smooth"})`, который
+   * каждым новым вызовом обрывал анимацию и разгонялся с нуля (рывки на серии щелчков, см.
+   * [rollMotionStep]). Здесь цель движущаяся: заказ лишь переставляет `target`, а один цикл rAF
+   * каждый кадр подтягивает позицию к ней. На время движения с ленты снят `scroll-snap-type`:
+   * Chrome защёлкивает КАЖДОЕ программное присвоение `scrollLeft` к ближайшей ячейке, и лента
+   * прыгала бы целыми кадрами (замер: скорость 0, 130, 0, 130 px за кадр).
+   */
+  const motionRef = useRef<{ target: number; pos: number; raf: number; lastT: number } | null>(null);
   const scrubRef = useRef<HTMLDivElement>(null);
   const peekRef = useRef<HTMLDivElement>(null);
   const peekImgRef = useRef<HTMLImageElement>(null);
   const peekNoRef = useRef<HTMLSpanElement>(null);
   /** Тащат ли гребёнку прямо сейчас: пока да, движение мыши двигает и плёнку. */
   const scrubbingRef = useRef(false);
+  /** Где курсор над гребёнкой (clientX); `null` — курсора над рядом нет. */
+  const combXRef = useRef<number | null>(null);
   // Боковой запас считается по ЖИВОЙ ширине окна ленты: она зависит от ширины модалки, а та —
   // от экрана. До первого замера запас 0 — лента просто стоит с начала, без скачка.
   const [pad, setPad] = useState(0);
 
-  const scrollTo = useCallback((index: number, smooth: boolean) => {
-    const strip = stripRef.current;
-    const item = strip?.children[index] as HTMLElement | undefined;
-    if (!strip || !item) return;
-    strip.scrollTo({
-      left: item.offsetLeft + item.offsetWidth / 2 - strip.clientWidth / 2,
-      behavior: smooth ? "smooth" : "auto",
-    });
+  /** Остановить собственное движение ленты и вернуть ей защёлкивание. */
+  const stopMotion = useCallback(() => {
+    const motion = motionRef.current;
+    if (!motion) return;
+    cancelAnimationFrame(motion.raf);
+    motionRef.current = null;
+    if (stripRef.current) stripRef.current.style.scrollSnapType = "";
   }, []);
+
+  const scrollTo = useCallback(
+    (index: number, smooth: boolean) => {
+      const strip = stripRef.current;
+      const item = strip?.children[index] as HTMLElement | undefined;
+      if (!strip || !item) return;
+      if (!smooth) {
+        stopMotion();
+        strip.scrollTo({ left: item.offsetLeft + item.offsetWidth / 2 - strip.clientWidth / 2, behavior: "auto" });
+        return;
+      }
+      if (motionRef.current) {
+        motionRef.current.target = index; // движение уже идёт — просто переставляем цель
+        return;
+      }
+      strip.style.scrollSnapType = "none";
+      const step = (t: number) => {
+        const motion = motionRef.current;
+        if (!motion) return;
+        const cell = strip.children[motion.target] as HTMLElement | undefined;
+        if (!cell) {
+          stopMotion();
+          return;
+        }
+        // Цель зажата в достижимое: за краем прокрутки лента не сдвинется, и без зажима она бы
+        // «ехала» к недостижимой точке вечно.
+        const goal = Math.max(
+          0,
+          Math.min(strip.scrollWidth - strip.clientWidth, cell.offsetLeft + cell.offsetWidth / 2 - strip.clientWidth / 2),
+        );
+        motion.pos = rollMotionStep(motion.pos, goal, motion.lastT ? t - motion.lastT : 1000 / 60, cell.offsetWidth);
+        motion.lastT = t;
+        strip.scrollLeft = motion.pos;
+        if (motion.pos === goal) {
+          stopMotion();
+          return;
+        }
+        motion.raf = requestAnimationFrame(step);
+      };
+      motionRef.current = { target: index, pos: strip.scrollLeft, raf: requestAnimationFrame(step), lastT: 0 };
+    },
+    [stopMotion],
+  );
+  // Размонтировались посреди движения — кадры отрисовки больше некому обслуживать.
+  useEffect(() => stopMotion, [stopMotion]);
 
   // Запас — от ширины окна и ширины миниатюры (её задаёт CSS волны, поэтому меряем, а не
   // берём число из кода). Пересчитывается на ресайзе: модалка резиновая.
@@ -167,6 +223,15 @@ export function DropRoll({
     });
     return tickIndexAt(clientX - row.left, row.width, ticks.length);
   }, []);
+
+  // Кадр сменился, а курсор всё ещё над рядом — гребёнку лепим заново. Высоты живут в инлайн-
+  // стилях и пишутся только на движении мыши; после клика по засечке (или щелчка колеса под
+  // рядом) прежний текущий зубец оставался бы высоким, а новый — низким, пока мышь не
+  // шевельнётся (замечание владельца). Эффект идёт после коммита React: классы `is-current`,
+  // по которым [shapeComb] берёт базу зубца, к этому моменту уже переставлены.
+  useEffect(() => {
+    if (combXRef.current !== null) shapeComb(combXRef.current);
+  }, [current, shapeComb]);
 
   /**
    * Кадр под пальцем — всплывающей миниатюрой над гребёнкой. Она и есть ответ на «куда я
@@ -252,9 +317,14 @@ export function DropRoll({
   // Полные кадры соседей — заранее. Иначе при листании крупный кадр стоит размытой миниатюрой,
   // пока едет web-версия: «заметно плохое качество» (замечание владельца). Окно узкое: тянуть
   // все 37 кадров вперёд значило бы выкачивать дроп целиком ради одного просмотренного.
+  //
+  // Окно тянется и к ЗАКАЗАННОМУ кадру: при быстром вращении колеса лента уходит вперёд быстрее,
+  // чем три соседа успевают приехать, и крупный кадр мелькал подложкой (замер: шесть кадров
+  // отрисовки с миниатюрой на двадцати щелчках).
   useEffect(() => {
-    const from = Math.max(0, current - PRELOAD_AHEAD);
-    const to = Math.min(photos.length - 1, current + PRELOAD_AHEAD);
+    const ordered = targetRef.current ?? current;
+    const from = Math.max(0, Math.min(current, ordered) - PRELOAD_AHEAD);
+    const to = Math.min(photos.length - 1, Math.max(current, ordered) + PRELOAD_AHEAD);
     const dying: HTMLImageElement[] = [];
     for (let i = from; i <= to; i += 1) {
       const src = photos[i]?.imageUrl;
@@ -295,6 +365,7 @@ export function DropRoll({
   // держат ли кнопку. Пока тащим, прокрутка НЕ плавная (`auto`): плавность спорила бы с рукой —
   // плёнка догоняла бы палец с отставанием.
   const onCombPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    combXRef.current = e.clientX;
     const index = shapeComb(e.clientX);
     if (index < 0) return;
     movePeek(index, e.clientX - e.currentTarget.getBoundingClientRect().left);
@@ -304,8 +375,10 @@ export function DropRoll({
   const onCombPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault(); // иначе тянется выделение текста, и жест обрывается на первом же пикселе
     targetRef.current = null; // рука важнее заказанного колесом кадра
+    stopMotion();
     scrubbingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
+    combXRef.current = e.clientX;
     const index = shapeComb(e.clientX);
     if (index >= 0) scrollTo(index, true);
   };
@@ -316,6 +389,7 @@ export function DropRoll({
     // в тот момент, когда высоты снимаются, иначе гребёнка не опадала бы, а схлопывалась. Ждать
     // перерисовки React здесь нельзя — она произойдёт после.
     scrubRef.current?.classList.add("is-relaxing");
+    combXRef.current = null;
     shapeComb(null);
     if (peekRef.current) peekRef.current.hidden = true;
   };
@@ -423,6 +497,7 @@ export function DropRoll({
         style={{ paddingInline: pad }}
         onPointerDown={() => {
           targetRef.current = null;
+          stopMotion(); // рука важнее заказанного кадра
         }}
       >
         {photos.map((p, i) => {

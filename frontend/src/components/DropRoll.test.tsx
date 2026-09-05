@@ -39,6 +39,24 @@ describe("DropRoll", () => {
     expect(screen.getByText("футболка")).toBeInTheDocument();
   });
 
+  it("регулятор один: отдельной полосы прокрутки над гребёнкой больше нет", () => {
+    render(<DropRoll photos={photos} onZoom={() => {}} />);
+
+    expect(screen.queryByRole("scrollbar")).not.toBeInTheDocument();
+  });
+
+  it("гребёнка помечает текущий кадр — она же и говорит, где мы в дропе", () => {
+    render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "перейти к кадру 3" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "перейти к кадру 1" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
   it("лупа отдаёт наверх ТЕКУЩИЙ кадр — его и открывать во весь экран", async () => {
     const onZoom = vi.fn();
     render(<DropRoll photos={photos} startAt="/api/film-media/1/1/web" onZoom={onZoom} />);

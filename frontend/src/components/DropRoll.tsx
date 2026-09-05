@@ -13,10 +13,10 @@ import { boxesAt } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
 import {
   nearestFrameIndex,
-  scrollFromPointer,
-  sliderGeometry,
   startFrameIndex,
   stripPadding,
+  tickIndexAt,
+  toothHeight,
   wheelStep,
 } from "@/lib/dropRoll";
 import type { FilmPhotoView } from "@/lib/api/types";
@@ -25,14 +25,30 @@ import { Icon } from "./Icon";
 
 /** Сколько соседних кадров держать предзагруженными в полном размере с каждой стороны. */
 const PRELOAD_AHEAD = 3;
-/** Пол ширины ползунка: за него надо уметь схватиться мышью (px). */
-const MIN_THUMB = 28;
+/**
+ * Магнит гребёнки (px). Радиус — насколько далеко от курсора засечки ещё растут; база и потолок
+ * — от какой высоты и до какой. `COMB_BASE` обязан совпадать с высотой покоя в CSS
+ * (`.drop-roll__tick`), `COMB_CURRENT` — с высотой засечки текущего кадра: высоты JS пишет,
+ * только пока курсор над рядом, а уходя, возвращает их под управление стилям.
+ */
+const COMB_RADIUS = 78;
+const COMB_BASE = 8;
+const COMB_PEAK = 30;
+const COMB_CURRENT = 26;
 
 /**
  * Галерея дропа в редакции **«плёнка»** (DESIGN §7.5): дроп — одна катушка, и читается он как
- * катушка. Крупный кадр сверху, под ним лента миниатюр, под лентой — засечка на каждый кадр,
- * по которым едут как по таймлайну. Соседи в ленте уходят в прогрессивный блюр — тот же приём,
- * которым волна одевает борд.
+ * катушка. Крупный кадр сверху, под ним лента миниатюр, под лентой — **магнитная гребёнка**:
+ * засечка на каждый кадр, и она же единственный регулятор. Соседи в ленте уходят в
+ * прогрессивный блюр — тот же приём, которым волна одевает борд.
+ *
+ * **Регулятор здесь один.** Прежде над засечками стояла ещё дорожка с ползунком — она отвечала
+ * на тот же вопрос «где я в ленте» и держала ради этого целую полосу, чужую плёнке по языку
+ * (перекрашенная полоса прокрутки). Её сняли: засечки объявляют себя органом управления сами —
+ * ряд отзывается на подход курсора, ближние зубцы растут косинусным спадом ([toothHeight]),
+ * под пальцем всплывает кадр. Цена решения принята сознательно: «сколько ленты видно» больше
+ * не показывается нигде, а на тач-устройствах магнита нет — там гребёнка работает как обычный
+ * ряд засечек с перетаскиванием.
  *
  * **Позиция ленты — единственное состояние.** Крупный кадр и засечки читают её прокрутку
  * (`nearestFrameIndex`), а не держат свой индекс: два источника истины разошлись бы на первом
@@ -69,8 +85,12 @@ export function DropRoll({
   // щелчков колеса, считающая от видимого кадра, топталась бы на месте. Сбрасывается, когда
   // лента доехала, и когда за неё берутся рукой (тогда заказ уже неактуален).
   const targetRef = useRef<number | null>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
+  const scrubRef = useRef<HTMLDivElement>(null);
+  const peekRef = useRef<HTMLDivElement>(null);
+  const peekImgRef = useRef<HTMLImageElement>(null);
+  const peekNoRef = useRef<HTMLSpanElement>(null);
+  /** Тащат ли гребёнку прямо сейчас: пока да, движение мыши двигает и плёнку. */
+  const scrubbingRef = useRef(false);
   // Боковой запас считается по ЖИВОЙ ширине окна ленты: она зависит от ширины модалки, а та —
   // от экрана. До первого замера запас 0 — лента просто стоит с начала, без скачка.
   const [pad, setPad] = useState(0);
@@ -110,23 +130,65 @@ export function DropRoll({
     scrollTo(initial, false);
   }, [initial, pad, scrollTo]);
 
-  // Ползунок ведём стилями через ref, а не через state: он двигается на КАЖДОМ кадре прокрутки,
-  // и гонять ради этого перерисовку всей галереи (37 миниатюр) незачем.
-  const syncSlider = useCallback(() => {
-    const strip = stripRef.current;
-    const track = trackRef.current;
-    const thumb = thumbRef.current;
-    if (!strip || !track || !thumb) return;
-    const g = sliderGeometry(
-      strip.scrollLeft,
-      strip.clientWidth,
-      strip.scrollWidth,
-      track.clientWidth,
-      MIN_THUMB,
-    );
-    thumb.style.width = `${g.width}px`;
-    thumb.style.transform = `translateX(${g.offset}px)`;
+  /**
+   * Форма гребёнки под курсором: каждой засечке — своя высота по расстоянию до него
+   * ([toothHeight]). Возвращает засечку, над которой стоит курсор, — она же и кадр, к которому
+   * едем, если гребёнку тащат.
+   *
+   * Пишем прямо в стили, как раньше писали ползунок: событие приходит на каждый пиксель
+   * движения, и перерисовывать ради него всю галерею (37 миниатюр плюс крупный кадр) нельзя.
+   * Замеры идут ОДНИМ проходом до записи: чередовать чтение и запись значило бы просить
+   * браузер пересчитать раскладку 37 раз на каждое движение мыши.
+   *
+   * `null` вместо координаты — «курсора над рядом больше нет»: высоты снимаются, и засечки
+   * возвращаются к тому, что говорит CSS.
+   */
+  const shapeComb = useCallback((clientX: number | null): number => {
+    const scrub = scrubRef.current;
+    if (!scrub) return -1;
+    const ticks = Array.from(scrub.querySelectorAll<HTMLElement>(".drop-roll__tick"));
+    if (clientX === null) {
+      ticks.forEach((tick) => {
+        tick.style.height = "";
+      });
+      return -1;
+    }
+    const row = scrub.getBoundingClientRect();
+    const shaped = ticks.map((tick) => {
+      const r = tick.getBoundingClientRect();
+      const base = tick.classList.contains("is-current") ? COMB_CURRENT : COMB_BASE;
+      return toothHeight(r.left + r.width / 2 - clientX, COMB_RADIUS, base, COMB_PEAK);
+    });
+    ticks.forEach((tick, i) => {
+      tick.style.height = `${shaped[i].toFixed(1)}px`;
+    });
+    return tickIndexAt(clientX - row.left, row.width, ticks.length);
   }, []);
+
+  /**
+   * Кадр под пальцем — всплывающей миниатюрой над гребёнкой. Она и есть ответ на «куда я
+   * попаду»: лента показывает лишь несколько кадров вокруг текущего, а гребёнка тянется на весь
+   * дроп, и без превью тыкать в её дальний конец пришлось бы вслепую.
+   */
+  const movePeek = useCallback(
+    (index: number, x: number) => {
+      const peek = peekRef.current;
+      const photo = photos[index];
+      if (!peek || !photo) return;
+      peek.hidden = false;
+      // Держим карточку в пределах ряда: у первого и последнего кадра она иначе вылезает за
+      // край гребёнки — а там её обрежет панель модалки, и превью крайнего кадра не увидеть.
+      const half = peek.offsetWidth / 2;
+      const row = peek.parentElement?.clientWidth ?? 0;
+      peek.style.left = `${row > peek.offsetWidth ? Math.max(half, Math.min(row - half, x)) : x}px`;
+      const src = mediaUrl(photo.thumbUrl);
+      if (peekImgRef.current && peekImgRef.current.getAttribute("src") !== src) {
+        peekImgRef.current.setAttribute("src", src);
+      }
+      if (peekNoRef.current) peekNoRef.current.textContent = String(index + 1).padStart(2, "0");
+    },
+    [photos],
+  );
 
   // Прокрутка ленты → текущий кадр. Считаем в rAF: события скролла идут пачками, а нам нужен
   // один ответ на кадр отрисовки.
@@ -145,7 +207,6 @@ export function DropRoll({
         });
         const next = nearestFrameIndex(centers, mid);
         if (targetRef.current === next) targetRef.current = null; // доехали — заказ исполнен
-        syncSlider();
         setCurrent(next);
       });
     };
@@ -154,12 +215,7 @@ export function DropRoll({
       strip.removeEventListener("scroll", onScroll);
       if (raf !== null) cancelAnimationFrame(raf);
     };
-  }, [photos.length, syncSlider]);
-
-  // Первая отрисовка и ресайз: ползунок обязан стоять правильно ДО первой прокрутки.
-  useEffect(() => {
-    syncSlider();
-  }, [syncSlider, pad, photos.length]);
+  }, [photos.length]);
 
   // Колесо и трекпад листают плёнку — по кадру за щелчок, и **в любом месте панели галереи**
   // (просьба владельца), а не только над лентой: рука уже на кадре, и требовать прицелиться в
@@ -232,32 +288,33 @@ export function DropRoll({
     return () => window.removeEventListener("keydown", onKey);
   }, [current, photos.length, scrollTo]);
 
-  // Перетаскивание и клик по дорожке — один обработчик: клик это перетаскивание длиной ноль,
-  // и разводить их значило бы писать ту же формулу дважды. Пока тащим, прокрутка не плавная
-  // (`auto`): плавность здесь спорила бы с рукой — лента догоняла бы палец с отставанием.
-  const dragTrack = useCallback(
-    (clientX: number) => {
-      const strip = stripRef.current;
-      const track = trackRef.current;
-      const thumb = thumbRef.current;
-      if (!strip || !track || !thumb) return;
-      const r = track.getBoundingClientRect();
-      strip.scrollLeft = scrollFromPointer(
-        clientX - r.left,
-        track.clientWidth,
-        thumb.offsetWidth,
-        strip.clientWidth,
-        strip.scrollWidth,
-      );
-    },
-    [],
-  );
+  // Наведение и перетаскивание гребёнки — один обработчик: разница между ними ровно в том,
+  // держат ли кнопку. Пока тащим, прокрутка НЕ плавная (`auto`): плавность спорила бы с рукой —
+  // плёнка догоняла бы палец с отставанием.
+  const onCombPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const index = shapeComb(e.clientX);
+    if (index < 0) return;
+    movePeek(index, e.clientX - e.currentTarget.getBoundingClientRect().left);
+    if (scrubbingRef.current) scrollTo(index, false);
+  };
 
-  const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+  const onCombPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault(); // иначе тянется выделение текста, и жест обрывается на первом же пикселе
     targetRef.current = null; // рука важнее заказанного колесом кадра
+    scrubbingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
-    dragTrack(e.clientX);
+    const index = shapeComb(e.clientX);
+    if (index >= 0) scrollTo(index, true);
+  };
+
+  const onCombPointerLeave = () => {
+    scrubbingRef.current = false;
+    // Класс ставим ДО снятия высот и напрямую, а не через state: переход должен быть в силе уже
+    // в тот момент, когда высоты снимаются, иначе гребёнка не опадала бы, а схлопывалась. Ждать
+    // перерисовки React здесь нельзя — она произойдёт после.
+    scrubRef.current?.classList.add("is-relaxing");
+    shapeComb(null);
+    if (peekRef.current) peekRef.current.hidden = true;
   };
 
   const photo = photos[current] ?? photos[0];
@@ -349,7 +406,6 @@ export function DropRoll({
 
       <div
         className="drop-roll__strip"
-        id="drop-roll-strip"
         ref={stripRef}
         style={{ paddingInline: pad }}
         onPointerDown={() => {
@@ -374,29 +430,24 @@ export function DropRoll({
         })}
       </div>
 
-      {/* Ползунок НАД засечками. Засечки говорят «сколько кадров и который из них», ползунок —
-          «где мы в ленте и сколько её видно»: без него ряд засечек не читался как регулятор
-          (замечание владельца — «непонятно, что он там есть»). */}
+      {/* Гребёнка: засечка на кадр — и она же единственный регулятор плёнки. Ряд отвечает на
+          подход курсора (высоты пишет [shapeComb]), поэтому объявляет себя органом управления
+          ещё до касания — то, ради чего прежде над ним стояла отдельная дорожка с ползунком.
+          Тащат гребёнку — едет плёнка; под пальцем всплывает кадр, к которому приедешь. */}
       <div
-        className="drop-roll__track"
-        ref={trackRef}
-        role="scrollbar"
-        aria-label="прокрутка плёнки"
-        aria-controls="drop-roll-strip"
-        aria-orientation="horizontal"
-        aria-valuenow={current + 1}
-        aria-valuemin={1}
-        aria-valuemax={photos.length}
-        onPointerDown={onTrackPointerDown}
-        onPointerMove={(e) => {
-          if (e.currentTarget.hasPointerCapture(e.pointerId)) dragTrack(e.clientX);
+        className="drop-roll__scrub"
+        ref={scrubRef}
+        onPointerEnter={() => scrubRef.current?.classList.remove("is-relaxing")}
+        onPointerDown={onCombPointerDown}
+        onPointerMove={onCombPointerMove}
+        onPointerUp={() => {
+          scrubbingRef.current = false;
         }}
+        onPointerCancel={() => {
+          scrubbingRef.current = false;
+        }}
+        onPointerLeave={onCombPointerLeave}
       >
-        <div className="drop-roll__thumb" ref={thumbRef} />
-      </div>
-
-      {/* Засечки — одна на кадр: сколько всего кадров и где ты в них, видно без счёта. */}
-      <div className="drop-roll__scrub">
         {photos.map((p, i) => (
           <button
             key={p.imageUrl}
@@ -404,8 +455,16 @@ export function DropRoll({
             className={`drop-roll__tick${i === current ? " is-current" : ""}`}
             onClick={() => scrollTo(i, true)}
             aria-label={`перейти к кадру ${i + 1}`}
+            aria-current={i === current ? "true" : undefined}
           />
         ))}
+        {/* Превью кадра под пальцем. Стоит ПОСЛЕДНИМ и позиционируется абсолютно: в ряду
+            засечек оно не участвует, а лежит над ним. */}
+        <div className="drop-roll__peek" ref={peekRef} hidden aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img ref={peekImgRef} alt="" />
+          <span ref={peekNoRef} />
+        </div>
       </div>
     </div>
   );

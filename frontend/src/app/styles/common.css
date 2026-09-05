@@ -1851,45 +1851,28 @@ body {
   opacity: 1;
   border-color: var(--accent);
 }
-/* Засечки — одна на кадр: сколько кадров в дропе и где ты в них, видно без счёта. Ряд равных
-   долей, а не пиксели: 37 кадров на любой ширине модалки разложатся сами. */
-/* Дорожка ползунка. Он и есть тот регулятор, который видно СРАЗУ: ряд засечек читается
-   шкалой, а не органом управления, пока по нему не проведёшь. Ширина ползунка пропорциональна
-   видимой доле ленты (как у полосы прокрутки) — на 37 кадрах в ленте видно около четырёх, и
-   короткий ползунок честно говорит, что впереди ещё много. */
-.drop-roll__track {
-  position: relative;
-  height: 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-tertiary) 18%, transparent);
-  border: var(--tile-line, 1px) solid var(--glass-edge, var(--border));
-  cursor: pointer;
-  touch-action: none;
-}
-.drop-roll__thumb {
-  position: absolute;
-  inset-block: -2px;
-  left: 0;
-  width: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 42%, transparent);
-  border: var(--tile-line, 1px) solid var(--accent);
-  cursor: grab;
-  transition: background 0.16s;
-}
-.drop-roll__track:hover .drop-roll__thumb {
-  background: color-mix(in srgb, var(--accent) 62%, transparent);
-}
-.drop-roll__track:active .drop-roll__thumb {
-  cursor: grabbing;
-  background: var(--accent);
-}
+/* Гребёнка — засечка на кадр: сколько кадров в дропе и где ты в них, видно без счёта. Ряд
+   равных долей, а не пиксели: 37 кадров на любой ширине модалки разложатся сами.
 
+   Она же и ЕДИНСТВЕННЫЙ регулятор плёнки. Прежде над ней стояла дорожка с ползунком — ряд
+   засечек не читался органом управления, пока по нему не проведёшь. Дорожка отвечала на тот же
+   вопрос «где я», говорила чужим плёнке языком (перекрашенная полоса прокрутки) и занимала
+   собственную полосу; теперь ряд отзывается на подход курсора сам (магнит считает JS,
+   `toothHeight`), а «сколько ленты видно» сознательно не показывается нигде.
+
+   Высоты под магнитом пишет компонент, поэтому здесь только ПОКОЙ — и числа обязаны совпадать
+   с константами `COMB_BASE`/`COMB_CURRENT` в DropRoll.tsx: уходя, курсор снимает инлайновые
+   высоты и возвращает засечки этим правилам.
+
+   `touch-action: pan-y`, а не `none`: боковой жест по гребёнке листает плёнку, но вертикальный
+   обязан прокручивать модалку — иначе палец, попавший в эти 34 пикселя, запирал бы страницу. */
 .drop-roll__scrub {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 26px;
+  height: 34px;
+  touch-action: pan-y;
 }
 .drop-roll__tick {
   flex: 1 1 auto;
@@ -1900,9 +1883,18 @@ body {
   border-radius: 1px;
   background: color-mix(in srgb, var(--text-tertiary) 40%, transparent);
   cursor: pointer;
-  transition: height 0.16s, background 0.16s;
+  /* Высоту НЕ анимируем: её пишут на каждый пиксель движения мыши, и переход превратил бы
+     гребёнку в отстающее желе. Плавность нужна ровно на возврате — её включает `is-relaxing`,
+     который компонент вешает на уход курсора. */
+  transition: background 0.16s;
 }
-.drop-roll__tick:hover,
+.drop-roll__scrub.is-relaxing .drop-roll__tick {
+  transition: background 0.16s, height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.drop-roll__tick:hover {
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+/* Клавиатуре магнит недоступен — ей засечку показывает рост от фокуса. */
 .drop-roll__tick:focus-visible {
   height: 16px;
   background: color-mix(in srgb, var(--accent) 60%, transparent);
@@ -1911,10 +1903,50 @@ body {
   height: 26px;
   background: var(--accent);
 }
+/* Кадр под пальцем. Лента показывает лишь несколько кадров вокруг текущего, а гребёнка тянется
+   на весь дроп — без превью в её дальний конец пришлось бы тыкать вслепую. */
+.drop-roll__peek {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 5px;
+  border-radius: var(--radius-sm);
+  border: var(--tile-line, 1px) solid var(--glass-edge, var(--border));
+  background: color-mix(in srgb, var(--bg-page) 88%, transparent);
+  box-shadow: var(--elev-2);
+  backdrop-filter: blur(var(--glass-blur, 10px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 10px));
+  pointer-events: none;
+  z-index: 2;
+}
+.drop-roll__peek[hidden] {
+  display: none;
+}
+/* `flex: 0 0 auto` и снятый `max-width` — несущие, а не гигиена: карточка absolute и меряется
+   по содержимому, а preflight держит на картинках `max-width: 100%`. Процент считается от
+   ширины родителя, которая сама зависит от картинки, — круг замыкается, и браузер разрешает его
+   в пользу схлопывания (замер: заданные 64px давали 35.5px, миниатюра выходила огрызком). */
+.drop-roll__peek img {
+  display: block;
+  flex: 0 0 auto;
+  width: 64px;
+  max-width: none;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.drop-roll__peek span {
+  font-family: var(--font-mono);
+  font-size: var(--fs-modal-meta);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 @media (prefers-reduced-motion: reduce) {
   .drop-roll__cell,
-  .drop-roll__tick,
-  .drop-roll__thumb {
+  .drop-roll__tick {
     transition: none;
   }
 }

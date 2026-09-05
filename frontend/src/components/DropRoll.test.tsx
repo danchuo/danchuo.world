@@ -66,3 +66,20 @@ describe("DropRoll", () => {
     expect(onZoom).toHaveBeenCalledWith(1, expect.anything());
   });
 });
+
+describe("DropRoll — кадр наружу", () => {
+  it("сообщает, на каком кадре стоит плёнка: плитке борда возвращаться в него", () => {
+    // Плитка идёт за этим адресом, чтобы проявка (DESIGN §7.5) садилась в кадр, из которого
+    // выходишь. Иначе вертикальный снимок возвращается в горизонтальную карточку и тянется.
+    const onCurrent = vi.fn();
+    render(
+      <DropRoll photos={photos} startAt="/api/film-media/1/1/web" onZoom={() => {}} onCurrent={onCurrent} />,
+    );
+
+    expect(onCurrent).toHaveBeenCalledWith(photos[1]);
+  });
+
+  it("без слушателя работает как работал", () => {
+    expect(() => render(<DropRoll photos={photos} onZoom={() => {}} />)).not.toThrow();
+  });
+});

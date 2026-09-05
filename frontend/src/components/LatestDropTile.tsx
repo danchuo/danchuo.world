@@ -143,6 +143,19 @@ export function LatestDropTile({
   const latest = data?.latest ?? null;
   const isEmpty = phase === "loaded" && latest === null;
   const [open, setOpen] = useState(false);
+  /**
+   * Кадр, на котором стоит открытая плёнка. Плитка переходит на него **локально** — в памяти
+   * вкладки, без записи куда-либо: перезагрузка вернёт обычную случайную выборку. Смысл в
+   * проявке (DESIGN §7.5): возврат обязан сесть в тот кадр, из которого выходишь, иначе
+   * вертикальный снимок растягивается по горизонтальной карточке (замечание владельца).
+   */
+  const [viewedFrame, setViewedFrame] = useState<FilmPhotoView | null>(null);
+  /**
+   * Адрес кадра, с которого открыли галерею, замороженный на время просмотра: сама галерея
+   * прокручивается к нему при изменении (`startAt`), и живой адрес дёргал бы ленту назад на
+   * каждом же движении гребёнки.
+   */
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
 
   // Случайная выборка — новая на каждую загрузку страницы, но ОДНА на загрузку: зерно берётся
   // при монтировании, а выбор из него детерминирован (`lib/sample.ts`). Плитка рендерится
@@ -155,6 +168,9 @@ export function LatestDropTile({
   // Available width comes from the outer grid-cell wrapper, NOT from the card itself:
   // the card shrinks to the mosaic below, and measuring it back would loop the observer.
   const frameRef = useRef<HTMLDivElement>(null);
+  // Сама карточка-кадр: из неё растёт галерея (проявка, DESIGN §7.5). Ссылка нужна и на
+  // закрытии, поэтому держим её, а не прямоугольник, снятый в момент клика.
+  const frameCardRef = useRef<HTMLButtonElement>(null);
   const [frameW, setFrameW] = useState(0);
   const [frameH, setFrameH] = useState(0);
 
@@ -214,7 +230,7 @@ export function LatestDropTile({
   // wrapper a height (the reserved slot, DESIGN §10.2) and the card fits inside it — landscape
   // fills the width, portrait fills the height; in the stack there is no slot height (the
   // wrapper is as tall as the card, measuring it back would loop), so width rules.
-  const frame = edition === "frame" ? (sample[0] ?? null) : null;
+  const frame = edition === "frame" ? (viewedFrame ?? sample[0] ?? null) : null;
   // Карточка-кадр появляется только вместе со снимком. До его прихода стекло не рисуется
   // вовсе: при быстрой перезагрузке пустая карточка без ширины вставала узкой вертикальной
   // полоской и через мгновение заполнялась кадром (замечание владельца) — лучше пауза без
@@ -283,7 +299,10 @@ export function LatestDropTile({
   // кэша не показывается «на секунду до свежего». Ответила успехом — на экран едут свежие
   // кадры; не ответила (рейтлимит после серии F5) — копия из кэша, но и она появляется один
   // раз, а не сменяется. Редакция кадра ждёт ещё и сам снимок (см. выше).
-  const hidden = !settled || (edition === "frame" && frame !== null && !frameReady);
+  // Пока галерея открыта, плитку НЕ прячем, даже если её новый кадр ещё не догрузился: она
+  // и так невидима (проявка сняла с неё снимок), но её прямоугольник нужен возврату — без
+  // него морфу некуда садиться.
+  const hidden = !settled || (edition === "frame" && frame !== null && !frameReady && !open);
 
   return (
     <>
@@ -309,7 +328,16 @@ export function LatestDropTile({
             // под ним, и без плашки: полоса и есть стекло из самого кадра. Подпись — В полосе,
             // а не рядом с ней: так высота полосы = растушёвка + сама подпись, и длинное
             // название, перенесясь на вторую строку, углубляет её само, без замеров.
-            <button type="button" className="drop-frame" onClick={() => setOpen(true)} aria-label={openLabel}>
+            <button
+              ref={frameCardRef}
+              type="button"
+              className="drop-frame"
+              onClick={() => {
+                setOpenedAt(frame.imageUrl);
+                setOpen(true);
+              }}
+              aria-label={openLabel}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={mediaUrl(frame.imageUrl)} alt="" className="drop-frame__img" />
               {/* Полоса несёт адрес кадра переменной: под подписью лежат две РАЗМЫТЫЕ КОПИИ
@@ -393,7 +421,17 @@ export function LatestDropTile({
           // Редакция кадра показывает ОДИН снимок — галерея обязана открыться именно на нём,
           // а не с начала дропа: клик по кадру спрашивает про этот кадр. В остальных редакциях
           // на плитке несколько кадров, и «тот самый» не определён — открываем с первого.
-          startAt={edition === "frame" ? (frame?.imageUrl ?? null) : null}
+          startAt={edition === "frame" ? openedAt : null}
+          // Кадры уже в руках — плитка тянула их ради собственной раскладки. Галерее незачем
+          // открываться лоадером поверх тех же данных (и проявке незачем ждать сеть).
+          initialPhotos={data?.photos}
+          // Проявка — только из редакции кадра: там на плитке ОДИН снимок, и он же встречает
+          // в галерее (`startAt`). В мозаике и контактном листе «тот самый кадр» не определён,
+          // расти не из чего — галерея открывается как прежде.
+          origin={edition === "frame" ? frameCardRef : undefined}
+          // Плитка идёт за плёнкой, пока та открыта: к моменту закрытия она уже показывает тот
+          // кадр, на котором вышли, и проявке есть куда вернуться без растяжения.
+          onFrameShown={edition === "frame" ? setViewedFrame : undefined}
           onClose={() => setOpen(false)}
         />
       )}

@@ -66,12 +66,15 @@ export function DropRoll({
   photos,
   startAt,
   onZoom,
+  onCurrent,
 }: {
   photos: FilmPhotoView[];
   /** Адрес кадра, с которого открыть плёнку (кадр из плитки); нет — открываем с первого. */
   startAt?: string | null;
   /** Открыть кадр во весь экран (чистым, без находок). */
   onZoom: (index: number, trigger: HTMLElement) => void;
+  /** Какой кадр сейчас крупным. Плитка борда слушает это, чтобы вернуться на него (§7.5). */
+  onCurrent?: (photo: FilmPhotoView) => void;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const rollRef = useRef<HTMLDivElement>(null);
@@ -318,6 +321,12 @@ export function DropRoll({
   };
 
   const photo = photos[current] ?? photos[0];
+  // Кадр, на котором сейчас стоит плёнка, — наружу. Из-за него плитка борда меняет свой снимок
+  // (и вместе с ним пропорцию), поэтому возврат проявки садится в тот же прямоугольник, а не
+  // растягивает вертикальный кадр по горизонтальной карточке (§7.5).
+  useEffect(() => {
+    if (photo) onCurrent?.(photo);
+  }, [photo, onCurrent]);
   const boxes = photo?.artifacts ?? [];
   const ratio = photo?.width && photo?.height ? `${photo.width} / ${photo.height}` : undefined;
   const zoomRef = useRef<HTMLButtonElement>(null);
@@ -350,6 +359,10 @@ export function DropRoll({
             замера) — сцена просто обнимает картинку, и находок на ней не рисуем. */}
         <span
           className="drop-roll__stage"
+          // Сцена — «тот самый кадр» для проявки (DESIGN §7.5): её границы совпадают с
+          // границами снимка, потому что пропорцию она берёт у него же. Атрибут, а не класс:
+          // шов [useDropMorph] ищет кадр по нему в любой редакции галереи.
+          data-morph-hero
           style={ratio ? { aspectRatio: ratio } : undefined}
           onMouseMove={trackPointer}
           onMouseLeave={() => setUnder([])}
@@ -423,8 +436,10 @@ export function DropRoll({
               aria-label={`кадр ${i + 1}`}
               aria-current={d === 0 ? "true" : undefined}
             >
+              {/* `decoding="async"` — не микрооптимизация: лента открывается в один кадр с проявкой,
+                  и синхронный декод десятка миниатюр отъедает у неё первые кадры движения. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaUrl(p.thumbUrl)} alt="" loading="lazy" />
+              <img src={mediaUrl(p.thumbUrl)} alt="" loading="lazy" decoding="async" />
             </button>
           );
         })}

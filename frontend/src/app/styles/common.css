@@ -1728,8 +1728,12 @@ body {
    ПРОПОРЦИЮ снимка, и рамки находок, заданные процентами, ложатся туда же, куда легли бы на
    самом снимке. Ничего не клипуем: карточка находки обязана выходить за кадр (имя предмета
    длиннее рамки — обычное дело). */
+/* Колонка, а не грид: катушка обязана уметь СЖИМАТЬСЯ под высоту экрана (см.
+   `.drop-modal__panel--roll` ниже), а для этого кадру нужен flex-shrink. */
 .drop-roll {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   gap: 10px;
 }
 .drop-roll__hero {
@@ -1737,8 +1741,15 @@ body {
   align-items: center;
   justify-content: center;
   /* Высота кадра — от окна, а не от числа: модалка резиновая, а плёнка под кадром обязана
-     остаться на экране вместе с ним. */
-  height: clamp(200px, 46vh, 520px);
+     остаться на экране вместе с ним. Значение — переменная, потому что «сколько отдать кадру»
+     зависит от того, чем дроп представлен на борде: волне, у которой плитка сама размером
+     с кадр (PRIME, §10.2), 46vh мало — открытый кадр выходил МЕНЬШЕ плитки, из которой его
+     открыли, и проявка (§7.5) читалась не ростом, а сжатием. */
+  height: var(--drop-roll-hero-h, clamp(200px, 46vh, 520px));
+  /* Высота выше — ЖЕЛАЕМАЯ, а не обязательная: в низком окне кадр ужимается вместе с панелью,
+     и `min-height: auto` (дефолт flex-элемента) этому мешал бы. */
+  min-height: 0;
+  flex-shrink: 1;
 }
 .drop-roll__stage {
   position: relative;
@@ -1754,7 +1765,9 @@ body {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: var(--radius-sm);
+  /* Радиус — через переменную: на время проявки (§7.5) кадр берёт скругление ПЛИТКИ, чтобы
+     не щёлкнуть углами на посадке. Вне проявки переменной нет, и остаётся своё. */
+  border-radius: var(--drop-morph-radius, var(--radius-sm));
 }
 /* Миниатюра — непрозрачная подложка на время загрузки полного кадра. Без блюра: она и так
    мелкая, а `filter` расплылся бы за края сцены ореолом (тот же зазор, что лечили в плитке). */
@@ -1949,6 +1962,156 @@ body {
   .drop-roll__tick {
     transition: none;
   }
+}
+
+/* ── Проявка галереи дропа (DESIGN §7.5) ─────────────────────────────────────────────────
+   Кадр галереи растёт из кадра на плитке и наводится на резкость, хром приходит следом.
+   Механика общая, ВКЛЮЧАЕТ её волна (`--drop-morph: 1` на `:root`, см. [useDropMorph]) — без
+   опт-ина шов не ставит `data-morph`, и ни одно правило ниже не срабатывает вовсе. Числа —
+   переменные: скин вправе назвать свою длительность, кривую, глубину расфокуса и задержку
+   хрома, как он уже называет плотность стекла. */
+.drop-scene::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  /* Ниже подложки «коробочки» волны 01 (`.pixel-slab`, z-index: -2): затемнение — фон сцены,
+     а не слой поверх её содержимого. */
+  z-index: -3;
+  background: var(--modal-scrim, rgba(33, 26, 22, 0.55));
+}
+/* Стартовый кадр: борд ещё открыт, кадр ещё на плитке — затемнения нет. */
+.drop-scene[data-morph="from"]::before {
+  opacity: 0;
+}
+.drop-scene[data-morph="in"]::before {
+  transition: opacity var(--drop-morph-ms, 560ms) linear;
+}
+.drop-scene[data-morph="out"]::before {
+  transition: opacity var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms)) linear;
+}
+.drop-scene[data-morph="out"]::before {
+  opacity: 0;
+}
+
+/* Плёнка вписывается в экран, и страницу под ней не листают. Дроп-катушка отвечает на свой
+   вопрос целиком: кадр, лента и гребёнка видны разом, листать её нечем и незачем — а полоса
+   прокрутки у края экрана читается как «сайт длиннее, чем кажется» и отвлекает (замечание
+   владельца). Панель упирается в высоту сцены, колонка внутри ужимается, кадр отдаёт лишнее
+   первым — пропорция при этом цела: сцена кадра ограничена `max-height: 100%`.
+   Мозаике этого НЕ достаётся: её ≈36 кадров длиннее экрана по построению, там скролл — смысл. */
+.drop-modal__panel--roll {
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.drop-modal__panel--roll .drop-roll {
+  flex: 1 1 auto;
+}
+/* Лишнее отдаёт ТОЛЬКО кадр. Без этого сжимались и лента с гребёнкой — а они и так ростом
+   с тач-таргет, ужимать их значит ломать управление ради пары пикселей (замер на окне 730:
+   лента теряла 6px, засечки 2px). */
+.drop-modal__panel--roll .drop-roll__ribbon,
+.drop-modal__panel--roll .drop-roll__strip,
+.drop-modal__panel--roll .drop-roll__scrub {
+  flex: none;
+}
+
+/* Пока кадр живёт в галерее, плитки на борде нет: два одинаковых снимка на экране разом — то
+   самое враньё, против которого затеяна проявка (на PRIME плитка дропа показывает ТОТ ЖЕ кадр).
+   Уезжает вся ячейка, а не только снимок: погасив один снимок, оставляешь на его месте пустую
+   карточку — рамку от фотографии, которой в ней уже нет. */
+[data-morph-source] {
+  opacity: 0;
+  transition: opacity 140ms linear;
+}
+
+/* Кадр прикидывается плиткой: `--drop-morph-from` пишет шов. Стартовое состояние `from` идёт
+   БЕЗ перехода — движение отпускается отрисованным кадром позже (`in`, см. [useDropMorph]). */
+.drop-scene[data-morph="from"] [data-morph-hero],
+.drop-scene[data-morph="out"] [data-morph-hero] {
+  transform: var(--drop-morph-from);
+  /* Углы плитки скруглены сильнее, чем углы кадра в галерее, и на посадке кадр щёлкал углами:
+     прямые становились круглыми за один кадр (замечание владельца). На время движения кадр
+     берёт скругление плитки (`morphRadius` делит его на масштаб — transform сжимает и его) и
+     приезжает к своему по той же кривой. Переменную видит картинка внутри кадра: клипует она,
+     а не сцена, — `overflow` на сцене срезал бы подписи артефактов, которым положено выходить
+     за кадр. */
+  --drop-morph-radius: var(--drop-morph-radius-from, var(--radius-sm));
+}
+.drop-scene[data-morph="in"] [data-morph-hero] img,
+.drop-scene[data-morph="out"] [data-morph-hero] img {
+  transition: border-radius var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
+    var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+.drop-scene[data-morph="in"] [data-morph-hero] img {
+  transition-duration: var(--drop-morph-ms, 560ms);
+}
+/* Закрытие началось — сцена больше не ловит указатель: борд под ней уже вернулся, а на время
+   досадки кадр висит поверх него прозрачным для мыши слоем. */
+.drop-scene[data-morph="out"] {
+  pointer-events: none;
+}
+/* Расфокус — только на приходе: кадр приезжает «мокрым» и досыхает уже на месте. Уходит он
+   РЕЗКИМ, и это не экономия. Дома его ждёт та же плитка с тем же снимком, и размытая копия,
+   севшая поверх чёткой, даёт три отчётливые ступени: размыто целиком → размыто в середине,
+   а по краям уже чётко (у блюра края полупрозрачны, сквозь них видно плитку) → чётко. Ступень
+   посередине читается поломкой (замечание владельца). Резкий кадр садится в свой прямоугольник
+   незаметно — подменять нечего. */
+.drop-scene[data-morph="from"] [data-morph-hero] {
+  filter: var(--drop-morph-focus, blur(10px) saturate(0.72));
+}
+/* Уход короче прихода: назад кадр едет по уже знакомой дороге, и та же длительность читается
+   задержкой (замечание владельца). Длительность ухода — своя переменная скина. */
+.drop-scene[data-morph="in"] [data-morph-hero] {
+  transition:
+    transform var(--drop-morph-ms, 560ms) var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    filter var(--drop-morph-ms, 560ms) var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+/* Досадка: доехав, кадр НЕ снимается щелчком, а растворяется в плитке, уже неподвижный и точно
+   на её месте. Сквозь него проступают полоса блюра и подпись — единственное, чем плитка от него
+   отличается; снятый щелчком, он проявлял бы их рывком (замечание владельца). Длительность —
+   переменная скина; ноль (дефолт) означает прежнее поведение: снять в момент посадки. */
+.drop-scene[data-morph="out"] [data-morph-hero] {
+  opacity: 0;
+  transition:
+    transform var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
+      var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    opacity var(--drop-morph-settle-ms, 0ms) linear
+      var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms));
+}
+
+/* Хром галереи (шапка, полоса данных, лента миниатюр, гребёнка) приходит ПОСЛЕ кадра: на
+   проявке смотрят на снимок, и органы управления, приехавшие вместе с ним, отбирали бы
+   внимание у того единственного, ради чего галерею открыли. */
+@keyframes drop-morph-chrome {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.drop-scene[data-morph="from"] .drop-modal__head,
+.drop-scene[data-morph="from"] .drop-roll__ribbon,
+.drop-scene[data-morph="from"] .drop-roll__strip,
+.drop-scene[data-morph="from"] .drop-roll__scrub,
+.drop-scene[data-morph="from"] .drop-gallery {
+  opacity: 0;
+}
+.drop-scene[data-morph="in"] .drop-modal__head,
+.drop-scene[data-morph="in"] .drop-roll__ribbon,
+.drop-scene[data-morph="in"] .drop-roll__strip,
+.drop-scene[data-morph="in"] .drop-roll__scrub,
+.drop-scene[data-morph="in"] .drop-gallery {
+  animation: drop-morph-chrome var(--drop-morph-chrome-ms, 320ms)
+    var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)) var(--drop-morph-chrome-delay, 260ms) both;
+}
+/* Уходя, хром гаснет сразу: кадр уезжает домой один, как и приехал. */
+.drop-scene[data-morph="out"] .drop-modal__head,
+.drop-scene[data-morph="out"] .drop-roll__ribbon,
+.drop-scene[data-morph="out"] .drop-roll__strip,
+.drop-scene[data-morph="out"] .drop-roll__scrub,
+.drop-scene[data-morph="out"] .drop-gallery {
+  opacity: 0;
+  transition: opacity 140ms linear;
 }
 
 .lightbox-stage {

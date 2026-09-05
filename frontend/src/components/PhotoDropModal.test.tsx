@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PhotoDropModal } from "./PhotoDropModal";
 
@@ -482,5 +482,141 @@ describe("PhotoDropModal — подпись артефакта не обреза
     const box = container.querySelector<HTMLElement>(".artifact-box")!;
 
     expect(box.style.getPropertyValue("--label-max")).toBe("");
+  });
+});
+
+describe("PhotoDropModal — кадры с плитки", () => {
+  const photo = {
+    imageUrl: "/api/film-media/1/0/web",
+    thumbUrl: "/api/film-media/1/0/thumb",
+    width: 300,
+    height: 200,
+  };
+
+  it("открывается на кадрах плитки, не дожидаясь своего запроса", () => {
+    // Плитка уже тянула `getDrop(id)` ради собственной раскладки — галерее незачем показывать
+    // лоадер поверх тех же данных. Сеть здесь не отвечает вовсе.
+    getDropMock.mockReturnValue(new Promise(() => {}));
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} initialPhotos={[photo]} onClose={() => {}} />,
+    );
+
+    expect(container.querySelector(".blur-up-full")).not.toBeNull();
+    expect(screen.queryByText("загрузка…")).toBeNull();
+  });
+
+  it("проявка стартует не раньше, чем стартовый кадр отрисован", async () => {
+    // Кадр обязан ПОБЫТЬ на месте плитки хотя бы один отрисованный кадр, и только потом ехать.
+    // Иначе таймлайн перехода стартует до первой отрисовки галереи, а она тяжёлая (декод
+    // снимка и ленты миниатюр): пока браузер занят, время идёт, и на первом же показанном
+    // кадре анимация уже почти доиграна — галерея «открывается мгновенно» (замечание владельца).
+    document.documentElement.style.setProperty("--drop-morph", "1");
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 300,
+    } as DOMRect);
+    getDropMock.mockReturnValue(new Promise(() => {}));
+    const tile = document.createElement("div");
+    document.body.append(tile);
+
+    const { container } = render(
+      <PhotoDropModal
+        dropId={1}
+        title="Плёнка"
+        monthLabel={null}
+        gallery="roll"
+        initialPhotos={[photo]}
+        origin={{ current: tile }}
+        onClose={() => {}}
+      />,
+    );
+    const scene = container.querySelector<HTMLElement>(".drop-scene")!;
+
+    expect(scene.dataset.morph).toBe("from");
+
+    await act(
+      async () =>
+        new Promise<void>((done) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => done()));
+        }),
+    );
+    expect(scene.dataset.morph).toBe("in");
+
+    document.documentElement.style.removeProperty("--drop-morph");
+    tile.remove();
+  });
+
+  it("галерея снимается не в момент посадки, а после досадки", async () => {
+    // Кадр доезжает до плитки за `--drop-morph-out-ms`, и там его отличие от плитки — полоса
+    // блюра с подписью. Снять его ровно в этот миг значит проявить их рывком; вместо этого он
+    // ещё `--drop-morph-settle-ms` растворяется, уже неподвижный (замечание владельца).
+    const root = document.documentElement.style;
+    root.setProperty("--drop-morph", "1");
+    root.setProperty("--drop-morph-out-ms", "300ms");
+    root.setProperty("--drop-morph-settle-ms", "200ms");
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 300,
+    } as DOMRect);
+    getDropMock.mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+    const tile = document.createElement("div");
+    document.body.append(tile);
+
+    const { container } = render(
+      <PhotoDropModal
+        dropId={1}
+        title="Плёнка"
+        monthLabel={null}
+        gallery="roll"
+        initialPhotos={[photo]}
+        origin={{ current: tile }}
+        onClose={onClose}
+      />,
+    );
+    const scene = container.querySelector<HTMLElement>(".drop-scene")!;
+    await act(
+      async () =>
+        new Promise<void>((done) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => done()));
+        }),
+    );
+
+    vi.useFakeTimers();
+    fireEvent.click(scene);
+    expect(scene.dataset.morph).toBe("out");
+    // Кадр ещё едет.
+    await act(async () => void vi.advanceTimersByTime(299));
+    expect(onClose).not.toHaveBeenCalled();
+    // Приехал — но галерея на месте, идёт досадка.
+    await act(async () => void vi.advanceTimersByTime(1));
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => void vi.advanceTimersByTime(200));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+
+    root.removeProperty("--drop-morph");
+    root.removeProperty("--drop-morph-out-ms");
+    root.removeProperty("--drop-morph-settle-ms");
+    tile.remove();
+  });
+
+  it("волна не просила проявки — галерея закрывается сразу, без ожидания анимации", () => {
+    // Опт-ина `--drop-morph` нет (см. [useDropMorph]) ⇒ обратного хода нет, и `onClose`
+    // обязан сработать в тот же тик: иначе галерея зависла бы на пустом таймере.
+    getDropMock.mockReturnValue(new Promise(() => {}));
+    const onClose = vi.fn();
+
+    const { container } = render(
+      <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} initialPhotos={[photo]} onClose={onClose} />,
+    );
+
+    fireEvent.click(container.querySelector(".drop-scene")!);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,11 +4,13 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type RefObject,
 } from "react";
 import { getDrop } from "@/lib/api/client";
 import { boxesAt } from "@/lib/artifactHighlight";
@@ -26,6 +28,7 @@ import { DropRoll } from "./DropRoll";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
 import { useCoarsePointer } from "./useCoarsePointer";
+import { useDropMorph } from "./useDropMorph";
 import { useTileData } from "./useTileData";
 
 interface PhotoDropModalProps {
@@ -44,6 +47,24 @@ interface PhotoDropModalProps {
    * игнорирует — там на экране сразу весь дроп, «открыть на кадре» не про что.
    */
   startAt?: string | null;
+  /**
+   * Кадры дропа, уже загруженные плиткой. Плитка тянет `getDrop(id)` ради своей мозаики/кадра
+   * ещё до клика, и открывать галерею лоадером поверх тех же самых данных значило бы показать
+   * пустую панель на ровном месте. С проявкой (§7.5) это ещё и обязательное условие: кадру не
+   * из чего расти, пока сцены нет на экране.
+   */
+  initialPhotos?: FilmPhotoView[];
+  /**
+   * Кадр на борде, из которого растёт галерея (проявка, DESIGN §7.5). Приходит только оттуда,
+   * где «тот самый кадр» определён — из редакции `frame`; без него галерея открывается как
+   * прежде. Ссылка, а не прямоугольник: снимать его надо и на открытии, и на закрытии.
+   */
+  origin?: RefObject<HTMLElement | null>;
+  /**
+   * Кадр, который сейчас смотрят. Плитка борда переходит на него, чтобы проявка возвращалась
+   * в кадр, из которого выходишь, а не в тот, с которого входил (DESIGN §7.5).
+   */
+  onFrameShown?: (photo: FilmPhotoView) => void;
   onClose: () => void;
 }
 
@@ -74,13 +95,20 @@ export function PhotoDropModal({
   monthLabel,
   gallery,
   startAt,
+  initialPhotos,
+  origin,
+  onFrameShown,
   onClose,
 }: PhotoDropModalProps) {
   const roll = gallery === "roll";
   const { phase, data } = useTileData<FilmPhotoView[]>(
     useCallback((signal) => getDrop(dropId, { signal }), [dropId]),
   );
-  const photos = data ?? [];
+  const photos = data ?? initialPhotos ?? [];
+  // Кадры с плитки — полноценное содержимое, а не «копия на секунду»: это ответ того же
+  // `getDrop(id)`. Пока едет свой запрос, галерея уже открыта и работает; ответ её обновит.
+  const shown = photos.length > 0 ? "loaded" : phase;
+  const sceneRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const lightboxRef = useRef<HTMLDivElement>(null);
@@ -96,6 +124,16 @@ export function PhotoDropModal({
     [photos, units],
   );
 
+  // Проявка: кадр растёт из плитки и наводится на резкость (DESIGN §7.5). Шов общий, включает
+  // его волна (`--drop-morph`), поэтому здесь нет ни ключа волны, ни единого числа анимации.
+  const { playIn, requestClose } = useDropMorph({ origin, sceneRef, onClose });
+  // Играем, когда сцена кадра уже разложена: до появления кадров мерить нечего. Layout-эффект,
+  // а не обычный, — трансформация обязана лечь ДО первой отрисовки галереи, иначе кадр успеет
+  // мигнуть на своём месте. SSR тут не страшен: галерея существует только после клика.
+  useLayoutEffect(() => {
+    if (shown === "loaded" && photos.length > 0) playIn();
+  }, [shown, photos.length, playIn]);
+
   const closeZoom = useCallback(() => {
     setZoomed(null);
     zoomTriggerRef.current?.focus();
@@ -103,7 +141,7 @@ export function PhotoDropModal({
 
   // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9). Слоёв два, и порядок
   // объявления есть порядок закрытия: сперва кадр во весь экран, потом сама галерея.
-  useBackToClose(true, onClose);
+  useBackToClose(true, requestClose);
   useBackToClose(zoomed !== null, closeZoom);
 
   // Первичный фокус — один раз на маунте: переоткрытие кадра не должно уводить фокус в шапку.
@@ -116,7 +154,7 @@ export function PhotoDropModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (zoomed !== null) closeZoom();
-        else onClose();
+        else requestClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -137,14 +175,14 @@ export function PhotoDropModal({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, zoomed, closeZoom]);
+  }, [requestClose, zoomed, closeZoom]);
 
   return (
     <>
       <div
-        className="modal-scale fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
-        style={{ background: "rgba(33, 26, 22, 0.55)" }}
-        onClick={onClose}
+        ref={sceneRef}
+        className="drop-scene modal-scale fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
+        onClick={requestClose}
       >
         <div
           ref={panelRef}
@@ -153,14 +191,16 @@ export function PhotoDropModal({
           aria-label={title}
           // Панель шире прежних 56rem: при четырёх кадрах в ряду её ширина и есть размер кадра,
           // и на 56rem горизонтальный кадр выходил 212px — мелко для просмотра плёнки.
-          className="pixel-tile my-auto w-full max-w-[64rem] p-4"
+          // `--roll`: плёнка вписывается в экран целиком (см. common.css). Мозаика этого не
+          // получает — её тридцать шесть кадров длиннее экрана по построению, и скролл там смысл.
+          className={`drop-modal__panel pixel-tile my-auto w-full max-w-[64rem] p-4 ${roll ? "drop-modal__panel--roll" : ""}`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
               панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
           <span className="pixel-slab" aria-hidden />
           <span className="pixel-lid" aria-hidden />
-          <div className="mb-3 flex items-center justify-between">
+          <div className="drop-modal__head mb-3 flex items-center justify-between">
             <div className="flex flex-col">
               <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>{title}</span>
               {monthLabel && (
@@ -171,7 +211,7 @@ export function PhotoDropModal({
               ref={closeRef}
               type="button"
               className="tap-target"
-              onClick={onClose}
+              onClick={requestClose}
               aria-label="Закрыть"
               style={{ ...monoTertiary, cursor: "pointer", background: "none", border: "none", display: "inline-flex" }}
             >
@@ -179,12 +219,12 @@ export function PhotoDropModal({
             </button>
           </div>
 
-          {phase === "loading" && <p style={monoTertiary}>загрузка…</p>}
-          {phase === "error" && <p style={monoTertiary}>не удалось загрузить дроп</p>}
-          {phase === "loaded" && photos.length === 0 && (
+          {shown === "loading" && <p style={monoTertiary}>загрузка…</p>}
+          {shown === "error" && <p style={monoTertiary}>не удалось загрузить дроп</p>}
+          {shown === "loaded" && photos.length === 0 && (
             <p style={monoTertiary}>в этом дропе пока нет кадров</p>
           )}
-          {phase === "loaded" && photos.length > 0 && roll && (
+          {shown === "loaded" && photos.length > 0 && roll && (
             // Плёнка: одна лента вместо сетки (DESIGN §7.5). Кадр во весь экран открывает
             // только кнопка лупы — по самому снимку водят мышью, разглядывая находки.
             <DropRoll
@@ -194,9 +234,10 @@ export function PhotoDropModal({
                 zoomTriggerRef.current = trigger;
                 setZoomed(index);
               }}
+              onCurrent={onFrameShown}
             />
           )}
-          {phase === "loaded" && photos.length > 0 && !roll && (
+          {shown === "loaded" && photos.length > 0 && !roll && (
             // Квантованная мозаика: кадр занимает целое число клеток базовой сетки — горизонтальный
             // 3×2, вертикальный 2×3. Площади равны по построению (6 клеток у обоих), поэтому
             // вертикальный кадр не выходит вдвое мельче соседа, как это было бы у justified

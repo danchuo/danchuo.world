@@ -113,6 +113,27 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   /**
+   * Первый заход в дроп встречает ОБЛОЖКА — тот самый кадр, что стоит на карточке ленты,
+   * а не первый кадр плёнки: клик спрашивает про кадр, на который смотрят (DESIGN §7.5).
+   * Дальше её место занимает кадр, на котором галерею закрыли (`viewed`).
+   */
+  it("редакция carousel — плёнка открывается на обложке дропа, а не с первого кадра", async () => {
+    getDropsMock.mockResolvedValue(TWO_DROPS);
+    getDropMock.mockResolvedValue([
+      { imageUrl: "/api/film-media/1/9/web", thumbUrl: "/api/film-media/1/9/thumb", width: 1600, height: 1083, artifacts: [] },
+      { imageUrl: "/api/film-media/1/5/web", thumbUrl: "/api/film-media/1/5/thumb", width: 1600, height: 1083, artifacts: [] },
+      // Обложка (`coverPhotoUrl` дропа 1) — третьим кадром в дропе: порядок кадров ей не указ.
+      { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 1600, height: 1083, artifacts: [] },
+    ]);
+    render(<PhotoDropsTile edition="carousel" gallery="roll" />);
+    await screen.findByText("Июньская плёнка");
+
+    fireEvent.click(screen.getByRole("button", { name: "Открыть дроп «Июньская плёнка»" }));
+
+    expect(await screen.findByRole("button", { name: "кадр 3" })).toHaveAttribute("aria-current", "true");
+  });
+
+  /**
    * Главный кадр объявлен разметкой, а не только видом: `aria-current` — единственное, чем
    * «этот кадр сейчас в середине окна» доезжает до тех, кто ленту не видит.
    */

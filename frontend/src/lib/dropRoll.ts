@@ -29,11 +29,18 @@ export function nearestFrameIndex(centers: number[], mid: number): number {
  * Опознаём по адресу картинки, а не по индексу: у плитки и у галереи это один и тот же ответ
  * бэкенда, но полагаться на совпадение порядка незачем — адрес и есть тождество кадра.
  *
+ * Годится адрес ЛЮБОГО варианта кадра — web или thumb: лента архива знает свой дроп по
+ * обложке (`coverPhotoUrl`), а та приезжает превью-адресом. Вариант — размер файла, а не
+ * другой снимок, и требовать от звонящего перевода одного адреса в другой незачем.
+ *
  * Кадра нет в дропе (или адрес не передан) ⇒ первый: галерея обязана открыться в любом случае.
  */
-export function startFrameIndex(photos: readonly { imageUrl: string }[], startAt?: string | null): number {
+export function startFrameIndex(
+  photos: readonly { imageUrl: string; thumbUrl?: string }[],
+  startAt?: string | null,
+): number {
   if (!startAt) return 0;
-  const found = photos.findIndex((p) => p.imageUrl === startAt);
+  const found = photos.findIndex((p) => p.imageUrl === startAt || p.thumbUrl === startAt);
   return found >= 0 ? found : 0;
 }
 

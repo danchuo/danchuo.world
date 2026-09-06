@@ -13,6 +13,8 @@ data class ProjectView(
     val endYear: Int?,
     val endQuarter: Int?,
     val url: String?,
+    /** «Дом» проекта — куда ведёт название и картинка; `null` ⇒ туда же, куда [url]. */
+    val homeUrl: String?,
 ) {
     companion object {
         fun from(p: Project) = ProjectView(
@@ -24,6 +26,7 @@ data class ProjectView(
             endYear = p.endYear,
             endQuarter = p.endQuarter,
             url = p.url,
+            homeUrl = p.homeUrl,
         )
     }
 }

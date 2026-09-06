@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      У проекта появляется ВТОРАЯ ссылка (PRD §5.7), потому что у него два разных адреса:
+      `url` — путь, который блок ПОКАЗЫВАЕТ строкой под названием (репозиторий или сайт),
+      `home_url` — куда ведёт сам предмет: название и картинка.
+
+      До сих пор адрес был один, и обе роли играл он. Расходятся они там, где код живёт не
+      там, где сам проект: у proxemics репозиторий на гитхабе, а пользоваться им идут в
+      телеграм-бота. Показывать в строке ссылку на бота нельзя — она перестанет быть путём
+      репозитория, то есть сигналом «это код»; вести название на репозиторий тоже нельзя —
+      посетитель хочет открыть сам проект, а не его исходники.
+
+      `home_url` = null ⇒ отдельного дома нет, и предмет ведёт туда же, куда путь. Так у
+      сайта: показанный путь и есть его дом.
+    -->
+    <changeSet id="0650-project-home-url" author="danchuo">
+        <addColumn tableName="project">
+            <column name="home_url" type="VARCHAR(500)"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+      Проект-сайт показывает СВОЙ АДРЕС (решение владельца): раньше в поле стояла ссылка на
+      профиль владельца, и строка отвечала «чей это код», а не «что это за вещь». Дома у него
+      отдельного нет — показанный путь туда и ведёт.
+    -->
+    <changeSet id="0650-danchuo-world-site-link" author="danchuo">
+        <update tableName="project">
+            <column name="url" value="https://danchuo.world"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+    </changeSet>
+
+    <!-- proxemics: путь остаётся репозиторием, дом — бот в телеграме. -->
+    <changeSet id="0650-proxemics-home" author="danchuo">
+        <update tableName="project">
+            <column name="home_url" value="https://t.me/proxemics_bot"/>
+            <where>title = 'proxemics'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

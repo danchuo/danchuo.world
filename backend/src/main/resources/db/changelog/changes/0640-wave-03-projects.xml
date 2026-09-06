@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 «PRIME»: на борд возвращаются проекты — в редакции `dossier` (DESIGN §7.8, §10.2).
+
+      Проект не объясняет себя картинкой так, как это делает кадр плёнки: спрайт-планета
+      красив, но что за ним стоит — из него не следует. Поэтому строка досье говорит трижды:
+      название, под ним ПУТЬ РЕПОЗИТОРИЯ зелёным (токен канала кода), справа квартал.
+      Подписью плитке служит приглашение оболочки `~/projects ❯ ls -l` — оно живёт в
+      содержимом, а не в мета-ярлыке, который эта волна прячет у всех плиток.
+
+      Геометрия. Колонка встаёт ПОД кадром последнего дропа и ровно в его ширину (кол. 5,
+      11 треков): две плитки делят одну колонку и держат левый край борда общим. Высота 6
+      треков (≈175px на 1536) — в окно ложатся три строки досье без прокрутки (замер на живом
+      борде), то есть запас на год вперёд при нынешнем темпе (проект в квартал); четвёртая
+      листается, как лента дропов. Ряд 23 — через пустой трек-прослойку под кадром, который кончается на 22.
+
+      `orientation` не задаём намеренно: у досье вёрстка вертикальная по природе (в ряду две
+      строки текста), и тайл гасит ориентацию сам. Волны 01 и 02 поля `edition` не имеют и
+      остаются на прежнем свёрнутом списке (дефолт кода).
+    -->
+    <changeSet id="0640-wave-03-projects" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(layout, '{tiles,projects}', $J${"col": 5, "row": 23, "colSpan": 11, "rowSpan": 6, "edition": "dossier"}$J$::jsonb),
+        '{mobileOrder}',
+        $J$["music", "latestDrop", "photoDrops", "projects", "waveSwitcher"]$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+        jsonb_set(layout, '{tiles,projects}', $J${"hidden": true}$J$::jsonb),
+        '{mobileOrder}',
+        $J$["music", "latestDrop", "photoDrops", "waveSwitcher"]$J$::jsonb
+    )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

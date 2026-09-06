@@ -45,8 +45,17 @@ class Project {
     @Column(name = "end_quarter")
     var endQuarter: Int? = null
 
+    /** Ссылка, которую блок ПОКАЗЫВАЕТ строкой (путь репозитория/сайта). */
     @Column
     var url: String? = null
+
+    /**
+     * «Дом» проекта — куда ведёт сам предмет (название и картинка), если это НЕ то место,
+     * путь которого показан строкой: у proxemics код лежит в репозитории, а сам проект живёт
+     * ботом в телеграме. `null` ⇒ дома отдельно нет, и предмет ведёт туда же, куда путь.
+     */
+    @Column(name = "home_url")
+    var homeUrl: String? = null
 
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0

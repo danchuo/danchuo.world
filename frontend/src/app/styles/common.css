@@ -1733,6 +1733,81 @@ body {
   font-size: clamp(9px, calc(5.5px + 3.6cqw), 22px);
 }
 
+/* ── Редакция `dossier`: строки-репозитории (DESIGN §7.8) ────────────────────────────
+   Своя шкала, а не доли выше: те считаны от УЗКОЙ колонки волны 01 (опора 153px), и в
+   широкой плитке досье (опора 377px на экране 1536) название доросло бы до 22px. Опора у
+   редакции своя, демпфер тот же — половина фиксированная, половина доля (DESIGN §8.1). */
+.projects-dossier-frame {
+  gap: clamp(4px, calc(4px + 1.06cqw), 14px);
+}
+/* Приглашение оболочки: подпись плитки на языке предмета. Стоит в содержимом, а не в
+   `.tile-label`, — иначе волна, прячущая мета-ярлыки, спрятала бы и его. */
+.projects-prompt {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(9px, calc(5.5px + 1.46cqw), 22px);
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+/* Знак приглашения — единственная яркая точка строки: он и делает её приглашением, а не
+   просто путём. Акцент волны, а не свой цвет. */
+.projects-prompt__caret {
+  color: var(--accent);
+}
+.projects-dossier {
+  gap: clamp(6px, calc(5px + 1.33cqw), 20px);
+}
+.project-dossier {
+  gap: clamp(6px, calc(5px + 1.33cqw), 20px);
+}
+.projects-dossier .project-slot {
+  width: clamp(24px, calc(16px + 4.24cqw), 64px);
+  height: clamp(24px, calc(16px + 4.24cqw), 64px);
+}
+.projects-dossier .project-sprite {
+  width: clamp(21px, calc(14px + 3.71cqw), 56px);
+  height: clamp(21px, calc(14px + 3.71cqw), 56px);
+}
+.projects-dossier .project-sprite--smooth {
+  width: clamp(24px, calc(16px + 4.24cqw), 64px);
+  height: clamp(24px, calc(16px + 4.24cqw), 64px);
+}
+.projects-dossier .project-favicon {
+  width: clamp(18px, calc(12px + 3.18cqw), 48px);
+  height: clamp(18px, calc(12px + 3.18cqw), 48px);
+}
+.projects-dossier .project-title {
+  font-size: clamp(11px, calc(6.5px + 1.72cqw), 26px);
+  line-height: 1.3;
+}
+.project-repo {
+  font-size: clamp(9px, calc(5.5px + 1.46cqw), 22px);
+  line-height: 1.35;
+}
+/* Диапазон — на ступень мельче пути (10px против 11 на опоре, решение владельца): это самая
+   тихая часть строки, дата уже понятна по форме «Q3 2026» и без равного веса с адресом. */
+.projects-dossier .project-range {
+  font-size: clamp(8px, calc(5px + 1.33cqw), 20px);
+  /* Диапазон уезжает вправо — туда, где на строке файлов стоит время. */
+  margin-left: auto;
+  flex: none;
+}
+.project-dossier__text {
+  flex: 1;
+}
+.project-dossier__icon {
+  display: flex;
+  flex: none;
+}
+/* Ссылок в строке две, и подчёркивается ровно та, на которую наведён курсор: название ведёт
+   в дом проекта, путь — по своему адресу, и общее подчёркивание врало бы, что они одно. */
+.project-dossier a:hover {
+  text-decoration: underline;
+}
+
 /* Blur-up загрузка кадров модалки-галереи (PhotoDropModal, DESIGN §7.5): размытый thumb виден
    сразу и остаётся НЕПРОЗРАЧНОЙ подложкой, полный кадр проступает поверх него по onLoad.
    Важно: thumb НЕ гасим во время кросс-фейда — иначе на середине перехода сквозь оба полу-

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { getProjects } from "@/lib/api/client";
 import type { ProjectView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { formatQuarterRange } from "@/lib/projectRange";
+import { repoLabel } from "@/lib/projectRepo";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
@@ -16,6 +17,18 @@ interface ProjectsTileProps {
    * как у marquee и полки дропов). Дефолт — вертикальная колонка.
    */
   orientation?: TileOrientation;
+  /**
+   * Вёрстка списка (DESIGN §7.8) — выбирает ВОЛНА через раскладку (`tiles.projects.edition`):
+   * - не задана / незнакомая — прежний свёрнутый список, которым правит [orientation];
+   * - `dossier` — строка-досье: под названием путь (репозиторий или сайт) своей ссылкой,
+   *   название и картинка ведут в дом проекта, а подписью плитке служит приглашение оболочки (волна 03).
+   */
+  edition?: string;
+}
+
+/** Незнакомое имя редакции ⇒ дефолт: набор редакций — знание тайла, а не реестра раскладки. */
+function resolveEdition(value: string | undefined): "dossier" | "default" {
+  return value === "dossier" ? "dossier" : "default";
 }
 
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
@@ -39,14 +52,23 @@ const SPRITE_NOMINAL = 32;
  * Плитка «Проекты» (P) — PRD §5.7, DESIGN §3. Свёрнутый блок: иконка + название (ссылкой,
  * если задан url) + диапазон кварталов. Пусто ⇒ тихий empty. Ноль хардкод-цветов (токены волны).
  */
-export function ProjectsTile({ style, className, orientation = "vertical" }: ProjectsTileProps) {
+export function ProjectsTile({
+  style,
+  className,
+  orientation = "vertical",
+  edition: editionRaw,
+}: ProjectsTileProps) {
+  const edition = resolveEdition(editionRaw);
   const { phase, data, retry } = useTileData<ProjectView[]>(
     useCallback((signal) => getProjects({ signal }), []),
     "projects",
   );
   const projects = data ?? [];
   const isEmpty = phase === "loaded" && projects.length === 0;
-  const horizontal = orientation === "horizontal";
+  // Досье — вёрстка вертикальная по своей природе (две строки текста в ряду), поэтому она
+  // сильнее ориентации: волна, забывшая снять `orientation`, не должна получить ленту.
+  const dossier = edition === "dossier";
+  const horizontal = !dossier && orientation === "horizontal";
   const listRef = useRef<HTMLUListElement>(null);
 
   // Живой скролл без видимого ползунка — контур полки дропов (DESIGN §7.5). Вертикальный
@@ -87,6 +109,59 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
         // projects-frame: именованный контейнер, от которого считаются размеры внутри
         // (список сам себя мерить не может — DESIGN §8.1).
         <div className="tile-frame h-full">
+        {dossier ? (
+          // Досье: приглашение оболочки вместо ярлыка плитки + строки-репозитории.
+          // Приглашение живёт в СОДЕРЖИМОМ, а не в `label` плитки, и это по смыслу: волна,
+          // прячущая мета-ярлыки (§10.2 PRIME), спрятала бы вместе с ними и его — а оно
+          // здесь работает подписью, объясняющей, что за предметы лежат ниже.
+          <div className="projects-dossier-frame flex h-full flex-col">
+            <p className="projects-prompt">
+              <span className="projects-prompt__path">~/projects</span>
+              <span aria-hidden className="projects-prompt__caret">❯</span>
+              <span className="projects-prompt__cmd">ls -l</span>
+            </p>
+            <ul className="projects-dossier scroll-invisible flex min-h-0 flex-1 flex-col overflow-y-auto">
+              {projects.map((p) => {
+                // Показанный путь — вторая строка ряда: она и говорит «это код», до всякой
+                // подписи. Нет ссылки — нет и строки (пустое место честнее прочерка).
+                const repo = repoLabel(p.url);
+                // Дом проекта: куда ведут название и картинка. У сайта его нет — там путь и
+                // есть дом; у бота он свой, потому что код и сам проект живут в разных местах.
+                const home = p.homeUrl ?? p.url;
+                return (
+                  <li key={p.title} className="min-w-0">
+                    <div className="project-dossier flex items-center">
+                      {/* Картинка ведёт туда же, куда название, но из обхода с клавиатуры
+                          снята: две остановки на одном адресе — лишняя работа для читалки. */}
+                      <LinkOrPlain href={home} className="project-dossier__icon" decorative>
+                        <ProjectIcon iconUrl={p.iconUrl} />
+                      </LinkOrPlain>
+                      <span className="project-dossier__text flex min-w-0 flex-col">
+                        <LinkOrPlain href={home} className="project-title truncate" style={{ color: "var(--text-primary)" }}>
+                          {p.title}
+                        </LinkOrPlain>
+                        {repo && (
+                          // Зелень — токен «кода» волны (--accent-code, канал вкладов гита):
+                          // путь репозитория и вклады приходят из одного места, цвет у канала общий.
+                          <LinkOrPlain
+                            href={p.url}
+                            className="project-repo truncate"
+                            style={{ ...mono, color: "var(--accent-code)" }}
+                          >
+                            {repo}
+                          </LinkOrPlain>
+                        )}
+                      </span>
+                      <span className="project-range" style={{ ...mono, color: "var(--text-tertiary)" }}>
+                        {formatQuarterRange(p.startYear, p.startQuarter, p.endYear, p.endQuarter)}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : (
         <ul
           ref={listRef}
           // scrollbarWidth: ползунок скрыт, скролл живой (колесо/трекпад/тач) — как у полки
@@ -107,38 +182,7 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
                   : "project-row flex items-center"
               }
             >
-              {p.iconUrl ? (
-                isPlanetSprite(p.iconUrl) ? (
-                  // Единая колонка-слот: спрайты разного размера центрируются в ней, поэтому
-                  // тексты рядов начинаются с одного x. Размеры — доли (.project-* в common.css).
-                  <span aria-hidden className="project-slot grid shrink-0 place-items-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.iconUrl}
-                      alt=""
-                      width={SPRITE_NOMINAL}
-                      height={SPRITE_NOMINAL}
-                      className={isPixelArt(p.iconUrl) ? "project-sprite" : "project-sprite--smooth"}
-                      style={isPixelArt(p.iconUrl) ? { imageRendering: "pixelated" } : undefined}
-                    />
-                  </span>
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.iconUrl}
-                    alt=""
-                    width={SPRITE_NOMINAL}
-                    height={SPRITE_NOMINAL}
-                    className="project-favicon"
-                  />
-                )
-              ) : (
-                <span
-                  aria-hidden
-                  className="project-favicon"
-                  style={{ background: "var(--bg-surface-muted)" }}
-                />
-              )}
+              <ProjectIcon iconUrl={p.iconUrl} />
               <div className={horizontal ? "flex min-w-0 flex-col items-center text-center" : "flex min-w-0 flex-col"}>
                 {p.url ? (
                   <a
@@ -162,8 +206,80 @@ export function ProjectsTile({ style, className, orientation = "vertical" }: Pro
             </li>
           ))}
         </ul>
+        )}
         </div>
       )}
     </TileShell>
+  );
+}
+
+/**
+ * Кусок строки, который **может** оказаться ссылкой: адрес есть — гиперссылка, нет — просто
+ * текст (мёртвых ссылок на борде не бывает, PRD §5.7). `decorative` снимает элемент с обхода
+ * клавиатурой и с озвучки: так помечена картинка, ведущая туда же, куда стоящее рядом
+ * название, — второй остановки на том же адресе читателю не нужно.
+ */
+function LinkOrPlain({
+  href,
+  className,
+  style,
+  decorative = false,
+  children,
+}: {
+  href: string | null;
+  className: string;
+  style?: CSSProperties;
+  decorative?: boolean;
+  children: ReactNode;
+}) {
+  if (!href) {
+    return (
+      <span className={className} style={style} aria-hidden={decorative || undefined}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className={className}
+      style={style}
+      aria-hidden={decorative || undefined}
+      tabIndex={decorative ? -1 : undefined}
+    >
+      {children}
+    </a>
+  );
+}
+
+/**
+ * Иконка проекта — одна на все редакции: спрайт-«планета» в единой колонке-слоте (тексты
+ * рядов начинаются с одного x), сторонний фавикон в легаси-подаче, ничего нет — глухая
+ * плашка. Размеры задаёт CSS долями контейнера (DESIGN §8.1), поэтому редакции достаточно
+ * переопределить доли у своих классов.
+ */
+function ProjectIcon({ iconUrl }: { iconUrl: string | null }) {
+  if (!iconUrl) {
+    return <span aria-hidden className="project-favicon" style={{ background: "var(--bg-surface-muted)" }} />;
+  }
+  if (!isPlanetSprite(iconUrl)) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={iconUrl} alt="" width={SPRITE_NOMINAL} height={SPRITE_NOMINAL} className="project-favicon" />;
+  }
+  const pixel = isPixelArt(iconUrl);
+  return (
+    <span aria-hidden className="project-slot grid shrink-0 place-items-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={iconUrl}
+        alt=""
+        width={SPRITE_NOMINAL}
+        height={SPRITE_NOMINAL}
+        className={pixel ? "project-sprite" : "project-sprite--smooth"}
+        style={pixel ? { imageRendering: "pixelated" } : undefined}
+      />
+    </span>
   );
 }

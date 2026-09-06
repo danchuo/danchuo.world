@@ -3,7 +3,9 @@ import {
   CAROUSEL_FAR_OPACITY,
   CAROUSEL_FAR_SCALE,
   CAROUSEL_SLOT_PX,
+  centerScrollTop,
   slotLook,
+  startSlotIndex,
 } from "./dropCarousel";
 
 const R = 120;
@@ -50,5 +52,33 @@ describe("dropCarousel — вид кадра как функция позици�
 
   it("высота слота — константа: лента читается одинаково и на трёх дропах, и на трёхстах", () => {
     expect(CAROUSEL_SLOT_PX).toBeGreaterThan(0);
+  });
+});
+
+describe("centerScrollTop", () => {
+  it("ставит слот ровно в середину окна ленты", () => {
+    // Слот 78px в окне 246px: над ним и под ним остаётся по 84px — ровно место соседям.
+    expect(centerScrollTop(168, 78, 246)).toBe(84);
+  });
+
+  it("окно ростом со слот — прокрутка равна смещению слота (центрировать нечего)", () => {
+    expect(centerScrollTop(168, 78, 78)).toBe(168);
+  });
+
+  it("первый слот с боковым запасом уже по центру — ноль, а не отрицательная прокрутка", () => {
+    // Запас (`stripPadding`) даёт первому слоту место встать по центру: offsetTop = 84.
+    expect(centerScrollTop(84, 78, 246)).toBe(0);
+  });
+});
+
+describe("startSlotIndex", () => {
+  it("лента открывается на ВТОРОМ дропе: сверху и снизу видно по соседу", () => {
+    expect(startSlotIndex(8)).toBe(1);
+    expect(startSlotIndex(3)).toBe(1);
+  });
+
+  it("дроп один — центрировать больше нечего", () => {
+    expect(startSlotIndex(1)).toBe(0);
+    expect(startSlotIndex(0)).toBe(0);
   });
 });

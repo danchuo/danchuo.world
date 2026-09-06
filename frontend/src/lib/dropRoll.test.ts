@@ -45,6 +45,14 @@ describe("startFrameIndex", () => {
     expect(startFrameIndex(photos, null)).toBe(0);
   });
 
+  it("узнаёт кадр и по адресу превью: обложка дропа приезжает именно thumb-адресом", () => {
+    const withThumbs = [
+      { imageUrl: "/a/web", thumbUrl: "/a/thumb" },
+      { imageUrl: "/b/web", thumbUrl: "/b/thumb" },
+    ];
+    expect(startFrameIndex(withThumbs, "/b/thumb")).toBe(1);
+  });
+
   it("адрес не из этого дропа ⇒ первый кадр, а не пустота", () => {
     expect(startFrameIndex(photos, "/z")).toBe(0);
     expect(startFrameIndex([], "/a")).toBe(0);

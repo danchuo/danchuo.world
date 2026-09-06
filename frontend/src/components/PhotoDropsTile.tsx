@@ -405,7 +405,10 @@ export function PhotoDropsTile({
           // Проявка: галерея растёт из того кадра ленты, по которому кликнули, и возвращается
           // в него же. Шов тот же, что у плитки последнего дропа, — компонент один.
           origin={originRef}
-          startAt={viewed[openDrop.id]?.imageUrl ?? null}
+          // Первый заход встречает ОБЛОЖКА дропа — тот самый кадр, что стоит на карточке
+          // ленты: клик спрашивает про кадр, на который смотрят, а не про начало плёнки.
+          // Дальше её место занимает кадр, на котором галерею закрыли.
+          startAt={viewed[openDrop.id]?.imageUrl ?? openDrop.coverPhotoUrl}
           onFrameShown={(photo) => setViewed((v) => ({ ...v, [openDrop.id]: photo }))}
           onClose={() => setOpenDrop(null)}
         />

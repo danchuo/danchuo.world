@@ -46,6 +46,13 @@ export interface TileSpan {
   /** Волна может развернуть контент тайла (см. [TileOrientation]). */
   orientation?: TileOrientation;
   /**
+   * Чем одеты «планеты» проектов (DESIGN §12.5): `model` — объёмным артефактом у тех проектов,
+   * у кого есть модель (у остальных всё равно спрайт); не задано или незнакомо — плоский спрайт
+   * у всех. Отдельный ключ, а не часть [edition]: редакция — про вёрстку СТРОКИ (список против
+   * вывода `tree`), планета — про материал ЗНАЧКА, и волна вправе взять их независимо.
+   */
+  planet?: string;
+  /**
    * Редакция тайла (DESIGN §10.1): имя одной из нескольких вёрсток, которые тайл умеет сам
    * (`latestDrop`: `mosaic` | `frame` | `sheet`; `photoDrops`: `spines`). Строка, а не перечисление здесь: набор
    * редакций — знание тайла, реестр раскладки о нём не знает; незнакомое имя тайл трактует
@@ -142,6 +149,7 @@ export interface WaveTileSpan {
   hidden?: boolean;
   orientation?: TileOrientation;
   edition?: string;
+  planet?: string;
 }
 
 /** Layout-блок волны (`ThemeView.layout`); любое поле опционально (фолбэк — дефолт ниже). */
@@ -189,6 +197,11 @@ function sanitizeEdition(value: unknown): string | undefined {
 
 /**
  * Мержит layout волны поверх дефолта [TILE_LAYOUT] и отдаёт готовый [ResolvedLayout].
+ *
+ * ⚠️ **Спан собирается по одному полю, поэтому НОВОЕ поле контракта надо перенести здесь явно.**
+ * Забытый ключ волна теряет молча — не ошибкой, а возвратом к дефолту, и выглядит это как
+ * «волна не сработала». Такой же список-allowlist есть на бэке (`TileSpanSpec`): ключ проходит
+ * оба или не доезжает вовсе.
  * `null`/`undefined` (нет активной волны / бэк недоступен / волна без layout) ⇒ чистый дефолт
  * — graceful degradation, зеркалит фолбэк токенов на `globals.css`. Неизвестные коду тайлы
  * волны игнорируются; недостающие в mobileOrder добавляются в хвост по дефолтному порядку.
@@ -207,6 +220,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       // Битые значения из JSON волны отбрасываем — тайл вернётся к своему дефолту.
       orientation: sanitizeOrientation(ov?.orientation) ?? base.orientation,
       edition: sanitizeEdition(ov?.edition) ?? base.edition,
+      planet: sanitizeEdition(ov?.planet) ?? base.planet,
     };
   }
 

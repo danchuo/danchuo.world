@@ -196,6 +196,7 @@ export function Board() {
                 data={data}
                 orientation={span.orientation}
                 edition={span.edition}
+                planet={span.planet}
                 gallery={layout.gallery}
                 style={{ height: "100%", width: "100%" }}
               />
@@ -214,7 +215,13 @@ export function Board() {
           layout.tiles[id]?.hidden ? null : (
             <div key={id} data-tile-id={id}>
               {/* Редакция едет и в стек: это выбор вёрстки, а не потока, и она общая для обоих режимов. */}
-              <BoardTile id={id} data={data} edition={layout.tiles[id]?.edition} gallery={layout.gallery} />
+              <BoardTile
+                id={id}
+                data={data}
+                edition={layout.tiles[id]?.edition}
+                planet={layout.tiles[id]?.planet}
+                gallery={layout.gallery}
+              />
             </div>
           ),
         )}
@@ -232,6 +239,7 @@ function BoardTile({
   data,
   orientation,
   edition,
+  planet,
   gallery,
   style,
   className,
@@ -242,6 +250,8 @@ function BoardTile({
   orientation?: TileOrientation;
   /** Редакция тайла из layout волны (DESIGN §10.1) — и в bento, и в стеке. */
   edition?: string;
+  /** Чем волна одевает планеты проектов (DESIGN §12.5) — тоже в обоих режимах. */
+  planet?: string;
   /** Редакция ГАЛЕРЕИ дропа (общая на волну): её открывают обе дроп-плитки. */
   gallery?: string;
   style?: CSSProperties;
@@ -306,7 +316,15 @@ function BoardTile({
     case "music":
       return <MusicTile style={style} className={className} />;
     case "projects":
-      return <ProjectsTile orientation={orientation} edition={edition} style={style} className={className} />;
+      return (
+        <ProjectsTile
+          orientation={orientation}
+          edition={edition}
+          planet={planet}
+          style={style}
+          className={className}
+        />
+      );
     case "ride":
       return <RideTile wave={data.wave} style={style} className={className} />;
     case "social":

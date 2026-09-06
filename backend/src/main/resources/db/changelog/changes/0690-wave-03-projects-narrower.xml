@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: плитка проектов у́же на один трек справа (решение владельца). Правый край
+      уходит с колонки 15 на 14, левый и высота не двигаются.
+
+      Дельту раскладки переписываем ЦЕЛИКОМ, как на 0660/0680: `jsonb_set` по глубокому пути
+      молча ничего не сделает, если промежуточного ключа не окажется, — а вся ветка наша.
+    -->
+    <changeSet id="0690-wave-03-projects-narrower" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,projects}',
+  $J${"col": 5, "row": 23, "colSpan": 10, "rowSpan": 6, "edition": "console", "planet": "model"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,projects}',
+  $J${"col": 5, "row": 23, "colSpan": 11, "rowSpan": 6, "edition": "console", "planet": "model"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

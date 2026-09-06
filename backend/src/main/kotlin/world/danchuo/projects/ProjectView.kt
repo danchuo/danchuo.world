@@ -6,6 +6,8 @@ package world.danchuo.projects
  */
 data class ProjectView(
     val iconUrl: String?,
+    /** Объёмная планета (`.glb`), если она у проекта есть; надеть её решает волна. */
+    val modelUrl: String?,
     val title: String,
     val description: String?,
     val startYear: Int,
@@ -19,6 +21,7 @@ data class ProjectView(
     companion object {
         fun from(p: Project) = ProjectView(
             iconUrl = p.iconUrl,
+            modelUrl = p.modelUrl,
             title = p.title,
             description = p.description,
             startYear = p.startYear,

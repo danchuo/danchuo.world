@@ -95,9 +95,13 @@ const RECENT = [
 
 // Порядок = порядок API: идущие «по настоящее» сверху, завершённые ниже (PRD §5.7).
 // Спрайты-планетки — реальная статика /assets/projects/ (детерминирована, не стабится).
+// ⚠️ `modelUrl` намеренно пуст, хотя на борде у danchuo.world объёмная планета
+// (DESIGN §12.5): визуальная регрессия сравнивает картинки попиксельно, а кадр WebGL
+// зависит от драйвера и сглаживания и разошёлся бы на любой чужой машине. Эталоны
+// снимаются с плоских планет; подачу 3D держат юнит-тесты `Artifact3D`.
 const PROJECTS = [
-  { iconUrl: "/assets/projects/danchuo-world-px.png", title: "danchuo.world", description: null, startYear: 2026, startQuarter: 3, endYear: 2026, endQuarter: 3, url: "https://danchuo.world" },
-  { iconUrl: "/assets/projects/proxemics.png", title: "proxemics", description: null, startYear: 2026, startQuarter: 2, endYear: 2026, endQuarter: 2, url: "https://github.com/danchuo/proxemics" },
+  { iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: null, title: "danchuo.world", description: null, startYear: 2026, startQuarter: 3, endYear: 2026, endQuarter: 3, url: "https://danchuo.world" },
+  { iconUrl: "/assets/projects/proxemics.png", modelUrl: null, title: "proxemics", description: null, startYear: 2026, startQuarter: 2, endYear: 2026, endQuarter: 2, url: "https://github.com/danchuo/proxemics" },
 ];
 
 const SOCIAL = [

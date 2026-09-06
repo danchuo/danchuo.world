@@ -1,6 +1,6 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "1.35.1",
+  "version": "1.36.0",
   "private": true,
   "description": "danchuo.world вЂ” РїСѓР±Р»РёС‡РЅС‹Р№ С„СЂРѕРЅС‚ + Р°РґРјРёРЅРєР° (B1: С„РѕС‚Рѕ-РґСЂРѕРїС‹; B2: С…РёС‚РјР°РїР° РєР»РёРєРѕРІ вЂ” СЃРµРєС†РёСЏ РІ /admin; B4: РІРёРґР¶РµС‚ РїРѕРµР·РґРѕРє Р’РµР»РѕР±Р°Р№Рє)",
   "scripts": {
@@ -20,7 +20,8 @@
     "leaflet": "^1.9.4",
     "next": "^15.5.4",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
@@ -32,6 +33,7 @@
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^4.7.0",
     "jsdom": "^25.0.1",
     "tailwindcss": "^4.1.13",

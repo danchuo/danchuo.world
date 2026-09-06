@@ -64,7 +64,7 @@ describe("WaveBackdrop", () => {
   it("кладёт в ленту прожитые дни окна календаря", () => {
     const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
     expect(ribbonOf(container).textContent).toBe(
-      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · вклады +3",
+      "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · git +3",
     );
   });
 

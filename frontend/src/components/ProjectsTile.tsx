@@ -6,6 +6,7 @@ import type { ProjectView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { formatQuarterRange } from "@/lib/projectRange";
 import { repoLabel } from "@/lib/projectRepo";
+import { treeBranch } from "@/lib/projectTree";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
@@ -20,15 +21,17 @@ interface ProjectsTileProps {
   /**
    * Вёрстка списка (DESIGN §7.8) — выбирает ВОЛНА через раскладку (`tiles.projects.edition`):
    * - не задана / незнакомая — прежний свёрнутый список, которым правит [orientation];
-   * - `dossier` — строка-досье: под названием путь (репозиторий или сайт) своей ссылкой,
-   *   название и картинка ведут в дом проекта, а подписью плитке служит приглашение оболочки (волна 03).
+   * - `console` — вывод `tree`: строки висят на ветках под приглашением оболочки, под
+   *   названием — путь (репозиторий или сайт) своей ссылкой, название и картинка ведут в дом
+   *   проекта. Материал самой плитки (панель терминала вместо стекла) — дело СКИНА волны,
+   *   а не редакции: редакция владеет содержимым, волна — краем и фоном (DESIGN §7.8, §10.2).
    */
   edition?: string;
 }
 
 /** Незнакомое имя редакции ⇒ дефолт: набор редакций — знание тайла, а не реестра раскладки. */
-function resolveEdition(value: string | undefined): "dossier" | "default" {
-  return value === "dossier" ? "dossier" : "default";
+function resolveEdition(value: string | undefined): "console" | "default" {
+  return value === "console" ? "console" : "default";
 }
 
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
@@ -67,8 +70,8 @@ export function ProjectsTile({
   const isEmpty = phase === "loaded" && projects.length === 0;
   // Досье — вёрстка вертикальная по своей природе (две строки текста в ряду), поэтому она
   // сильнее ориентации: волна, забывшая снять `orientation`, не должна получить ленту.
-  const dossier = edition === "dossier";
-  const horizontal = !dossier && orientation === "horizontal";
+  const consoleEdition = edition === "console";
+  const horizontal = !consoleEdition && orientation === "horizontal";
   const listRef = useRef<HTMLUListElement>(null);
 
   // Живой скролл без видимого ползунка — контур полки дропов (DESIGN §7.5). Вертикальный
@@ -109,19 +112,19 @@ export function ProjectsTile({
         // projects-frame: именованный контейнер, от которого считаются размеры внутри
         // (список сам себя мерить не может — DESIGN §8.1).
         <div className="tile-frame h-full">
-        {dossier ? (
-          // Досье: приглашение оболочки вместо ярлыка плитки + строки-репозитории.
+        {consoleEdition ? (
+          // Консоль: приглашение оболочки вместо ярлыка плитки + вывод `tree` под ним.
           // Приглашение живёт в СОДЕРЖИМОМ, а не в `label` плитки, и это по смыслу: волна,
           // прячущая мета-ярлыки (§10.2 PRIME), спрятала бы вместе с ними и его — а оно
-          // здесь работает подписью, объясняющей, что за предметы лежат ниже.
-          <div className="projects-dossier-frame flex h-full flex-col">
+          // здесь не имя плитки, а КОРЕНЬ дерева, на котором висят строки ниже.
+          <div className="projects-console-frame flex h-full flex-col">
             <p className="projects-prompt">
               <span className="projects-prompt__path">~/projects</span>
               <span aria-hidden className="projects-prompt__caret">❯</span>
-              <span className="projects-prompt__cmd">ls -l</span>
+              <span className="projects-prompt__cmd">tree -L 1</span>
             </p>
-            <ul className="projects-dossier scroll-invisible flex min-h-0 flex-1 flex-col overflow-y-auto">
-              {projects.map((p) => {
+            <ul className="projects-console scroll-invisible flex min-h-0 flex-1 flex-col overflow-y-auto">
+              {projects.map((p, i) => {
                 // Показанный путь — вторая строка ряда: она и говорит «это код», до всякой
                 // подписи. Нет ссылки — нет и строки (пустое место честнее прочерка).
                 const repo = repoLabel(p.url);
@@ -130,13 +133,18 @@ export function ProjectsTile({
                 const home = p.homeUrl ?? p.url;
                 return (
                   <li key={p.title} className="min-w-0">
-                    <div className="project-dossier flex items-center">
+                    <div className="project-console flex items-center">
+                      {/* Ветка: она и привязывает строку к пути в приглашении — то, на что
+                          подпись только намекала. Пустая: линии рисует CSS (box-drawing-знаков
+                          в подмножестве моношрифта нет — docs/pitfalls.md). Декор для читалки:
+                          вслух «тройник» ничего не добавляет к названию проекта. */}
+                      <span aria-hidden className="project-branch" data-branch={treeBranch(i, projects.length)} />
                       {/* Картинка ведёт туда же, куда название, но из обхода с клавиатуры
                           снята: две остановки на одном адресе — лишняя работа для читалки. */}
-                      <LinkOrPlain href={home} className="project-dossier__icon" decorative>
+                      <LinkOrPlain href={home} className="project-console__icon" decorative>
                         <ProjectIcon iconUrl={p.iconUrl} />
                       </LinkOrPlain>
-                      <span className="project-dossier__text flex min-w-0 flex-col">
+                      <span className="project-console__text flex min-w-0 flex-col">
                         <LinkOrPlain href={home} className="project-title truncate" style={{ color: "var(--text-primary)" }}>
                           {p.title}
                         </LinkOrPlain>

@@ -6,7 +6,9 @@ import { mediaUrl } from "@/lib/api/media";
 import {
   CAROUSEL_RADIUS_PX,
   CAROUSEL_SLOT_PX,
+  centerScrollTop,
   slotLook,
+  startSlotIndex,
 } from "@/lib/dropCarousel";
 import { ROLL_SETTLE_PX, nearestFrameIndex, stripPadding, wheelStep } from "@/lib/dropRoll";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
@@ -65,6 +67,8 @@ export function PhotoDropsTile({
   const horizontal = !carousel && orientation === "horizontal";
   const shelfRef = useRef<HTMLUListElement>(null);
   const reelRef = useRef<HTMLUListElement>(null);
+  /** Лента уже поставлена на стартовый кадр: ресайз и смена данных её больше не двигают. */
+  const startedRef = useRef(false);
   // Плитка, из которой растёт галерея: проявке нужен именно тот кадр, по которому кликнули.
   const originRef = useRef<HTMLElement | null>(null);
   /**
@@ -95,9 +99,27 @@ export function PhotoDropsTile({
     // Боковой запас ленты: без него КРАЙНИЕ дропы недостижимы — по центру окна встаёт не
     // первый кадр, а тот, что отстоит от края на полокна (тот же приём и та же функция,
     // что у ленты галереи плёнки).
+    //
+    // ⚠️ Считается от `clientHeight`, то есть лента ОБЯЗАНА иметь высоту от родителя. Пока её
+    // не было (стек телефона: высота от содержимого), запас накручивал сам себя — вырос до
+    // 588px, а плитка до 1842px и показывала весь архив разом. Высоту в стеке называет CSS
+    // (`.board-stack .drop-carousel`), здесь остаётся только замер.
     const layout = () => {
       const pad = stripPadding(el.clientHeight, CAROUSEL_SLOT_PX);
       el.style.paddingBlock = `${pad}px`;
+    };
+
+    /**
+     * Первый показ ставит ленту на ВТОРОЙ дроп: на первом сверху пусто (там боковой запас),
+     * и архив читается началом списка, а не каруселью. Один раз за жизнь ленты — ресайз и
+     * приезд новых данных не должны утаскивать зрителя с того кадра, который он выбрал.
+     */
+    const start = () => {
+      if (startedRef.current) return;
+      const slot = el.children[startSlotIndex(el.children.length)] as HTMLElement | undefined;
+      if (!slot || el.clientHeight <= 0) return;
+      startedRef.current = true;
+      el.scrollTop = centerScrollTop(slot.offsetTop, slot.offsetHeight, el.clientHeight);
     };
 
     const paint = () => {
@@ -155,10 +177,13 @@ export function PhotoDropsTile({
         mid,
       );
       const next = slots[Math.min(slots.length - 1, Math.max(0, from + step.dir))];
-      if (next) el.scrollTo({ top: next.offsetTop - (el.clientHeight - next.offsetHeight) / 2, behavior: "smooth" });
+      if (next) {
+        el.scrollTo({ top: centerScrollTop(next.offsetTop, next.offsetHeight, el.clientHeight), behavior: "smooth" });
+      }
     };
 
     layout();
+    start();
     paint();
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -166,6 +191,9 @@ export function PhotoDropsTile({
     // нет — там лента просто остаётся с первой раскраской, и это ровно то, что проверяют тесты.
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
       layout();
+      // Замер мог приехать только сейчас (в стеке лента получает высоту после первой
+      // раскладки) — тогда стартовый кадр ставится здесь, а дальше `start` молчит.
+      start();
       paint();
     });
     ro?.observe(el);

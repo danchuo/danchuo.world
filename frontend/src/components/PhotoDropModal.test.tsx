@@ -497,6 +497,23 @@ async function untilMorph(scene: HTMLElement, state: string, maxFrames = 12): Pr
   }
 }
 
+/**
+ * Сделать картинки «готовыми к отрисовке»: проявка ждёт не появления кадра в разметке, а
+ * декодированных пикселей (см. [useDropMorph] — иначе полёт стартует ровно в тот момент, когда
+ * браузер берётся декодировать снимок, и первую треть пути не рисует). В jsdom картинки не
+ * грузятся никогда, поэтому готовность проставляем руками — иначе морф не сыграет вовсе.
+ */
+function imagesPaintable(): () => void {
+  const proto = HTMLImageElement.prototype as unknown as Record<string, unknown>;
+  const had = { complete: Object.getOwnPropertyDescriptor(proto, "complete"), natural: Object.getOwnPropertyDescriptor(proto, "naturalWidth") };
+  Object.defineProperty(proto, "complete", { configurable: true, get: () => true });
+  Object.defineProperty(proto, "naturalWidth", { configurable: true, get: () => 1 });
+  return () => {
+    if (had.complete) Object.defineProperty(proto, "complete", had.complete);
+    if (had.natural) Object.defineProperty(proto, "naturalWidth", had.natural);
+  };
+}
+
 describe("PhotoDropModal — кадры с плитки", () => {
   const photo = {
     imageUrl: "/api/film-media/1/0/web",
@@ -519,6 +536,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
   });
 
   it("проявка стартует не раньше, чем стартовый кадр отрисован", async () => {
+    const restoreImages = imagesPaintable();
     // Кадр обязан ПОБЫТЬ на месте плитки хотя бы один отрисованный кадр, и только потом ехать.
     // Иначе таймлайн перехода стартует до первой отрисовки галереи, а она тяжёлая (декод
     // снимка и ленты миниатюр): пока браузер занят, время идёт, и на первом же показанном
@@ -557,9 +575,45 @@ describe("PhotoDropModal — кадры с плитки", () => {
 
     document.documentElement.style.removeProperty("--drop-morph");
     tile.remove();
+    restoreImages();
+  });
+
+  /**
+   * Регрессионный якорь к замеру на живом стеке: полёт, начатый до готовности картинок,
+   * первую треть пути просто не рисуется (17–20 кадров из 27 с провалами до 115мс), и
+   * раскрытие среза приезжает ступенями. Поэтому «кадр есть в разметке» — не повод лететь.
+   */
+  it("не летит, пока картинки кадра не готовы к отрисовке", async () => {
+    getDropMock.mockReturnValue(new Promise(() => {}));
+    document.documentElement.style.setProperty("--drop-morph", "1");
+    const tile = document.createElement("div");
+    tile.getBoundingClientRect = () => ({ width: 100, height: 60, top: 10, left: 10, right: 110, bottom: 70, x: 10, y: 10, toJSON: () => "" });
+    document.body.appendChild(tile);
+
+    const { container } = render(
+      <PhotoDropModal
+        dropId={1}
+        title="Плёнка"
+        monthLabel={null}
+        gallery="roll"
+        initialPhotos={[photo]}
+        origin={{ current: tile }}
+        onClose={() => {}}
+      />,
+    );
+    const scene = container.querySelector<HTMLElement>(".drop-scene")!;
+
+    // Картинок в jsdom нет и не будет — значит, шов обязан держать сцену в ожидании, а не
+    // отпускать полёт над недекодированным кадром.
+    await untilMorph(scene, "in");
+    expect(scene.dataset.morph).toBe("wait");
+
+    document.documentElement.style.removeProperty("--drop-morph");
+    tile.remove();
   });
 
   it("галерея снимается не в момент посадки, а после досадки", async () => {
+    const restoreImages = imagesPaintable();
     // Кадр доезжает до плитки за `--drop-morph-out-ms`, и там его отличие от плитки — полоса
     // блюра с подписью. Снять его ровно в этот миг значит проявить их рывком; вместо этого он
     // ещё `--drop-morph-settle-ms` растворяется, уже неподвижный (замечание владельца).
@@ -609,6 +663,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     root.removeProperty("--drop-morph-out-ms");
     root.removeProperty("--drop-morph-settle-ms");
     tile.remove();
+    restoreImages();
   });
 
   it("волна не просила проявки — галерея закрывается сразу, без ожидания анимации", () => {

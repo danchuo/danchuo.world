@@ -76,6 +76,10 @@ export function useDropMorph({
   const frameRef = useRef(0);
   /** Плитка, с которой снят кадр: её надо вернуть на борд, чем бы галерея ни закончилась. */
   const hiddenRef = useRef<HTMLElement | null>(null);
+  /** Картинки кадра уже декодированы: полёт можно отпускать (см. [heroPaintable]). */
+  const paintableRef = useRef(false);
+  /** Декод уже заказан — второй раз не просим. */
+  const decodingRef = useRef(false);
 
   const showSource = useCallback(() => {
     hiddenRef.current?.removeAttribute("data-morph-source");
@@ -195,6 +199,39 @@ export function useDropMorph({
     return true;
   }, []);
 
+  /**
+   * Готов ли кадр к отрисовке — не «есть ли он в разметке», а декодированы ли его пиксели.
+   *
+   * Без этого полёт стартовал ровно в тот момент, когда браузер брался декодировать снимок,
+   * и первую треть пути просто не рисовал. Замер на живом стеке (headed, реальная отрисовка):
+   * первое открытие дропа — 17–20 кадров из 27 возможных с провалами до 115мс, и раскрытие
+   * среза приезжало ступенями («слишком резко прибавляет сверху и снизу» — замечание
+   * владельца). С заранее декодированными картинками — 26–27 кадров из 27, максимум 33мс.
+   * Ждать нечего на повторных заходах: там кадр уже в кэше, и `decode` отвечает сразу.
+   *
+   * ⚠️ Это НЕ ожидание сети: у ожидания замера свой потолок ([WAIT_CAP_MS]), за которым
+   * галерея показывается вовсе без движения. Медленный кадр стоит проявки, а не открытия.
+   */
+  const heroPaintable = useCallback((hero: HTMLElement) => {
+    if (paintableRef.current) return true;
+    const imgs = Array.from(hero.querySelectorAll("img"));
+    if (imgs.length === 0) return true;
+    if (!imgs.every((img) => img.complete && img.naturalWidth > 0)) return false;
+    if (decodingRef.current) return false;
+    decodingRef.current = true;
+    // `complete` говорит «файл приехал», а не «пиксели готовы»: декод у больших кадров
+    // отложенный (`decoding="async"`), и приходится он ровно на первые кадры полёта.
+    // `decode` есть не везде (jsdom, старые движки) — там довольствуемся `complete`.
+    const ready = imgs.map((img) =>
+      typeof img.decode === "function" ? img.decode().catch(() => undefined) : Promise.resolve(),
+    );
+    Promise.all(ready).then(() => {
+      paintableRef.current = true;
+      playInRef.current?.();
+    });
+    return false;
+  }, []);
+
   const playIn = useCallback(() => {
     if (playedRef.current) return;
     const p = parts();
@@ -211,7 +248,7 @@ export function useDropMorph({
     // бывает НЕЧЕГО: галерея ленты дропов грузит кадры после клика, и первая попытка
     // приходится на сцену без кадра вовсе — раньше шов на этом сдавался, и проявка играла
     // только у верхнего дропа, которому доводка ленты не нужна.
-    if (!p || !placeOnTile(p)) {
+    if (!p || !heroPaintable(p.hero) || !placeOnTile(p)) {
       if (retriesRef.current >= MAX_PLAY_RETRIES) {
         // Сдались — галерея показывается как есть, без движения. Метку ожидания снимаем,
         // иначе кадр остался бы невидимым навсегда.
@@ -245,7 +282,7 @@ export function useDropMorph({
         hiddenRef.current = p.card;
       });
     });
-  }, [parts, placeOnTile]);
+  }, [heroPaintable, parts, placeOnTile]);
   playInRef.current = playIn;
 
   const requestClose = useCallback(() => {

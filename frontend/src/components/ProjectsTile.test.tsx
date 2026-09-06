@@ -87,16 +87,16 @@ describe("ProjectsTile", () => {
   });
 
   /**
-   * Редакция `dossier` (DESIGN §7.8, волна 03): строка-досье вместо строки-ярлыка. Набор
+   * Редакция `console` (DESIGN §7.8, волна 03): вывод `tree` вместо строки-ярлыка. Набор
    * редакций — знание тайла, а не реестра раскладки, поэтому незнакомое имя = дефолт.
    */
-  describe("редакция dossier", () => {
+  describe("редакция console", () => {
     it("подпись плитки — приглашение оболочки, а не слово «проекты»", async () => {
       getProjectsMock.mockResolvedValue([project()]);
-      render(<ProjectsTile edition="dossier" />);
+      render(<ProjectsTile edition="console" />);
       await screen.findByText("danchuo.world");
       expect(screen.getByText("~/projects")).toBeInTheDocument();
-      expect(screen.getByText("ls -l")).toBeInTheDocument();
+      expect(screen.getByText("tree -L 1")).toBeInTheDocument();
     });
 
     /**
@@ -112,7 +112,7 @@ describe("ProjectsTile", () => {
           homeUrl: "https://t.me/proxemics_bot",
         }),
       ]);
-      const { container } = render(<ProjectsTile edition="dossier" />);
+      const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("proxemics");
 
       expect(screen.getByText("proxemics").closest("a")).toHaveAttribute("href", "https://t.me/proxemics_bot");
@@ -128,7 +128,7 @@ describe("ProjectsTile", () => {
       getProjectsMock.mockResolvedValue([
         project({ title: "danchuo.world", iconUrl: "/assets/projects/danchuo-world-px.png", url: "https://danchuo.world" }),
       ]);
-      const { container } = render(<ProjectsTile edition="dossier" />);
+      const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("Q1 2026 — наст.");
 
       // Название и путь тут совпадают дословно — ищем по роли в строке, а не по тексту.
@@ -140,11 +140,29 @@ describe("ProjectsTile", () => {
 
     it("проект без ссылок — ни одной гиперссылки в строке", async () => {
       getProjectsMock.mockResolvedValue([project({ url: null })]);
-      const { container } = render(<ProjectsTile edition="dossier" />);
+      const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("danchuo.world");
 
-      expect(container.querySelector(".project-dossier a")).toBeNull();
+      expect(container.querySelector(".project-console a")).toBeNull();
       expect(container.querySelector(".project-repo")).toBeNull();
+    });
+
+    /**
+     * Ветки дерева: строки висят на приглашении, а угол закрывает список. Проверяем порядок
+     * видов в разметке — сам выбор вида проверен в `projectTree.test.ts`. Рисуются ветки
+     * линиями в CSS, поэтому в разметке от них остаётся ровно этот атрибут.
+     */
+    it("строки висят на ветках, угол достаётся последней", async () => {
+      getProjectsMock.mockResolvedValue([
+        project({ title: "danchuo.world" }),
+        project({ title: "proxemics" }),
+        project({ title: "третий" }),
+      ]);
+      const { container } = render(<ProjectsTile edition="console" />);
+      await screen.findByText("третий");
+
+      const branches = [...container.querySelectorAll(".project-branch")].map((b) => b.getAttribute("data-branch"));
+      expect(branches).toEqual(["tee", "tee", "corner"]);
     });
 
     it("незнакомая редакция → прежний список, без приглашения и путей", async () => {
@@ -153,7 +171,7 @@ describe("ProjectsTile", () => {
       await screen.findByText("danchuo.world");
 
       expect(screen.queryByText("~/projects")).not.toBeInTheDocument();
-      expect(container.querySelector(".project-dossier")).toBeNull();
+      expect(container.querySelector(".project-console")).toBeNull();
       expect(container.querySelector(".projects-list")).toBeInTheDocument();
     });
   });

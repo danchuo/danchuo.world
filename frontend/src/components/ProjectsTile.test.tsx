@@ -19,6 +19,7 @@ function project(over: Partial<ProjectView> = {}): ProjectView {
     endYear: null,
     endQuarter: null,
     url: "https://github.com/dontyouo",
+    homeUrl: null,
     ...over,
   };
 }
@@ -83,6 +84,78 @@ describe("ProjectsTile", () => {
     const { container } = render(<ProjectsTile />);
     await screen.findByText("danchuo.world");
     expect(container.querySelector(".projects-list--horizontal")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Редакция `dossier` (DESIGN §7.8, волна 03): строка-досье вместо строки-ярлыка. Набор
+   * редакций — знание тайла, а не реестра раскладки, поэтому незнакомое имя = дефолт.
+   */
+  describe("редакция dossier", () => {
+    it("подпись плитки — приглашение оболочки, а не слово «проекты»", async () => {
+      getProjectsMock.mockResolvedValue([project()]);
+      render(<ProjectsTile edition="dossier" />);
+      await screen.findByText("danchuo.world");
+      expect(screen.getByText("~/projects")).toBeInTheDocument();
+      expect(screen.getByText("ls -l")).toBeInTheDocument();
+    });
+
+    /**
+     * Две ссылки разного назначения: показанный путь ведёт туда, куда показывает, а название
+     * с картинкой — в «дом» проекта (у proxemics код на гитхабе, сам проект — бот).
+     */
+    it("название и картинка ведут в дом проекта, путь — по своему адресу", async () => {
+      getProjectsMock.mockResolvedValue([
+        project({
+          title: "proxemics",
+          iconUrl: "/assets/projects/proxemics.png",
+          url: "https://github.com/danchuo/proxemics",
+          homeUrl: "https://t.me/proxemics_bot",
+        }),
+      ]);
+      const { container } = render(<ProjectsTile edition="dossier" />);
+      await screen.findByText("proxemics");
+
+      expect(screen.getByText("proxemics").closest("a")).toHaveAttribute("href", "https://t.me/proxemics_bot");
+      expect(container.querySelector("img")?.closest("a")).toHaveAttribute("href", "https://t.me/proxemics_bot");
+      expect(screen.getByText("github.com/danchuo/proxemics").closest("a")).toHaveAttribute(
+        "href",
+        "https://github.com/danchuo/proxemics",
+      );
+    });
+
+    /** Дома отдельно нет ⇒ название и картинка ведут туда же, куда показанный путь. */
+    it("без дома название ведёт по показанному пути", async () => {
+      getProjectsMock.mockResolvedValue([
+        project({ title: "danchuo.world", iconUrl: "/assets/projects/danchuo-world-px.png", url: "https://danchuo.world" }),
+      ]);
+      const { container } = render(<ProjectsTile edition="dossier" />);
+      await screen.findByText("Q1 2026 — наст.");
+
+      // Название и путь тут совпадают дословно — ищем по роли в строке, а не по тексту.
+      expect(container.querySelector(".project-title")).toHaveAttribute("href", "https://danchuo.world");
+      expect(container.querySelector("img")?.closest("a")).toHaveAttribute("href", "https://danchuo.world");
+      // Путь показан, даже когда он совпадает с названием: это адрес проекта, а не подпись.
+      expect(container.querySelector(".project-repo")).toHaveTextContent("danchuo.world");
+    });
+
+    it("проект без ссылок — ни одной гиперссылки в строке", async () => {
+      getProjectsMock.mockResolvedValue([project({ url: null })]);
+      const { container } = render(<ProjectsTile edition="dossier" />);
+      await screen.findByText("danchuo.world");
+
+      expect(container.querySelector(".project-dossier a")).toBeNull();
+      expect(container.querySelector(".project-repo")).toBeNull();
+    });
+
+    it("незнакомая редакция → прежний список, без приглашения и путей", async () => {
+      getProjectsMock.mockResolvedValue([project()]);
+      const { container } = render(<ProjectsTile edition="катушка" />);
+      await screen.findByText("danchuo.world");
+
+      expect(screen.queryByText("~/projects")).not.toBeInTheDocument();
+      expect(container.querySelector(".project-dossier")).toBeNull();
+      expect(container.querySelector(".projects-list")).toBeInTheDocument();
+    });
   });
 
   it("пустой список → тихое пустое состояние", async () => {

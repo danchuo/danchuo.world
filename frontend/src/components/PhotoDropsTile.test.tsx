@@ -12,7 +12,26 @@ const TWO_DROPS = [
   { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: "/api/film-media/1/0/thumb" },
 ];
 
-afterEach(() => vi.clearAllMocks());
+/**
+ * jsdom картинок не грузит: `complete` у него всегда false, а `naturalWidth` — ноль. Чтобы
+ * проверить поведение с УЖЕ загруженной обложкой (кэш браузера, переиспользованный узел),
+ * подменяем оба свойства на прототипе и возвращаем родные после теста.
+ */
+const IMG_PROTO = window.HTMLImageElement.prototype;
+const NATIVE_IMG_PROPS = {
+  complete: Object.getOwnPropertyDescriptor(IMG_PROTO, "complete")!,
+  naturalWidth: Object.getOwnPropertyDescriptor(IMG_PROTO, "naturalWidth")!,
+};
+function pretendCoversLoaded() {
+  Object.defineProperty(IMG_PROTO, "complete", { configurable: true, get: () => true });
+  Object.defineProperty(IMG_PROTO, "naturalWidth", { configurable: true, get: () => 800 });
+}
+
+afterEach(() => {
+  Object.defineProperty(IMG_PROTO, "complete", NATIVE_IMG_PROPS.complete);
+  Object.defineProperty(IMG_PROTO, "naturalWidth", NATIVE_IMG_PROPS.naturalWidth);
+  vi.clearAllMocks();
+});
 
 describe("PhotoDropsTile (компактная лента)", () => {
   it("нет дропов → пустое состояние «пока нет дропов»", async () => {
@@ -143,6 +162,27 @@ describe("PhotoDropsTile (компактная лента)", () => {
     await screen.findByText("Июльская плёнка");
 
     expect(container.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
+  });
+
+  /**
+   * Лента погашена до первой доехавшей обложки (`is-ready`), и на смене волны это чуть не
+   * стало исчезновением виджета: карусель и прежняя лента стоят на ОДНОМ месте дерева с
+   * одним ключом, поэтому React переиспользует те же `<img>` — `src` не меняется, второго
+   * события `load` не будет никогда. Приехав на волну с каруселью после волны, где обложки
+   * уже загрузились, зритель видел пустое место до перезагрузки страницы (замечание
+   * владельца: «возвращаюсь на третью волну, а виджет дропов просто пропадает»).
+   */
+  it("возврат на карусель с уже загруженными обложками — лента видна без второго load", async () => {
+    getDropsMock.mockResolvedValue(TWO_DROPS);
+    // Приезжаем на волну с прежней лентой и дожидаемся обложек.
+    const { container, rerender } = render(<PhotoDropsTile orientation="horizontal" />);
+    await screen.findByText("Июльская плёнка");
+    pretendCoversLoaded();
+
+    // Переключение волны: та же плитка, другая редакция — узлы картинок переиспользуются.
+    rerender(<PhotoDropsTile edition="carousel" />);
+
+    expect(container.querySelector(".drop-carousel")).toHaveClass("is-ready");
   });
 
   /**

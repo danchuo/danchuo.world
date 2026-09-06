@@ -306,7 +306,7 @@ function BoardTile({
     case "music":
       return <MusicTile style={style} className={className} />;
     case "projects":
-      return <ProjectsTile orientation={orientation} style={style} className={className} />;
+      return <ProjectsTile orientation={orientation} edition={edition} style={style} className={className} />;
     case "ride":
       return <RideTile wave={data.wave} style={style} className={className} />;
     case "social":

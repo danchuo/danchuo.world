@@ -5,6 +5,7 @@ import io.restassured.RestAssured.given
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.greaterThanOrEqualTo
 import org.hamcrest.Matchers.hasItem
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 
 /**
@@ -23,6 +24,22 @@ class ProjectsResourceTest {
             .body("find { it.title == 'danchuo.world' }.startYear", equalTo(2026))
             .body("find { it.title == 'danchuo.world' }.startQuarter", equalTo(3))
             .body("find { it.title == 'danchuo.world' }.endQuarter", equalTo(3))
+    }
+
+    /**
+     * У проекта две ссылки разного назначения (PRD §5.7): `url` — путь, который показан
+     * строкой под названием, `homeUrl` — куда ведёт сам предмет (название и картинка).
+     * У proxemics они РАЗНЫЕ: код лежит в репозитории, а сам проект живёт ботом в телеграме.
+     */
+    @Test
+    fun `proxemics carries its own home link apart from the shown path`() {
+        given().get("/api/projects")
+            .then().statusCode(200)
+            .body("find { it.title == 'proxemics' }.url", equalTo("https://github.com/danchuo/proxemics"))
+            .body("find { it.title == 'proxemics' }.homeUrl", equalTo("https://t.me/proxemics_bot"))
+            // У сайта дом совпадает с показанным путём — отдельная ссылка ему не нужна.
+            .body("find { it.title == 'danchuo.world' }.url", equalTo("https://danchuo.world"))
+            .body("find { it.title == 'danchuo.world' }.homeUrl", nullValue())
     }
 
     @Test

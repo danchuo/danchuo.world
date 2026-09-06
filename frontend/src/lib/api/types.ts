@@ -266,7 +266,10 @@ export interface ProjectView {
   startQuarter: number | null;
   endYear: number | null;
   endQuarter: number | null;
+  /** Ссылка, которую блок показывает строкой (путь репозитория/сайта). */
   url: string | null;
+  /** «Дом» проекта — куда ведут название и картинка; `null` ⇒ туда же, куда [url]. */
+  homeUrl: string | null;
 }
 
 /** Соцссылка (`GET /api/social-links`): иконка + подпись + гиперссылка. */

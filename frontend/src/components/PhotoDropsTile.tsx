@@ -84,6 +84,19 @@ export function PhotoDropsTile({
    * перезагрузке). На повторных загрузках данные уже в кэше, и ленте нечего ждать.
    */
   const [coversReady, setCoversReady] = useState(false);
+  /**
+   * Готовность обложки читается и с самого узла, а не только по событию `load` (тот же приём,
+   * что у обложки альбома в [NowPlayingCard]). Событие может не случиться вовсе: смена волны
+   * меняет редакцию ленты, но `<ul>`/`<li>`/`<img>` остаются на своих местах в дереве с теми же
+   * ключами — React переиспользует узлы, `src` не меняется, и второго `load` не будет. Приехав
+   * на карусель после волны, где обложки уже загрузились, зритель видел на её месте пустоту
+   * (лента погашена до первой обложки) — и та не проходила до перезагрузки страницы.
+   * `complete` + ненулевая ширина = картинка уже нарисована; битую (complete без ширины)
+   * отпускает `onError`.
+   */
+  const markCoverReady = useCallback((node: HTMLImageElement | null) => {
+    if (node?.complete && node.naturalWidth > 0) setCoversReady(true);
+  }, []);
   // Какой дроп стоит в середине окна: он и есть «текущий» для доступности. Индекс, а не id,
   // — позиция в ленте здесь и есть ответ, а он меняется от прокрутки, не от данных.
   const [centered, setCentered] = useState(0);
@@ -318,6 +331,7 @@ export function PhotoDropsTile({
                       src={mediaUrl(cover)}
                       alt=""
                       className="drop-carousel__cover"
+                      ref={markCoverReady}
                       onLoad={() => setCoversReady(true)}
                       // Битая обложка ленту не запирает: показываем то, что есть.
                       onError={() => setCoversReady(true)}

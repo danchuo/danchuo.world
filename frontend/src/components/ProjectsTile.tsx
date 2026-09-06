@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { getProjects } from "@/lib/api/client";
+import { is3dArtifact } from "@/lib/artifact3d";
+import { Artifact3D } from "./Artifact3D";
 import type { ProjectView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { formatQuarterRange } from "@/lib/projectRange";
@@ -27,11 +29,22 @@ interface ProjectsTileProps {
    *   а не редакции: редакция владеет содержимым, волна — краем и фоном (DESIGN §7.8, §10.2).
    */
   edition?: string;
+  /**
+   * Чем волна одевает планеты (DESIGN §12.5): `model` — объёмным артефактом у тех проектов, у
+   * кого модель есть; не задано или незнакомо — плоский спрайт у всех. Ключ волны, а не проекта:
+   * запись держит обе планеты сразу, и тёплой волне 01 не навязывается циановый каркас.
+   */
+  planet?: string;
 }
 
 /** Незнакомое имя редакции ⇒ дефолт: набор редакций — знание тайла, а не реестра раскладки. */
 function resolveEdition(value: string | undefined): "console" | "default" {
   return value === "console" ? "console" : "default";
+}
+
+/** То же для планеты: незнакомое имя — плоский спрайт, самая безопасная подача. */
+function wearsModel(value: string | undefined): boolean {
+  return value === "model";
 }
 
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
@@ -60,8 +73,10 @@ export function ProjectsTile({
   className,
   orientation = "vertical",
   edition: editionRaw,
+  planet: planetRaw,
 }: ProjectsTileProps) {
   const edition = resolveEdition(editionRaw);
+  const showModels = wearsModel(planetRaw);
   const { phase, data, retry } = useTileData<ProjectView[]>(
     useCallback((signal) => getProjects({ signal }), []),
     "projects",
@@ -142,7 +157,7 @@ export function ProjectsTile({
                       {/* Картинка ведёт туда же, куда название, но из обхода с клавиатуры
                           снята: две остановки на одном адресе — лишняя работа для читалки. */}
                       <LinkOrPlain href={home} className="project-console__icon" decorative>
-                        <ProjectIcon iconUrl={p.iconUrl} />
+                        <ProjectIcon iconUrl={p.iconUrl} modelUrl={showModels ? p.modelUrl : null} />
                       </LinkOrPlain>
                       <span className="project-console__text flex min-w-0 flex-col">
                         <LinkOrPlain href={home} className="project-title truncate" style={{ color: "var(--text-primary)" }}>
@@ -190,7 +205,7 @@ export function ProjectsTile({
                   : "project-row flex items-center"
               }
             >
-              <ProjectIcon iconUrl={p.iconUrl} />
+              <ProjectIcon iconUrl={p.iconUrl} modelUrl={showModels ? p.modelUrl : null} />
               <div className={horizontal ? "flex min-w-0 flex-col items-center text-center" : "flex min-w-0 flex-col"}>
                 {p.url ? (
                   <a
@@ -267,8 +282,24 @@ function LinkOrPlain({
  * рядов начинаются с одного x), сторонний фавикон в легаси-подаче, ничего нет — глухая
  * плашка. Размеры задаёт CSS долями контейнера (DESIGN §8.1), поэтому редакции достаточно
  * переопределить доли у своих классов.
+ *
+ * [modelUrl] — объёмная планета (DESIGN §12.5): тот же слот, но предмет оживает под курсором.
+ * Приезжает уже отфильтрованной волной: не задана ⇒ либо волна объёма не просит, либо модели
+ * у проекта нет, и в обоих случаях показывается прежний плоский спрайт. Значит новая волна с
+ * объёмом ничего не ломает у старых, а проект без модели не выпадает из ряда.
  */
-function ProjectIcon({ iconUrl }: { iconUrl: string | null }) {
+function ProjectIcon({ iconUrl, modelUrl }: { iconUrl: string | null; modelUrl: string | null }) {
+  // `is3dArtifact` здесь — страж, а не выбор ветки: если в поле модели окажется не модель
+  // (опечатка в записи), лучше показать спрайт, чем пустой слот.
+  if (modelUrl && is3dArtifact(modelUrl)) {
+    // Артефакт берёт слот целиком: поле вокруг предмета отмеряет сама сцена, а не CSS, —
+    // иначе у моделей с разными габаритами поле получалось бы разным.
+    return (
+      <span aria-hidden className="project-slot grid shrink-0 place-items-center">
+        <Artifact3D src={modelUrl} className="project-artifact" />
+      </span>
+    );
+  }
   if (!iconUrl) {
     return <span aria-hidden className="project-favicon" style={{ background: "var(--bg-surface-muted)" }} />;
   }

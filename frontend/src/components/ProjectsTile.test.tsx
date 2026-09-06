@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectView } from "@/lib/api/types";
 import { ProjectsTile } from "./ProjectsTile";
 
+// Сцену 3D-артефакта подменяем: в jsdom нет WebGL, а проверяем мы выбор ПОДАЧИ по адресу.
+vi.mock("@/lib/artifact3dStage", () => ({
+  mountArtifact: vi.fn(async () => ({ setSpinning: vi.fn(), resize: vi.fn(), dispose: vi.fn() })),
+}));
 vi.mock("@/lib/api/client", () => ({ getProjects: vi.fn() }));
 import { getProjects } from "@/lib/api/client";
 const getProjectsMock = vi.mocked(getProjects);
@@ -12,6 +16,7 @@ afterEach(() => vi.clearAllMocks());
 function project(over: Partial<ProjectView> = {}): ProjectView {
   return {
     iconUrl: null,
+    modelUrl: null,
     title: "danchuo.world",
     description: null,
     startYear: 2026,
@@ -35,6 +40,44 @@ describe("ProjectsTile", () => {
       "https://github.com/dontyouo",
     );
     expect(screen.getByText("Q1 2026 — наст.")).toBeInTheDocument();
+  });
+
+  it("волна просит объём — планета с моделью встаёт 3D-артефактом в том же слоте", async () => {
+    getProjectsMock.mockResolvedValue([
+      project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
+    ]);
+    const { container } = render(<ProjectsTile planet="model" />);
+    await screen.findByText("danchuo.world");
+
+    const artifact = container.querySelector("canvas");
+    expect(artifact).toHaveClass("project-artifact");
+    // Тот же слот, что у плоских планет: тексты рядов начинаются с одного x независимо от
+    // того, чем одета планета.
+    expect(artifact?.parentElement).toHaveClass("project-slot");
+    // Подача ровно одна: спрайт при этом не рисуется вторым слоем.
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("старая волна объёма не просит — остаётся прежний плоский спрайт", async () => {
+    getProjectsMock.mockResolvedValue([
+      project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
+    ]);
+    const { container } = render(<ProjectsTile />);
+    await screen.findByText("danchuo.world");
+
+    expect(container.querySelector("canvas")).toBeNull();
+    expect(container.querySelector("img")).toHaveClass("project-sprite");
+  });
+
+  it("волна просит объём, а модели у проекта нет — тихо остаётся спрайт", async () => {
+    getProjectsMock.mockResolvedValue([
+      project({ title: "proxemics", iconUrl: "/assets/projects/proxemics.png", modelUrl: null }),
+    ]);
+    const { container } = render(<ProjectsTile planet="model" />);
+    await screen.findByText("proxemics");
+
+    expect(container.querySelector("canvas")).toBeNull();
+    expect(container.querySelector("img")).toHaveClass("project-sprite--smooth");
   });
 
   it("спрайт-планета из /assets/projects/: пиксель-арт (-px) — pixelated и своя доля, гладкий — на ступень крупнее", async () => {

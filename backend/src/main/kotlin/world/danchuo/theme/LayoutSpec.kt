@@ -51,4 +51,6 @@ data class TileSpanSpec(
     val orientation: String? = null,
     /** Редакция тайла — имя одной из его вёрсток (DESIGN §10.1); набор знает только сам тайл. */
     val edition: String? = null,
+    /** Чем волна одевает «планеты» проектов: `model` — 3D-артефактом (DESIGN §12.5). */
+    val planet: String? = null,
 )

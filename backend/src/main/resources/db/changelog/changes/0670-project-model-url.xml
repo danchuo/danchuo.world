@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      У проекта появляется ВТОРАЯ планета — объёмная (DESIGN §12.5).
+
+      Отдельная колонка, а не подмена `icon_url`: плоский спрайт остаётся у проекта навсегда,
+      потому что носить объём вправе не всякая волна. Волна 01 «Студия / Персик» показывает
+      тёплый пиксель-арт, и циановый каркас там чужероден; какую планету надеть, решает волна
+      своей раскладкой (`tiles.projects.planet`), а запись проекта просто держит обе.
+
+      `model_url` пуст ⇒ у проекта объёмной версии нет, и волна, просящая объём, покажет спрайт.
+    -->
+    <changeSet id="0670-project-model-url" author="danchuo">
+        <addColumn tableName="project">
+            <column name="model_url" type="varchar(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0670-project-model-url-danchuo-world" author="danchuo">
+        <update tableName="project">
+            <column name="model_url" value="/assets/3d/wireframe-globe.glb"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+        <rollback>
+            <update tableName="project">
+                <column name="model_url" value="null"/>
+                <where>title = 'danchuo.world'</where>
+            </update>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0670-project-model-url-proxemics" author="danchuo">
+        <update tableName="project">
+            <column name="model_url" value="/assets/3d/spiral-vortex.glb"/>
+            <where>title = 'proxemics'</where>
+        </update>
+        <rollback>
+            <update tableName="project">
+                <column name="model_url" value="null"/>
+                <where>title = 'proxemics'</where>
+            </update>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -260,6 +260,8 @@ export interface RecentTrackView {
 /** Проект (`GET /api/projects`); диапазон («Q3 2025 — наст.») форматирует фронт из сырых полей. */
 export interface ProjectView {
   iconUrl: string | null;
+  /** Объёмная планета (`.glb`), если она у проекта есть; надеть её решает волна (DESIGN §12.5). */
+  modelUrl: string | null;
   title: string;
   description: string | null;
   startYear: number;

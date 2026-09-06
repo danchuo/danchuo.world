@@ -69,6 +69,23 @@ describe("resolveLayout", () => {
     expect(r.tiles.music.edition).toBeUndefined();
   });
 
+  it("волна может выбрать планету проектов (planet); дефолт — не задана", () => {
+    // ⚠️ Регрессия: каждое поле контракта раскладки надо ПЕРЕНЕСТИ здесь явно — мерж собирает
+    // спан по одному полю, и забытый ключ волна теряет молча (на 3D-планетах так и вышло:
+    // ключ доехал из БД до API и оборвался ровно тут).
+    const r = resolveLayout({ tiles: { projects: { planet: "model" } } });
+    expect(r.tiles.projects.planet).toBe("model");
+    expect(r.tiles.music.planet).toBeUndefined();
+  });
+
+  it("битое значение planet отбрасывается — остаётся плоский спрайт", () => {
+    for (const v of [42, "", "  ", "МОДЕЛЬ", "a".repeat(40)]) {
+      expect(
+        resolveLayout({ tiles: { projects: { planet: v as unknown as string } } }).tiles.projects.planet,
+      ).toBeUndefined();
+    }
+  });
+
   it("битое значение edition отбрасывается: не строка, пустая строка, мусор", () => {
     const bad = (v: unknown) =>
       resolveLayout({ tiles: { latestDrop: { edition: v as unknown as string } } }).tiles.latestDrop.edition;

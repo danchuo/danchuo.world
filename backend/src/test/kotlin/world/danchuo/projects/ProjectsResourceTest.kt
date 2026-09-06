@@ -48,7 +48,11 @@ class ProjectsResourceTest {
             .then().statusCode(200)
             .body("size()", greaterThanOrEqualTo(2))
             .body("[0].title", equalTo("danchuo.world"))
+            // Планеты у проекта ДВЕ: плоский спрайт остаётся при нём всегда, объёмная едет
+            // рядом (DESIGN §12.5) — какую надеть, решает волна, а не эта запись.
             .body("[0].iconUrl", equalTo("/assets/projects/danchuo-world-px.png"))
+            .body("[0].modelUrl", equalTo("/assets/3d/wireframe-globe.glb"))
+            .body("find { it.title == 'proxemics' }.modelUrl", equalTo("/assets/3d/spiral-vortex.glb"))
             .body("find { it.title == 'proxemics' }.endYear", equalTo(2026))
             .body("find { it.title == 'proxemics' }.endQuarter", equalTo(2))
     }

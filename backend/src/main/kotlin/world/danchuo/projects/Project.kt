@@ -25,6 +25,15 @@ class Project {
     @Column(name = "icon_url")
     var iconUrl: String? = null
 
+    /**
+     * Объёмная планета проекта — файл 3D-модели (`.glb`/`.gltf`, DESIGN §12.5). Живёт ОТДЕЛЬНО
+     * от [iconUrl], а не вместо него: плоский спрайт остаётся у проекта навсегда, потому что
+     * носить объём вправе не всякая волна (старые волны показывают спрайт). Что надеть,
+     * решает волна раскладкой, а не эта запись; `null` ⇒ объёмной версии у проекта нет.
+     */
+    @Column(name = "model_url")
+    var modelUrl: String? = null
+
     @Column(nullable = false)
     lateinit var title: String
 

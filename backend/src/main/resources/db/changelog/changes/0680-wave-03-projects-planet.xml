@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 одевает проекты ОБЪЁМНЫМИ планетами (DESIGN §10.2, §12.5): у кого есть модель —
+      3D-артефакт, у остальных остаётся плоский спрайт. Прочие волны ключа не несут и планету
+      носят плоскую — тёплому пиксель-арту волны 01 циановый каркас чужероден.
+
+      Дельту раскладки переписываем ЦЕЛИКОМ, как и на 0660: `jsonb_set` по глубокому пути молча
+      ничего не сделает, если промежуточного ключа не окажется, — а вся ветка `tiles.projects` наша.
+    -->
+    <changeSet id="0680-wave-03-projects-planet" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,projects}',
+  $J${"col": 5, "row": 23, "colSpan": 11, "rowSpan": 6, "edition": "console", "planet": "model"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,projects}',
+  $J${"col": 5, "row": 23, "colSpan": 11, "rowSpan": 6, "edition": "console"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

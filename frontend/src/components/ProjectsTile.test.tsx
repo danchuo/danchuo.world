@@ -11,7 +11,12 @@ vi.mock("@/lib/api/client", () => ({ getProjects: vi.fn() }));
 import { getProjects } from "@/lib/api/client";
 const getProjectsMock = vi.mocked(getProjects);
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  // Часы подменяют тесты группировки по годам: год «сейчас» решает, куда ляжет проект с
+  // открытым концом, и без фиксации прогон начал бы зависеть от даты запуска.
+  vi.useRealTimers();
+});
 
 function project(over: Partial<ProjectView> = {}): ProjectView {
   return {
@@ -160,7 +165,7 @@ describe("ProjectsTile", () => {
 
       expect(screen.getByText("proxemics").closest("a")).toHaveAttribute("href", "https://t.me/proxemics_bot");
       expect(container.querySelector("img")?.closest("a")).toHaveAttribute("href", "https://t.me/proxemics_bot");
-      expect(screen.getByText("github.com/danchuo/proxemics").closest("a")).toHaveAttribute(
+      expect(screen.getByText("danchuo/proxemics").closest("a")).toHaveAttribute(
         "href",
         "https://github.com/danchuo/proxemics",
       );
@@ -172,13 +177,82 @@ describe("ProjectsTile", () => {
         project({ title: "danchuo.world", iconUrl: "/assets/projects/danchuo-world-px.png", url: "https://danchuo.world" }),
       ]);
       const { container } = render(<ProjectsTile edition="console" />);
-      await screen.findByText("Q1 2026 — наст.");
+      await screen.findByText("danchuo.world");
 
-      // Название и путь тут совпадают дословно — ищем по роли в строке, а не по тексту.
       expect(container.querySelector(".project-title")).toHaveAttribute("href", "https://danchuo.world");
       expect(container.querySelector("img")?.closest("a")).toHaveAttribute("href", "https://danchuo.world");
-      // Путь показан, даже когда он совпадает с названием: это адрес проекта, а не подпись.
-      expect(container.querySelector(".project-repo")).toHaveTextContent("danchuo.world");
+    });
+
+    /**
+     * Сайт, названный своим же адресом: вторая строка повторила бы название вторым голосом и
+     * зелёным — и не сказала бы ничего нового. Её просто нет.
+     */
+    it("путь, дословно равный названию, второй строкой не печатается", async () => {
+      getProjectsMock.mockResolvedValue([
+        project({ title: "danchuo.world", url: "https://danchuo.world" }),
+      ]);
+      const { container } = render(<ProjectsTile edition="console" />);
+      await screen.findByText("danchuo.world");
+
+      expect(container.querySelector(".project-repo")).toBeNull();
+    });
+
+    /**
+     * Время — левым полем строки, а не колонкой справа (DESIGN §7.8): правого столбца у строк
+     * нет вовсе. Год берётся по ПОСЛЕДНЕЙ активности, поэтому открытый конец идёт в текущий.
+     */
+    it("год — в левом поле; колонки диапазона в строке нет", async () => {
+      vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
+      getProjectsMock.mockResolvedValue([
+        project({ title: "danchuo.world", endYear: null }),
+        project({ title: "proxemics", endYear: 2024, endQuarter: 2 }),
+      ]);
+      const { container } = render(<ProjectsTile edition="console" />);
+      await screen.findByText("proxemics");
+
+      const years = [...container.querySelectorAll(".projects-year__head")].map((h) => h.textContent);
+      expect(years).toEqual(["2031", "2024"]);
+      // Год связан со своим поддеревом горизонталью — по линии на каждый напечатанный год.
+      expect(container.querySelectorAll(".projects-year__link")).toHaveLength(2);
+      expect(container.querySelector(".projects-console .project-range")).toBeNull();
+      expect(screen.queryByText(/Q\d/)).not.toBeInTheDocument();
+    });
+
+    /** Каждый год — своё поддерево: ствол растёт от года, угол закрывает СВОЙ год. */
+    it("ветки считаются внутри года: угол в каждой группе", async () => {
+      vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
+      getProjectsMock.mockResolvedValue([
+        project({ title: "a", endYear: null }),
+        project({ title: "b", endYear: 2031 }),
+        project({ title: "c", endYear: 2024 }),
+      ]);
+      const { container } = render(<ProjectsTile edition="console" />);
+      await screen.findByText("c");
+
+      // Группа 2031 = [a, b]: голова и угол. Группа 2024 = [c]: одиночка, ствола нет вовсе.
+      const branches = [...container.querySelectorAll(".project-branch")].map((b) => b.getAttribute("data-branch"));
+      expect(branches).toEqual(["head", "corner", "only"]);
+      // Год печатается один раз на группу: у второй строки поле пустое.
+      const years = [...container.querySelectorAll(".projects-year__gutter")].map((g) => g.textContent);
+      expect(years).toEqual(["2031", "", "2024"]);
+    });
+
+    /**
+     * Актуальность — яркостью, а не знаком: состояние едет атрибутом строки, красит его скин
+     * (`ls --color`, не `-F`). Читалке то же самое сказано словом.
+     */
+    it("живой и завершённый проекты различаются состоянием строки", async () => {
+      vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
+      getProjectsMock.mockResolvedValue([
+        project({ title: "a", endYear: null }),
+        project({ title: "b", endYear: 2031 }),
+      ]);
+      const { container } = render(<ProjectsTile edition="console" />);
+      await screen.findByText("b");
+
+      const states = [...container.querySelectorAll(".project-console")].map((r) => r.getAttribute("data-state"));
+      expect(states).toEqual(["live", "archived"]);
+      expect(screen.getAllByText("завершён")).toHaveLength(1);
     });
 
     it("проект без ссылок — ни одной гиперссылки в строке", async () => {
@@ -204,8 +278,9 @@ describe("ProjectsTile", () => {
       const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("третий");
 
+      // Год стоит слева на первой строке, и ствол начинается от него: у неё `head`, не `tee`.
       const branches = [...container.querySelectorAll(".project-branch")].map((b) => b.getAttribute("data-branch"));
-      expect(branches).toEqual(["tee", "tee", "corner"]);
+      expect(branches).toEqual(["head", "tee", "corner"]);
     });
 
     it("незнакомая редакция → прежний список, без приглашения и путей", async () => {

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: время проектов уехало из строки в заголовок раздела (год), правый столбец
+      строки исчез — и плитка ужимается на три трека справа. Правый край с колонки 14
+      на 11; левый край и высота не двигаются.
+
+      Дельту раскладки переписываем ЦЕЛИКОМ, как на 0660/0680/0690: `jsonb_set` по глубокому
+      пути молча ничего не сделает, если промежуточного ключа не окажется, — а вся ветка наша.
+    -->
+    <changeSet id="0700-wave-03-projects-narrower" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,projects}',
+  $J${"col": 5, "row": 23, "colSpan": 7, "rowSpan": 6, "edition": "console", "planet": "model"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,projects}',
+  $J${"col": 5, "row": 23, "colSpan": 10, "rowSpan": 6, "edition": "console", "planet": "model"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+
+    <!--
+      danchuo.world снова идёт «по настоящее»: открытый конец диапазона.
+
+      Это отменяет решение 0200-project-danchuo-q3 («без по настоящее»), и вот почему оно
+      больше не действует. Тогда открытый конец означал ровно одно — слово «наст.» в правом
+      столбце строки, и владельцу не нравилось именно оно. Столбца больше нет: `end_year`
+      теперь решает две другие вещи — в какую годовую группу попадёт проект (открытый конец =
+      текущий год, то есть верхняя группа) и горит ли название полной яркостью. Сайт, который
+      вы сейчас читаете, живой, и обе эти вещи должны говорить правду.
+    -->
+    <changeSet id="0700-project-danchuo-open-end" author="danchuo">
+        <update tableName="project">
+            <!-- `valueComputed`, а не пустой `value`: NULL проговаривается явно, а не
+                 выводится из отсутствия атрибута. -->
+            <column name="end_year" valueComputed="NULL"/>
+            <column name="end_quarter" valueComputed="NULL"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+        <rollback>
+            <update tableName="project">
+                <column name="end_year" valueNumeric="2026"/>
+                <column name="end_quarter" valueNumeric="3"/>
+                <where>title = 'danchuo.world'</where>
+            </update>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

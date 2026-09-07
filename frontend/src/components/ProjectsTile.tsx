@@ -5,7 +5,9 @@ import { getProjects } from "@/lib/api/client";
 import { is3dArtifact } from "@/lib/artifact3d";
 import { Artifact3D } from "./Artifact3D";
 import type { ProjectView } from "@/lib/api/types";
+import { mskToday } from "@/lib/date";
 import type { TileOrientation } from "@/lib/layout";
+import { projectYearRows } from "@/lib/projectGroups";
 import { formatQuarterRange } from "@/lib/projectRange";
 import { repoLabel } from "@/lib/projectRepo";
 import { treeBranch } from "@/lib/projectTree";
@@ -24,9 +26,11 @@ interface ProjectsTileProps {
    * Вёрстка списка (DESIGN §7.8) — выбирает ВОЛНА через раскладку (`tiles.projects.edition`):
    * - не задана / незнакомая — прежний свёрнутый список, которым правит [orientation];
    * - `console` — вывод `tree`: строки висят на ветках под приглашением оболочки, под
-   *   названием — путь (репозиторий или сайт) своей ссылкой, название и картинка ведут в дом
-   *   проекта. Материал самой плитки (панель терминала вместо стекла) — дело СКИНА волны,
-   *   а не редакции: редакция владеет содержимым, волна — краем и фоном (DESIGN §7.8, §10.2).
+   *   названием — путь репозитория своей ссылкой, название и картинка ведут в дом проекта,
+   *   а время стоит ЛЕВЫМ ПОЛЕМ строки (год последней активности, один раз на группу) и
+   *   связано с деревом горизонталью, а не колонкой справа.
+   *   Материал самой плитки (панель терминала вместо стекла) — дело СКИНА волны, а не
+   *   редакции: редакция владеет содержимым, волна — краем и фоном (DESIGN §7.8, §10.2).
    */
   edition?: string;
   /**
@@ -86,6 +90,12 @@ export function ProjectsTile({
   // Досье — вёрстка вертикальная по своей природе (две строки текста в ряду), поэтому она
   // сильнее ориентации: волна, забывшая снять `orientation`, не должна получить ленту.
   const consoleEdition = edition === "console";
+  // Год «сейчас» для раскладки — канон MSK, как и всё остальное время борда: проект с
+  // открытым концом попадает в текущий год, а не в год своего старта.
+  const currentYear = Number(mskToday().slice(0, 4));
+  // Строки консоли считаются ЗАРАНЕЕ и одним списком: каждая несёт свой год и своё место
+  // внутри него, из которого и следует вид ветки.
+  const yearRows = consoleEdition ? projectYearRows(projects, currentYear) : [];
   const horizontal = !consoleEdition && orientation === "horizontal";
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -138,51 +148,88 @@ export function ProjectsTile({
               <span aria-hidden className="projects-prompt__caret">❯</span>
               <span className="projects-prompt__cmd">tree -L 1</span>
             </p>
-            <ul className="projects-console scroll-invisible flex min-h-0 flex-1 flex-col overflow-y-auto">
-              {projects.map((p, i) => {
-                // Показанный путь — вторая строка ряда: она и говорит «это код», до всякой
-                // подписи. Нет ссылки — нет и строки (пустое место честнее прочерка).
-                const repo = repoLabel(p.url);
-                // Дом проекта: куда ведут название и картинка. У сайта его нет — там путь и
-                // есть дом; у бота он свой, потому что код и сам проект живут в разных местах.
-                const home = p.homeUrl ?? p.url;
-                return (
-                  <li key={p.title} className="min-w-0">
-                    <div className="project-console flex items-center">
-                      {/* Ветка: она и привязывает строку к пути в приглашении — то, на что
-                          подпись только намекала. Пустая: линии рисует CSS (box-drawing-знаков
-                          в подмножестве моношрифта нет — docs/pitfalls.md). Декор для читалки:
-                          вслух «тройник» ничего не добавляет к названию проекта. */}
-                      <span aria-hidden className="project-branch" data-branch={treeBranch(i, projects.length)} />
-                      {/* Картинка ведёт туда же, куда название, но из обхода с клавиатуры
-                          снята: две остановки на одном адресе — лишняя работа для читалки. */}
-                      <LinkOrPlain href={home} className="project-console__icon" decorative>
-                        <ProjectIcon iconUrl={p.iconUrl} modelUrl={showModels ? p.modelUrl : null} />
-                      </LinkOrPlain>
-                      <span className="project-console__text flex min-w-0 flex-col">
-                        <LinkOrPlain href={home} className="project-title truncate" style={{ color: "var(--text-primary)" }}>
-                          {p.title}
+            <div className="projects-console scroll-invisible min-h-0 flex-1 overflow-y-auto">
+              {/* Список ОДИН на все годы: просвет между строками обязан быть один на весь
+                  вывод. Дерево при этом у каждого года своё — ствол растёт от года вниз, и
+                  вид ветки считается внутри группы (DESIGN §7.8). */}
+              <ul className="projects-console__list flex flex-col">
+                {yearRows.map((row) => {
+                  const p = row.project;
+                  // Показанный путь — вторая строка ряда: она и говорит «это код», до всякой
+                  // подписи. Нет ссылки — нет и строки (пустое место честнее прочерка).
+                  // Совпал с названием (сайт, названный своим адресом, — `danchuo.world`) —
+                  // тоже нет: строка повторяла бы название вторым голосом, ничего не добавив.
+                  const repo = repoLabel(p.url);
+                  const code = repo === p.title ? null : repo;
+                  // Дом проекта: куда ведут название и картинка. У сайта его нет — там путь и
+                  // есть дом; у бота он свой, потому что код и сам проект живут в разных местах.
+                  const home = p.homeUrl ?? p.url;
+                  // Актуальность — ЯРКОСТЬЮ, а не знаком: в терминале состояние различают
+                  // цветом (`ls --color`), а глифы `-F` — это его монохромный костыль, и
+                  // процитировать их тут нечем — в выводе `tree` по `~/projects` все записи
+                  // каталоги, то есть пометку получили бы одну на всех.
+                  const live = p.endYear === null;
+                  return (
+                    <li key={p.title} className="min-w-0">
+                      <div
+                        className="project-console flex items-center"
+                        data-state={live ? "live" : "archived"}
+                      >
+                        {/* Левое поле года: ширина одна на все строки, текст только у первой
+                            строки года. Пустая у остальных, она держит их отступ, поэтому ствол
+                            под годом идёт одной вертикалью. */}
+                        <span className="projects-year__gutter">
+                          {row.startsYear && (
+                            <>
+                              <span className="projects-year__head">{row.year}</span>
+                              {/* Горизонталь от года к стволу — ею год и связан со своим
+                                  поддеревом. Рисует её CSS, поэтому элемент пустой и для
+                                  читалки декоративен: связь озвучивать нечем и незачем. */}
+                              <span aria-hidden className="projects-year__link" />
+                            </>
+                          )}
+                        </span>
+                        {/* Ветка: она вешает строку на ствол своего года. Пустая: линии рисует
+                            CSS (box-drawing-знаков в подмножестве моношрифта нет —
+                            docs/pitfalls.md). Декор для читалки: вслух «тройник» ничего не
+                            добавляет к названию проекта. */}
+                        <span
+                          aria-hidden
+                          className="project-branch"
+                          data-branch={treeBranch(row.indexInYear, row.yearSize)}
+                        />
+                        {/* Картинка ведёт туда же, куда название, но из обхода с клавиатуры
+                            снята: две остановки на одном адресе — лишняя работа для читалки. */}
+                        <LinkOrPlain href={home} className="project-console__icon" decorative>
+                          <ProjectIcon iconUrl={p.iconUrl} modelUrl={showModels ? p.modelUrl : null} />
                         </LinkOrPlain>
-                        {repo && (
-                          // Зелень — токен «кода» волны (--accent-code, канал вкладов гита):
-                          // путь репозитория и вклады приходят из одного места, цвет у канала общий.
-                          <LinkOrPlain
-                            href={p.url}
-                            className="project-repo truncate"
-                            style={{ ...mono, color: "var(--accent-code)" }}
-                          >
-                            {repo}
+                        <span className="project-console__text flex min-w-0 flex-col">
+                          {/* Цвет названия здесь НЕ инлайном, в отличие от списка волны 01:
+                              им правит состояние строки (`data-state`), а инлайн-стиль
+                              перебил бы правило скина по специфичности. */}
+                          <LinkOrPlain href={home} className="project-title truncate">
+                            {p.title}
                           </LinkOrPlain>
-                        )}
-                      </span>
-                      <span className="project-range" style={{ ...mono, color: "var(--text-tertiary)" }}>
-                        {formatQuarterRange(p.startYear, p.startQuarter, p.endYear, p.endQuarter)}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                          {/* Приглушение — сигнал зрячему; читалке то же самое говорится словом. */}
+                          {!live && <span className="sr-only">завершён</span>}
+                          {code && (
+                            // Зелень — токен «кода» волны (--accent-code, канал вкладов гита):
+                            // путь репозитория и вклады приходят из одного места, цвет у канала общий.
+                            <LinkOrPlain
+                              href={p.url}
+                              className="project-repo truncate"
+                              style={{ ...mono, color: "var(--accent-code)" }}
+                            >
+                              {code}
+                            </LinkOrPlain>
+                          )}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </div>
         ) : (
         <ul

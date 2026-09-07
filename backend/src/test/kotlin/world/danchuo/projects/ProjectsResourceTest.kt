@@ -23,7 +23,11 @@ class ProjectsResourceTest {
             .body("title", hasItem("danchuo.world"))
             .body("find { it.title == 'danchuo.world' }.startYear", equalTo(2026))
             .body("find { it.title == 'danchuo.world' }.startQuarter", equalTo(3))
-            .body("find { it.title == 'danchuo.world' }.endQuarter", equalTo(3))
+            // Конец у сайта ОТКРЫТ (`0700-project-danchuo-open-end`): он идёт по настоящее, и
+            // редакция «консоль» читает пустой конец как «жив» — отсюда и год группы, и полная
+            // яркость строки (DESIGN §7.8). Закрытый край врал бы про оба.
+            .body("find { it.title == 'danchuo.world' }.endYear", nullValue())
+            .body("find { it.title == 'danchuo.world' }.endQuarter", nullValue())
     }
 
     /**

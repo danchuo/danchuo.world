@@ -82,6 +82,24 @@ interface VelobikeConfig {
         fun userAgent(): String
     }
 
+    /**
+     * Случайный путь (PRD §9 B4) — прокладка веломаршрутов для кнопки в окне поездок.
+     * Живёт под тем же префиксом, что и остальной слайс, поэтому объявлено здесь: `@ConfigMapping`
+     * владеет ВСЕМ пространством `danchuo.bike.*`, и незаявленное свойство роняет старт валидацией
+     * SmallRye (как [pollInterval] и [geocode]).
+     */
+    fun routing(): Routing
+
+    interface Routing {
+        /** Сколько непохожих путей отдаём за один запрос. */
+        @WithDefault("6")
+        fun variants(): Int
+
+        /** Потолок вызовов роутера на пачку: расход ограничен явно, а не удачей отбраковки. */
+        @WithDefault("14")
+        fun maxAttempts(): Int
+    }
+
     /** Сконфигурирован ли слайс для серверного поллинга (есть ключ шифрования). */
     fun isConfigured(): Boolean = tokenEncryptionKey().orElse("").isNotBlank()
 }

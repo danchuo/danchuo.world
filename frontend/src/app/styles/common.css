@@ -150,7 +150,7 @@ body {
      геометрия, и маски блюра, а слои блюра лежат снаружи полосы (см. ниже).
      `--ride-band-solid` — плотная зона от верхнего края, `--ride-band-feather` — длина
      растушёвки под ней. */
-  --ride-band-solid: 40px;
+  --ride-band-solid: 26px;
   --ride-band-feather: 30px;
   /* Контейнер размера для клампов `t-ride-*` (§8.1): без него они считают `cqw` от вьюпорта,
      и цифры на маленькой плитке выходят во весь экран (замерено: 46px вместо 28). */
@@ -190,9 +190,7 @@ body {
   left: 0;
   right: 0;
   top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3em;
+  display: block;
   z-index: 2;
   padding: 10px 14px calc(var(--ride-band-feather) * 0.5);
   pointer-events: none;
@@ -276,20 +274,31 @@ body {
    обе полосы лежат на блюре поверх чужой картинки и стоят на одном борде. Крупные клампы
    `t-ride-*` остаются редакции `card`, где цифры — единственное содержимое плитки и им положено
    быть заголовком; здесь содержимое — карта, а цифры при ней подпись. */
+/* Подпись в ОДНУ строку: километры голосом заголовка, всё прочее — моно-мелочью при них.
+   Строй и роли ровно те же, что у `.drop-frame__caption` (там название дропа и «месяц ·
+   кадры»), разница только в оси: у дропа подпись стоит колонкой в нижней полосе, здесь —
+   строкой в верхней, потому что полоса тут мельче и второй строке в ней не место. */
+.ride-frame__caption {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  min-width: 0;
+}
 .ride-frame__km {
   font-size: var(--fs-band-title);
-  line-height: 1;
+  color: var(--text-primary);
+  line-height: 1.2;
 }
-.ride-frame__dur,
-.ride-frame__when {
-  font-size: var(--fs-band-meta);
-}
-.ride-frame__mark {
+.ride-frame__meta {
   font-family: var(--font-mono);
   font-size: var(--fs-band-meta);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-tertiary);
+  /* Одна строка — обещание вёрстки: перенос вернул бы полосе вторую строку, под которую она
+     больше не размечена (её высоту держат `--ride-band-*`, а не содержимое). Не влезло —
+     подпись усекается многоточием, а полоса остаётся на месте. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Модалка поездок: разворот (редакция `map`) ──────────────────────────────────────────
@@ -303,6 +312,17 @@ body {
   min-width: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
+}
+/* Колонка карты в развороте: сама карта тянется, строка броска под ней держит свою высоту.
+   Пропорция 3:2 переехала с карты на колонку — делить ширину теперь ей. */
+.ride-modal__mapcol {
+  flex: 3 1 0;
+  min-width: 0;
+  gap: 0;
+}
+.ride-modal__mapcol .ride-modal__map {
+  flex: 1 1 0;
+  min-height: 0;
 }
 .ride-modal__body .ride-modal__list {
   flex: 2 1 0;
@@ -2859,9 +2879,10 @@ body {
   image-rendering: pixelated;
 }
 
-/* Тултип адреса на пине большой карты (RideMap interactivePins, DESIGN §7.6) — под токены волны,
-   а не дефолтный белый Leaflet. Две класс-селектора перебивают базовый .leaflet-tooltip. */
-.leaflet-tooltip.ride-pin-tooltip {
+/* Подсказка с адресом на пине большой карты (RideMap interactivePins, DESIGN §7.6) — под токены
+   волны, а не дефолтная белая. Класс на попапе наш (`ride-pin-tip`), поэтому перебивать чужие
+   стили специфичностью не приходится — достаточно занулить рамку и стрелку по умолчанию. */
+.ride-pin-tip .maplibregl-popup-content {
   background: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-muted, rgba(33, 26, 22, 0.14));
@@ -2871,11 +2892,62 @@ body {
   line-height: 1.3;
   padding: 3px 7px;
   max-width: 220px;
-  white-space: normal;
   box-shadow: 0 3px 10px rgba(33, 26, 22, 0.18);
 }
-.leaflet-tooltip.ride-pin-tooltip.leaflet-tooltip-top::before {
+.ride-pin-tip .maplibregl-popup-tip {
   border-top-color: var(--bg-surface);
+  border-bottom-color: var(--bg-surface);
+}
+
+/* Кружок-фолбэк вместо пиксельного пина — там, где у волны своего набора нет (DESIGN §12).
+   Раньше его рисовала карта своим примитивом; теперь маркер это обычный узел, и кружок —
+   обычный CSS. Своего `transform` здесь нет и быть не может: карта пишет его маркеру сама
+   на каждом кадре. На точке кружок стоит центром — это задано якорем маркера, не стилем. */
+.ride-pin-dot {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg-page) 70%, transparent);
+}
+
+/* Зумер и подпись поставщика — только на карте в ОКНЕ (в плитке карта статична и обоих
+   контролов нет вовсе). Дефолтные белые кнопки на любой волне читаются заплаткой из чужого
+   приложения, поэтому оба одеваются токенами — как всё остальное на борде. */
+.ride-map .maplibregl-ctrl-group {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.ride-map .maplibregl-ctrl-group button {
+  width: 26px;
+  height: 26px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-tile, var(--border));
+  border-radius: var(--radius-sm);
+}
+.ride-map .maplibregl-ctrl-group button + button {
+  margin-top: 4px;
+}
+.ride-map .maplibregl-ctrl-group button:hover {
+  background: var(--bg-surface-muted);
+}
+/* Значок внутри кнопки приходит SVG-маской: перекрашиваем его током волны, а не оставляем
+   чёрным — на тёмной волне чёрный на тёмном не виден вовсе. */
+.ride-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: var(--map-ctrl-icon-filter, none);
+}
+/* Подпись поставщика — тихо: она обязана быть, но разговор здесь не о ней. */
+.ride-map .maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--bg-page) 55%, transparent);
+  border-radius: var(--radius-sm) 0 0 0;
+}
+.ride-map .maplibregl-ctrl-attrib,
+.ride-map .maplibregl-ctrl-attrib a {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 9px;
 }
 
 /* ── Фоновый слой волны: механика шва (DESIGN §10.2) ─────────────────────────────────

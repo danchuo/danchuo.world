@@ -181,3 +181,52 @@ describe("RidesModal — сводка за текущий месяц", () => {
     expect(screen.queryByLabelText("Сводка за текущий месяц")).toBeNull();
   });
 });
+
+describe("RidesModal — редакция `map` (разворот)", () => {
+  const rides = [
+    base({ id: 1, rideDate: "2026-07-12", startLat: 55.7 }),
+    base({ id: 2, rideDate: "2026-07-11", startLat: 55.8 }),
+  ];
+
+  it("карта и список стоят рядом в развороте, сводка — строкой под ними", async () => {
+    getRideMonthSummary.mockResolvedValueOnce({
+      month: "2026-07",
+      rides: 4,
+      durationSeconds: 3660,
+      spentKopecks: 39900,
+    });
+    const { container } = render(
+      <RidesModal rides={rides} today="2026-07-13" edition="map" onClose={() => {}} />,
+    );
+
+    const body = container.querySelector(".ride-modal__body");
+    expect(body).not.toBeNull();
+    // Обе половины разворота лежат В НЁМ — иначе карта осталась бы полосой над списком.
+    expect(body!.querySelector('[data-testid="ride-map"]')).not.toBeNull();
+    expect(body!.querySelector(".ride-modal__list")).not.toBeNull();
+
+    // Сводка — сестра разворота, а не его часть: строка идёт во всю ширину окна.
+    const strip = await screen.findByLabelText("Сводка за текущий месяц");
+    expect(body!.contains(strip)).toBe(false);
+    expect(strip.previousElementSibling).toBe(body);
+  });
+
+  it("карта — «герой» и «лицо» проявки: из плитки борда растёт именно она", () => {
+    const { container } = render(
+      <RidesModal rides={rides} today="2026-07-13" edition="map" onClose={() => {}} />,
+    );
+
+    const hero = container.querySelector("[data-morph-hero]");
+    expect(hero).not.toBeNull();
+    expect(hero!.querySelector('[data-testid="ride-map"]')).not.toBeNull();
+    // Лицо — то, что режется клипом на время полёта; у карты им работает её же контейнер.
+    expect(hero!.hasAttribute("data-morph-face")).toBe(true);
+  });
+
+  it("без редакции — прежняя колонка: карта сверху, разворота нет", () => {
+    const { container } = render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
+
+    expect(container.querySelector(".ride-modal__body")).toBeNull();
+    expect(screen.getByTestId("ride-map")).toBeInTheDocument();
+  });
+});

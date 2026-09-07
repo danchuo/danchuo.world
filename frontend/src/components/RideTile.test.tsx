@@ -6,8 +6,8 @@ vi.mock("@/lib/api/client", () => ({ getRides: vi.fn() }));
 // Leaflet-карта и модалка — заглушки (карта client-only; модалку проверяем отдельно).
 vi.mock("./RideMap", () => ({ RideMap: () => <div data-testid="ride-map" /> }));
 vi.mock("./RidesModal", () => ({
-  RidesModal: ({ onClose }: { onClose: () => void }) => (
-    <div data-testid="rides-modal">
+  RidesModal: ({ edition, onClose }: { edition?: string; onClose: () => void }) => (
+    <div data-testid="rides-modal" data-edition={edition ?? ""}>
       <button onClick={onClose}>close-stub</button>
     </div>
   ),
@@ -82,5 +82,50 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(await screen.findByText("6.9 км")).toBeInTheDocument();
     expect(screen.getByText("44 мин")).toBeInTheDocument();
     expect(screen.queryByText(/ккал/)).toBeNull();
+  });
+});
+
+describe("RideTile — редакция `map` (карта во всю плитку)", () => {
+  it("вся плитка — один вход в модалку: карта, полоса данных и НИ одной второй кнопки", async () => {
+    getRidesMock.mockResolvedValue([
+      base({ id: 10, distanceMeters: 6900, durationSeconds: 2640 }),
+      base({ id: 11, rideDate: "2026-07-10" }),
+    ]);
+    render(<RideTile edition="map" />);
+
+    const card = await screen.findByRole("button", { name: "Открыть карту поездок" });
+    expect(card).toHaveClass("ride-frame");
+    expect(screen.getByTestId("ride-map")).toBeInTheDocument();
+    // «предыдущие» в этой редакции нет вовсе — нажатие в любую точку и есть вход в модалку.
+    expect(screen.queryByRole("button", { name: "Предыдущие поездки" })).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+
+    fireEvent.click(card);
+    expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
+  });
+
+  it("на полосе — пометка «последняя», когда, километраж и длительность", async () => {
+    getRidesMock.mockResolvedValue([base({ id: 10, distanceMeters: 6900, durationSeconds: 2640 })]);
+    render(<RideTile edition="map" />);
+
+    expect(await screen.findByText("последняя")).toBeInTheDocument();
+    expect(screen.getByText("6.9 км")).toBeInTheDocument();
+    expect(screen.getByText("44 мин")).toBeInTheDocument();
+  });
+
+  it("редакция едет в модалку — плитка и её окно не расходятся вёрсткой", async () => {
+    getRidesMock.mockResolvedValue([base({ id: 10 })]);
+    render(<RideTile edition="map" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть карту поездок" }));
+    expect(screen.getByTestId("rides-modal")).toHaveAttribute("data-edition", "map");
+  });
+
+  it("незнакомая редакция трактуется как `card` (реестр раскладки о наборе редакций не знает)", async () => {
+    getRidesMock.mockResolvedValue([base({ id: 10 }), base({ id: 11, rideDate: "2026-07-10" })]);
+    render(<RideTile edition="кто-то-опечатался" />);
+
+    expect(await screen.findByRole("button", { name: "Предыдущие поездки" })).toBeInTheDocument();
+    expect(screen.queryByText("последняя")).toBeNull();
   });
 });

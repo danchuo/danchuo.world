@@ -326,7 +326,7 @@ function BoardTile({
         />
       );
     case "ride":
-      return <RideTile wave={data.wave} style={style} className={className} />;
+      return <RideTile wave={data.wave} edition={edition} style={style} className={className} />;
     case "social":
       return <SocialTile style={style} className={className} />;
     case "marquee":

@@ -137,6 +137,228 @@ body {
   aspect-ratio: 2 / 1;
 }
 
+/* ── Велобайк, редакция `map`: карта во всю плитку (DESIGN §7.6) ─────────────────────────
+   Полей у карточки нет — карта и есть содержимое виджета, а поля отдавали бы ей рамку из
+   пустоты. Ровно тот же приём, что у плитки дропа в редакции `frame` (`.drop-card--frame`).
+   Материал самой плитки (кант, фон, стекло) снимает СКИН волны, а не эта раскладка: поля —
+   свойство редакции, материал — свойство волны. */
+.ride-card--map {
+  padding: 0;
+}
+.ride-frame {
+  /* Числа полосы данных объявлены ЗДЕСЬ, а не на самой полосе: от них считаются и её
+     геометрия, и маски блюра, а слои блюра лежат снаружи полосы (см. ниже).
+     `--ride-band-solid` — плотная зона от верхнего края, `--ride-band-feather` — длина
+     растушёвки под ней. */
+  --ride-band-solid: 40px;
+  --ride-band-feather: 30px;
+  /* Контейнер размера для клампов `t-ride-*` (§8.1): без него они считают `cqw` от вьюпорта,
+     и цифры на маленькой плитке выходят во весь экран (замерено: 46px вместо 28). */
+  container-type: inline-size;
+  position: relative;
+  display: block;
+  width: 100%;
+  /* Своя высота там, где родитель молчит (§8): в бенто высота приходит от плитки и `100%`
+     разрешается, `aspect-ratio` при двух определённых размерах не действует; в мобильном
+     стеке высоты у родителя нет, `100%` схлопывается в `auto`, и пропорцию задаёт карта.
+     Без этого Leaflet инициализировался бы в контейнер нулевой высоты — виджет есть в DOM,
+     а на экране пусто (тот же приём, что у `.quest-map` и `.drop-mosaic`). */
+  height: 100%;
+  aspect-ratio: 3 / 2;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.ride-frame__map {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+/* Полоса данных СВЕРХУ (владелец: «основная информация по последней поездке на блюре»).
+   Сверху, а не снизу, как у дропа: на снимке сюжет обычно в середине кадра и низ можно
+   занять подписью, а на карте самое ценное — маршрут между двумя пинами, и он кадрируется
+   в центр (`fitBounds`); нижняя полоса села бы ровно на финишный пин.
+
+   Высота полосы задана НЕ содержимым, а парой чисел `--ride-band-*` (объявлены на карточке
+   выше), потому что от них же считаются маски блюра, а маски живут на отдельном слое ростом
+   с карту и высоту полосы узнать не могут. Содержимое сюда влезает по построению: две строки
+   фиксированного кегля. */
+.ride-frame__band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  z-index: 2;
+  padding: 10px 14px calc(var(--ride-band-feather) * 0.5);
+  pointer-events: none;
+}
+/* Скрим под текстом — цвет страницы волны: на тёмной волне верх темнеет, на светлой светлеет,
+   и текст читается своим же цветом. Псевдоэлементом ПОД содержимым полосы, но НАД слоями
+   блюра (те лежат раньше в потоке и без z-index). */
+.ride-frame__band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Скрим ТИХИЙ: полосу держит блюр, а не заливка (выбор владельца — «сначала посмотреть на
+     блюр, а не на затемнение»). Затемнение здесь только добивает контраст там, где под
+     размытием случайно оказалось светлое пятно, и на глаз почти не читается — если убрать его
+     совсем, текст начинает мигать вместе с подложкой при смене поездки.
+     Плотность держится СКВОЗЬ ОБЕ строки и падает только под ними: отсечка — та же
+     `--ride-band-solid`, что у масок блюра, чтобы текст и подложка под ним кончались в одном
+     месте, а не каждый в своём. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg-page) 30%, transparent) 0,
+    color-mix(in srgb, var(--bg-page) 22%, transparent) var(--ride-band-solid),
+    transparent 100%
+  );
+}
+/* Блюр — `backdrop-filter` на слое ростом С КАРТУ, открытом маской только сверху.
+   ⚠️ Ростом с карту, а не с полосу, и это несущее. Chromium считает backdrop-filter по боксу
+   элемента: выборка зажимается его краями, и слой ростом с полосу дал бы вдоль своей нижней
+   кромки смаз краевых пикселей — ту самую серую линию, на которой уже спотыкались в плитке
+   дропа (docs/pitfalls.md). Там лечением было размыть КОПИЮ снимка; под этой полосой снимка
+   нет, есть живая карта Leaflet, и копировать нечего. Зато можно убрать плавающую кромку:
+   у слоя во всю карту зажим приходится ровно на края карты, где под ним и так ничего нет,
+   а маска гасит слой глубоко внутри кадра, далеко от любой кромки.
+
+   Проходов два, потому что переход обязан быть ПРОГРЕССИВНЫМ: мягкий (5px) держится дольше,
+   плотный (блюр волны) кончается раньше — один проход с одной маской даёт перегиб
+   «полный блюр → резкость», который глаз ловит линией. */
+.ride-frame__blur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.ride-frame__blur--soft {
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.45),
+    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 1.15)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.45),
+    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 1.15)
+  );
+}
+.ride-frame__blur--deep {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.6)) saturate(1.05);
+  backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.6)) saturate(1.05);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 var(--ride-band-solid),
+    rgb(0 0 0 / 0.5) calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.3),
+    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.6)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 var(--ride-band-solid),
+    rgb(0 0 0 / 0.5) calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.3),
+    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.6)
+  );
+}
+/* Кегли полосы — общие с подписью кадра в плитке дропа (`--fs-band-*`, см. секцию типографики):
+   обе полосы лежат на блюре поверх чужой картинки и стоят на одном борде. Крупные клампы
+   `t-ride-*` остаются редакции `card`, где цифры — единственное содержимое плитки и им положено
+   быть заголовком; здесь содержимое — карта, а цифры при ней подпись. */
+.ride-frame__km {
+  font-size: var(--fs-band-title);
+  line-height: 1;
+}
+.ride-frame__dur,
+.ride-frame__when {
+  font-size: var(--fs-band-meta);
+}
+.ride-frame__mark {
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* ── Модалка поездок: разворот (редакция `map`) ──────────────────────────────────────────
+   Карта слева, список справа, сводка строкой под ними. Пропорция 3:2 в пользу карты: она
+   здесь предмет разговора, список — оглавление к нему. */
+.ride-modal__body {
+  gap: 12px;
+}
+.ride-modal__map {
+  flex: 3 1 0;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.ride-modal__body .ride-modal__list {
+  flex: 2 1 0;
+  min-width: 0;
+}
+/* В развороте сводка идёт ПОД парой колонок, и её отступ переворачивается: снизу он лип бы
+   к краю окна (в колоночной раскладке он отделяет сводку от списка ниже). */
+.ride-modal__body + .ride-modal__summary {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+/* Окно-разворот занимает высоту целиком: у карты нет своей высоты (её даёт колонка), и без
+   этого разворот схлопывался бы до высоты списка. */
+.ride-modal__panel:has(.ride-modal__body) {
+  height: 85vh;
+}
+/* Аффорданс прокрутки: нижняя строка РАСТВОРЯЕТСЯ под краем колонки — обрыв на полуслове
+   и есть приглашение крутить (тот же приём, что у обрезанной карточки на полке дропов, только
+   там его даёт раскладка, а здесь — маска: строки разной высоты, ровно подрезать нечем).
+   Заводится вместе со снятым ползунком: убрав полосу, надо вернуть знание о том, что список
+   длиннее окна, — иначе он выглядит законченным на первой же невлезшей строке.
+   Гаснет в конце списка (`is-at-end`, считает [RidesModal]): растворять ПОСЛЕДНЮЮ строку, когда
+   дальше ничего нет, — обещание содержимого, которого не существует. Класс, а не постоянная
+   маска, ещё и потому, что список короче колонки не скроллится вовсе. */
+.ride-modal__list--fade {
+  --ride-list-fade: 40px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--ride-list-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--ride-list-fade)), transparent 100%);
+}
+.ride-modal__list--fade.is-at-end {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Строка списка. Отметка выбранной — КЛАССОМ, а не инлайн-стилем: её рисунок волна вправе
+   переопределить (база — засечка слева, волна 03 — тонкая рамка кругом), а инлайн она не
+   перебила бы ничем, кроме `!important`.
+   Сама засечка — ВНУТРЕННЯЯ ТЕНЬ, а не рамка: рамка занимает место, и её пришлось бы держать
+   прозрачной у всех строк, чтобы выбор не двигал раскладку. Тень же ничего не занимает —
+   и волна, которой засечка не нужна, меняет одно свойство, а не разбирает геометрию. */
+.ride-modal__row {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  padding: 6px 8px;
+}
+.ride-modal__row.is-selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
 /* ── Прокрутка без ползунка ──────────────────────────────────────────────────────────
    Скроллящийся блок, у которого ползунок снят, а прокрутка цела: колесо, тачпад, тач и
    клавиатура работают как работали — убран только визуал. Так устроены обе ленты дропов:
@@ -1285,9 +1507,21 @@ body {
   --fs-music-meta: clamp(9px, calc(5.5px + 1.845cqw), 24px);
   --fs-music-source: clamp(8px, calc(5px + 1.68cqw), 22px);
 }
+/* Кегли ПОДПИСИ НА БЛЮРЕ — общие для всех полос, которые лежат поверх изображения: подпись
+   кадра в плитке дропа (`frame`) и данные поездки в плитке велобайка (`map`). Их родство не
+   косметическое: обе живут на прогрессивном блюре поверх чужой картинки, обе читаются на
+   неизвестном фоне, обе стоят рядом на одном борде — и разъехавшись кеглем, читались бы двумя
+   разными приёмами вместо одного.
+   Объявлены на `:root`, а работают от контейнера: `cqw` внутри значения переменной считается
+   у ТОГО, кто её применил (обе полосы стоят внутри своего контейнера размера), — поэтому одна
+   запись даёт каждой плитке её собственный размер, пропорциональный её ширине. */
+:root {
+  --fs-band-title: clamp(11px, calc(6.5px + 1.745cqw), 28px);
+  --fs-band-meta: clamp(9px, calc(5.5px + 1.475cqw), 24px);
+}
 .t-drop-vars {
-  --fs-drop-title: clamp(11px, calc(6.5px + 1.745cqw), 28px);
-  --fs-drop-meta: clamp(9px, calc(5.5px + 1.475cqw), 24px);
+  --fs-drop-title: var(--fs-band-title);
+  --fs-drop-meta: var(--fs-band-meta);
 }
 /* ── Редакции плитки «последний дроп» (DESIGN §7.5) ────────────────────────────────────
    Волна выбирает редакцию через раскладку (`tiles.latestDrop.edition`, §10.1). Мозаика (дефолт)
@@ -2345,7 +2579,8 @@ body {
    разложенной; из ленты дропов они грузятся после клика, и панель со стеклом успевала
    появиться до начала движения — «что-то мигает перед выезжанием» (замечание владельца).
    Ждать бесконечно нельзя: если кадры не приедут, шов снимает метку сам (см. useDropMorph). */
-.drop-scene[data-morph="wait"] .drop-modal__panel {
+.drop-scene[data-morph="wait"] .drop-modal__panel,
+.drop-scene[data-morph="wait"] .ride-modal__panel {
   opacity: 0;
 }
 .drop-scene[data-morph="in"]::before {
@@ -2398,9 +2633,12 @@ body {
   /* Углы плитки скруглены сильнее, чем углы кадра в галерее, и на посадке кадр щёлкал углами:
      прямые становились круглыми за один кадр (замечание владельца). На время движения кадр
      берёт скругление плитки (`morphRadius` делит его на масштаб — transform сжимает и его) и
-     приезжает к своему по той же кривой. Переменную видит картинка внутри кадра: клипует она,
-     а не сцена, — `overflow` на сцене срезал бы подписи артефактов, которым положено выходить
-     за кадр. */
+     приезжает к своему по той же кривой. Переменную видит `[data-morph-face]` — «лицо» героя,
+     тот его слой, который и режется клипом (у дропа это снимок, у поездки — сама карта).
+     Клипует ЛИЦО, а не сцена: `overflow` на сцене срезал бы подписи артефактов, которым
+     положено выходить за кадр. Раньше лицо искалось как `img` внутри героя, и это держалось
+     на том, что герой — фотография; у карты Leaflet картинок внутри десятки (тайлы), и клип
+     лёг бы на каждую. Лицо теперь называет сам герой. */
   --drop-morph-radius: var(--drop-morph-radius-from, var(--radius-sm));
   /* Клип — пара к равномерному масштабу кадра (`morphClip`). Кадр едет ЦЕЛЫМ и садится в
      плитку кадрированным сверху и снизу — ровно так, как показывает снимок сама плитка
@@ -2410,18 +2648,18 @@ body {
      бы клипом вместо того, чтобы раскрываться. */
   --drop-morph-clip: var(--drop-morph-clip-from, inset(0));
 }
-.drop-scene[data-morph] [data-morph-hero] img {
+.drop-scene[data-morph] [data-morph-face] {
   clip-path: var(--drop-morph-clip, inset(0));
 }
-.drop-scene[data-morph="in"] [data-morph-hero] img,
-.drop-scene[data-morph="out"] [data-morph-hero] img {
+.drop-scene[data-morph="in"] [data-morph-face],
+.drop-scene[data-morph="out"] [data-morph-face] {
   transition:
     border-radius var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
       var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
     clip-path var(--drop-morph-out-ms, var(--drop-morph-ms, 560ms))
       var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
-.drop-scene[data-morph="in"] [data-morph-hero] img {
+.drop-scene[data-morph="in"] [data-morph-face] {
   transition-duration: var(--drop-morph-ms, 560ms);
 }
 /* Раскрытие кадрирования кончается ВМЕСТЕ с полётом — та же длительность, — но идёт своей
@@ -2437,7 +2675,7 @@ body {
    первые 66мс, 59% за 110мс. Кадр читается не выросшим, а подменённым (замечание владельца:
    «слишком резко превращается из обрезанной в полную»). Ровная кривая растягивает то же
    раскрытие на весь полёт (7% / 24% / 78% на тех же отсечках) и финиширует с ним же. */
-.drop-scene[data-morph="in"] [data-morph-hero] img {
+.drop-scene[data-morph="in"] [data-morph-face] {
   transition:
     border-radius var(--drop-morph-ms, 560ms)
       var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
@@ -2495,32 +2733,24 @@ body {
    шапка и гребёнка показывались первыми, пропадали на время полёта кадра и возвращались
    вместе с ним (замечание владельца). Список тот же, что у `from`, и это не дубль ради
    дубля: `wait` — это и есть `from` до того, как стало чем мерить. */
-.drop-scene[data-morph="from"] .drop-modal__head,
-.drop-scene[data-morph="from"] .drop-roll__ribbon,
-.drop-scene[data-morph="from"] .drop-roll__strip,
-.drop-scene[data-morph="from"] .drop-roll__scrub,
-.drop-scene[data-morph="from"] .drop-gallery,
-.drop-scene[data-morph="wait"] .drop-modal__head,
-.drop-scene[data-morph="wait"] .drop-roll__ribbon,
-.drop-scene[data-morph="wait"] .drop-roll__strip,
-.drop-scene[data-morph="wait"] .drop-roll__scrub,
-.drop-scene[data-morph="wait"] .drop-gallery {
+.drop-scene[data-morph="from"] :is(.drop-modal__head, .ride-modal__head),
+.drop-scene[data-morph="from"] :is(.drop-roll__ribbon, .drop-roll__strip, .drop-roll__scrub),
+.drop-scene[data-morph="from"] :is(.drop-gallery, .ride-modal__list, .ride-modal__summary),
+.drop-scene[data-morph="wait"] :is(.drop-modal__head, .ride-modal__head),
+.drop-scene[data-morph="wait"] :is(.drop-roll__ribbon, .drop-roll__strip, .drop-roll__scrub),
+.drop-scene[data-morph="wait"] :is(.drop-gallery, .ride-modal__list, .ride-modal__summary) {
   opacity: 0;
 }
-.drop-scene[data-morph="in"] .drop-modal__head,
-.drop-scene[data-morph="in"] .drop-roll__ribbon,
-.drop-scene[data-morph="in"] .drop-roll__strip,
-.drop-scene[data-morph="in"] .drop-roll__scrub,
-.drop-scene[data-morph="in"] .drop-gallery {
+.drop-scene[data-morph="in"] :is(.drop-modal__head, .ride-modal__head),
+.drop-scene[data-morph="in"] :is(.drop-roll__ribbon, .drop-roll__strip, .drop-roll__scrub),
+.drop-scene[data-morph="in"] :is(.drop-gallery, .ride-modal__list, .ride-modal__summary) {
   animation: drop-morph-chrome var(--drop-morph-chrome-ms, 320ms)
     var(--drop-morph-ease, cubic-bezier(0.22, 0.61, 0.36, 1)) var(--drop-morph-chrome-delay, 260ms) both;
 }
 /* Уходя, хром гаснет сразу: кадр уезжает домой один, как и приехал. */
-.drop-scene[data-morph="out"] .drop-modal__head,
-.drop-scene[data-morph="out"] .drop-roll__ribbon,
-.drop-scene[data-morph="out"] .drop-roll__strip,
-.drop-scene[data-morph="out"] .drop-roll__scrub,
-.drop-scene[data-morph="out"] .drop-gallery {
+.drop-scene[data-morph="out"] :is(.drop-modal__head, .ride-modal__head),
+.drop-scene[data-morph="out"] :is(.drop-roll__ribbon, .drop-roll__strip, .drop-roll__scrub),
+.drop-scene[data-morph="out"] :is(.drop-gallery, .ride-modal__list, .ride-modal__summary) {
   opacity: 0;
   transition: opacity 140ms linear;
 }

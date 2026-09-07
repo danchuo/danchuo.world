@@ -20,6 +20,21 @@ interface RideMapProps {
   startLabel?: string | null;
   /** Адрес финиша — тултип на финиш-пине (только при `interactivePins`). */
   finishLabel?: string | null;
+  /**
+   * Первые тайлы базовой карты отрисованы — карта показывает местность, а не пустой бокс.
+   * Нужно тому, кто ЖДЁТ карту, прежде чем что-то с ней делать: проявка (DESIGN §7.5) везёт
+   * карту из плитки в модалку, и стартовать полёт до тайлов значило бы гнать через экран
+   * серый прямоугольник. Не приходит вовсе, если Leaflet так и не поднялся, — вызывающий
+   * обязан иметь план на этот случай (у проявки он свой: потолок ожидания в [useDropMorph]).
+   */
+  onReady?: () => void;
+  /**
+   * Сколько пикселей сверху карты занято чем-то поверх неё (полоса данных в редакции `map`).
+   * Кадрирование уводит маршрут из-под этой полосы: иначе длинная поездка уезжала бы стартовым
+   * пином под текст. Число приходит ЗАМЕРОМ полосы, а не константой: её высоту задаёт CSS
+   * (`--ride-band-*`), и второй копии этих пикселей в коде быть не должно.
+   */
+  padTop?: number;
   className?: string;
 }
 
@@ -33,7 +48,8 @@ interface RideMapProps {
  * фолбэк из двух circleMarker (старт зелёный, финиш красный). Пин якорится острым кончиком в
  * точку (iconAnchor снизу-по-центру).
  *
- * Базовая карта — CARTO Voyager (мягкий минимал, бесплатные тайлы; атрибуция OSM/CARTO).
+ * Базовая карта — **тоже по волне** (см. [BASEMAPS]): подложка это не служебный слой, а самая
+ * большая поверхность виджета, и на тёмной волне светлый минимал читался бы дырой в холсте.
  * Leaflet грузится динамически в эффекте (SSR-safe, только в браузере). Карта намеренно статична
  * (без перетаскивания/зума колесом) — это виджет, а не интерактивный атлас.
  *
@@ -69,6 +85,40 @@ const RIDE_PINS: Record<string, { start: PinSpec; finish: PinSpec }> = {
   },
 };
 
+/**
+ * Подложка карты по волнам. Волна одевает свой борд целиком (DESIGN §10), и базовая карта из
+ * этого правила не выпадает: в редакции `map` она — вся поверхность виджета, и светлый минимал
+ * посреди тёмного холста читается не картой, а прожжённой в нём дырой.
+ *
+ * Подложка ОДНА на плитку и на модалку. Разные наборы тайлов там и там развалили бы проявку
+ * (§7.5): карта вылетает из плитки в окно, и на полпути сменила бы шкуру.
+ *
+ * Тайлы обеих подложек бесплатны и без ключа. `maxZoom` — потолок самого поставщика: у Esri
+ * тёмная канва кончается на 16 зуме, и кадрирование коротких поездок упирается в него (кадр
+ * чуть шире, чем мог бы быть) — плата за отсутствие ключа. Своей атрибуции у виджета нет
+ * (`attributionControl: false`) — карта здесь иллюстрация к поездке, а не атлас.
+ */
+interface Basemap {
+  url: string;
+  maxZoom: number;
+  subdomains?: string;
+}
+const DEFAULT_BASEMAP: Basemap = {
+  // CARTO Voyager — мягкий светлый минимал (OSM/CARTO).
+  url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+  subdomains: "abcd",
+  maxZoom: 20,
+};
+const BASEMAPS: Record<string, Basemap> = {
+  // Esri Dark Gray Canvas — тёмно-серая канва без подписей (Esri/HERE/Garmin/OSM). Без имён
+  // улиц намеренно: адреса станций и так лежат в тултипах пинов и в строках списка, а на плитке
+  // подписи спорили бы с полосой данных поверх карты.
+  "wave-03": {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    maxZoom: 16,
+  },
+};
+
 /** Точки квадратичной кривой Безье от s к f с контрольной точкой, отведённой перпендикуляром. */
 function arcPoints(s: [number, number], f: [number, number]): [number, number][] {
   const k = 0.18;
@@ -97,10 +147,22 @@ export function RideMap({
   interactivePins,
   startLabel,
   finishLabel,
+  onReady,
+  padTop,
   className,
 }: RideMapProps) {
   const ref = useRef<HTMLDivElement>(null);
   const interactive = !!interactivePins;
+  // Колбэк — через ссылку: он приходит из рендера вызывающего и меняет идентичность на каждом
+  // из них, а стоя в зависимостях эффекта, пересобирал бы карту целиком на ровном месте.
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
+  // Резерв под полосой — тоже через ссылку: он меняется с каждым замером полосы, а стоя
+  // в зависимостях эффекта, пересобирал бы карту на каждое изменение размера окна.
+  const padTopRef = useRef(padTop);
+  padTopRef.current = padTop;
+  /** Пересчёт кадрирования живой карты — публикуется эффектом сборки, зовётся снаружи. */
+  const refitRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -126,10 +188,15 @@ export function RideMap({
         touchZoom: false,
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png", {
-        subdomains: "abcd",
-        maxZoom: 20,
+      const basemap = (wave ? BASEMAPS[wave] : undefined) ?? DEFAULT_BASEMAP;
+      const tiles = L.tileLayer(basemap.url, {
+        subdomains: basemap.subdomains ?? "abc",
+        maxZoom: basemap.maxZoom,
       }).addTo(map);
+      // `load` у слоя тайлов — «видимая область укомплектована», то есть карта уже показывает
+      // местность. Один раз: дальше слой догружает тайлы при каждом рефите, и повторные
+      // события ждущего только путали бы.
+      if (readyRef.current) tiles.once("load", () => readyRef.current?.());
 
       L.polyline(arcPoints(start, finish), {
         color: ARC_COLOR,
@@ -189,11 +256,17 @@ export function RideMap({
       const bounds = L.latLngBounds([start, finish]).pad(0.35);
       // Пиксельные пины «висят» головой над точкой — добавляем пиксельный отступ сверху, чтобы
       // головы (и тултип над ними в модалке) не срезались верхней кромкой (кончики внизу малы).
-      const fitOpts = pins
-        ? { paddingTopLeft: L.point(6, interactive ? 64 : 36), paddingBottomRight: L.point(6, 8) }
-        : interactive
-          ? { paddingTopLeft: L.point(6, 32), paddingBottomRight: L.point(6, 8) }
-          : undefined;
+      // Резерв под полосой данных (`padTop`) складывается с этим отступом: он про то же самое —
+      // сколько сверху занято не картой.
+      const fitOptions = () => {
+        const reserve = padTopRef.current ?? 0;
+        const top = pins ? (interactive ? 64 : 36) : interactive ? 32 : 0;
+        if (top + reserve === 0) return undefined;
+        return {
+          paddingTopLeft: L.point(6, top + reserve),
+          paddingBottomRight: L.point(6, 8),
+        };
+      };
 
       // Кадрирование пересчитываем на КАЖДОЕ изменение размера контейнера, а не только при
       // маунте (DESIGN §8.1). Zoom-level Leaflet — это «сколько метров в пикселе»: подобранный
@@ -205,8 +278,9 @@ export function RideMap({
       const refit = () => {
         if (!map) return;
         map.invalidateSize(false);
-        map.fitBounds(bounds, fitOpts);
+        map.fitBounds(bounds, fitOptions());
       };
+      refitRef.current = refit;
       refit();
 
       if (typeof ResizeObserver !== "undefined") {
@@ -217,10 +291,16 @@ export function RideMap({
 
     return () => {
       cancelled = true;
+      refitRef.current = null;
       if (ro) ro.disconnect();
       if (map) map.remove();
     };
   }, [startLat, startLon, finishLat, finishLon, wave, interactive, startLabel, finishLabel]);
+
+  // Полосу замерили (или она подросла) — перекадрируем уже собранную карту, не пересобирая её.
+  useEffect(() => {
+    refitRef.current?.();
+  }, [padTop]);
 
   // isolation:isolate — собственный stacking context: внутренние z-index Leaflet (панель тайлов
   // ~200, overlay-пунктир ~400, маркеры ~600) иначе «протекают» до корня и рисуются ПОВЕРХ
@@ -229,7 +309,9 @@ export function RideMap({
   return (
     <div
       ref={ref}
-      className={className}
+      // `ride-map` — постоянная зацепка для скина волны (подложка приезжает тайлами, а её
+      // выделка — CSS-фильтром поверх). Место в раскладке остаётся за `className` вызывающего.
+      className={className ? `ride-map ${className}` : "ride-map"}
       // pointer-events: в тайле none — карта статична, клик проходит сквозь неё к кнопке «открыть
       // карту». В интерактивном режиме (модалка) auto — пины ловят наведение и показывают адрес.
       style={{

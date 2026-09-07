@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: велобайк возвращается на борд — редакцией `map` (карта во всю плитку, данные
+      последней поездки полосой блюра сверху). Слот — под лентой дропов, справа от плитки
+      последнего дропа: колонки 17–25, строки 14–22.
+
+      В мобильный стек виджет встаёт следом за лентой дропов — тем же порядком, что и в бенто
+      (лента сверху, карта под ней).
+
+      Дельту раскладки переписываем ЦЕЛИКОМ (как на 0660/0680/0700): `jsonb_set` по глубокому
+      пути молча ничего не сделает, если промежуточного ключа не окажется.
+    -->
+    <changeSet id="0710-wave-03-ride" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    layout,
+    '{tiles,ride}',
+    $J${"col": 17, "row": 14, "colSpan": 9, "rowSpan": 9, "edition": "map"}$J$::jsonb
+  ),
+  '{mobileOrder}',
+  $J$["music", "latestDrop", "photoDrops", "ride", "projects", "waveSwitcher"]$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    layout,
+    '{tiles,ride}',
+    $J${"hidden": true}$J$::jsonb
+  ),
+  '{mobileOrder}',
+  $J$["music", "latestDrop", "photoDrops", "projects", "waveSwitcher"]$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

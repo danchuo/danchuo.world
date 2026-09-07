@@ -507,11 +507,14 @@ export function DropRoll({
               поэтому при листании её обычно не видно вовсе: кадр сразу полного качества. */}
           {!readyRef.current.has(photo.imageUrl) && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={mediaUrl(photo.thumbUrl)} alt="" aria-hidden className="drop-roll__thumb" />
+            <img data-morph-face src={mediaUrl(photo.thumbUrl)} alt="" aria-hidden className="drop-roll__thumb" />
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             key={photo.imageUrl}
+            // «Лицо» героя проявки — слой, который режется клипом на время полёта (common.css).
+            // У дропа это сам снимок; у карты поездок лицом работает её контейнер.
+            data-morph-face
             src={mediaUrl(photo.imageUrl)}
             alt=""
             decoding="async"

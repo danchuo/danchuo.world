@@ -104,13 +104,16 @@ describe("RideTile — редакция `map` (карта во всю плитк
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
   });
 
-  it("на полосе — пометка «последняя», когда, километраж и длительность", async () => {
+  it("на полосе — километраж голосом заголовка, всё прочее одной строкой при нём", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10, distanceMeters: 6900, durationSeconds: 2640 })]);
     render(<RideTile edition="map" />);
 
-    expect(await screen.findByText("последняя")).toBeInTheDocument();
-    expect(screen.getByText("6.9 км")).toBeInTheDocument();
-    expect(screen.getByText("44 мин")).toBeInTheDocument();
+    // Километры отдельным узлом — они и есть заголовок полосы; пометка, «когда» и длительность
+    // живут ОДНОЙ строкой при них (тот же строй, что у подписи кадра в плитке дропа).
+    expect(await screen.findByText("6.9 км")).toHaveClass("ride-frame__km");
+    const meta = screen.getByText(/последняя/);
+    expect(meta).toHaveClass("ride-frame__meta");
+    expect(meta.textContent).toContain("44 мин");
   });
 
   it("редакция едет в модалку — плитка и её окно не расходятся вёрсткой", async () => {

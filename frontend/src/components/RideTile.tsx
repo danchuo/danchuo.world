@@ -133,25 +133,21 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
               как у дропа, тут не обойтись: под полосой не снимок, а живая карта Leaflet. */}
           <span className="ride-frame__blur ride-frame__blur--soft" aria-hidden />
           <span className="ride-frame__blur ride-frame__blur--deep" aria-hidden />
-          {/* Кегли полосы — общие с подписью в плитке дропа (`--fs-band-*`, common.css), а не
-              крупные клампы `t-ride-*` редакции `card`: две полосы на блюре в одной волне
-              обязаны звучать одним голосом, а не спорить размером. */}
+          {/* Подпись — ОДНОЙ строкой и тем же приёмом, что подпись кадра в плитке дропа
+              (`.drop-frame__caption`): крупное главное слева, всё остальное моно-мелочью при
+              нём. Родство не косметическое — обе полосы лежат на прогрессивном блюре поверх
+              чужой картинки и стоят рядом на одном борде; разъехавшись строем, читались бы
+              двумя разными приёмами вместо одного (выбор владельца).
+              Прежние две строки («последняя / вчера» над «км / мин», прижатые к разным краям)
+              делали из подписи таблицу — здесь ей нечего табулировать. */}
           <span ref={setBandEl} className="ride-frame__band">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="ride-frame__mark">последняя</span>
-              <span className="ride-frame__when" style={{ color: "var(--text-secondary)" }}>
-                {relativeDayRu(latest.rideDate, today)}
-              </span>
-            </div>
-            <div
-              className="flex items-baseline justify-between gap-x-2"
-              style={{ ...mono, color: "var(--text-primary)" }}
-            >
+            <span className="ride-frame__caption">
               <span className="ride-frame__km">{formatKm(latest.distanceMeters)}</span>
-              <span className="ride-frame__dur" style={{ color: "var(--text-secondary)" }}>
+              <span className="ride-frame__meta">
+                последняя · {relativeDayRu(latest.rideDate, today)} ·{" "}
                 {formatDuration(latest.durationSeconds)}
               </span>
-            </div>
+            </span>
           </span>
         </button>
       )}

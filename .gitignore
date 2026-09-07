@@ -23,3 +23,9 @@ AGENTS.md
 /*.jpg
 /*.jpeg
 /*.webp
+
+# Кэш выгрузок Overpass для сборщика велографа — сырьё, не результат
+backend/tools/.osm-cache/
+
+# Воркер MapLibre — копия из node_modules (scripts/copy-maplibre-worker.mjs), не исходник
+frontend/public/maplibre/

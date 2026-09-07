@@ -1,14 +1,23 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
+import type { RandomPathView, RideMonthSummaryView, RideView } from "@/lib/api/types";
 
 // Сводку месяца модалка тянет с бэка (`getRideMonthSummary`) — мокаем клиент. По умолчанию
 // «пусто» (rides 0 ⇒ строки нет); отдельные тесты переопределяют resolved-значение.
 const getRideMonthSummary = vi.fn<() => Promise<RideMonthSummaryView>>(() =>
   Promise.resolve({ month: "2026-07", rides: 0, durationSeconds: 0, spentKopecks: 0 }),
 );
+// Пачка придуманных путей (кнопка «нарисовать случайный путь») — тоже с бэка. По умолчанию
+// роутер настроен и отдаёт два непохожих пути; отдельные тесты переопределяют.
+const getRandomPaths = vi.fn<() => Promise<RandomPathView[]>>(() =>
+  Promise.resolve([
+    { points: [[55.76, 37.63], [55.759, 37.61]], distanceMeters: 4100, optimumMeters: 3400, overPercent: 21 },
+    { points: [[55.76, 37.63], [55.755, 37.60]], distanceMeters: 3800, optimumMeters: 3400, overPercent: 12 },
+  ]),
+);
 vi.mock("@/lib/api/client", () => ({
   getRideMonthSummary: () => getRideMonthSummary(),
+  getRandomPaths: () => getRandomPaths(),
 }));
 
 // RideMap тянет Leaflet динамически (client-only, не работает в jsdom) — мок-заглушка отдаёт
@@ -20,6 +29,7 @@ vi.mock("./RideMap", () => ({
     interactivePins?: boolean;
     startLabel?: string | null;
     finishLabel?: string | null;
+    path?: [number, number][] | null;
   }) => (
     <div
       data-testid="ride-map"
@@ -28,6 +38,7 @@ vi.mock("./RideMap", () => ({
       data-interactive={String(!!props.interactivePins)}
       data-start-label={props.startLabel ?? ""}
       data-finish-label={props.finishLabel ?? ""}
+      data-path={props.path ? String(props.path.length) : ""}
     />
   ),
 }));
@@ -228,5 +239,98 @@ describe("RidesModal — редакция `map` (разворот)", () => {
 
     expect(container.querySelector(".ride-modal__body")).toBeNull();
     expect(screen.getByTestId("ride-map")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Кнопка «нарисовать случайный путь» (PRD §9 B4). Путь придуманный и одноразовый: нажатие
+ * показывает следующий из пачки, «к дуге» возвращает исходное состояние, а неработающий роутер
+ * убирает кнопку совсем — нерабочая кнопка хуже отсутствующей.
+ */
+describe("RidesModal · случайный путь", () => {
+  afterEach(() => {
+    getRandomPaths.mockClear();
+  });
+
+  const ride = base({ id: 1, startLat: 55.76, startLon: 37.63, finishLat: 55.75, finishLon: 37.6 });
+
+  const open = () =>
+    render(<RidesModal rides={[ride]} today="2026-07-12" edition="map" onClose={() => {}} />);
+
+  it("до нажатия на карте дуга, а не путь", () => {
+    open();
+    expect(screen.getByTestId("ride-map").getAttribute("data-path")).toBe("");
+  });
+
+  it("нажатие рисует путь и показывает, насколько он длиннее оптимума", async () => {
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
+    expect(await screen.findByText(/\+21%/)).toBeTruthy();
+    expect(screen.getByTestId("ride-map").getAttribute("data-path")).toBe("2");
+  });
+
+  it("второе нажатие берёт следующий путь из той же пачки, не дёргая бэк снова", async () => {
+    open();
+    const button = screen.getByRole("button", { name: /случайный путь/i });
+    fireEvent.click(button);
+    await screen.findByText(/\+21%/);
+    fireEvent.click(button);
+    expect(await screen.findByText(/\+12%/)).toBeTruthy();
+    expect(getRandomPaths).toHaveBeenCalledTimes(1);
+  });
+
+  it("«к дуге» убирает путь с карты", async () => {
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
+    await screen.findByText(/\+21%/);
+    fireEvent.click(screen.getByRole("button", { name: "к дуге" }));
+    expect(screen.getByTestId("ride-map").getAttribute("data-path")).toBe("");
+  });
+
+  it("роутер молчит — на месте кнопки тихая строка, а не пустота", async () => {
+    getRandomPaths.mockResolvedValueOnce([]);
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
+    expect(await screen.findByText("путь не проложился")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /случайный путь/i })).toBeNull();
+    expect(screen.getByTestId("ride-map")).toBeTruthy();
+  });
+
+  it("отказ на одной поездке не гасит кнопку на соседней", async () => {
+    // Поездка, вернувшаяся на ту же станцию, пути не даёт — но это её свойство, а не окна.
+    // Прежде отказ висел на всём окне, и кнопка пропадала до перезахода (замечание владельца).
+    getRandomPaths.mockResolvedValueOnce([]);
+    const other = base({ id: 2, rideDate: "2026-07-10", startLat: 55.7, startLon: 37.5, finishLat: 55.71, finishLon: 37.52 });
+    render(<RidesModal rides={[ride, other]} today="2026-07-12" edition="map" onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
+    await screen.findByText("путь не проложился");
+
+    fireEvent.click(within(screen.getAllByRole("option")[1]).getByRole("button"));
+    expect(screen.getByRole("button", { name: /случайный путь/i })).toBeTruthy();
+    expect(screen.queryByText("путь не проложился")).toBeNull();
+  });
+
+  it("у петли показывается длина, а не «+N% к оптимуму»", async () => {
+    // Оптимума у петли нет (`optimumMeters: 0`) — сравнивать не с чем, и окно об этом молчит.
+    getRandomPaths.mockResolvedValueOnce([
+      { points: [[55.76, 37.63], [55.755, 37.62], [55.76, 37.63]], distanceMeters: 2100, optimumMeters: 0, overPercent: 0 },
+    ]);
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
+    expect(await screen.findByText(/петля/)).toBeTruthy();
+    expect(screen.queryByText(/к оптимуму/)).toBeNull();
+  });
+
+  it("у поездки без координат кнопки нет вовсе", () => {
+    render(
+      <RidesModal
+        rides={[base({ id: 2, startLat: null, startLon: null, finishLat: null, finishLon: null })]}
+        today="2026-07-12"
+        edition="map"
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /случайный путь/i })).toBeNull();
   });
 });

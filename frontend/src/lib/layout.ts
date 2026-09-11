@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * Layout-конфиг bento-сетки (DESIGN §3) — **реестр тайлов** эры M2 (PRD §3.1, §12 M2).
  * Каждый тайл объявляет `{col, row, colSpan, rowSpan}`; волна может переопределять спаны
@@ -130,6 +132,47 @@ export const MOBILE_ORDER: TileId[] = [
 /** CSS grid-area для тайла (`row / col / row-end / col-end`). */
 export function gridArea(span: TileSpan): string {
   return `${span.row} / ${span.col} / ${span.row + span.rowSpan} / ${span.col + span.colSpan}`;
+}
+
+/**
+ * Тайлы, чья высота идёт от СОДЕРЖИМОГО, а спан задаёт ей только потолок (DESIGN §3, §7.8).
+ * Список проектов короткий и меняется раз в квартал: растянутый на весь спан, он оставлял
+ * под последней строкой пустое поле в половину плитки — плитка обещала содержимое, которого
+ * нет. Свойство самого тайла, а не волны: содержимое у него одно на все волны, и разнобой
+ * здесь был бы разнобоем без причины.
+ */
+export const CONTENT_HEIGHT_TILES: ReadonlySet<TileId> = new Set<TileId>(["projects"]);
+
+/** Как тайл занимает свою ячейку bento: [cell] — обёртка в гриде, [tile] — сам виджет в ней. */
+export interface TileBox {
+  cell: CSSProperties;
+  tile: CSSProperties;
+}
+
+/**
+ * Стиль ячейки и тайла в ней. По умолчанию тайл растянут на весь спан — «сколько дали, столько
+ * и занял». Тайл из [CONTENT_HEIGHT_TILES] меряется содержимым, а спан ему потолок.
+ */
+export function tileBox(id: TileId, span: TileSpan): TileBox {
+  const cell: CSSProperties = { gridArea: gridArea(span), minHeight: 0 };
+  if (!CONTENT_HEIGHT_TILES.has(id)) return { cell, tile: { height: "100%", width: "100%" } };
+  return {
+    cell: {
+      ...cell,
+      // `align-self: start` снимает растяжение грид-элемента, `max-height` возвращает потолок:
+      // процент у грид-элемента считается от ЯЧЕЙКИ, а она у борда определена (строки — доли
+      // фиксированной высоты). Колонка-flex нужна, чтобы упёршийся в потолок тайл СЖАЛСЯ до
+      // него, а не вылез за край: у секции плитки `overflow: hidden`, поэтому её авто-минимум
+      // по контенту равен нулю и сжатие проходит до самого потолка, а список внутри начинает
+      // прокручиваться — ровно прежнее поведение переполненной плитки.
+      alignSelf: "start",
+      maxHeight: "100%",
+      display: "flex",
+      flexDirection: "column",
+    },
+    // Высоту тайлу НЕ задаём: она и есть содержимое. Ширина — во всю ячейку, как у всех.
+    tile: { width: "100%" },
+  };
 }
 
 /* ─────────────────────────── Layout-per-wave (DESIGN §3, §10) ───────────────────────────

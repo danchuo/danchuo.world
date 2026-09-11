@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   BENTO_COLS,
   BENTO_ROWS,
+  gridArea,
   MOBILE_ORDER,
   resolveLayout,
   TILE_LAYOUT,
+  tileBox,
 } from "./layout";
 
 describe("resolveLayout", () => {
@@ -100,5 +102,36 @@ describe("resolveLayout", () => {
       tiles: { marquee: { orientation: "diagonal" as unknown as "vertical" } },
     });
     expect(r.tiles.marquee.orientation).toBeUndefined();
+  });
+});
+
+/**
+ * Высота тайла в ячейке bento: по спану (все) или по содержимому с потолком в спан (проекты).
+ * Свойство самого тайла, а не волны, — поэтому проверяется и на перекроенном волной спане.
+ */
+describe("tileBox — как тайл занимает свою ячейку", () => {
+  it("обычный тайл растянут на весь спан", () => {
+    const box = tileBox("today", TILE_LAYOUT.today);
+    expect(box.cell.gridArea).toBe(gridArea(TILE_LAYOUT.today));
+    expect(box.cell.alignSelf).toBeUndefined();
+    expect(box.tile.height).toBe("100%");
+  });
+
+  it("проекты меряются содержимым, а спан им только потолок", () => {
+    const box = tileBox("projects", TILE_LAYOUT.projects);
+    expect(box.cell.gridArea).toBe(gridArea(TILE_LAYOUT.projects));
+    // Растяжение грид-элемента снято, потолок остался: процент считается от ячейки спана.
+    expect(box.cell.alignSelf).toBe("start");
+    expect(box.cell.maxHeight).toBe("100%");
+    // Своей высоты у тайла нет — её даёт список внутри.
+    expect(box.tile.height).toBeUndefined();
+    expect(box.tile.width).toBe("100%");
+  });
+
+  it("потолок берётся из спана ВОЛНЫ, а не из дефолта", () => {
+    const r = resolveLayout({ tiles: { projects: { row: 4, rowSpan: 12 } } });
+    const box = tileBox("projects", r.tiles.projects);
+    expect(box.cell.gridArea).toBe(gridArea(r.tiles.projects));
+    expect(box.cell.maxHeight).toBe("100%");
   });
 });

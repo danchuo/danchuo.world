@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import {
+  CAROUSEL_MOTION_RATE,
+  CAROUSEL_OPEN_RATE,
+  CAROUSEL_OPEN_WAIT_MS,
   CAROUSEL_RADIUS_PX,
   CAROUSEL_SLOT_PX,
-  centerScrollTop,
   slotLook,
   startSlotIndex,
 } from "@/lib/dropCarousel";
@@ -15,6 +17,7 @@ import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { PhotoDropModal } from "./PhotoDropModal";
 import { TileShell } from "./TileShell";
+import { useRollMotion } from "./useRollMotion";
 import { useTileData } from "./useTileData";
 
 interface PhotoDropsTileProps {
@@ -67,6 +70,13 @@ export function PhotoDropsTile({
   const horizontal = !carousel && orientation === "horizontal";
   const shelfRef = useRef<HTMLUListElement>(null);
   const reelRef = useRef<HTMLUListElement>(null);
+  /**
+   * Движение карусели к кадру — тот же шов, что у плёнки ([useRollMotion]). Нативная плавная
+   * прокрутка здесь вязла на быстром вращении колеса: каждый щелчок обрывал ещё едущую
+   * анимацию и заново считал, откуда ехать, по живому положению ленты — а она в этот момент
+   * стояла на кадре, который уже проехала бы (замечание владельца: «автодокрутка мешает»).
+   */
+  const motion = useRollMotion(reelRef, "y", CAROUSEL_MOTION_RATE);
   /** Лента уже поставлена на стартовый кадр: ресайз и смена данных её больше не двигают. */
   const startedRef = useRef(false);
   // Плитка, из которой растёт галерея: проявке нужен именно тот кадр, по которому кликнули.
@@ -129,10 +139,10 @@ export function PhotoDropsTile({
      */
     const start = () => {
       if (startedRef.current) return;
-      const slot = el.children[startSlotIndex(el.children.length)] as HTMLElement | undefined;
-      if (!slot || el.clientHeight <= 0) return;
+      const index = startSlotIndex(el.children.length);
+      if (!el.children[index] || el.clientHeight <= 0) return;
       startedRef.current = true;
-      el.scrollTop = centerScrollTop(slot.offsetTop, slot.offsetHeight, el.clientHeight);
+      motion.jump(index);
     };
 
     const paint = () => {
@@ -149,6 +159,9 @@ export function PhotoDropsTile({
         const look = slotLook(center - mid, CAROUSEL_RADIUS_PX);
         li.style.transform = `scale(${look.scale})`;
         li.style.opacity = String(look.opacity);
+        // Расфокус дальних кадров — им же прячется жёсткий срез четвёртого и пятого кадра
+        // краем плитки на высоких экранах: у размытого кадра резкой границы уже нет.
+        li.style.filter = look.blur > 0.01 ? `blur(${look.blur.toFixed(2)}px)` : "";
         li.style.zIndex = String(look.zIndex);
       }
       if (centers.length > 0) setCentered(nearestFrameIndex(centers, mid));
@@ -169,37 +182,45 @@ export function PhotoDropsTile({
     // середину поверх ещё едущего щелчка, и лента то шла ровно, то вязла. Решает [wheelStep]
     // — та же чистая функция, что у плёнки: щелчок мыши = один шаг, мелкие дельты трекпада
     // копятся до порога. На краях колесо отдаётся странице (не запираем прокрутку).
+    //
+    // Считать СЛЕДУЮЩИЙ кадр надо от заказанного ([motion.target]), а не от того, что стоит в
+    // середине сейчас: лента едет несколько кадров отрисовки, и цепочка щелчков, считающая по
+    // разметке, топталась бы на месте — «автодокрутка мешает» на скорости выше средней.
     let acc = 0;
     const onWheel = (e: WheelEvent) => {
       const max = el.scrollHeight - el.clientHeight;
       if (max <= 0) return;
       const down = e.deltaY > 0;
-      if ((!down && el.scrollTop <= 0) || (down && el.scrollTop >= max - 1)) return;
+      const ordered = motion.target();
+      const last = el.children.length - 1;
+      const atStart = ordered === null ? el.scrollTop <= 0 : ordered <= 0;
+      const atEnd = ordered === null ? el.scrollTop >= max - 1 : ordered >= last;
+      if ((!down && atStart) || (down && atEnd)) return;
       const step = wheelStep(e.deltaX, e.deltaY, e.deltaMode, acc);
       acc = step.acc;
       e.preventDefault();
       if (step.dir === 0) return;
-      const slots = Array.from(el.children) as HTMLElement[];
       const box = el.getBoundingClientRect();
-      const mid = box.top + box.height / 2;
-      const from = nearestFrameIndex(
-        slots.map((li) => {
-          const r = li.getBoundingClientRect();
+      const from = ordered ?? nearestFrameIndex(
+        Array.from(el.children).map((node) => {
+          const r = (node as HTMLElement).getBoundingClientRect();
           return r.top + r.height / 2;
         }),
-        mid,
+        box.top + box.height / 2,
       );
-      const next = slots[Math.min(slots.length - 1, Math.max(0, from + step.dir))];
-      if (next) {
-        el.scrollTo({ top: centerScrollTop(next.offsetTop, next.offsetHeight, el.clientHeight), behavior: "smooth" });
-      }
+      motion.to(Math.min(last, Math.max(0, from + step.dir)));
     };
+
+    // Рука важнее заказанного колесом кадра: пока лента едет сама, палец боролся бы с ней за
+    // одну и ту же прокрутку (на тач-устройствах карусель листается родным жестом).
+    const onTouch = () => motion.stop();
 
     layout();
     start();
     paint();
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("touchstart", onTouch, { passive: true });
     // Замеры держит живыми ResizeObserver (ресайз окна, смена волны/раскладки). В jsdom его
     // нет — там лента просто остаётся с первой раскраской, и это ровно то, что проверяют тесты.
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
@@ -213,6 +234,8 @@ export function PhotoDropsTile({
     return () => {
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouch);
+      motion.stop();
       ro?.disconnect();
       // Стереть за собой ВСЁ, что эффект написал в разметку. Инлайновые стили ставит не
       // React, а этот эффект, и React их не уберёт: смена волны меняет редакцию ленты, но
@@ -224,10 +247,11 @@ export function PhotoDropsTile({
         const li = node as HTMLElement;
         li.style.transform = "";
         li.style.opacity = "";
+        li.style.filter = "";
         li.style.zIndex = "";
       }
     };
-  }, [carousel, phase, drops.length]);
+  }, [carousel, motion, phase, drops.length]);
 
   // Живой скролл горизонтальной полки без видимого ползунка (DESIGN §7.5): вертикальное колесо
   // мыши листает полку вбок. Перетаскивания мышью НЕТ намеренно — оно перехватывало клик и
@@ -253,9 +277,11 @@ export function PhotoDropsTile({
   }, [horizontal, phase, drops.length]);
 
   /**
-   * Открыть дроп из карусели. Если кадр стоит не по центру окна, лента СНАЧАЛА доматывает
-   * его в середину и только потом отдаёт галерею: проявка растёт из кадра, и расти ей надо
-   * из того места, куда смотрит зритель, — иначе галерея выезжает из края плитки.
+   * Открыть дроп из карусели. Если кадр стоит не по центру окна, лента доматывает его в
+   * середину: проявка растёт из кадра, и расти ей надо из того места, куда смотрит зритель, —
+   * иначе галерея выезжает из края плитки. Переезд при этом идёт СВОЕЙ тягучестью
+   * ([CAROUSEL_OPEN_RATE], втрое резвее прокрутки) и почти сразу отдаёт галерею: выбор уже
+   * сделан, и ждать тут нечего — доводка успевает пройти под открывающейся модалкой.
    */
   const openFromReel = (drop: FilmDropView, card: HTMLElement) => {
     originRef.current = card;
@@ -270,17 +296,17 @@ export function PhotoDropsTile({
       const r = slot.getBoundingClientRect();
       return r.top + r.height / 2 - (box.top + box.height / 2);
     };
-    const off = offset();
-    if (Math.abs(off) <= ROLL_SETTLE_PX) {
+    if (Math.abs(offset()) <= ROLL_SETTLE_PX) {
       setOpenDrop(drop);
       return;
     }
-    reel.scrollTo({ top: reel.scrollTop + off, behavior: "smooth" });
-    // Ждём, пока лента доедет. Потолок по времени обязателен: плавная прокрутка не обещает
-    // попасть в точку, и без него клик по краю ленты мог не открыть дроп вовсе.
+    motion.to(Array.from(reel.children).indexOf(slot), CAROUSEL_OPEN_RATE);
+    // Ждём, пока лента доедет. Потолок по времени обязателен: у КРАЙНЕГО кадра цель зажата
+    // максимумом прокрутки, в середину окна он не встаёт вовсе — и без потолка клик по краю
+    // ленты не открыл бы дроп никогда.
     const startedAt = performance.now();
     const settle = () => {
-      if (Math.abs(offset()) <= ROLL_SETTLE_PX * 3 || performance.now() - startedAt > 600) {
+      if (Math.abs(offset()) <= ROLL_SETTLE_PX * 3 || performance.now() - startedAt > CAROUSEL_OPEN_WAIT_MS) {
         setOpenDrop(drop);
         return;
       }

@@ -1,9 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 import { getDrop, getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import { GAP, buildMosaic, dropCardWidth, mosaicWidth, type Cell } from "@/lib/mosaic";
+import { SWIPE_NOTCH, stepFrameIndex, wheelStep } from "@/lib/dropRoll";
 import { pluralRu } from "@/lib/rideFormat";
 import { pickSeeded } from "@/lib/sample";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
@@ -38,6 +48,21 @@ interface LatestData {
 const CARD_PAD_X = 32;
 /* Don't shrink the card below this: the label and caption row need room to breathe. */
 const MIN_CARD_W = 200;
+/**
+ * Тишина, которой кончается жест колеса (мс): трекпад шлёт десятки событий на один мах, и
+ * пауза — единственный признак, что рука отпустила. Меньше — и инерция прокрутки читается
+ * вторым жестом; больше — и второй честный мах приходится ждать.
+ */
+const WHEEL_GESTURE_GAP_MS = 140;
+
+/**
+ * Въезд нового кадра: сдвиг в сторону жеста и его длительность. Движение намеренно маленькое —
+ * кадр большой, и слайд во всю карточку читался бы аттракционом; нужно ровно столько, чтобы
+ * глаз понял направление.
+ */
+const FRAME_SLIDE_PX = 14;
+const FRAME_SLIDE_MS = 260;
+
 /* Frames per edition: the mosaic packs five, the sheet four (two rows of two), the frame one. */
 const MOSAIC_FRAMES = 5;
 const SHEET_FRAMES = 4;
@@ -149,7 +174,15 @@ export function LatestDropTile({
    * проявке (DESIGN §7.5): возврат обязан сесть в тот кадр, из которого выходишь, иначе
    * вертикальный снимок растягивается по горизонтальной карточке (замечание владельца).
    */
-  const [viewedFrame, setViewedFrame] = useState<FilmPhotoView | null>(null);
+  const [wantedFrame, setWantedFrame] = useState<FilmPhotoView | null>(null);
+  /**
+   * Кадр, который уже ДЕКОДИРОВАН и стоит на карточке. Отдельно от заказанного ([wantedFrame]):
+   * плитка ждёт загрузки следующего снимка на текущем, а не на пустом месте, — иначе свайп
+   * мигал бы дырой (карточки нет, пока кадр не готов, см. [hidden] ниже).
+   */
+  const [shownFrame, setShownFrame] = useState<FilmPhotoView | null>(null);
+  /** Откуда приезжает новый кадр: −1 — слева (шаг назад), +1 — справа, 0 — без движения. */
+  const [slide, setSlide] = useState(0);
   /**
    * Адрес кадра, с которого открыли галерею, замороженный на время просмотра: сама галерея
    * прокручивается к нему при изменении (`startAt`), и живой адрес дёргал бы ленту назад на
@@ -230,27 +263,152 @@ export function LatestDropTile({
   // wrapper a height (the reserved slot, DESIGN §10.2) and the card fits inside it — landscape
   // fills the width, portrait fills the height; in the stack there is no slot height (the
   // wrapper is as tall as the card, measuring it back would loop), so width rules.
-  const frame = edition === "frame" ? (viewedFrame ?? sample[0] ?? null) : null;
+  // Заказанный кадр: случайная выборка → кадр, на котором вышли из галереи → свайп по плитке.
+  const wanted = edition === "frame" ? (wantedFrame ?? sample[0] ?? null) : null;
   // Карточка-кадр появляется только вместе со снимком. До его прихода стекло не рисуется
   // вовсе: при быстрой перезагрузке пустая карточка без ширины вставала узкой вертикальной
   // полоской и через мгновение заполнялась кадром (замечание владельца) — лучше пауза без
   // виджета, чем виджет без содержимого. Снимок предзагружается отдельным `Image`, и лишь
-  // после `load` карточка рендерится сразу с кадром внутри.
-  const frameSrc = frame ? mediaUrl(frame.imageUrl) : null;
-  const [readySrc, setReadySrc] = useState<string | null>(null);
+  // после `load` он встаёт на карточку: на первом показе — вместе с ней, на свайпе — вместо
+  // предыдущего кадра, который всё это время остаётся на экране.
   useEffect(() => {
-    if (!frameSrc) return;
+    if (!wanted) return;
     let alive = true;
     const img = new Image();
     img.onload = () => {
-      if (alive) setReadySrc(frameSrc);
+      if (alive) setShownFrame(wanted);
     };
-    img.src = frameSrc;
+    img.src = mediaUrl(wanted.imageUrl);
     return () => {
       alive = false;
     };
-  }, [frameSrc]);
-  const frameReady = frameSrc !== null && readySrc === frameSrc;
+  }, [wanted]);
+  const frame = edition === "frame" ? shownFrame : null;
+
+  /**
+   * Свайп по самой карточке листает плёнку дропа (решение владельца): влево — следующий кадр,
+   * вправо — предыдущий, за краями шага нет ([stepFrameIndex]). Считаем от ЗАКАЗАННОГО кадра,
+   * а не от стоящего на экране: пока новый снимок декодируется, второй жест иначе повторял бы
+   * первый (тот же урок, что у ленты архива с её щелчками колеса).
+   */
+  const stepFrame = useCallback(
+    (dir: -1 | 1) => {
+      const list = data?.photos ?? [];
+      const base = wanted ? list.findIndex((p) => p.imageUrl === wanted.imageUrl) : -1;
+      if (base < 0) return;
+      const next = stepFrameIndex(base, dir, list.length);
+      if (next === base) return; // первый/последний кадр — дальше плёнка не идёт
+      setSlide(dir);
+      setWantedFrame(list[next]);
+    },
+    [data?.photos, wanted],
+  );
+
+  // Перетаскивание (палец и мышь — одни и те же pointer-события). **Один жест стоит ровно
+  // один кадр**, какой бы длины он ни был: накопитель плёнки в галерее (`swipeStep`, где
+  // длинное движение стоит нескольких кадров) здесь не годится — плитка показывает ОДИН
+  // снимок, и длинный свайп доматывал её до края дропа рывком (замечание владельца).
+  // Порог тот же, что у плёнки (`SWIPE_NOTCH`), считается от начала жеста, а не от прошлого
+  // события: рука ведёт непрерывно, и шаг обязан зависеть от пройденного пути, а не от того,
+  // насколько часто браузер прислал `pointermove`.
+  // `moved` гасит клик после жеста — иначе свайп ещё и открывал бы галерею.
+  const dragRef = useRef<{ from: number; done: boolean } | null>(null);
+  const movedRef = useRef(false);
+  const onFramePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragRef.current = { from: e.clientX, done: false };
+  };
+  const onFramePointerMove = (e: PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.done) return;
+    const dx = e.clientX - drag.from;
+    if (Math.abs(dx) < SWIPE_NOTCH) return;
+    drag.done = true; // кадр за жест отдан; остаток движения — уже не второй шаг
+    movedRef.current = true;
+    stepFrame(dx < 0 ? 1 : -1);
+  };
+  const onFramePointerEnd = () => {
+    dragRef.current = null;
+  };
+
+  // Трекпад: горизонтальный жест двумя пальцами приезжает колесом, а не указателем. Слушатель
+  // нативный и НЕ passive — только так у него есть право отменить прокрутку страницы вбок;
+  // вертикаль не трогаем вовсе, она принадлежит странице.
+  //
+  // Правило то же, что у руки: **жест стоит один кадр**. У колеса конца жеста нет, поэтому
+  // концом работает ТИШИНА ([WHEEL_GESTURE_GAP_MS]): один мах по трекпаду присылает десятки
+  // событий подряд (плюс хвост инерции), и без замка он пролистывал дроп целиком. Отдельные
+  // щелчки колеса мыши тишиной разделены заведомо, и каждый по-прежнему стоит свой кадр.
+  //
+  // ⚠️ Замок и накопитель живут в ССЫЛКЕ, а не в замыкании эффекта. Смена кадра перерисовывает
+  // плитку, эффект пересобирается — и замок, будь он переменной внутри, сбрасывался бы ровно
+  // тем событием, которое сам же и вызвал: мах снова листал всю плёнку (замечание владельца).
+  // Отсюда же ссылка на сам шаг: слушателю незачем перевешиваться ради свежего колбэка.
+  const stepRef = useRef(stepFrame);
+  stepRef.current = stepFrame;
+  const wheelRef = useRef<{ acc: number; locked: boolean; quiet: ReturnType<typeof setTimeout> | null }>({
+    acc: 0,
+    locked: false,
+    quiet: null,
+  });
+  useEffect(() => {
+    const el = frameCardRef.current;
+    if (!el || edition !== "frame") return;
+    const gesture = wheelRef.current;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      // Каждое событие отодвигает конец жеста: пока рука ведёт (и пока едет инерция), тишины нет.
+      if (gesture.quiet) clearTimeout(gesture.quiet);
+      gesture.quiet = setTimeout(() => {
+        gesture.locked = false;
+        gesture.acc = 0;
+      }, WHEEL_GESTURE_GAP_MS);
+      if (gesture.locked) return;
+      const step = wheelStep(e.deltaX, 0, e.deltaMode, gesture.acc);
+      gesture.acc = step.acc;
+      if (step.dir === 0) return;
+      gesture.locked = true;
+      gesture.acc = 0;
+      stepRef.current(step.dir);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [edition, frame]);
+
+  // Таймер конца жеста переживает пересборку слушателя (он в ссылке), поэтому гасится он
+  // отдельно — на размонтировании, а не в уборке эффекта выше.
+  useEffect(() => {
+    const gesture = wheelRef.current;
+    return () => {
+      if (gesture.quiet) clearTimeout(gesture.quiet);
+    };
+  }, []);
+
+  /**
+   * Въезд нового кадра. Анимация **императивная**, потому что слой кадра обязан оставаться тем
+   * же узлом (см. врез у `.drop-frame__view` в разметке): CSS-анимация проигрывается на
+   * появлении элемента, а появления тут больше нет — меняются только атрибуты.
+   * Сдвиг маленький (14px) и в сторону жеста, дальше — проявление; уважает `prefers-reduced-motion`.
+   */
+  const viewRef = useRef<HTMLSpanElement>(null);
+  const shownUrl = frame?.imageUrl ?? null;
+  useEffect(() => {
+    const el = viewRef.current;
+    // `animate` нет в jsdom — в тестах эффект просто молчит, и это ровно то, что им нужно.
+    if (!el || !shownUrl || typeof el.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const play = el.animate(
+      [
+        { opacity: 0, transform: `translateX(${slide * FRAME_SLIDE_PX}px)` },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: FRAME_SLIDE_MS, easing: "cubic-bezier(0.22, 0.61, 0.36, 1)" },
+    );
+    return () => play.cancel();
+    // `slide` меняется вместе с заказом кадра и к моменту его показа уже держит сторону жеста.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownUrl]);
 
   const frameStyle = useMemo<CSSProperties>(() => {
     if (!frame) return { height: "100%" };
@@ -302,7 +460,7 @@ export function LatestDropTile({
   // Пока галерея открыта, плитку НЕ прячем, даже если её новый кадр ещё не догрузился: она
   // и так невидима (проявка сняла с неё снимок), но её прямоугольник нужен возврату — без
   // него морфу некуда садиться.
-  const hidden = !settled || (edition === "frame" && frame !== null && !frameReady && !open);
+  const hidden = !settled || (edition === "frame" && wanted !== null && frame === null && !open);
 
   return (
     <>
@@ -332,26 +490,44 @@ export function LatestDropTile({
               ref={frameCardRef}
               type="button"
               className="drop-frame"
+              onPointerDown={onFramePointerDown}
+              onPointerMove={onFramePointerMove}
+              onPointerUp={onFramePointerEnd}
+              onPointerCancel={onFramePointerEnd}
               onClick={() => {
+                // Жест только что листал плёнку — значит это был свайп, а не клик по кадру.
+                if (movedRef.current) {
+                  movedRef.current = false;
+                  return;
+                }
                 setOpenedAt(frame.imageUrl);
                 setOpen(true);
               }}
               aria-label={openLabel}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaUrl(frame.imageUrl)} alt="" className="drop-frame__img" />
-              {/* Полоса несёт адрес кадра переменной: под подписью лежат две РАЗМЫТЫЕ КОПИИ
-                  снимка (`.drop-frame__blur`, common.css), а не backdrop-filter — у того на
-                  кромках бокса выборка зажимается краем и даёт серую линию. */}
-              <span
-                className="drop-frame__band"
-                style={{ "--drop-frame-src": `url("${mediaUrl(frame.imageUrl)}")` } as CSSProperties}
-              >
-                <span className="drop-frame__blur drop-frame__blur--soft" aria-hidden />
-                <span className="drop-frame__blur drop-frame__blur--deep" aria-hidden />
-                <span className="drop-frame__caption">
-                  <span className="drop-frame__title">{latest.title}</span>
-                  <span className="drop-frame__meta">{meta}</span>
+              {/* Кадр и его полоса въезжают ОДНИМ слоем: анимация висит на нём, поэтому
+                  подпись и размытые копии меняются вместе со снимком, а не догоняют его.
+                  ⚠️ Слой НЕ пересоздаётся на смену кадра (ни `key`, ни размонтирования):
+                  исчезнувший из-под курсора узел уносит с собой цель наведения, и до первого
+                  движения мышью карточка перестаёт получать колесо — свайп трекпадом молча
+                  переставал работать после первого же (замечание владельца). Поэтому меняются
+                  только атрибуты, а въезд играет Web Animations (см. эффект выше). */}
+              <span ref={viewRef} className="drop-frame__view">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={mediaUrl(frame.imageUrl)} alt="" className="drop-frame__img" />
+                {/* Полоса несёт адрес кадра переменной: под подписью лежат две РАЗМЫТЫЕ КОПИИ
+                    снимка (`.drop-frame__blur`, common.css), а не backdrop-filter — у того на
+                    кромках бокса выборка зажимается краем и даёт серую линию. */}
+                <span
+                  className="drop-frame__band"
+                  style={{ "--drop-frame-src": `url("${mediaUrl(frame.imageUrl)}")` } as CSSProperties}
+                >
+                  <span className="drop-frame__blur drop-frame__blur--soft" aria-hidden />
+                  <span className="drop-frame__blur drop-frame__blur--deep" aria-hidden />
+                  <span className="drop-frame__caption">
+                    <span className="drop-frame__title">{latest.title}</span>
+                    <span className="drop-frame__meta">{meta}</span>
+                  </span>
                 </span>
               </span>
             </button>
@@ -431,7 +607,7 @@ export function LatestDropTile({
           origin={edition === "frame" ? frameCardRef : undefined}
           // Плитка идёт за плёнкой, пока та открыта: к моменту закрытия она уже показывает тот
           // кадр, на котором вышли, и проявке есть куда вернуться без растяжения.
-          onFrameShown={edition === "frame" ? setViewedFrame : undefined}
+          onFrameShown={edition === "frame" ? setWantedFrame : undefined}
           onClose={() => setOpen(false)}
         />
       )}

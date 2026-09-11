@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   SWIPE_NOTCH,
+  centerScroll,
   nearestFrameIndex,
   rollMotionStep,
   startFrameIndex,
+  stepFrameIndex,
   stripPadding,
   swipeStep,
   tickIndexAt,
@@ -154,6 +156,23 @@ describe("tickIndexAt", () => {
   });
 });
 
+describe("stepFrameIndex — сосед в пределах дропа", () => {
+  it("шагает вперёд и назад", () => {
+    expect(stepFrameIndex(2, 1, 6)).toBe(3);
+    expect(stepFrameIndex(2, -1, 6)).toBe(1);
+  });
+
+  it("за краями шага нет: лента дропа не закольцована", () => {
+    expect(stepFrameIndex(0, -1, 6)).toBe(0);
+    expect(stepFrameIndex(5, 1, 6)).toBe(5);
+  });
+
+  it("дроп из одного кадра стоит на месте в обе стороны", () => {
+    expect(stepFrameIndex(0, 1, 1)).toBe(0);
+    expect(stepFrameIndex(0, -1, 1)).toBe(0);
+  });
+});
+
 describe("rollMotionStep", () => {
   const cell = 124;
 
@@ -178,6 +197,19 @@ describe("rollMotionStep", () => {
 
   it("доля растёт не без предела: очень далёкая цель всё ещё не берётся одним прыжком", () => {
     expect(rollMotionStep(0, cell * 40, 16.7, cell)).toBeLessThan(cell * 40 * 0.6);
+  });
+
+  it("тягучесть — параметр ленты: с меньшей долей тот же путь берётся медленнее", () => {
+    const usual = rollMotionStep(0, cell, 16.7, cell);
+    const slow = rollMotionStep(0, cell, 16.7, cell, 0.13);
+    expect(slow).toBeGreaterThan(0);
+    expect(slow).toBeLessThan(usual);
+  });
+
+  it("медленная лента всё равно доезжает: за секунду она ровно на цели", () => {
+    let pos = 0;
+    for (let i = 0; i < 60; i += 1) pos = rollMotionStep(pos, cell, 16.7, cell, 0.13);
+    expect(pos).toBe(cell);
   });
 
   it("зависший кадр отрисовки не превращается в прыжок: время считается не больше чем за два кадра", () => {
@@ -212,5 +244,25 @@ describe("swipeStep — перетаскивание кадра пальцем",
     const step = swipeStep(-SWIPE_NOTCH * 3, 0);
     expect(step.dir).toBe(1);
     expect(Math.abs(step.acc)).toBeLessThan(SWIPE_NOTCH * 3);
+  });
+});
+
+describe("centerScroll — ячейка в середине окна", () => {
+  it("ставит ячейку по центру окна", () => {
+    // Слот 78px в окне 246px: над ним и под ним остаётся по 84px — слот ровно в середине.
+    expect(centerScroll(168, 78, 246, 1000)).toBe(84);
+  });
+
+  it("окно равно ячейке — прокрутка ровно до её начала", () => {
+    expect(centerScroll(168, 78, 78, 1000)).toBe(168);
+  });
+
+  it("первая ячейка стоит по центру запасом — прокрутка нулевая, а не отрицательная", () => {
+    // Боковой запас (`stripPadding`) уже поставил первую ячейку по центру: offset = 84.
+    expect(centerScroll(84, 78, 246, 1000)).toBe(0);
+  });
+
+  it("за максимум прокрутки цель не уезжает: недостижимой точки не бывает", () => {
+    expect(centerScroll(900, 78, 246, 300)).toBe(300);
   });
 });

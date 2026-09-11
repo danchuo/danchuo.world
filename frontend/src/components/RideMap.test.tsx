@@ -23,6 +23,20 @@ vi.mock("maplibre-gl", () => {
   class Map {
     constructor(options: unknown) {
       mapOptions(options);
+      // Настоящая maplibre создаёт подпись поставщика прямо в конструкторе и оставляет её
+      // РАЗВЁРНУТОЙ (`maplibregl-compact-show` + `open`), а ссылки приезжают HTML-строкой из
+      // стиля, без `target`. Мок повторяет ровно это — иначе проверять было бы нечего.
+      const o = options as { container?: HTMLElement; attributionControl?: unknown };
+      if (o.container && o.attributionControl) {
+        const attrib = document.createElement("details");
+        attrib.className = "maplibregl-ctrl maplibregl-ctrl-attrib maplibregl-compact maplibregl-compact-show";
+        attrib.setAttribute("open", "");
+        attrib.innerHTML =
+          '<div class="maplibregl-ctrl-attrib-inner">' +
+          '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' +
+          "</div>";
+        o.container.appendChild(attrib);
+      }
     }
     fitBounds = fitBounds;
     resize = resize;
@@ -126,6 +140,42 @@ describe("RideMap — жесты", () => {
     // Атрибуция в углу крошечного виджета была бы мусором; в окне она обязательна.
     expect(o.attributionControl).toBe(false);
     expect(addControl).not.toHaveBeenCalled();
+  });
+
+  it("подпись поставщика свёрнута в «i» и уходит в новую вкладку", async () => {
+    // maplibre отдаёт подпись развёрнутой строкой поверх карты в момент открытия окна, а её
+    // ссылки уводили бы со страницы (просьба владельца). Оба поведения правит сам компонент.
+    const { container } = render(<RideMap {...coords} interactivePins />);
+    const attrib = await vi.waitFor(() => {
+      const node = container.querySelector(".maplibregl-ctrl-attrib");
+      expect(node).not.toBeNull();
+      return node!;
+    });
+    expect(attrib.classList.contains("maplibregl-compact-show")).toBe(false);
+    expect(attrib.hasAttribute("open")).toBe(false);
+    // Сам кружок «i» остаётся: атрибуцию прячут, а не убирают.
+    expect(attrib.classList.contains("maplibregl-compact")).toBe(true);
+    const link = attrib.querySelector("a")!;
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toBe("noreferrer");
+  });
+
+  it("подпись, пересобранная стилем заново, снова сворачивается и снова уходит в новую вкладку", async () => {
+    const { container } = render(<RideMap {...coords} interactivePins />);
+    const attrib = await vi.waitFor(() => {
+      const node = container.querySelector(".maplibregl-ctrl-attrib");
+      expect(node).not.toBeNull();
+      return node!;
+    });
+    // Список источников maplibre перерисовывает на каждое изменение стиля — свежая разметка
+    // приезжает снова развёрнутой и снова без `target`.
+    attrib.classList.add("maplibregl-compact-show");
+    attrib.setAttribute("open", "");
+    attrib.innerHTML = '<div><a href="https://www.openstreetmap.org/copyright">OSM</a></div>';
+    await vi.waitFor(() => {
+      expect(attrib.classList.contains("maplibregl-compact-show")).toBe(false);
+      expect(attrib.querySelector("a")!.target).toBe("_blank");
+    });
   });
 
   it("в окне карту водят, приближают и подписывают поставщика", async () => {

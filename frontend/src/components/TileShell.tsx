@@ -12,6 +12,13 @@ interface TileShellProps {
   muted?: boolean;
   /** Пик высоты (плитка «Сегодня», §2.3 — лежит выше остальных). */
   elevated?: boolean;
+  /**
+   * Цепочка высоты внутри плитки — ФЛЕКСОВАЯ, а не процентная. Нужна тайлам, чья высота идёт
+   * от содержимого (`CONTENT_HEIGHT_TILES` в layout.ts): у такой плитки высота неопределённая,
+   * `height: 100%` внутри неё разрешается в «по контенту», и упёршийся в потолок список не
+   * сжимался бы, а срезался краем. Флекс сжимает без процентов — работает в обоих режимах.
+   */
+  fluid?: boolean;
   /** Угловая пиксельная осыпь (§2.4) — только на фокусной плитке «Сегодня». */
   scatter?: boolean;
   /**
@@ -44,6 +51,7 @@ export function TileShell({
   onRetry,
   muted = false,
   elevated = false,
+  fluid = false,
   scatter = false,
   backdrop,
   label,
@@ -87,7 +95,7 @@ export function TileShell({
 
       {state !== "loading" && label && <div className="tile-label mb-1">{label}</div>}
 
-      <div className="relative min-h-0 flex-1">
+      <div className={`relative min-h-0 flex-1${fluid ? " flex flex-col" : ""}`}>
         {state === "error" && (
           <div className="flex h-full flex-col items-start justify-center gap-2">
             <p style={{ color: "var(--text-secondary)" }}>не удалось загрузить</p>

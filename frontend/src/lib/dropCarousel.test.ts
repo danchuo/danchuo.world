@@ -3,7 +3,8 @@ import {
   CAROUSEL_FAR_OPACITY,
   CAROUSEL_FAR_SCALE,
   CAROUSEL_SLOT_PX,
-  centerScrollTop,
+  CAROUSEL_FAR_BLUR_PX,
+  CAROUSEL_SHARP_PX,
   slotLook,
   startSlotIndex,
 } from "./dropCarousel";
@@ -39,6 +40,21 @@ describe("dropCarousel — вид кадра как функция позици�
     expect(slotLook(-70, R)).toEqual(slotLook(70, R));
   });
 
+  it("расфокус начинается СО ВТОРОГО соседа: центр и ближние кадры резкие", () => {
+    const pitch = CAROUSEL_SHARP_PX; // шаг ленты: слот + просвет
+    // Выбранный кадр и оба его соседа (второй и третий кадр окна) — резкие.
+    expect(slotLook(0, R).blur).toBeCloseTo(0, 5);
+    expect(slotLook(pitch, R).blur).toBeCloseTo(0, 5);
+    expect(slotLook(-pitch, R).blur).toBeCloseTo(0, 5);
+    // Следующее кольцо (четвёртый и пятый кадр окна) — уже в полном расфокусе.
+    expect(slotLook(pitch * 2, R).blur).toBeCloseTo(CAROUSEL_FAR_BLUR_PX, 5);
+    expect(slotLook(pitch * 4, R).blur).toBeCloseTo(CAROUSEL_FAR_BLUR_PX, 5);
+    // Между кольцами расфокус нарастает, а не включается ступенькой.
+    const between = slotLook(pitch * 1.5, R).blur;
+    expect(between).toBeGreaterThan(0);
+    expect(between).toBeLessThan(CAROUSEL_FAR_BLUR_PX);
+  });
+
   it("ближний кадр перекрывает дальний", () => {
     expect(slotLook(0, R).zIndex).toBeGreaterThan(slotLook(R, R).zIndex);
   });
@@ -52,22 +68,6 @@ describe("dropCarousel — вид кадра как функция позици�
 
   it("высота слота — константа: лента читается одинаково и на трёх дропах, и на трёхстах", () => {
     expect(CAROUSEL_SLOT_PX).toBeGreaterThan(0);
-  });
-});
-
-describe("centerScrollTop", () => {
-  it("ставит слот ровно в середину окна ленты", () => {
-    // Слот 78px в окне 246px: над ним и под ним остаётся по 84px — ровно место соседям.
-    expect(centerScrollTop(168, 78, 246)).toBe(84);
-  });
-
-  it("окно ростом со слот — прокрутка равна смещению слота (центрировать нечего)", () => {
-    expect(centerScrollTop(168, 78, 78)).toBe(168);
-  });
-
-  it("первый слот с боковым запасом уже по центру — ноль, а не отрицательная прокрутка", () => {
-    // Запас (`stripPadding`) даёт первому слоту место встать по центру: offsetTop = 84.
-    expect(centerScrollTop(84, 78, 246)).toBe(0);
   });
 });
 

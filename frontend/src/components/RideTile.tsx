@@ -72,6 +72,18 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
   const mapCardRef = useRef<HTMLButtonElement>(null);
 
   /**
+   * Приехали ли первые тайлы карты. Редакция `map` — это карта во всю плитку, и до них на
+   * экране стоял её каркас: подложка, пины и полоса данных на пустом месте, а через секунду
+   * под ними проявлялся город (замечание владельца: «сначала точки, потом карта»). Плитка
+   * ждёт карту и появляется ВМЕСТЕ с ней — тот же размен, что у плитки последнего дропа,
+   * ждущей свой снимок, и у модалки поездок, ждущей карту перед проявкой (§7.6).
+   *
+   * Гасим ПРОЗРАЧНОСТЬЮ, а не размонтированием: карте надо быть в разметке, чтобы начать
+   * грузиться и было чему доехать (тот же приём, что у ленты дропов с её `.is-ready`).
+   */
+  const [mapReady, setMapReady] = useState(false);
+
+  /**
    * Высота полосы данных — замером, а не числом в коде: её задаёт CSS (`--ride-band-*` плюс сам
    * текст), и карта обязана увести маршрут из-под неё ровно на столько, сколько полоса заняла.
    * Узел в state (callback-ref), а не в ref: полоса появляется ПОСЛЕ ответа сети, и замер,
@@ -98,7 +110,9 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
         label="велобайк"
         ariaLabel="Последняя поездка на Велобайке"
         style={style}
-        className={`${edition === "map" ? "ride-card--map" : ""} ${className ?? ""}`}
+        className={`${edition === "map" ? "ride-card--map" : ""}${
+          edition === "map" && (mapReady || !hasCoords) ? " is-ready" : ""
+        } ${className ?? ""}`}
       >
       {phase === "loaded" && !isEmpty && latest && edition === "map" && (
         // Карта во всю плитку, данные — полосой блюра НА ней (та же мысль, что у полосы подписи
@@ -121,6 +135,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
               finishLon={latest.finishLon!}
               wave={wave}
               padTop={bandH}
+              onReady={() => setMapReady(true)}
             />
           ) : (
             <span className="ride-frame__map" style={{ background: "var(--bg-surface-muted)" }} aria-hidden />

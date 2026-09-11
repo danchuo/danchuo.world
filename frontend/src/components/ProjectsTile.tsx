@@ -130,19 +130,22 @@ export function ProjectsTile({
       onRetry={retry}
       label="проекты"
       ariaLabel="Проекты"
+      // Высота плитки — по содержимому (layout.ts, CONTENT_HEIGHT_TILES), поэтому вся цепочка
+      // от секции до списка держится флексом: процентной высоте там не от чего считаться.
+      fluid
       style={style}
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
         // projects-frame: именованный контейнер, от которого считаются размеры внутри
         // (список сам себя мерить не может — DESIGN §8.1).
-        <div className="tile-frame h-full">
+        <div className="tile-frame flex min-h-0 flex-1 flex-col">
         {consoleEdition ? (
           // Консоль: приглашение оболочки вместо ярлыка плитки + вывод `tree` под ним.
           // Приглашение живёт в СОДЕРЖИМОМ, а не в `label` плитки, и это по смыслу: волна,
           // прячущая мета-ярлыки (§10.2 PRIME), спрятала бы вместе с ними и его — а оно
           // здесь не имя плитки, а КОРЕНЬ дерева, на котором висят строки ниже.
-          <div className="projects-console-frame flex h-full flex-col">
+          <div className="projects-console-frame flex min-h-0 flex-1 flex-col">
             <p className="projects-prompt">
               <span className="projects-prompt__path">~/projects</span>
               <span aria-hidden className="projects-prompt__caret">❯</span>
@@ -239,8 +242,8 @@ export function ProjectsTile({
           style={{ scrollbarWidth: "none" }}
           className={
             horizontal
-              ? "projects-list projects-list--horizontal flex h-full flex-row items-center overflow-x-auto"
-              : "projects-list flex h-full flex-col overflow-y-auto"
+              ? "projects-list projects-list--horizontal flex min-h-0 flex-1 flex-row items-center overflow-x-auto"
+              : "projects-list flex min-h-0 flex-1 flex-col overflow-y-auto"
           }
         >
           {projects.map((p) => (

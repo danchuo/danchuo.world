@@ -93,6 +93,15 @@ export function wheelStep(deltaX: number, deltaY: number, deltaMode: number, acc
 }
 
 /**
+ * Сосед кадра в пределах дропа — **без закольцовки**: на первом кадре шаг назад и на последнем
+ * шаг вперёд никуда не ведут (решение владельца по свайпу плитки последнего дропа). Кольцо
+ * здесь врало бы про содержимое: дроп — это плёнка с началом и концом, а не карусель.
+ */
+export function stepFrameIndex(index: number, dir: number, count: number): number {
+  return Math.max(0, Math.min(count - 1, index + dir));
+}
+
+/**
  * Порог перетаскивания (px), за которым палец стоит один кадр. Меньше — и лента срывается
  * с места от дрожания руки, больше — и пролистывание дропа превращается в работу.
  */
@@ -155,6 +164,8 @@ export const ROLL_SETTLE_PX = 0.5;
 /**
  * Какую долю оставшегося пути лента берёт за кадр отрисовки (60 Гц), отстав на один кадр.
  * Начинали с 0.22; владелец, посмотрев вживую, попросил «чуть тягучее»: 0.17 оказалось много, остановились на 0.20.
+ * Это ДЕФОЛТ плёнки; лента вправе взять свою тягучесть параметром [rollMotionStep] — у карусели
+ * архива кадр крупный и вертикальный, и та же доля читалась там слишком резвой (просьба владельца).
  */
 const MOTION_RATE_BASE = 0.20;
 /** Прибавка к доле за каждый кадр отставания сверх первого. */
@@ -183,11 +194,30 @@ const MAX_FRAMES_PER_STEP = 2;
  * Экспонента, а не пружина: пружина мягче разгоняется, но дольше садится (замер: 1613 против
  * 1322 мс на десяти щелчках при базовой доле 0.22), а плёнке важнее встать на кадр, чем покачаться.
  */
-export function rollMotionStep(pos: number, goal: number, dtMs: number, cellW: number): number {
+export function rollMotionStep(
+  pos: number,
+  goal: number,
+  dtMs: number,
+  cellW: number,
+  rateBase: number = MOTION_RATE_BASE,
+): number {
   const gap = goal - pos;
   if (Math.abs(gap) <= ROLL_SETTLE_PX) return goal;
   const cellsBehind = cellW > 0 ? Math.abs(gap) / cellW : 0;
-  const rate = Math.min(MOTION_RATE_MAX, MOTION_RATE_BASE + Math.max(0, cellsBehind - 1) * MOTION_RATE_PER_CELL);
+  const rate = Math.min(MOTION_RATE_MAX, rateBase + Math.max(0, cellsBehind - 1) * MOTION_RATE_PER_CELL);
   const frames = Math.min(MAX_FRAMES_PER_STEP, Math.max(0, dtMs) / FRAME_MS);
   return pos + gap * (1 - Math.pow(1 - rate, frames));
+}
+
+/**
+ * Прокрутка ленты, при которой ячейка встаёт ровно в середину окна, — **зажатая в достижимое**.
+ *
+ * Одна арифметика на обе ленты (плёнка дропа и карусель архива) и на все поводы поехать:
+ * первая раскладка, щелчок колеса, клик по кадру не в середине. Зажим обязателен с ОБЕИХ
+ * сторон: у крайней ячейки боковой запас ([stripPadding]) уже поставил её по центру, а за
+ * максимумом прокрутки лента не сдвинется вовсе — и собственное движение ([rollMotionStep])
+ * ехало бы к недостижимой точке вечно, не доезжая и не останавливаясь.
+ */
+export function centerScroll(offset: number, itemSize: number, windowSize: number, maxScroll: number): number {
+  return Math.max(0, Math.min(maxScroll, offset - (windowSize - itemSize) / 2));
 }

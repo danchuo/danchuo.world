@@ -6,7 +6,7 @@ import { shiftAnchor } from "@/lib/calendarWindow";
 import { mskToday } from "@/lib/date";
 import type { DisciplineLens } from "@/lib/disciplineLens";
 import { statsWindow, type StatsRange } from "@/lib/statsWindow";
-import { gridArea, type TileId, type TileOrientation } from "@/lib/layout";
+import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
 import { FreshnessTile } from "./FreshnessTile";
@@ -188,9 +188,12 @@ export function Board() {
         {(Object.keys(layout.tiles) as TileId[]).map((id) => {
           const span = layout.tiles[id];
           if (span.hidden) return null; // волна спрятала тайл (DESIGN §10)
+          // Место в сетке и высота в нём — из реестра ([tileBox]): почти все тайлы занимают
+          // спан целиком, тайл с высотой по содержимому получает спан потолком.
+          const box = tileBox(id, span);
           return (
             // data-tile-id: атрибуция кликов для потайловой хитмапы (PRD §5.11 B2).
-            <div key={id} data-tile-id={id} style={{ gridArea: gridArea(span), minHeight: 0 }}>
+            <div key={id} data-tile-id={id} style={box.cell}>
               <BoardTile
                 id={id}
                 data={data}
@@ -198,7 +201,7 @@ export function Board() {
                 edition={span.edition}
                 planet={span.planet}
                 gallery={layout.gallery}
-                style={{ height: "100%", width: "100%" }}
+                style={box.tile}
               />
             </div>
           );

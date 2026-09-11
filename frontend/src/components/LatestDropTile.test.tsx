@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LatestDropTile } from "./LatestDropTile";
 import { writeCache } from "@/lib/api/cache";
@@ -159,6 +159,150 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     const card = container.querySelector(".pixel-tile") as HTMLElement;
     expect(card.style.aspectRatio).toBe("80 / 120");
+  });
+
+  /**
+   * Свайп по карточке: жест пальцем в px. Порог — `SWIPE_NOTCH` (56px).
+   *
+   * Событие собираем руками из `MouseEvent`: `PointerEvent` в jsdom не реализован, и
+   * `fireEvent.pointerMove` отдаёт голый `Event` — без `clientX`, то есть без самого жеста.
+   */
+  const pointer = (card: HTMLElement, type: string, clientX: number) => {
+    const event = new MouseEvent(type, { bubbles: true, clientX });
+    Object.defineProperty(event, "pointerType", { value: "touch" });
+    fireEvent(card, event);
+  };
+  const swipe = (card: HTMLElement, dx: number) => {
+    pointer(card, "pointerdown", 0);
+    pointer(card, "pointermove", dx);
+    pointer(card, "pointerup", dx);
+  };
+  /** Длинный жест: рука едет далеко и не одним скачком, а как настоящая — по дороге. */
+  const longSwipe = (card: HTMLElement, dx: number) => {
+    pointer(card, "pointerdown", 0);
+    for (let i = 1; i <= 6; i += 1) pointer(card, "pointermove", (dx / 6) * i);
+    pointer(card, "pointerup", dx);
+  };
+
+  const shownSeq = (container: HTMLElement) =>
+    (container.querySelector(".drop-frame__img") as HTMLImageElement).src.match(/\/(\d+)\/web/)?.[1] ?? null;
+
+  it("edition=frame: свайп по карточке листает кадры дропа, за краями плёнка стоит", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+
+    // Стартовый кадр — случайный (жребий по зерну), поэтому сперва уезжаем ВПРАВО до упора:
+    // трёх жестов на три кадра хватает с запасом, а за первым кадром шага нет.
+    swipe(card, 70);
+    swipe(card, 70);
+    swipe(card, 70);
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+
+    // Влево — следующий кадр (лист бумаги уезжает за пальцем), и так до конца плёнки.
+    swipe(card, -70);
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
+    swipe(card, -70);
+    await waitFor(() => expect(shownSeq(container)).toBe("2"));
+
+    // Последний кадр: дальше плёнка не идёт и НЕ закольцовывается на первый.
+    swipe(card, -70);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(shownSeq(container)).toBe("2");
+
+    // Назад — предыдущий кадр.
+    swipe(card, 70);
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
+  });
+
+  it("edition=frame: один жест — ровно один кадр, каким бы длинным он ни был", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+
+    // К началу плёнки — и оттуда один длинный жест влево: он обязан стоить ОДИН кадр, а не
+    // домотать ленту до края (замечание владельца).
+    for (let i = 0; i < 6; i += 1) swipe(card, 70);
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+    longSwipe(card, -600);
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(shownSeq(container)).toBe("1");
+
+    // И так же в обратную сторону.
+    longSwipe(card, 600);
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+  });
+
+  it("edition=frame: один мах по трекпаду — тоже ровно один кадр", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+    for (let i = 0; i < 6; i += 1) swipe(card, 70); // к началу плёнки
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+
+    // Один мах двумя пальцами приезжает ПАЧКОЙ событий: два десятка по 40px подряд. Между
+    // ними плитка перерисовывается (кадр-то сменился), и замок жеста обязан это пережить —
+    // иначе мах листает дроп целиком (замечание владельца: «один жест перематывает всю плёнку»).
+    for (let i = 0; i < 20; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shownSeq(container)).toBe("1");
+  });
+
+  it("edition=frame: следующий мах по трекпаду листает дальше — замок снимается тишиной", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+    for (let i = 0; i < 6; i += 1) swipe(card, 70);
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+
+    for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
+    // Рука отпустила — тишина длиннее порога, и следующий мах снова стоит кадр.
+    await new Promise((r) => setTimeout(r, 200));
+    for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
+    await waitFor(() => expect(shownSeq(container)).toBe("2"));
+  });
+
+  it("edition=frame: свайп НЕ пересоздаёт узлы кадра — курсор остаётся над теми же", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+    const img = container.querySelector(".drop-frame__img");
+    const view = container.querySelector(".drop-frame__view");
+
+    for (let i = 0; i < 3; i += 1) swipe(card, 70); // к началу плёнки, откуда есть куда шагнуть
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+    swipe(card, -70);
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
+    // Тот же самый узел, а не новый с тем же классом: пересозданный слой уносит из-под курсора
+    // цель наведения, и браузер перестаёт слать на карточку колесо, пока мышь не двинулась
+    // (замечание владельца: «после первого свайпа не работает свайп дальше»).
+    expect(container.querySelector(".drop-frame__img")).toBe(img);
+    expect(container.querySelector(".drop-frame__view")).toBe(view);
+  });
+
+  it("edition=frame: свайп не открывает галерею — это жест, а не клик по кадру", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1)]);
+
+    render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+    swipe(card, -70);
+    fireEvent.click(card); // клик, которым браузер завершает перетаскивание
+    await new Promise((r) => setTimeout(r, 10));
+    expect(document.querySelector(".drop-modal__panel")).toBeNull();
   });
 
   it("edition=frame: кадр открывает модалку так же, как мозаика", async () => {

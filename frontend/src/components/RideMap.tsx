@@ -220,6 +220,7 @@ export function RideMap({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let map: any = null;
     let ro: ResizeObserver | null = null;
+    let attribWatch: MutationObserver | null = null;
 
     // Именованные экспорты, а не `default`: у maplibre-gl его нет.
     import("maplibre-gl").then((maplibregl) => {
@@ -256,6 +257,33 @@ export function RideMap({
       if (interactive) {
         map.touchZoomRotate?.disableRotation();
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+      }
+
+      // Подпись поставщика — СВЁРНУТА в кружок «i», и ссылки из неё уходят в новую вкладку
+      // (просьба владельца). Оба поведения приходится доводить руками:
+      //   · `compact: true` у maplibre означает «есть кнопка сворачивания», а не «свёрнута»:
+      //     контрол создаётся сразу с классом `maplibregl-compact-show` и атрибутом `open`,
+      //     то есть развёрнутым, и схлопывается только на первое касание карты. На плитке-окне
+      //     это строка текста поверх города в момент открытия;
+      //   · ссылки приезжают HTML-строкой из самого стиля, без `target` — клик по
+      //     «OpenStreetMap contributors» уводил бы со страницы, а борд остаётся на месте.
+      // Наблюдатель нужен потому, что список источников пересобирается на каждое изменение
+      // стиля: без него свежая разметка приезжала бы снова развёрнутой и снова без `target`.
+      // Слушаем только состав детей — атрибуты правим сами, и ответ на собственную правку
+      // закольцевал бы наблюдателя.
+      const attrib = el.querySelector(".maplibregl-ctrl-attrib");
+      if (attrib) {
+        const tame = () => {
+          attrib.classList.remove("maplibregl-compact-show");
+          attrib.removeAttribute("open");
+          for (const link of Array.from(attrib.querySelectorAll("a"))) {
+            link.target = "_blank";
+            link.rel = "noreferrer";
+          }
+        };
+        tame();
+        attribWatch = new MutationObserver(tame);
+        attribWatch.observe(attrib, { childList: true, subtree: true });
       }
 
       const bounds = () => {
@@ -426,6 +454,7 @@ export function RideMap({
       drawPathRef.current = null;
       pathPointsRef.current = null;
       if (ro) ro.disconnect();
+      if (attribWatch) attribWatch.disconnect();
       if (map) map.remove();
     };
   }, [startLat, startLon, finishLat, finishLon, wave, interactive, startLabel, finishLabel]);

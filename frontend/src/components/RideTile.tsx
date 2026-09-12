@@ -152,15 +152,16 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
               (`.drop-frame__caption`): крупное главное слева, всё остальное моно-мелочью при
               нём. Родство не косметическое — обе полосы лежат на прогрессивном блюре поверх
               чужой картинки и стоят рядом на одном борде; разъехавшись строем, читались бы
-              двумя разными приёмами вместо одного (выбор владельца).
-              Прежние две строки («последняя / вчера» над «км / мин», прижатые к разным краям)
-              делали из подписи таблицу — здесь ей нечего табулировать. */}
+              двумя разными приёмами вместо одного.
+              Слов в подписи ровно столько, сколько влезает в самую узкую плитку: «когда» и
+              длительность при километрах. Пометки «последняя» тут нет — плитка показывает
+              ровно одну поездку и подписана «велобайк», а лишнее слово первым выталкивало
+              минуты за край (полоса усекает хвост, а не переносит его). */}
           <span ref={setBandEl} className="ride-frame__band">
             <span className="ride-frame__caption">
               <span className="ride-frame__km">{formatKm(latest.distanceMeters)}</span>
               <span className="ride-frame__meta">
-                последняя · {relativeDayRu(latest.rideDate, today)} ·{" "}
-                {formatDuration(latest.durationSeconds)}
+                {relativeDayRu(latest.rideDate, today)} · {formatDuration(latest.durationSeconds)}
               </span>
             </span>
           </span>

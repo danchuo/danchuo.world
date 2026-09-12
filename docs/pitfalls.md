@@ -336,11 +336,12 @@ src/components/FaviconSpinner.test.tsx(8,71): error TS2345:
 
 ## `@ConfigMapping` владеет ВСЕМ своим префиксом
 
-**Симптом.** Добавил свойство `danchuo.bike.routing.variants` в `application.properties` — обычные
-тесты зелёные, а два-три `@QuarkusTest` с собственным `@TestProfile` падают с `Failed to start quarkus`:
+**Симптом.** Добавил свойство под уже занятым префиксом (скажем, `danchuo.bike.что-нибудь.новое`)
+в `application.properties` — обычные тесты зелёные, а два-три `@QuarkusTest` с собственным
+`@TestProfile` падают с `Failed to start quarkus`:
 
 ```
-SRCFG00050: danchuo.bike.routing.variants ... does not map to any root
+SRCFG00050: danchuo.bike.что-нибудь.новое ... does not map to any root
 ```
 
 Выглядит как «сломался рейтлимит» или «сломалась аналитика» — падают тесты, к правке отношения

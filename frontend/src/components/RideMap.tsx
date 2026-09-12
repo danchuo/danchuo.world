@@ -8,7 +8,7 @@ interface RideMapProps {
   startLon: number;
   finishLat: number;
   finishLon: number;
-  /** Активная волна — выбирает подложку (см. BASEMAPS) и набор пиксельных пинов (RIDE_PINS). */
+  /** Активная волна — выбирает набор пиксельных пинов (RIDE_PINS). */
   wave?: string | null;
   /**
    * Интерактивная карта: её водят, приближают и наводятся на пины (адрес станции подсказкой).
@@ -36,13 +36,6 @@ interface RideMapProps {
    * (`--ride-band-*`), и второй копии этих пикселей в коде быть не должно.
    */
   padTop?: number;
-  /**
-   * Придуманный путь между станциями (кнопка «нарисовать случайный путь», PRD §9 B4) — ломаная
-   * пар `[lat, lon]` от роутера. Есть путь ⇒ вместо дуги рисуется он, и кадр подгоняется под
-   * него: крюк в +40% иначе уезжал бы за край. Нет пути (`null`/не передан) ⇒ всё как раньше,
-   * дуга старт→финиш. Проп необязательный намеренно: тайл борда его не передаёт вовсе.
-   */
-  path?: [number, number][] | null;
   className?: string;
 }
 
@@ -70,13 +63,6 @@ interface RideMapProps {
 const ARC_COLOR = "#c2603f";
 
 /**
- * Цвет придуманного пути. Намеренно НЕ [ARC_COLOR] и не цвет пинов: дуга и пины — реальные
- * данные, а этот путь выдуман кнопкой. Разный цвет и штрих — единственное, что не даёт борду
- * начать врать (DESIGN §7.6).
- */
-const INVENTED_COLOR = "#9d8cff";
-
-/**
  * Пиксельные пины по волнам (DESIGN §12). На мини-карте пин крошечный (~34px), поэтому спрайты
  * нарочно **упрощены под размер** (optical sizing): сплошная капля + один жирный белый глиф
  * (старт = колесо-нод к велосипеду, финиш = клетчатый флаг), без внутреннего кружка и тонких
@@ -102,27 +88,24 @@ const RIDE_PINS: Record<string, { start: PinSpec; finish: PinSpec }> = {
 };
 
 /**
- * Подложка карты по волнам. Волна одевает свой борд целиком (DESIGN §10), и базовая карта из
- * этого правила не выпадает: в редакции `map` она — вся поверхность виджета, и светлый минимал
- * посреди тёмного холста читается не картой, а прожжённой в нём дырой.
+ * Подложка карты — ОДНА на все волны, на плитку и на модалку. Разные стили в плитке и в окне
+ * развалили бы проявку (§7.5): карта вылетает из плитки в окно и на полпути сменила бы шкуру.
  *
- * Подложка ОДНА на плитку и на модалку. Разные стили там и там развалили бы проявку (§7.5):
- * карта вылетает из плитки в окно, и на полпути сменила бы шкуру.
+ * Светлая: волна вправе одеть вокруг карты что угодно, но сама карта читается тем лучше, чем
+ * светлее её бумага, — дороги и подписи на ней видно без всматривания даже посреди тёмного
+ * холста. Рассмотрено и отклонено: тёмный стиль под тёмную волну
+ * (VersaTiles «eclipse») — чёрный фон с золотыми магистралями забирал внимание себе и оставлял
+ * от города одни проспекты.
  *
- * Стили — VersaTiles по данным OpenStreetMap: бесплатно, без ключа и без лимитов. И это не
+ * Стиль — VersaTiles по данным OpenStreetMap: бесплатно, без ключа и без лимитов. И это не
  * мелочь: у 2ГИС, Яндекса и Google показ карты идёт по подписке за вызовы (у 2ГИС библиотека
  * MapGL бесплатна, а тайлы к ней — отдельная подписка; бесплатен только iframe-виджет, на
  * котором своей линии пути не нарисовать). CARTO, откуда подложка приезжала раньше, с 2025-го
  * отдаёт тайлы с водяным знаком «API KEY REQUIRED» (docs/pitfalls.md).
+ *
+ * «colorful» — тёплый светлый стиль (фон rgb(249,244,238)), близкий к бумаге волн 01/02.
  */
-const STYLE_BASE = "https://tiles.versatiles.org/assets/styles";
-/** «colorful» — тёплый светлый стиль (фон rgb(249,244,238)), близкий к бумаге волн 01/02. */
-const DEFAULT_STYLE = `${STYLE_BASE}/colorful/style.json`;
-const BASEMAPS: Record<string, string> = {
-  // «eclipse» — тёмный: почти чёрный фон, названия улиц, свои шрифты. Тёмный САМ, а не
-  // затемнённый фильтром поверх серой канвы.
-  "wave-03": `${STYLE_BASE}/eclipse/style.json`,
-};
+const MAP_STYLE = "https://tiles.versatiles.org/assets/styles/colorful/style.json";
 
 /**
  * Докуда пускаем зум рукой в окне. Вектор рисуется из геометрии, поэтому предел ни во что не
@@ -180,7 +163,45 @@ function lineOf(points: [number, number][]) {
   };
 }
 
-const EMPTY_LINE = lineOf([]);
+/**
+ * Кнопка «вернуть кадр» — третья в столбике зумера (только в окне, где карту вообще можно
+ * увести). Карту подвинули пальцем или колесом — один жест возвращает её к кадрированию самой
+ * поездки, тому же, с которого окно открылось; искать свой маршрут обратно вручную не приходится.
+ *
+ * Контрол самодельный: у MapLibre из коробки есть зумер, компас и полный экран, а «вернуть
+ * кадр» знает только вызывающий — кадрирование считает [RideMap] по точкам поездки. Класс группы
+ * взят у зумера (`maplibregl-ctrl-group`), поэтому кнопка одевается теми же токенами волны,
+ * что и `+`/`−` (common.css), а не заводит себе второй вид.
+ *
+ * Возврат ЛЕТИТ (в отличие от пересчёта на ресайз, который мгновенный): прыжок с чужого куска
+ * города на свой читался бы сменой карты, а полёт показывает, куда именно тебя вернули.
+ */
+function resetViewControl(refit: (duration?: number) => void) {
+  return {
+    onAdd() {
+      const group = document.createElement("div");
+      group.className = "maplibregl-ctrl maplibregl-ctrl-group";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ride-map__reset";
+      button.title = "Вернуть карту к поездке";
+      button.setAttribute("aria-label", "Вернуть карту к поездке");
+      // Значок — прицел: рамка кадра с точкой поездки в центре. Рисуется `currentColor`,
+      // поэтому цвет берётся у кнопки и меняется вместе с волной (у родных кнопок зумера
+      // значок приезжает картинкой-маской, и волна перекрашивает его фильтром).
+      button.innerHTML =
+        '<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">' +
+        '<path d="M7.5 1.5v2M7.5 11.5v2M1.5 7.5h2M11.5 7.5h2" stroke="currentColor" ' +
+        'stroke-width="1.3" stroke-linecap="round"/>' +
+        '<circle cx="7.5" cy="7.5" r="3.6" stroke="currentColor" stroke-width="1.3"/>' +
+        '<circle cx="7.5" cy="7.5" r="1.2" fill="currentColor"/></svg>';
+      button.addEventListener("click", () => refit(420));
+      group.appendChild(button);
+      return group;
+    },
+    onRemove() {},
+  };
+}
 
 export function RideMap({
   startLat,
@@ -193,7 +214,6 @@ export function RideMap({
   finishLabel,
   onReady,
   padTop,
-  path,
   className,
 }: RideMapProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -208,10 +228,6 @@ export function RideMap({
   padTopRef.current = padTop;
   /** Пересчёт кадрирования живой карты — публикуется эффектом сборки, зовётся снаружи. */
   const refitRef = useRef<(() => void) | null>(null);
-  /** Перерисовка придуманного пути — тоже снаружи: путь меняется без пересборки карты. */
-  const drawPathRef = useRef<((points: [number, number][] | null) => void) | null>(null);
-  /** Точки нарисованного пути — по ним кадрируется карта, пока путь на экране. */
-  const pathPointsRef = useRef<[number, number][] | null>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -237,7 +253,7 @@ export function RideMap({
       // в углу виджета.
       map = new maplibregl.Map({
         container: el,
-        style: (wave ? BASEMAPS[wave] : undefined) ?? DEFAULT_STYLE,
+        style: MAP_STYLE,
         center: [(startLon + finishLon) / 2, (startLat + finishLat) / 2],
         zoom: 12,
         maxZoom: MAX_ZOOM,
@@ -288,14 +304,8 @@ export function RideMap({
 
       const bounds = () => {
         const b = new maplibregl.LngLatBounds();
-        const drawn = pathPointsRef.current;
-        // Пока на карте придуманный путь, кадрируем по нему: он длиннее прямой старт→финиш
-        // и при большом крюке вылезал бы за край.
-        if (drawn && drawn.length > 1) drawn.forEach(([la, lo]) => b.extend([lo, la]));
-        else {
-          b.extend([startLon, startLat]);
-          b.extend([finishLon, finishLat]);
-        }
+        b.extend([startLon, startLat]);
+        b.extend([finishLon, finishLat]);
         return b;
       };
 
@@ -305,7 +315,7 @@ export function RideMap({
       // вокруг — точки разъезжаются к центру и карта «отдаляется». Ровно это видно при
       // уменьшении масштаба браузера и на большом мониторе. Повторный fitBounds держит
       // одинаковое КАДРИРОВАНИЕ (точки занимают ту же долю карты) на любом размере.
-      const refit = () => {
+      const refit = (duration = 0) => {
         if (!map) return;
         map.resize();
         const box = el.getBoundingClientRect();
@@ -326,30 +336,14 @@ export function RideMap({
             left: Math.min(breathe, capX),
             right: Math.min(breathe, capX),
           },
-          duration: 0,
+          duration,
           maxZoom: FIT_MAX_ZOOM,
         });
       };
 
-      /**
-       * Придуманный путь рисуется НЕ так, как реальные данные (DESIGN §7.6): фиолетовая ломаная
-       * длинным штрихом с мягким ореолом, тогда как дуга реальной связи — терракотовая и коротким
-       * пунктиром. Линия обязана называть себя сама, иначе через месяц её не отличить от
-       * GPS-трека, которого у нас нет.
-       */
-      const drawPath = (points: [number, number][] | null) => {
-        if (!map || !map.getSource?.("invented")) return;
-        const has = !!points && points.length > 1;
-        map.getSource("invented").setData(has ? lineOf(points!) : EMPTY_LINE);
-        // Дуга — заглушка «пути нет»: появился путь, и она уходит, чтобы линии не спорили.
-        map.setLayoutProperty("arc", "visibility", has ? "none" : "visible");
-      };
-      drawPathRef.current = drawPath;
-
       map.once("load", () => {
         if (cancelled) return;
         map.addSource("arc", { type: "geojson", data: lineOf(arcPoints(start, finish)) });
-        map.addSource("invented", { type: "geojson", data: EMPTY_LINE });
         map.addLayer({
           id: "arc",
           type: "line",
@@ -363,27 +357,6 @@ export function RideMap({
             "line-dasharray": [1.6, 2],
           },
         });
-        map.addLayer({
-          id: "invented-halo",
-          type: "line",
-          source: "invented",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": INVENTED_COLOR, "line-width": 7, "line-opacity": 0.22 },
-        });
-        map.addLayer({
-          id: "invented",
-          type: "line",
-          source: "invented",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": INVENTED_COLOR,
-            "line-width": 3,
-            "line-opacity": 0.95,
-            "line-dasharray": [3, 1.7],
-          },
-        });
-        // Путь мог приехать раньше стиля — тогда рисуем его сразу, как только есть куда.
-        drawPath(pathPointsRef.current);
         refit();
         readyRef.current?.();
       });
@@ -440,6 +413,9 @@ export function RideMap({
       }
 
       refitRef.current = refit;
+      // Контрол ставится ПОСЛЕ зумера и тоже слева сверху — контролы одного угла ложатся
+      // столбиком в порядке добавления, и «вернуть кадр» встаёт под `+`/`−`, как просили.
+      if (interactive) map.addControl(resetViewControl(refit), "top-left");
       refit();
 
       if (typeof ResizeObserver !== "undefined") {
@@ -451,8 +427,6 @@ export function RideMap({
     return () => {
       cancelled = true;
       refitRef.current = null;
-      drawPathRef.current = null;
-      pathPointsRef.current = null;
       if (ro) ro.disconnect();
       if (attribWatch) attribWatch.disconnect();
       if (map) map.remove();
@@ -463,14 +437,6 @@ export function RideMap({
   useEffect(() => {
     refitRef.current?.();
   }, [padTop]);
-
-  // Придуманный путь — отдельным слоем поверх собранной карты. Перерисовать его надо БЕЗ
-  // пересборки карты: иначе каждое нажатие кнопки гасило бы подложку и ломало проявку.
-  useEffect(() => {
-    pathPointsRef.current = path && path.length > 1 ? path : null;
-    drawPathRef.current?.(pathPointsRef.current);
-    refitRef.current?.();
-  }, [path]);
 
   // isolation:isolate — собственный stacking context: внутренние z-index карты иначе «протекают»
   // до корня и рисуются ПОВЕРХ модалок (z-50). Изоляция замыкает их внутри тайла, и любой

@@ -439,21 +439,6 @@ export interface RideMonthSummaryView {
   spentKopecks: number;
 }
 
-/**
- * Один придуманный веломаршрут для кнопки «нарисовать случайный путь» (PRD §9 B4).
- * `points` — компактные пары `[lat, lon]`: ломаная роутера это сотни точек.
- *
- * Пути не хранятся ни на бэке, ни здесь: пачка живёт до закрытия окна. Пустой массив в ответе —
- * штатное «нечего показать» (нет ключа 2ГИС, роутер молчит или у поездки нет координат).
- */
-export interface RandomPathView {
-  points: [number, number][];
-  distanceMeters: number;
-  optimumMeters: number;
-  /** На сколько процентов путь длиннее оптимума — всегда в [0, 40]. */
-  overPercent: number;
-}
-
 /** Агрегат истории поездок (`GET /api/rides/stats`). Нулевой — пока поездок нет. */
 export interface RideStatsView {
   totalRides: number;

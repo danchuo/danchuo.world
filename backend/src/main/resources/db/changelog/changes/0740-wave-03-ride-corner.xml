@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: велобайк уходит в ПРАВЫЙ НИЖНИЙ угол борда и садится заметно у́же и ниже —
+      колонки 29–35, строки 21–27 (7×7 вместо 9×9 из 0710). Плитка не липнет к самым кромкам
+      холста: справа и снизу остаётся полоса воздуха, как у остальных углов борда.
+
+      Мобильный стек не трогаем: порядок там про последовательность чтения, а не про углы.
+
+      Дельту раскладки переписываем ЦЕЛИКОМ (как на 0660/0680/0700/0710): `jsonb_set` по
+      глубокому пути молча ничего не сделает, если промежуточного ключа не окажется.
+    -->
+    <changeSet id="0740-wave-03-ride-corner" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,ride}',
+  $J${"col": 29, "row": 21, "colSpan": 7, "rowSpan": 7, "edition": "map"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,ride}',
+  $J${"col": 17, "row": 14, "colSpan": 9, "rowSpan": 9, "edition": "map"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -14,9 +14,8 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
       { key: "reading", label: "чтение", icon: null, count: 2, target: 2 },
       { key: "stretch", label: "растяжка", icon: null, count: 0, target: 1 },
     ],
-    // Монстра за день отмечали — иначе вердикта нет вовсе (см. `monsterReported`).
-    monsterReported: true,
-    monster: { key: "mango-loco", name: "Mango Loco", imageUrl: "/m.png", accentColor: "#F4A52A" },
+    // Монстра за день отмечали и пил — `null` тут означал бы «не отмечали», а не «не пил».
+    monsterDrunk: true,
     ...over,
   };
 }
@@ -71,8 +70,7 @@ describe("TodayTile", () => {
       hasData: false,
       health: { steps: null, sleepMinutes: null, sleepStages: null },
       workouts: [],
-      monsterReported: false,
-      monster: null,
+      monsterDrunk: null,
     });
     render(<TodayTile day={empty} today="2026-06-18" state="loaded" />);
 
@@ -150,7 +148,7 @@ describe("TodayTile", () => {
     // 2026-06-21 — воскресенье; монстр не пит ⇒ чеклист-галочка, без стриков.
     render(
       <TodayTile
-        day={dayFixture({ date: "2026-06-21", monster: null })}
+        day={dayFixture({ date: "2026-06-21", monsterDrunk: false })}
         today="2026-06-21"
         state="loaded"
         wave="wave-01"
@@ -178,8 +176,7 @@ describe("TodayTile", () => {
     const mark = (drunk: boolean) => {
       const { unmount } = render(
         <TodayTile
-          // Вкус выбран ⇒ монстр выпит; null ⇒ чисто (dayFixture по умолчанию ставит вкус).
-          day={dayFixture({ date: "2026-06-21", ...(drunk ? {} : { monster: null }) })}
+          day={dayFixture({ date: "2026-06-21", monsterDrunk: drunk })}
           today="2026-06-21"
           state="loaded"
           wave="wave-01"
@@ -197,11 +194,10 @@ describe("TodayTile", () => {
   });
 
   it("день без записи: монстр серый и молчит — отсутствие данных не выдаём за чистый день", () => {
-    // Будущий день / дырка в истории: `hasData: false`. Раньше сюда ехал голый
-    // `monster != null`, то есть любой такой день молча объявлялся «не пил».
+    // Будущий день / дырка в истории: за него никто не отмечал, и вердикта нет.
     render(
       <TodayTile
-        day={dayFixture({ date: "2026-06-18", hasData: false, monsterReported: false, monster: null })}
+        day={dayFixture({ date: "2026-06-18", hasData: false, monsterDrunk: null })}
         today="2026-06-18"
         state="loaded"
       />,
@@ -211,10 +207,10 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent(/^монстр$/);
   });
 
-  it("запись за день есть, вкус пустой — честное «не пил» (шорткат прислал пустого монстра)", () => {
+  it("запись за день есть, монстр пустой — честное «не пил» (шорткат прислал пустого монстра)", () => {
     render(
       <TodayTile
-        day={dayFixture({ date: "2026-06-18", hasData: true, monsterReported: true, monster: null })}
+        day={dayFixture({ date: "2026-06-18", hasData: true, monsterDrunk: false })}
         today="2026-06-18"
         state="loaded"
       />,
@@ -226,7 +222,7 @@ describe("TodayTile", () => {
   it("выходной без записи: сцена не утверждает «не пил», а говорит «нет данных»", () => {
     render(
       <TodayTile
-        day={dayFixture({ date: "2026-06-21", hasData: false, monsterReported: false, monster: null })}
+        day={dayFixture({ date: "2026-06-21", hasData: false, monsterDrunk: null })}
         today="2026-06-21"
         state="loaded"
         wave="wave-01"

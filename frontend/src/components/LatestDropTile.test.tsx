@@ -7,6 +7,7 @@ import type { FilmPhotoView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn(), getDrop: vi.fn() }));
 import { getDrop, getDrops } from "@/lib/api/client";
+import { FRAME_STEP_COOLDOWN_MS } from "@/lib/dropRoll";
 const getDropsMock = vi.mocked(getDrops);
 const getDropMock = vi.mocked(getDrop);
 
@@ -225,7 +226,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     const card = await screen.findByLabelText(/Открыть дроп/);
 
     // К началу плёнки — и оттуда один длинный жест влево: он обязан стоить ОДИН кадр, а не
-    // домотать ленту до края (замечание владельца).
+    // домотать ленту до края.
     for (let i = 0; i < 6; i += 1) swipe(card, 70);
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
     longSwipe(card, -600);
@@ -238,7 +239,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
   });
 
-  it("edition=frame: один мах по трекпаду — тоже ровно один кадр", async () => {
+  it("edition=frame: короткий мах по трекпаду не пролистывает дроп целиком", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -247,16 +248,36 @@ describe("LatestDropTile — редакции (волна выбирает че�
     for (let i = 0; i < 6; i += 1) swipe(card, 70); // к началу плёнки
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
 
-    // Один мах двумя пальцами приезжает ПАЧКОЙ событий: два десятка по 40px подряд. Между
-    // ними плитка перерисовывается (кадр-то сменился), и замок жеста обязан это пережить —
-    // иначе мах листает дроп целиком (замечание владельца: «один жест перематывает всю плёнку»).
+    // Один мах двумя пальцами приезжает ПАЧКОЙ событий: два десятка по 40px подряд, и почти
+    // все — уже хвост инерции. Пока кадр не остыл, путь не копится вовсе, поэтому мах стоит
+    // один кадр, а не восемь. Плитка между событиями ещё и перерисовывается, так что счётчик
+    // обязан жить в ссылке — в замыкании его сбрасывал бы им же вызванный кадр.
     for (let i = 0; i < 20; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
     await new Promise((r) => setTimeout(r, 20));
     expect(shownSeq(container)).toBe("1");
   });
 
-  it("edition=frame: следующий мах по трекпаду листает дальше — замок снимается тишиной", async () => {
+  it("edition=frame: непрерывный жест трекпадом листает кадр за кадром, не один и всё", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+    for (let i = 0; i < 6; i += 1) swipe(card, 70); // к началу плёнки
+    await waitFor(() => expect(shownSeq(container)).toBe("0"));
+
+    // Ровно жалоба владельца: пальцы ведут не отрываясь, курсор при этом стоит на месте —
+    // и раньше кадр менялся ОДИН раз за весь жест. Ведение — это события, разделённые
+    // настоящим временем, поэтому и тут паузы настоящие.
+    for (let burst = 0; burst < 3; burst += 1) {
+      for (let i = 0; i < 4; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
+      await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
+    }
+    await waitFor(() => expect(shownSeq(container)).toBe("3"));
+  });
+
+  it("edition=frame: следующий мах листает дальше — кадр к тому времени остыл", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -267,8 +288,8 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
-    // Рука отпустила — тишина длиннее порога, и следующий мах снова стоит кадр.
-    await new Promise((r) => setTimeout(r, 200));
+    // Рука отпустила — к следующему маху кадр уже остыл, и он снова стоит кадр.
+    await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("2"));
   });
@@ -288,7 +309,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
     // Тот же самый узел, а не новый с тем же классом: пересозданный слой уносит из-под курсора
     // цель наведения, и браузер перестаёт слать на карточку колесо, пока мышь не двинулась
-    // (замечание владельца: «после первого свайпа не работает свайп дальше»).
+    //.
     expect(container.querySelector(".drop-frame__img")).toBe(img);
     expect(container.querySelector(".drop-frame__view")).toBe(view);
   });

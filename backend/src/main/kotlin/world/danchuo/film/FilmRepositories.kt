@@ -28,9 +28,6 @@ class FilmPhotoRepository : PanacheRepository<FilmPhoto> {
 @ApplicationScoped
 class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
 
-    fun listByPhotos(photoIds: Collection<Long>): List<ArtifactDetection> =
-        if (photoIds.isEmpty()) emptyList() else list("photoId in ?1", photoIds)
-
     /** Показываемые находки: отклонённые владельцем не рисуются ни публично, ни в админке. */
     fun listVisibleByPhotos(photoIds: Collection<Long>): List<ArtifactDetection> =
         if (photoIds.isEmpty()) {
@@ -60,9 +57,6 @@ class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
             artifactId,
             ArtifactDetection.SOURCE_LLM,
         )
-
-    fun deleteByPhotos(photoIds: Collection<Long>): Long =
-        if (photoIds.isEmpty()) 0 else delete("photoId in ?1", photoIds)
 
     fun findOne(photoId: Long, artifactId: Long): ArtifactDetection? =
         find("photoId = ?1 and artifactId = ?2", photoId, artifactId).firstResult()

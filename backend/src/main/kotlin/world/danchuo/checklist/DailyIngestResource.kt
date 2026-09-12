@@ -13,7 +13,7 @@ import java.time.LocalDate
 
 /**
  * `POST /api/ingest/daily` (PRD §5.6, §12 M1) — интерактивный iOS-шорткат в один тап:
- * имя дня + прогресс дисциплины + вкус монстра. За токеном (фильтр ловит `api/ingest`).
+ * имя дня + прогресс дисциплины + монстр. За токеном (фильтр ловит `api/ingest`).
  *
  * Идемпотентно (upsert по дате/паре date+item): правка задним числом повторным POST
  * не плодит дубли. Дата ограничена окном ручного ввода [сегодня − N, сегодня] по MSK
@@ -30,9 +30,15 @@ class DailyIngestResource(
     data class DailyIngestRequest(
         val date: LocalDate? = null,
         val title: String? = null,
-        /** Прогресс пунктов: `{itemKey: count}`. Пункт `monster` ведётся вкусом. */
+        /** Прогресс пунктов: `{itemKey: count}`. Пункт `monster` ведётся своим полем. */
         val items: Map<String, Int> = emptyMap(),
-        /** Ключ вкуса монстра; `null`/нет = «не пил». */
+        /**
+         * Монстр: любое непустое значение = «пил», `null`/пусто/нет = «не пил».
+         *
+         * Имя поля — **проводное, а не смысловое**: шорткат на телефоне шлёт сюда название
+         * вкуса, и переименование поля сломало бы его на ровном месте. Само значение больше
+         * ни на что не влияет — вкусы сняты (§5.6).
+         */
         val monsterFlavorKey: String? = null,
     )
 
@@ -59,7 +65,7 @@ class DailyIngestResource(
             date = date,
             title = req.title,
             items = req.items,
-            monsterFlavorKey = req.monsterFlavorKey,
+            monster = req.monsterFlavorKey,
         )
 
         return Response.ok(mapOf("date" to date.toString())).build()

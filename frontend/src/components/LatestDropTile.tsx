@@ -13,7 +13,7 @@ import {
 import { getDrop, getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import { GAP, buildMosaic, dropCardWidth, mosaicWidth, type Cell } from "@/lib/mosaic";
-import { SWIPE_NOTCH, stepFrameIndex, wheelStep } from "@/lib/dropRoll";
+import { SWIPE_NOTCH, frameWheelStep, stepFrameIndex } from "@/lib/dropRoll";
 import { pluralRu } from "@/lib/rideFormat";
 import { pickSeeded } from "@/lib/sample";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
@@ -172,7 +172,7 @@ export function LatestDropTile({
    * Кадр, на котором стоит открытая плёнка. Плитка переходит на него **локально** — в памяти
    * вкладки, без записи куда-либо: перезагрузка вернёт обычную случайную выборку. Смысл в
    * проявке (DESIGN §7.5): возврат обязан сесть в тот кадр, из которого выходишь, иначе
-   * вертикальный снимок растягивается по горизонтальной карточке (замечание владельца).
+   * вертикальный снимок растягивается по горизонтальной карточке.
    */
   const [wantedFrame, setWantedFrame] = useState<FilmPhotoView | null>(null);
   /**
@@ -193,7 +193,7 @@ export function LatestDropTile({
   // Случайная выборка — новая на каждую загрузку страницы, но ОДНА на загрузку: зерно берётся
   // при монтировании, а выбор из него детерминирован (`lib/sample.ts`). Плитка рендерится
   // дважды — копией из кэша и ответом сети с теми же кадрами, — и без зерна кадр на глазах
-  // менялся дважды (замечание владельца на волне 03).
+  // менялся дважды.
   const [seed] = useState(() => Math.random());
   const sampleSize = edition === "sheet" ? SHEET_FRAMES : edition === "frame" ? 1 : MOSAIC_FRAMES;
   const sample = useMemo(() => pickSeeded(data?.photos ?? [], sampleSize, seed), [data?.photos, sampleSize, seed]);
@@ -267,7 +267,7 @@ export function LatestDropTile({
   const wanted = edition === "frame" ? (wantedFrame ?? sample[0] ?? null) : null;
   // Карточка-кадр появляется только вместе со снимком. До его прихода стекло не рисуется
   // вовсе: при быстрой перезагрузке пустая карточка без ширины вставала узкой вертикальной
-  // полоской и через мгновение заполнялась кадром (замечание владельца) — лучше пауза без
+  // полоской и через мгновение заполнялась кадром — лучше пауза без
   // виджета, чем виджет без содержимого. Снимок предзагружается отдельным `Image`, и лишь
   // после `load` он встаёт на карточку: на первом показе — вместе с ней, на свайпе — вместо
   // предыдущего кадра, который всё это время остаётся на экране.
@@ -286,7 +286,7 @@ export function LatestDropTile({
   const frame = edition === "frame" ? shownFrame : null;
 
   /**
-   * Свайп по самой карточке листает плёнку дропа (решение владельца): влево — следующий кадр,
+   * Свайп по самой карточке листает плёнку дропа: влево — следующий кадр,
    * вправо — предыдущий, за краями шага нет ([stepFrameIndex]). Считаем от ЗАКАЗАННОГО кадра,
    * а не от стоящего на экране: пока новый снимок декодируется, второй жест иначе повторял бы
    * первый (тот же урок, что у ленты архива с её щелчками колеса).
@@ -307,7 +307,7 @@ export function LatestDropTile({
   // Перетаскивание (палец и мышь — одни и те же pointer-события). **Один жест стоит ровно
   // один кадр**, какой бы длины он ни был: накопитель плёнки в галерее (`swipeStep`, где
   // длинное движение стоит нескольких кадров) здесь не годится — плитка показывает ОДИН
-  // снимок, и длинный свайп доматывал её до края дропа рывком (замечание владельца).
+  // снимок, и длинный свайп доматывал её до края дропа рывком.
   // Порог тот же, что у плёнки (`SWIPE_NOTCH`), считается от начала жеста, а не от прошлого
   // события: рука ведёт непрерывно, и шаг обязан зависеть от пройденного пути, а не от того,
   // насколько часто браузер прислал `pointermove`.
@@ -333,51 +333,54 @@ export function LatestDropTile({
 
   // Трекпад: горизонтальный жест двумя пальцами приезжает колесом, а не указателем. Слушатель
   // нативный и НЕ passive — только так у него есть право отменить прокрутку страницы вбок;
-  // вертикаль не трогаем вовсе, она принадлежит странице.
+  // вертикаль не трогаем вовсе, она принадлежит странице. Сколько пути стоит кадр и как часто
+  // он может меняться — в [frameWheelStep].
   //
-  // Правило то же, что у руки: **жест стоит один кадр**. У колеса конца жеста нет, поэтому
-  // концом работает ТИШИНА ([WHEEL_GESTURE_GAP_MS]): один мах по трекпаду присылает десятки
-  // событий подряд (плюс хвост инерции), и без замка он пролистывал дроп целиком. Отдельные
-  // щелчки колеса мыши тишиной разделены заведомо, и каждый по-прежнему стоит свой кадр.
+  // ⚠️ Слушатель вешается КОЛБЭК-ССЫЛКОЙ, а не эффектом, и живёт ровно столько же, сколько сам
+  // узел. Причина та же, по которой узел не пересоздаётся на смену кадра (врез у
+  // `.drop-frame__view`): браузер ведёт трекпадный жест к цели, которая отменила прокрутку
+  // первым событием, и слушатель, снятый на полпути, уводит остаток жеста странице. Эффект
+  // сюда не годится ни в каком виде: по `frame` в зависимостях он перевешивается посреди
+  // жеста, а по «есть ли кадр» — может не запуститься вовсе, потому что показ карточки гейтит
+  // ещё и `settled`, и узел появляется в ДРУГОМ коммите, чем флипается признак.
   //
-  // ⚠️ Замок и накопитель живут в ССЫЛКЕ, а не в замыкании эффекта. Смена кадра перерисовывает
-  // плитку, эффект пересобирается — и замок, будь он переменной внутри, сбрасывался бы ровно
-  // тем событием, которое сам же и вызвал: мах снова листал всю плёнку (замечание владельца).
-  // Отсюда же ссылка на сам шаг: слушателю незачем перевешиваться ради свежего колбэка.
+  // Накопитель и время прошлого шага живут в ССЫЛКЕ: карточка перерисовывается на каждый кадр,
+  // и в замыкании они сбрасывались бы ровно тем событием, которое сами же и вызвали.
   const stepRef = useRef(stepFrame);
   stepRef.current = stepFrame;
-  const wheelRef = useRef<{ acc: number; locked: boolean; quiet: ReturnType<typeof setTimeout> | null }>({
+  const wheelRef = useRef<{ acc: number; steppedAt: number; quiet: ReturnType<typeof setTimeout> | null }>({
     acc: 0,
-    locked: false,
+    steppedAt: 0,
     quiet: null,
   });
-  useEffect(() => {
-    const el = frameCardRef.current;
-    if (!el || edition !== "frame") return;
+  const detachWheelRef = useRef<(() => void) | null>(null);
+  const mountFrameCard = useCallback((el: HTMLButtonElement | null) => {
+    frameCardRef.current = el;
+    detachWheelRef.current?.();
+    detachWheelRef.current = null;
+    if (!el) return;
     const gesture = wheelRef.current;
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      // Каждое событие отодвигает конец жеста: пока рука ведёт (и пока едет инерция), тишины нет.
+      // Тишина — конец жеста: накопленный путь недоведённого жеста не должен доставаться
+      // следующему, иначе кадр менялся бы от касания через полминуты.
       if (gesture.quiet) clearTimeout(gesture.quiet);
       gesture.quiet = setTimeout(() => {
-        gesture.locked = false;
         gesture.acc = 0;
       }, WHEEL_GESTURE_GAP_MS);
-      if (gesture.locked) return;
-      const step = wheelStep(e.deltaX, 0, e.deltaMode, gesture.acc);
+      const step = frameWheelStep(e.deltaX, e.deltaMode, gesture.acc, e.timeStamp - gesture.steppedAt);
       gesture.acc = step.acc;
       if (step.dir === 0) return;
-      gesture.locked = true;
-      gesture.acc = 0;
+      gesture.steppedAt = e.timeStamp;
       stepRef.current(step.dir);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [edition, frame]);
+    detachWheelRef.current = () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
-  // Таймер конца жеста переживает пересборку слушателя (он в ссылке), поэтому гасится он
-  // отдельно — на размонтировании, а не в уборке эффекта выше.
+  // Таймер конца жеста живёт в ссылке и слушателя переживает, поэтому гасится отдельно —
+  // на размонтировании плитки, а не вместе с узлом карточки.
   useEffect(() => {
     const gesture = wheelRef.current;
     return () => {
@@ -393,6 +396,22 @@ export function LatestDropTile({
    */
   const viewRef = useRef<HTMLSpanElement>(null);
   const shownUrl = frame?.imageUrl ?? null;
+
+  /**
+   * Какой кадр УЖЕ нарисован. Пока новый декодируется, здесь лежит предыдущий — и он же едет
+   * в подложку ([holdUrl]): отдельного «прошлого кадра» держать не нужно, им и служит
+   * последний загруженный.
+   *
+   * `complete` проверяем эффектом, потому что у кадра из кэша браузера событие загрузки
+   * успевает пройти до того, как React повесит обработчик, и подложка залипла бы навсегда.
+   */
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [paintedUrl, setPaintedUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (shownUrl && imgRef.current?.complete) setPaintedUrl(shownUrl);
+  }, [shownUrl]);
+  // Подложка нужна, только пока новый кадр не встал, и только если есть что подложить.
+  const holdUrl = shownUrl !== null && paintedUrl !== null && paintedUrl !== shownUrl ? paintedUrl : null;
   useEffect(() => {
     const el = viewRef.current;
     // `animate` нет в jsdom — в тестах эффект просто молчит, и это ровно то, что им нужно.
@@ -453,7 +472,7 @@ export function LatestDropTile({
     ? [latest.monthLabel, framesLabel(latest.photoCount)].filter(Boolean).join(" · ")
     : "";
 
-  // Карточки нет, пока СЕТЬ НЕ ОТВЕТИЛА (решение владельца, все редакции и волны): копия из
+  // Карточки нет, пока СЕТЬ НЕ ОТВЕТИЛА: копия из
   // кэша не показывается «на секунду до свежего». Ответила успехом — на экран едут свежие
   // кадры; не ответила (рейтлимит после серии F5) — копия из кэша, но и она появляется один
   // раз, а не сменяется. Редакция кадра ждёт ещё и сам снимок (см. выше).
@@ -487,7 +506,7 @@ export function LatestDropTile({
             // а не рядом с ней: так высота полосы = растушёвка + сама подпись, и длинное
             // название, перенесясь на вторую строку, углубляет её само, без замеров.
             <button
-              ref={frameCardRef}
+              ref={mountFrameCard}
               type="button"
               className="drop-frame"
               onPointerDown={onFramePointerDown}
@@ -510,11 +529,29 @@ export function LatestDropTile({
                   ⚠️ Слой НЕ пересоздаётся на смену кадра (ни `key`, ни размонтирования):
                   исчезнувший из-под курсора узел уносит с собой цель наведения, и до первого
                   движения мышью карточка перестаёт получать колесо — свайп трекпадом молча
-                  переставал работать после первого же (замечание владельца). Поэтому меняются
+                  переставал работать после первого же. Поэтому меняются
                   только атрибуты, а въезд играет Web Animations (см. эффект выше). */}
+              {/* Смена кадра меняет пропорцию карточки СРАЗУ, а снимок приезжает позже, да и слой
+                  кадра въезжает с нуля прозрачности — в этот зазор было видно стекло волны
+                  (на волне 03 — синеватым по краям). Подложка держит в нём прошлый кадр
+                  размытым: она СНАРУЖИ въезжающего слоя, поэтому сама не проявляется вместе
+                  с ним и зазор закрывает целиком. */}
+              {holdUrl && (
+                <span
+                  className="drop-frame__hold"
+                  style={{ "--drop-frame-hold": `url("${mediaUrl(holdUrl)}")` } as CSSProperties}
+                  aria-hidden
+                />
+              )}
               <span ref={viewRef} className="drop-frame__view">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={mediaUrl(frame.imageUrl)} alt="" className="drop-frame__img" />
+                <img
+                  ref={imgRef}
+                  src={mediaUrl(frame.imageUrl)}
+                  alt=""
+                  className="drop-frame__img"
+                  onLoad={() => setPaintedUrl(frame.imageUrl)}
+                />
                 {/* Полоса несёт адрес кадра переменной: под подписью лежат две РАЗМЫТЫЕ КОПИИ
                     снимка (`.drop-frame__blur`, common.css), а не backdrop-filter — у того на
                     кромках бокса выборка зажимается краем и даёт серую линию. */}

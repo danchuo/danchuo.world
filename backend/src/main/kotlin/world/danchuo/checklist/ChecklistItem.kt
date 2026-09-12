@@ -12,8 +12,8 @@ import jakarta.persistence.Table
  *
  * Пункт **не бинарный**, а с целью-количеством [target] (растяжка = 1, чтение = 2/день,
  * подкасты = 2/день). Прогресс хранится одним числом в [ChecklistEntry] (`0..target`),
- * фронт рендерит «count/target». Пункт `monster` особый: его отметка — **производная**
- * от выбора вкуса (см. [DailyIngestService]), а не ручной счётчик.
+ * фронт рендерит «count/target». Пункт `monster` особый: его отметка приезжает отдельным
+ * полем приёма (см. [DailyIngestService]), а не счётчиком в `items`.
  */
 @Entity
 @Table(name = "checklist_item")

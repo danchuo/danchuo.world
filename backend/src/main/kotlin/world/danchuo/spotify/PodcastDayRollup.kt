@@ -72,7 +72,7 @@ data class PodcastRun(
  */
 object PodcastDayRollup {
 
-    /** Минут на одну остановку пункта; согласовано с владельцем. */
+    /** Минут на одну остановку пункта — общее с чтением. */
     const val OCCURRENCE_MINUTES = 25
 
     private const val MS_PER_MINUTE = 60_000L

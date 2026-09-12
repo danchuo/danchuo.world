@@ -273,7 +273,7 @@ class ReadingServiceTest {
 
         service.absorb(shelf(seconds = 3_600, percent = 0.42), today, evening)
 
-        // Шорткат зафиксировал ноль — производная отметка его не перебивает (решение владельца).
+        // Шорткат зафиксировал ноль — производная отметка его не перебивает.
         assertEquals(0, markCount())
     }
 

@@ -6,7 +6,6 @@ import world.danchuo.checklist.ChecklistEntryRepository
 import world.danchuo.checklist.ChecklistItemRepository
 import world.danchuo.core.config.MskTime
 import world.danchuo.health.WorkoutRepository
-import world.danchuo.monster.MonsterFlavorRepository
 import world.danchuo.reading.ReadingDayRollup
 import world.danchuo.reading.ReadingService
 import world.danchuo.reading.ReadingSession
@@ -19,7 +18,7 @@ import java.time.LocalDate
 
 /**
  * Агрегатор дня (PRD §3.1, §12 M2) — собирает read-проекции [DayView]/[DaySummary] из
- * слайсов `days`/`health`/`checklist`/`monster`. Живёт в `days`: слайс владеет осью дня
+ * слайсов `days`/`health`/`checklist`. Живёт в `days`: слайс владеет осью дня
  * и эндпоинтом `/api/days`, а соседей читает через их **публичные швы** (репозитории),
  * не лазая в их БД — тот же приём, что у `checklist` в `DailyIngestService`.
  *
@@ -32,7 +31,6 @@ class DayAggregator(
     private val workouts: WorkoutRepository,
     private val checklistItems: ChecklistItemRepository,
     private val checklistEntries: ChecklistEntryRepository,
-    private val monsterFlavors: MonsterFlavorRepository,
     private val podcasts: PodcastListenService,
     private val reading: ReadingService,
     private val summaries: SummaryService,
@@ -76,7 +74,7 @@ class DayAggregator(
             val itemId = item.id!!
             // Стрик по КАЖДОЙ остановке пункта: occurrence k (1..target) закрыт днями с count ≥ k.
             // Выходные для дисциплины НЕЙТРАЛЬНЫ (все дела будничные): выходной не считается в серию
-            // и не рвёт её — стрик «перешагивает» уик-энд (согласовано с владельцем, §5.6).
+            // и не рвёт её — стрик «перешагивает» уик-энд (§5.6).
             val occurrenceStreaks = (1..item.target).map { k ->
                 StreakCalculator.streak(date, today, mskTime.genesis, isNeutral = ::isWeekend) { d ->
                     history.count(d, itemId) >= k
@@ -115,29 +113,21 @@ class DayAggregator(
             )
         }
 
-        val monster = record?.monsterFlavorId
-            ?.let { monsterFlavors.findById(it) }
-            ?.let { MonsterView(it.key, it.name, it.imageUrl, it.accentColor) }
-
-        // Отмечали ли монстра за день (см. DayView.monsterReported): `ingest/daily` пишет отметку
-        // пункта ВСЕГДА — 1 при вкусе, 0 при «не пил», — поэтому наличие строки и есть признак
-        // «шорткат отработал». Выбранный вкус засчитываем сам по себе: он без шортката не берётся,
-        // и так флаг переживёт возможную деактивацию пункта.
+        // Монстр целиком живёт отметкой своего пункта: `ingest/daily` пишет её ВСЕГДА — 1 «пил»,
+        // 0 «не пил», — поэтому наличие СТРОКИ и есть признак «шорткат за день отработал», а её
+        // отсутствие — «не отмечали». Ровно это различие и даёт третий ответ (см. DayView).
         val monsterItemId = items.firstOrNull { it.key == MONSTER_ITEM_KEY }?.id
-        fun reportedOn(d: LocalDate) = history.record(d)?.monsterFlavorId != null ||
-            (monsterItemId != null && history.hasEntry(d, monsterItemId))
+        fun drunkOn(d: LocalDate): Boolean? =
+            if (monsterItemId == null || !history.hasEntry(d, monsterItemId)) null
+            else history.count(d, monsterItemId) >= 1
 
-        val monsterReported = reportedOn(date)
-
-        // Инверсный стрик «чистоты»: день «чист», только если монстра за него ОТМЕЧАЛИ и вкус
-        // не выбран. Разделитель — `monsterReported`, а НЕ наличие записи дня: запись создаёт
-        // авто-health-ingest (12/18/24 MSK), и по «есть запись, вкуса нет» стрик прибавлял
-        // сегодняшний день ещё до того, как шорткат отработал, — то же смешение, что чинил
-        // вердикт монстра (§5.6). Неотмеченный день = «неизвестно» ⇒ разрыв, как и выпитый.
-        // В ОТЛИЧИЕ от дисциплины монстр считается КАЖДЫЙ день, включая выходные
-        // (isNeutral по умолчанию пуст).
+        // Инверсный стрик «чистоты»: день «чист», только если монстра за него ОТМЕЧАЛИ и не пил.
+        // Разделитель — отметка, а НЕ наличие записи дня: запись создаёт авто-health-ingest
+        // (12/18/24 MSK), и по ней стрик прибавлял бы сегодняшний день ещё до того, как шорткат
+        // отработал. Неотмеченный день = «неизвестно» ⇒ разрыв, как и выпитый. В ОТЛИЧИЕ от
+        // дисциплины монстр считается КАЖДЫЙ день, включая выходные (isNeutral по умолчанию пуст).
         val monsterCleanStreak = StreakCalculator.streak(date, today, mskTime.genesis) { d ->
-            reportedOn(d) && history.record(d)?.monsterFlavorId == null
+            drunkOn(d) == false
         }
 
         return DayView(
@@ -153,8 +143,7 @@ class DayAggregator(
                 WorkoutView(it.type, it.durationMinutes, it.activeEnergyKcal, it.distanceMeters)
             },
             discipline = discipline,
-            monster = monster,
-            monsterReported = monsterReported,
+            monsterDrunk = drunkOn(date),
             monsterCleanStreak = monsterCleanStreak,
         )
     }
@@ -162,22 +151,21 @@ class DayAggregator(
     /**
      * Сводки за непрерывный диапазон `[from, to]` для календаря и мини-графика. Дни без
      * записи возвращаются пустыми сводками — сетка календаря рисуется без дыр (§4).
-     * Грузим соседей пакетно (записи/отметки/вкусы — по одному запросу), без N+1 по дням.
+     * Грузим соседей пакетно (записи и отметки — по одному запросу), без N+1 по дням.
      */
     fun summaries(from: LocalDate, to: LocalDate): List<DaySummary> {
         val items = checklistItems.listActive()
         val records = days.listByDateRange(from, to).associateBy { it.date }
         val entriesByDate = checklistEntries.listByDateRange(from, to).groupBy { it.date }
-        val flavorsById = monsterFlavors.listAll().associateBy { it.id }
         val monsterItemId = items.firstOrNull { it.key == MONSTER_ITEM_KEY }?.id
 
         return generateSequence(from) { if (it < to) it.plusDays(1) else null }
             .map { date ->
                 val record = records[date]
+                // `counts` — карта только по РЕАЛЬНЫМ строкам, поэтому отсутствие ключа отличает
+                // «не отмечали» от «отмечено нулём», то есть от честного «не пил».
                 val counts = entriesByDate[date].orEmpty().associate { it.itemId to it.count }
-                val monster = record?.monsterFlavorId
-                    ?.let { flavorsById[it] }
-                    ?.let { MonsterMark(it.key, it.name, it.accentColor) }
+                val monsterDrunk = monsterItemId?.let { id -> counts[id]?.let { it >= 1 } }
 
                 DaySummary(
                     date = date,
@@ -189,12 +177,7 @@ class DayAggregator(
                     // Ключи — активных пунктов, не только отмеченных: линза должна отличать
                     // «пункт есть, не сделан» от «пункта нет».
                     disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
-                    monster = monster,
-                    // Отметка есть ⇒ шорткат за день отработал; выбранный вкус засчитываем сам
-                    // по себе (без шортката он не берётся). `counts` тут — карта только по
-                    // РЕАЛЬНЫМ строкам, поэтому containsKey отличает «отмечено нулём» от «нет».
-                    monsterReported = monster != null ||
-                        (monsterItemId != null && counts.containsKey(monsterItemId)),
+                    monsterDrunk = monsterDrunk,
                 )
             }
             .toList()
@@ -256,7 +239,7 @@ class DayAggregator(
         /** Единственный пункт с измерением: минуты в приложении «Журнал» (§5.6). */
         const val JOURNAL_ITEM_KEY = "journal"
 
-        /** Производный пункт монстра: его отметка — признак «шорткат дня отработал» (§5.6). */
+        /** Пункт монстра: его отметка — единственный носитель «пил / не пил» (§5.6). */
         const val MONSTER_ITEM_KEY = "monster"
 
         /** Производный пункт подкастов: минуты и карточки считает поллер плеера (§5.6). */
@@ -312,7 +295,7 @@ private class DayHistory(
     /**
      * Есть ли ОТМЕТКА пункта за день — в отличие от [count], которая схлопывает «отметки нет»
      * и «отмечено нулём» в один и тот же `0`. Ровно это различие и отделяет «не пил» от
-     * «шорткат за день не запускали» (см. `DayView.monsterReported`).
+     * «шорткат за день не запускали» (см. `DayView.monsterDrunk`).
      */
     fun hasEntry(date: LocalDate, itemId: Long): Boolean {
         ensure(date)

@@ -21,7 +21,7 @@ import kotlin.math.min
  */
 object ReadingDayRollup {
 
-    /** Минут на одну остановку пункта — согласовано с владельцем, общее с подкастами. */
+    /** Минут на одну остановку пункта — общее с подкастами. */
     const val OCCURRENCE_MINUTES = 25
 
     private const val SECONDS_PER_MINUTE = 60

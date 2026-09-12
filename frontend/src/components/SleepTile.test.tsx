@@ -24,7 +24,7 @@ const day = (over: Partial<DayView> = {}): DayView =>
     },
     workouts: [],
     discipline: [],
-    monster: null,
+    monsterDrunk: null,
     monsterCleanStreak: 0,
     ...over,
   }) as DayView;

@@ -7,9 +7,8 @@
 
     <!--
       Слайс days (PRD §7): ось данных — день (date = PK, LocalDate в MSK). Статы
-      здоровья nullable (null = нет данных, 0 = ноль; §5.4). monster_flavor_id —
-      плоский FK на monster_flavor (создан в 0010). Поля screen_time/reading/photo —
-      задел бэклога: схема готова, ingest M1 их не пишет.
+      здоровья nullable (null = нет данных, 0 = ноль; §5.4). monster_flavor_id снят
+      в 0720 вместе со слоем вкусов, колонки-заготовки screen_time/reading/photo — в 0730.
     -->
     <changeSet id="0030-day-record-table" author="danchuo">
         <createTable tableName="day_record">

@@ -145,10 +145,6 @@ class ArtifactDetectionService(
         )
     }
 
-    /** Находки по кадрам дропа: `photoId -> рамки`. Пусто, если ничего не найдено. */
-    fun byPhoto(photoIds: Collection<Long>): Map<Long, List<ArtifactDetection>> =
-        detections.listVisibleByPhotos(photoIds).groupBy { it.photoId }
-
     /**
      * Поставить/подвинуть рамку руками. Перезаписывает находку модели по той же паре
      * кадр-артефакт и помечает её ручной, чтобы перепрогон её не трогал.

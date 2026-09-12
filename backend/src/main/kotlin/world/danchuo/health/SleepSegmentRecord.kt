@@ -59,9 +59,6 @@ class SleepSegmentRepository : PanacheRepository<SleepSegmentRecord> {
     fun listByWakeDate(date: LocalDate): List<SleepSegmentRecord> =
         list("wakeDate", date)
 
-    fun listByWakeDateRange(from: LocalDate, to: LocalDate): List<SleepSegmentRecord> =
-        list("wakeDate >= ?1 and wakeDate <= ?2", from, to)
-
     /**
      * Полная замена кусков ночи: стираем прежние и кладём новые.
      *

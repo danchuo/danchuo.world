@@ -540,7 +540,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     // Кадр обязан ПОБЫТЬ на месте плитки хотя бы один отрисованный кадр, и только потом ехать.
     // Иначе таймлайн перехода стартует до первой отрисовки галереи, а она тяжёлая (декод
     // снимка и ленты миниатюр): пока браузер занят, время идёт, и на первом же показанном
-    // кадре анимация уже почти доиграна — галерея «открывается мгновенно» (замечание владельца).
+    // кадре анимация уже почти доиграна — галерея «открывается мгновенно».
     document.documentElement.style.setProperty("--drop-morph", "1");
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
       left: 0,
@@ -616,7 +616,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     const restoreImages = imagesPaintable();
     // Кадр доезжает до плитки за `--drop-morph-out-ms`, и там его отличие от плитки — полоса
     // блюра с подписью. Снять его ровно в этот миг значит проявить их рывком; вместо этого он
-    // ещё `--drop-morph-settle-ms` растворяется, уже неподвижный (замечание владельца).
+    // ещё `--drop-morph-settle-ms` растворяется, уже неподвижный.
     const root = document.documentElement.style;
     root.setProperty("--drop-morph", "1");
     root.setProperty("--drop-morph-out-ms", "300ms");

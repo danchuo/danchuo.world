@@ -8,7 +8,6 @@ import jakarta.inject.Inject
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.greaterThan
 import org.hamcrest.Matchers.hasItem
-import org.hamcrest.Matchers.notNullValue
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -66,12 +65,12 @@ class DaysResourceTest {
     }
 
     /** Залить день через публичные ingest-швы (как делает телефон), чтобы было что читать. */
-    private fun seedDay(date: String, title: String, steps: Int, flavorKey: String) {
+    private fun seedDay(date: String, title: String, steps: Int, monster: String) {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":$steps,"sleepMinutes":420,"sleepStages":{"rem":90,"deep":60,"light":250,"awake":20}}""")
             .post("/api/ingest/health").then().statusCode(200)
         given().auth().oauth2(token).contentType(ContentType.JSON)
-            .body("""{"date":"$date","title":"$title","items":{"reading":2,"stretch":1},"monsterFlavorKey":"$flavorKey"}""")
+            .body("""{"date":"$date","title":"$title","items":{"reading":2,"stretch":1},"monsterFlavorKey":"$monster"}""")
             .post("/api/ingest/daily").then().statusCode(200)
     }
 
@@ -97,7 +96,7 @@ class DaysResourceTest {
             .body("hasData", equalTo(true))
             .body("health.steps", equalTo(8200))
             .body("health.sleepStages.rem", equalTo(90))
-            .body("monster.name", notNullValue())
+            .body("monsterDrunk", equalTo(true))
             // дисциплина — дробями: reading закрыт 2/2
             .body("discipline.find { it.key == 'reading' }.count", equalTo(2))
             .body("discipline.find { it.key == 'reading' }.target", equalTo(2))
@@ -161,7 +160,7 @@ class DaysResourceTest {
         val beforeReport = given().get("/api/days/$today")
             .then().statusCode(200).extract().path<Int>("monsterCleanStreak")
 
-        // Интерактивный шорткат без вкуса — честное «не пил» за сегодня.
+        // Интерактивный шорткат без монстра — честное «не пил» за сегодня.
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$today","title":"чистый","items":{"stretch":1}}""")
             .post("/api/ingest/daily").then().statusCode(200)
@@ -172,7 +171,7 @@ class DaysResourceTest {
     }
 
     @Test
-    fun `monsterReported separates a clean day from a day nobody reported`() {
+    fun `an unreported day is null, not a clean false`() {
         // Только health-ingest: запись за день ЕСТЬ (hasData=true), но дисциплину и монстра
         // никто не отмечал. Это НЕ «не пил» — на борде такой день обязан быть серым.
         val healthOnly = today.minusDays(24)
@@ -183,28 +182,25 @@ class DaysResourceTest {
         given().get("/api/days/$healthOnly")
             .then().statusCode(200)
             .body("hasData", equalTo(true))
-            .body("monster", nullValue())
-            .body("monsterReported", equalTo(false))
+            .body("monsterDrunk", nullValue())
 
-        // Тот же день после интерактивного шортката без вкуса — уже честное «не пил».
+        // Тот же день после интерактивного шортката без монстра — уже честное «не пил».
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$healthOnly","title":"чистый","items":{"stretch":1}}""")
             .post("/api/ingest/daily").then().statusCode(200)
 
         given().get("/api/days/$healthOnly")
             .then().statusCode(200)
-            .body("monster", nullValue())
-            .body("monsterReported", equalTo(true))
+            .body("monsterDrunk", equalTo(false))
     }
 
     @Test
-    fun `monsterReported is true when a flavor is set`() {
+    fun `monsterDrunk is true when the shortcut sent a monster`() {
         val date = today.minusDays(25)
         seedDay("$date", "выпил", 6000, "mango-loco")
         given().get("/api/days/$date")
             .then().statusCode(200)
-            .body("monster.name", notNullValue())
-            .body("monsterReported", equalTo(true))
+            .body("monsterDrunk", equalTo(true))
     }
 
     @Test
@@ -214,9 +210,8 @@ class DaysResourceTest {
             .body("hasData", equalTo(false))
             .body("title", nullValue())
             .body("health.steps", nullValue())
-            .body("monster", nullValue())
             // пустого дня никто не отмечал — «не пил» тут утверждать нечем
-            .body("monsterReported", equalTo(false))
+            .body("monsterDrunk", nullValue())
             // каркас дисциплины присутствует с прогрессом 0
             .body("discipline.size()", greaterThan(0))
             .body("discipline.find { it.key == 'reading' }.count", equalTo(0))
@@ -226,7 +221,7 @@ class DaysResourceTest {
     }
 
     @Test
-    fun `range returns a contiguous list of summaries with monster accent`() {
+    fun `range returns a contiguous list of summaries with the monster verdict`() {
         val seeded = today.minusDays(10)
         val empty = today.minusDays(12)
         seedDay("$seeded", "забег", 9000, "mango-loco")
@@ -235,7 +230,7 @@ class DaysResourceTest {
             .then().statusCode(200)
             .body("size()", equalTo(5)) // непрерывная сетка [from, to] включительно
             .body("find { it.date == '$seeded' }.hasData", equalTo(true))
-            .body("find { it.date == '$seeded' }.monster.accentColor", notNullValue())
+            .body("find { it.date == '$seeded' }.monsterDrunk", equalTo(true))
             // Свёртки «N из M закрыто» в сводке БОЛЬШЕ НЕТ: её единственным потребителем была
             // лента холста волны 03, и та от дробей отказалась (см. DaySummary). Линза считает
             // по disciplineCounts — это проверяет тест ниже.

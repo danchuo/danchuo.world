@@ -63,7 +63,7 @@ export interface RollMotion {
  *
  * [rateBase] — тягучесть ленты (доля оставшегося пути за кадр отрисовки). Не задана ⇒ дефолт
  * плёнки из [rollMotionStep]: у карусели архива кадр крупный и едет вертикально, и та же доля
- * читалась там слишком резвой (просьба владельца) — она передаёт свою, `CAROUSEL_MOTION_RATE`.
+ * читалась там слишком резвой — она передаёт свою, `CAROUSEL_MOTION_RATE`.
  */
 export function useRollMotion(
   ref: RefObject<HTMLElement | null>,

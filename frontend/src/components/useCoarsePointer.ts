@@ -15,13 +15,18 @@ import { useEffect, useState } from "react";
  * к планшету подключают мышь, и наоборот.
  */
 export function useCoarsePointer(): boolean {
-  const [coarse, setCoarse] = useState(() => matches());
+  // ⚠️ Первый рендер ОБЯЗАН совпасть с серверным, поэтому стартуем с «мыши» и только после
+  // монтирования спрашиваем среду. Спроси мы `matchMedia` прямо в инициализаторе — на телефоне
+  // гидратация пришла бы с `true` против серверного `false`, то есть с расхождением разметки:
+  // как раз здесь развилка меняет ДЕРЕВО, а не оформление, и React такую пару чинит сносом
+  // поддерева. Мышь безопасным дефолтом и служит.
+  const [coarse, setCoarse] = useState(false);
 
   useEffect(() => {
     const mql = window.matchMedia?.(QUERY);
     if (!mql) return;
     const sync = () => setCoarse(mql.matches);
-    sync(); // между первым рендером и эффектом среда могла измениться
+    sync(); // первое честное значение — сразу после монтирования, до первого кадра пользователя
     mql.addEventListener?.("change", sync);
     return () => mql.removeEventListener?.("change", sync);
   }, []);
@@ -30,9 +35,3 @@ export function useCoarsePointer(): boolean {
 }
 
 const QUERY = "(hover: none), (pointer: coarse)";
-
-/** `false` на сервере и там, где `matchMedia` нет: мышь — безопасный дефолт. */
-function matches(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia?.(QUERY).matches === true;
-}

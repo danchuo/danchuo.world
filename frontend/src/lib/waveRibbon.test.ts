@@ -14,7 +14,7 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
     steps: 8340,
     sleepMinutes: 432,
     contributions: 3,
-    monster: null,
+    monsterDrunk: null,
     ...over,
   };
 }

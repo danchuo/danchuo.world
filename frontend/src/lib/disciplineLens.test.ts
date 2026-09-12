@@ -11,7 +11,7 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
     sleepMinutes: null,
     contributions: null,
     disciplineCounts: {},
-    monster: null,
+    monsterDrunk: null,
     ...over,
   };
 }
@@ -48,10 +48,10 @@ describe("линза дисциплины", () => {
   });
 
   it("линза монстра инвертирована: «да» — это чистый день", () => {
-    expect(lensMatch(day({ monsterReported: true, monster: null }), MONSTER)).toBe("yes");
+    expect(lensMatch(day({ monsterDrunk: false }), MONSTER)).toBe("yes");
     expect(
       lensMatch(
-        day({ monsterReported: true, monster: { key: "mango", name: "Mango", accentColor: null } }),
+        day({ monsterDrunk: true }),
         MONSTER,
       ),
     ).toBe("no");
@@ -59,11 +59,11 @@ describe("линза дисциплины", () => {
 
   it("монстра за день не отмечали — ответа нет, а не «не пил»", () => {
     // Запись дня есть (её создаёт health-ingest), но интерактивный шорткат не запускали.
-    expect(lensMatch(day({ hasData: true, monsterReported: false, monster: null }), MONSTER)).toBe(
+    expect(lensMatch(day({ hasData: true, monsterDrunk: null }), MONSTER)).toBe(
       "unknown",
     );
     // Старый кэш поля не несёт — молчим так же, а не объявляем день чистым.
-    expect(lensMatch(day({ hasData: true, monster: null }), MONSTER)).toBe("unknown");
+    expect(lensMatch(day({ hasData: true }), MONSTER)).toBe("unknown");
   });
 
   it("подпись линзы для ячейки: монстр — тем же вердиктом, что на карте; «нет ответа» молчит", () => {
@@ -78,9 +78,8 @@ describe("линза дисциплины", () => {
   });
 
   it("имя линзы в ярлыке — подпись остановки, и у монстра тоже", () => {
-    // Разворот «не пил монстр» был костылём под одностороннюю отметку: раз отмечался только
-    // чистый день, слово «монстр» не говорило, ЧТО именно отмечено. Теперь отмечены оба
-    // ответа и цветом, так что ярлыку остаётся называть предмет линзы, а не её полярность.
+    // Отмечены оба ответа и цветом, так что ярлыку остаётся называть предмет линзы, а не её
+    // полярность; разворот «не пил монстр» отклонён (DESIGN §5.1).
     expect(lensTitle(MONSTER)).toBe("монстр");
     expect(lensTitle(READING_1)).toBe("чтение");
   });

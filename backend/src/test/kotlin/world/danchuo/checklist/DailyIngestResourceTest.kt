@@ -6,16 +6,14 @@ import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.hamcrest.Matchers.equalTo
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import world.danchuo.days.DayRecordRepository
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * ingest/daily (PRD §5.6, §12 M1): имя дня, прогресс пунктов, монстр как производная вкуса.
+ * ingest/daily (PRD §5.6, §12 M1): имя дня, прогресс пунктов, отметка монстра.
  * Даты — относительные к «сегодня» MSK: эндпоинт принимает только окно
  * [сегодня − N, сегодня] (danchuo.checklist.ingest-window-days), фикс-даты бы протухли.
  */
@@ -50,7 +48,7 @@ class DailyIngestResourceTest {
     }
 
     @Test
-    fun `stores title, discipline progress and derives monster from flavor`() {
+    fun `stores title, discipline progress and the monster mark`() {
         val date = today.minusDays(1)
         val body = """
             {"date":"$date","title":"первый забег",
@@ -65,14 +63,12 @@ class DailyIngestResourceTest {
         }
 
         QuarkusTransaction.requiringNew().call {
-            val day = dayRecordRepository.findByDate(date)!!
-            assertEquals("первый забег", day.title)
-            assertNotNull(day.monsterFlavorId)
+            assertEquals("первый забег", dayRecordRepository.findByDate(date)!!.title)
         }
         assertEquals(1, countFor(date, "stretch"))
         assertEquals(2, countFor(date, "reading"))
         assertEquals(1, countFor(date, "podcasts"))
-        // монстр — производная от вкуса: вкус выбран ⇒ пункт = 1
+        // монстр прислан непустым ⇒ пункт = 1
         assertEquals(1, countFor(date, "monster"))
     }
 
@@ -88,16 +84,14 @@ class DailyIngestResourceTest {
     }
 
     @Test
-    fun `no flavor means not drunk - monster item is zero`() {
+    fun `no monster field means not drunk - the item is marked zero, not left absent`() {
         val date = today.minusDays(3)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","items":{"stretch":1}}""")
             .post("/api/ingest/daily")
             .then().statusCode(200)
 
-        QuarkusTransaction.requiringNew().call {
-            assertNull(dayRecordRepository.findByDate(date)!!.monsterFlavorId)
-        }
+        // Именно 0, а не отсутствие строки: отметка и есть признак «шорткат за день отработал».
         assertEquals(0, countFor(date, "monster"))
     }
 
@@ -110,11 +104,27 @@ class DailyIngestResourceTest {
     }
 
     @Test
-    fun `unknown monster flavor key is 422`() {
+    fun `any non-empty monster value counts as drunk - the name is not validated`() {
+        // Шорткат на телефоне до сих пор шлёт название вкуса и остаётся рабочим: справочника
+        // вкусов больше нет, значение ни с чем не сверяется, важна только непустота.
+        val date = today.minusDays(4)
         given().auth().oauth2(token).contentType(ContentType.JSON)
-            .body("""{"date":"$today","monsterFlavorKey":"nope"}""")
+            .body("""{"date":"$date","monsterFlavorKey":"какой-то-снятый-вкус"}""")
             .post("/api/ingest/daily")
-            .then().statusCode(422)
+            .then().statusCode(200)
+
+        assertEquals(1, countFor(date, "monster"))
+    }
+
+    @Test
+    fun `blank monster value is not drunk`() {
+        val date = today.minusDays(5)
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","monsterFlavorKey":"  "}""")
+            .post("/api/ingest/daily")
+            .then().statusCode(200)
+
+        assertEquals(0, countFor(date, "monster"))
     }
 
     @Test

@@ -298,7 +298,7 @@ describe("RidesModal · случайный путь", () => {
 
   it("отказ на одной поездке не гасит кнопку на соседней", async () => {
     // Поездка, вернувшаяся на ту же станцию, пути не даёт — но это её свойство, а не окна.
-    // Прежде отказ висел на всём окне, и кнопка пропадала до перезахода (замечание владельца).
+    // Прежде отказ висел на всём окне, и кнопка пропадала до перезахода.
     getRandomPaths.mockResolvedValueOnce([]);
     const other = base({ id: 2, rideDate: "2026-07-10", startLat: 55.7, startLon: 37.5, finishLat: 55.71, finishLon: 37.52 });
     render(<RidesModal rides={[ride, other]} today="2026-07-12" edition="map" onClose={() => {}} />);

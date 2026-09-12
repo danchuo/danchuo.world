@@ -198,20 +198,47 @@ describe("RideMap — жесты", () => {
 });
 
 /**
- * Подложка — свойство ВОЛНЫ (DESIGN §7.6). Волна 03 берёт тёмный стиль: серую растровую канву
- * приходилось досаживать фильтром, и карта выходила не тёмной, а затемнённой.
+ * Подложка — ОДНА на все волны и светлая (DESIGN §7.6): на светлой бумаге дороги и подписи
+ * видно без всматривания, какой бы ни была волна вокруг карты. Тёмный стиль под тёмную волну
+ * пройден и снят — он забирал внимание себе.
  */
-describe("RideMap — подложка волны", () => {
-  it("волна без своей подложки берёт светлый дефолт", async () => {
-    render(<RideMap {...coords} />);
+describe("RideMap — подложка", () => {
+  it("подложка светлая и не зависит от волны", async () => {
+    const { rerender } = render(<RideMap {...coords} />);
     await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
     expect((mapOptions.mock.calls[0][0] as { style: string }).style).toContain("colorful");
+
+    rerender(<RideMap {...coords} wave="wave-03" />);
+    await vi.waitFor(() => expect(mapOptions).toHaveBeenCalledTimes(2));
+    expect((mapOptions.mock.calls[1][0] as { style: string }).style).toContain("colorful");
+  });
+});
+
+/**
+ * Кнопка «вернуть кадр» под зумером: карту в окне водят руками, и вернуться к самой поездке
+ * должно быть одним жестом. В плитке карта статична — там нет ни зумера, ни возврата.
+ */
+describe("RideMap — возврат кадра", () => {
+  it("в окне контролов два (зумер и возврат), в плитке — ни одного", async () => {
+    const { unmount } = render(<RideMap {...coords} interactivePins />);
+    await vi.waitFor(() => expect(addControl).toHaveBeenCalledTimes(2));
+    unmount();
+
+    addControl.mockClear();
+    render(<RideMap {...coords} />);
+    await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
+    expect(addControl).not.toHaveBeenCalled();
   });
 
-  it("волна 03 берёт тёмный стиль", async () => {
-    render(<RideMap {...coords} wave="wave-03" />);
-    await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
-    expect((mapOptions.mock.calls[0][0] as { style: string }).style).toContain("eclipse");
+  it("нажатие возвращает карту к кадру поездки — полётом, а не прыжком", async () => {
+    render(<RideMap {...coords} interactivePins />);
+    await vi.waitFor(() => expect(addControl).toHaveBeenCalledTimes(2));
+    const control = addControl.mock.calls[1][0] as { onAdd: () => HTMLElement };
+    const node = control.onAdd();
+    fitBounds.mockClear();
+    node.querySelector("button")!.click();
+    expect(fitBounds).toHaveBeenCalledTimes(1);
+    expect((fitBounds.mock.calls[0][1] as { duration: number }).duration).toBeGreaterThan(0);
   });
 });
 

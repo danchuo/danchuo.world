@@ -1,23 +1,14 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RandomPathView, RideMonthSummaryView, RideView } from "@/lib/api/types";
+import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
 
 // Сводку месяца модалка тянет с бэка (`getRideMonthSummary`) — мокаем клиент. По умолчанию
 // «пусто» (rides 0 ⇒ строки нет); отдельные тесты переопределяют resolved-значение.
 const getRideMonthSummary = vi.fn<() => Promise<RideMonthSummaryView>>(() =>
   Promise.resolve({ month: "2026-07", rides: 0, durationSeconds: 0, spentKopecks: 0 }),
 );
-// Пачка придуманных путей (кнопка «нарисовать случайный путь») — тоже с бэка. По умолчанию
-// роутер настроен и отдаёт два непохожих пути; отдельные тесты переопределяют.
-const getRandomPaths = vi.fn<() => Promise<RandomPathView[]>>(() =>
-  Promise.resolve([
-    { points: [[55.76, 37.63], [55.759, 37.61]], distanceMeters: 4100, optimumMeters: 3400, overPercent: 21 },
-    { points: [[55.76, 37.63], [55.755, 37.60]], distanceMeters: 3800, optimumMeters: 3400, overPercent: 12 },
-  ]),
-);
 vi.mock("@/lib/api/client", () => ({
   getRideMonthSummary: () => getRideMonthSummary(),
-  getRandomPaths: () => getRandomPaths(),
 }));
 
 // RideMap тянет Leaflet динамически (client-only, не работает в jsdom) — мок-заглушка отдаёт
@@ -29,7 +20,6 @@ vi.mock("./RideMap", () => ({
     interactivePins?: boolean;
     startLabel?: string | null;
     finishLabel?: string | null;
-    path?: [number, number][] | null;
   }) => (
     <div
       data-testid="ride-map"
@@ -38,7 +28,6 @@ vi.mock("./RideMap", () => ({
       data-interactive={String(!!props.interactivePins)}
       data-start-label={props.startLabel ?? ""}
       data-finish-label={props.finishLabel ?? ""}
-      data-path={props.path ? String(props.path.length) : ""}
     />
   ),
 }));
@@ -142,7 +131,12 @@ describe("RidesModal — карта выбранной поездки", () => {
     ];
     render(<RidesModal rides={outside} today="2026-07-13" onClose={() => {}} />);
 
-    expect(screen.getByText("вне станции → ст. м. Молодёжная (выход № 2)")).toBeInTheDocument();
+    // Стрелка между станциями — свой узел (она тише имён), поэтому сверяем строку целиком.
+    expect(
+      screen.getByText(
+        (_, el) => el?.textContent === "вне станции → ст. м. Молодёжная (выход № 2)" && el.tagName === "DIV",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("ride-map")).toHaveAttribute("data-start-label", "вне станции");
   });
 
@@ -243,94 +237,58 @@ describe("RidesModal — редакция `map` (разворот)", () => {
 });
 
 /**
- * Кнопка «нарисовать случайный путь» (PRD §9 B4). Путь придуманный и одноразовый: нажатие
- * показывает следующий из пачки, «к дуге» возвращает исходное состояние, а неработающий роутер
- * убирает кнопку совсем — нерабочая кнопка хуже отсутствующей.
+ * Разворот разводит два ответа: «сколько» — шапкой над картой, «когда и откуда куда» — строками
+ * списка. Пока цифры стояли и там, и там, список читался таблицей одинаково громких строк.
+ * В колоночной раскладке (волны 01/02) шапки с данными нет, и цифры остаются в строке.
  */
-describe("RidesModal · случайный путь", () => {
-  afterEach(() => {
-    getRandomPaths.mockClear();
+describe("RidesModal — данные выбранной поездки в шапке разворота", () => {
+  const withCost = [
+    base({ id: 1, rideDate: "2026-07-12", distanceMeters: 6900, durationSeconds: 2640, calories: 168 }),
+    base({ id: 2, rideDate: "2026-07-11", distanceMeters: 4200, durationSeconds: 1260, calories: 96 }),
+  ];
+
+  it("в шапке — километры, время, калории и деньги выбранной поездки, а не слово «поездки»", () => {
+    const { container } = render(
+      <RidesModal rides={withCost} today="2026-07-13" edition="map" onClose={() => {}} />,
+    );
+
+    const head = container.querySelector(".ride-modal__head")!;
+    expect(within(head as HTMLElement).getByText("6.9 км")).toBeInTheDocument();
+    expect(within(head as HTMLElement).getByText(/44 мин · 168 ккал · 52 ₽/)).toBeInTheDocument();
+    expect(screen.queryByText("поездки")).toBeNull();
   });
 
-  const ride = base({ id: 1, startLat: 55.76, startLon: 37.63, finishLat: 55.75, finishLon: 37.6 });
-
-  const open = () =>
-    render(<RidesModal rides={[ride]} today="2026-07-12" edition="map" onClose={() => {}} />);
-
-  it("до нажатия на карте дуга, а не путь", () => {
-    open();
-    expect(screen.getByTestId("ride-map").getAttribute("data-path")).toBe("");
-  });
-
-  it("нажатие рисует путь и показывает, насколько он длиннее оптимума", async () => {
-    open();
-    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
-    expect(await screen.findByText(/\+21%/)).toBeTruthy();
-    expect(screen.getByTestId("ride-map").getAttribute("data-path")).toBe("2");
-  });
-
-  it("второе нажатие берёт следующий путь из той же пачки, не дёргая бэк снова", async () => {
-    open();
-    const button = screen.getByRole("button", { name: /случайный путь/i });
-    fireEvent.click(button);
-    await screen.findByText(/\+21%/);
-    fireEvent.click(button);
-    expect(await screen.findByText(/\+12%/)).toBeTruthy();
-    expect(getRandomPaths).toHaveBeenCalledTimes(1);
-  });
-
-  it("«к дуге» убирает путь с карты", async () => {
-    open();
-    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
-    await screen.findByText(/\+21%/);
-    fireEvent.click(screen.getByRole("button", { name: "к дуге" }));
-    expect(screen.getByTestId("ride-map").getAttribute("data-path")).toBe("");
-  });
-
-  it("роутер молчит — на месте кнопки тихая строка, а не пустота", async () => {
-    getRandomPaths.mockResolvedValueOnce([]);
-    open();
-    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
-    expect(await screen.findByText("путь не проложился")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /случайный путь/i })).toBeNull();
-    expect(screen.getByTestId("ride-map")).toBeTruthy();
-  });
-
-  it("отказ на одной поездке не гасит кнопку на соседней", async () => {
-    // Поездка, вернувшаяся на ту же станцию, пути не даёт — но это её свойство, а не окна.
-    // Прежде отказ висел на всём окне, и кнопка пропадала до перезахода.
-    getRandomPaths.mockResolvedValueOnce([]);
-    const other = base({ id: 2, rideDate: "2026-07-10", startLat: 55.7, startLon: 37.5, finishLat: 55.71, finishLon: 37.52 });
-    render(<RidesModal rides={[ride, other]} today="2026-07-12" edition="map" onClose={() => {}} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
-    await screen.findByText("путь не проложился");
+  it("выбрали другую поездку — шапка пересчиталась", () => {
+    const { container } = render(
+      <RidesModal rides={withCost} today="2026-07-13" edition="map" onClose={() => {}} />,
+    );
 
     fireEvent.click(within(screen.getAllByRole("option")[1]).getByRole("button"));
-    expect(screen.getByRole("button", { name: /случайный путь/i })).toBeTruthy();
-    expect(screen.queryByText("путь не проложился")).toBeNull();
+    const head = container.querySelector(".ride-modal__head")!;
+    expect(within(head as HTMLElement).getByText("4.2 км")).toBeInTheDocument();
   });
 
-  it("у петли показывается длина, а не «+N% к оптимуму»", async () => {
-    // Оптимума у петли нет (`optimumMeters: 0`) — сравнивать не с чем, и окно об этом молчит.
-    getRandomPaths.mockResolvedValueOnce([
-      { points: [[55.76, 37.63], [55.755, 37.62], [55.76, 37.63]], distanceMeters: 2100, optimumMeters: 0, overPercent: 0 },
-    ]);
-    open();
-    fireEvent.click(screen.getByRole("button", { name: /случайный путь/i }));
-    expect(await screen.findByText(/петля/)).toBeTruthy();
-    expect(screen.queryByText(/к оптимуму/)).toBeNull();
-  });
-
-  it("у поездки без координат кнопки нет вовсе", () => {
+  it("строки списка в развороте несут только день, дату и станции — без цифр", () => {
     render(
       <RidesModal
-        rides={[base({ id: 2, startLat: null, startLon: null, finishLat: null, finishLon: null })]}
-        today="2026-07-12"
+        rides={[base({ id: 1, rideDate: "2026-07-12", startAddress: "ул. Свежая, 1", finishAddress: "пл. Финиш, 2" })]}
+        today="2026-07-13"
         edition="map"
         onClose={() => {}}
       />,
     );
-    expect(screen.queryByRole("button", { name: /случайный путь/i })).toBeNull();
+
+    const row = screen.getByRole("option");
+    expect(within(row).getByText("2026-07-12")).toBeInTheDocument();
+    expect(within(row).getByText(/ул. Свежая, 1/)).toBeInTheDocument();
+    expect(within(row).queryByText(/ккал/)).toBeNull();
+    expect(within(row).queryByText(/мин/)).toBeNull();
+  });
+
+  it("в колоночной раскладке цифры остаются в строке, а шапка — слово «поездки»", () => {
+    render(<RidesModal rides={withCost} today="2026-07-13" onClose={() => {}} />);
+
+    expect(screen.getByText("поездки")).toBeInTheDocument();
+    expect(within(screen.getAllByRole("option")[0]).getByText(/168 ккал/)).toBeInTheDocument();
   });
 });

@@ -62,15 +62,19 @@ const DROP = {
 /** Предзагрузка кадра в jsdom: картинки не грузятся, `load` симулируем. */
 class ImageStub {
   onload: (() => void) | null = null;
-  set src(_v: string) {
+  set src(v: string) {
+    ImageStub.srcs.push(v);
     if (ImageStub.loads) queueMicrotask(() => this.onload?.());
   }
   static loads = true;
+  /** Что вообще просили у сети: по этому списку видно предзагрузку соседей. */
+  static srcs: string[] = [];
 }
 
 describe("LatestDropTile — редакции (волна выбирает через layout, DESIGN §7.5)", () => {
   beforeEach(() => {
     ImageStub.loads = true;
+    ImageStub.srcs = [];
     vi.stubGlobal("Image", ImageStub);
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -292,6 +296,29 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("2"));
+  });
+
+
+  it("edition=frame: соседние кадры тянутся заранее — свайп не ждёт сеть", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    const photos = [0, 1, 2, 3, 4].map(landscape);
+    getDropMock.mockResolvedValue(photos);
+
+    const { container } = render(<LatestDropTile edition="frame" />);
+    await screen.findByLabelText(/Открыть дроп/);
+    await waitFor(() => expect(container.querySelector(".drop-frame__img")).not.toBeNull());
+
+    // Показанный кадр — какой-то из выборки; рядом с ним обязаны быть заказаны соседи (±1, ±2),
+    // иначе каждый жест на телефоне упирается в загрузку.
+    const shown = container.querySelector(".drop-frame__img")!.getAttribute("src")!;
+    const shownIdx = photos.findIndex((p) => shown.includes(p.imageUrl));
+    const neighbours = [shownIdx - 2, shownIdx - 1, shownIdx + 1, shownIdx + 2].filter(
+      (i) => i >= 0 && i < photos.length,
+    );
+    expect(neighbours.length).toBeGreaterThan(0);
+    for (const i of neighbours) {
+      await waitFor(() => expect(ImageStub.srcs.some((s) => s.includes(photos[i].imageUrl))).toBe(true));
+    }
   });
 
   it("edition=frame: свайп НЕ пересоздаёт узлы кадра — курсор остаётся над теми же", async () => {

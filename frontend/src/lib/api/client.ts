@@ -8,7 +8,6 @@ import type {
   NowPlayingView,
   ProjectView,
   RecentTrackView,
-  RandomPathView,
   RideMonthSummaryView,
   RideStatsView,
   RideView,
@@ -132,15 +131,6 @@ export function getRideStats(init?: RequestInit): Promise<RideStatsView> {
 /** Сводка за текущий календарный месяц (`GET /api/rides/month-summary`) — шапка модалки поездок. */
 export function getRideMonthSummary(init?: RequestInit): Promise<RideMonthSummaryView> {
   return getJson<RideMonthSummaryView>(`/api/rides/month-summary`, init);
-}
-
-/**
- * Пачка придуманных путей поездки (`GET /api/rides/{id}/random-paths`, PRD §9 B4). Приходит
- * сразу несколькими, а не по одному на нажатие: правило «два подряд рядом не лежат» соблюдается
- * на бэке, где живёт алгоритм, и ни одной из сторон не нужно помнить предыдущий путь.
- */
-export function getRandomPaths(rideId: number, init?: RequestInit): Promise<RandomPathView[]> {
-  return getJson<RandomPathView[]>(`/api/rides/${rideId}/random-paths`, init);
 }
 
 /**

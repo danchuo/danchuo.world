@@ -9,8 +9,8 @@ import {
   type CSSProperties,
   type RefObject,
 } from "react";
-import { getRandomPaths, getRideMonthSummary } from "@/lib/api/client";
-import type { RandomPathView, RideMonthSummaryView, RideView } from "@/lib/api/types";
+import { getRideMonthSummary } from "@/lib/api/client";
+import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
 import { relativeDayRu } from "@/lib/relativeDay";
 import { formatDuration, formatKm, formatRideCost, formatStationAddress, pluralRu, rublesWhole } from "@/lib/rideFormat";
 import { Icon } from "./Icon";
@@ -56,6 +56,10 @@ const hasCoords = (r: RideView | undefined): r is RideView =>
  * полосой карты над списком, читалось бы шагом назад — карта обязана остаться главной.
  * Прочие редакции оставляют прежнюю колонку (карта сверху, список под ней).
  *
+ * В развороте разведены и ОТВЕТЫ: «сколько» (дистанция, время, калории, деньги выбранной
+ * поездки) стоит шапкой над картой, «когда и откуда куда» — строками списка. Слово «поездки»
+ * шапке не нужно: окно и так о них, а место лучше отдать данным.
+ *
  * Карта приезжает **проявкой** из плитки (§7.5), если её попросил скин волны: шов [useDropMorph]
  * тот же, что у галереи дропа, и о поездках он не знает — ему нужны источник (`origin`), сцена
  * и «герой». Ждём при этом первых тайлов карты (`onReady`): пустой серый прямоугольник, летящий
@@ -71,21 +75,6 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
   const [summary, setSummary] = useState<RideMonthSummaryView | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [atEnd, setAtEnd] = useState(true);
-  /**
-   * Пачка придуманных путей выбранной поездки и указатель на показанный. `-1` — на карте дуга,
-   * то есть пути ещё нет. Пачка живёт в стейте окна и умирает вместе с ним: пути одноразовые,
-   * хранить их негде и незачем (PRD §9 B4).
-   */
-  const [paths, setPaths] = useState<RandomPathView[]>([]);
-  const [pathIndex, setPathIndex] = useState(-1);
-  const [rolling, setRolling] = useState(false);
-  /**
-   * Роутер не настроен или молчит. Узнать это заранее нельзя, не потратив вызов, поэтому
-   * выясняется на первом нажатии — и тогда кнопка сменяется тихой строкой. Молча исчезнуть она
-   * не вправе: пропавший под пальцем элемент читается поломкой, а не отсутствием возможности.
-   */
-  const [pathsOff, setPathsOff] = useState(false);
-
   const selected = useMemo(
     () => rides.find((r) => r.id === selectedId) ?? rides[0],
     [rides, selectedId],
@@ -114,43 +103,8 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     if (mapReady || !hasCoords(selected)) playIn();
   }, [mapReady, selected, playIn]);
 
-  // Сменили поездку — придуманный путь прошлой к новой паре станций отношения не имеет.
-  // Вместе с пачкой сбрасывается и отказ: он про КОНКРЕТНУЮ пару станций (у поездки нулевой
-  // длины пути нет и быть не может), а висел на всём окне — одна такая поездка гасила кнопку
-  // до перезахода в окно, на всех остальных тоже.
-  useEffect(() => {
-    setPaths([]);
-    setPathIndex(-1);
-    setPathsOff(false);
-  }, [selectedId]);
-
   // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9).
   useBackToClose(true, requestClose);
-
-  /**
-   * Бросок: показать следующий путь из пачки, а когда она кончилась — попросить новую.
-   * Соседство внутри пачки разведено бэком; на стыке двух пачек это просто два независимых
-   * случайных пути — не «ещё непохожее», но и не повтор.
-   */
-  const roll = () => {
-    if (pathIndex + 1 < paths.length) {
-      setPathIndex(pathIndex + 1);
-      return;
-    }
-    if (rolling || !selected) return;
-    setRolling(true);
-    getRandomPaths(selected.id)
-      .then((batch) => {
-        if (batch.length === 0) {
-          setPathsOff(true);
-          return;
-        }
-        setPaths(batch);
-        setPathIndex(0);
-      })
-      .catch(() => setPathsOff(true))
-      .finally(() => setRolling(false));
-  };
 
   // Список докручен до конца? От этого зависит растворение нижней строки (аффорданс прокрутки,
   // common.css): пока внизу что-то есть — строка уходит под край, докрутили — маска снимается.
@@ -198,9 +152,6 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     return () => window.removeEventListener("keydown", onKey);
   }, [requestClose]);
 
-  /** Показанный сейчас придуманный путь; `undefined` — на карте дуга. */
-  const shown = pathIndex >= 0 ? paths[pathIndex] : undefined;
-
   // Карта выбранной поездки. Один и тот же узел в обеих редакциях — меняется только место,
   // куда его кладут: колонкой сверху или левой половиной разворота. Он же «герой» проявки
   // (`data-morph-hero`) и её «лицо» (`data-morph-face` — слой, который режется клипом на время
@@ -227,7 +178,6 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
           interactivePins
           startLabel={formatStationAddress(selected.startAddress)}
           finishLabel={formatStationAddress(selected.finishAddress)}
-          path={shown?.points ?? null}
           onReady={() => setMapReady(true)}
         />
       ) : (
@@ -237,55 +187,6 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
         >
           нет данных о маршруте
         </div>
-      )}
-    </div>
-  );
-
-  /**
-   * Кнопка «нарисовать **случайный** путь» под картой (PRD §9 B4). Трека у поездки нет, и путь
-   * этот выдуман — развлечение для того, кто открыл окно, а не данные. Поэтому рядом всегда
-   * висит и его цена: насколько он длиннее кратчайшего, — и возврат к дуге одним нажатием.
-   *
-   * Нет координат у поездки или роутер молчит ⇒ строки нет вовсе (кнопка, которая не работает,
-   * хуже отсутствующей).
-   */
-  const randomPathBar = hasCoords(selected) && (
-    <div className="ride-modal__roll flex shrink-0 flex-wrap items-center gap-2" style={rollRow}>
-      {pathsOff ? (
-        <span style={rollNote} role="status">
-          путь не проложился
-        </span>
-      ) : (
-        <button
-          type="button"
-          className="ride-modal__roll-btn tap-target"
-          onClick={roll}
-          disabled={rolling}
-          style={rollButton}
-        >
-          нарисовать случайный путь
-        </button>
-      )}
-      {shown && (
-        <button type="button" className="tap-target" onClick={() => setPathIndex(-1)} style={rollGhost}>
-          к дуге
-        </button>
-      )}
-      {shown && (
-        <span style={rollReadout}>
-          {formatKm(shown.distanceMeters)}
-          {shown.optimumMeters > 0 ? (
-            <>
-              {" · "}
-              <span style={{ color: "var(--accent-warm, var(--accent))" }}>+{shown.overPercent}%</span>{" "}
-              к оптимуму {formatKm(shown.optimumMeters)}
-            </>
-          ) : (
-            // Поездка вернулась на ту же станцию: кратчайшего пути между точкой и ей же нет,
-            // сравнивать не с чем — путь просто петля.
-            " · петля"
-          )}
-        </span>
       )}
     </div>
   );
@@ -308,9 +209,34 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     </div>
   );
 
+  /**
+   * Данные ВЫБРАННОЙ поездки в шапке разворота (вместо слова «поездки»): дистанция голосом
+   * заголовка, при ней моно-строкой время, калории и деньги. Шапка отвечает на «сколько», список
+   * справа — на «когда и откуда куда»; пока цифры стояли в каждой строке списка, оба ответа
+   * лежали в одном столбце, и столбец рябил (см. строй строки ниже).
+   *
+   * Только в развороте: в колоночной раскладке список — единственное место, где вообще есть
+   * данные поездки, и вынимать их оттуда некуда.
+   */
+  const headline = selected && (
+    <div className="ride-modal__headline flex min-w-0 flex-wrap items-baseline">
+      <span className="ride-modal__headline-km">{formatKm(selected.distanceMeters)}</span>
+      <span className="ride-modal__headline-meta">
+        {formatDuration(selected.durationSeconds)}
+        {selected.calories != null && selected.calories > 0 ? ` · ${selected.calories} ккал` : ""}
+        {formatRideCost(selected) ? ` · ${formatRideCost(selected)}` : ""}
+      </span>
+    </div>
+  );
+
   /* Прокручиваемый список: строка = кнопка выбора, выделенная подсвечена. В развороте ползунок
      снят, а взамен нижняя строка растворяется под краем колонки (`--fade`, common.css) — знание
-     о том, что список длиннее окна, обязано остаться, когда полосу убрали. */
+     о том, что список длиннее окна, обязано остаться, когда полосу убрали.
+
+     Строй строки в развороте: имя дня крупно, дата мелко при нём, под ними — станции. Цифры
+     поездки в строках НЕ повторяются: они стоят в шапке у карты, и показывать их ещё и здесь
+     значило бы задать один вопрос дважды — список тогда читался таблицей, где все строки
+     одинаково громкие. В колоночной раскладке цифры остаются в строке: другой шапки там нет. */
   const list = (
     <ul
       ref={listRef}
@@ -341,18 +267,45 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
                 >
                   {relativeDayRu(r.rideDate, today)}
                 </span>
-                <span style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>{r.rideDate}</span>
+                <span
+                  style={{
+                    ...mono,
+                    color: "var(--text-tertiary)",
+                    fontSize: spread ? "var(--fs-modal-small)" : "var(--fs-modal-meta)",
+                  }}
+                >
+                  {r.rideDate}
+                </span>
               </div>
-              <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>
-                {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
-                {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
-                {cost ? ` · ${cost}` : ""}
-              </div>
-              {(r.startAddress || r.finishAddress) && (
-                <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-modal-note)" }}>
-                  {(formatStationAddress(r.startAddress) ?? "?") + " → " + (formatStationAddress(r.finishAddress) ?? "?")}
+              {!spread && (
+                <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>
+                  {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
+                  {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
+                  {cost ? ` · ${cost}` : ""}
                 </div>
               )}
+              {(r.startAddress || r.finishAddress) &&
+                (spread ? (
+                  /* Две станции — ДВЕ строки, каждая в одну линию с многоточием. Одной строкой
+                     длинная пара переносилась по-своему у каждой поездки, и список шёл рваными
+                     блоками разной высоты: искать в нём глазами было нечего. Строки ровные —
+                     список читается столбцом, а не кладкой. */
+                  <div className="ride-modal__stations">
+                    <span className="ride-modal__station">{formatStationAddress(r.startAddress) ?? "?"}</span>
+                    <span className="ride-modal__station">
+                      <span className="ride-modal__arrow" aria-hidden>
+                        →{" "}
+                      </span>
+                      {formatStationAddress(r.finishAddress) ?? "?"}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-modal-note)" }}>
+                    {(formatStationAddress(r.startAddress) ?? "?") +
+                      " → " +
+                      (formatStationAddress(r.finishAddress) ?? "?")}
+                  </div>
+                ))}
             </button>
           </li>
         );
@@ -383,8 +336,12 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
             панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
         <span className="pixel-slab" aria-hidden />
         <span className="pixel-lid" aria-hidden />
-        <div className="ride-modal__head mb-3 flex shrink-0 items-center justify-between">
-          <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>поездки</span>
+        <div className="ride-modal__head mb-3 flex shrink-0 items-center justify-between gap-3">
+          {spread && headline ? (
+            headline
+          ) : (
+            <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>поездки</span>
+          )}
           <button
             ref={closeRef}
             type="button"
@@ -406,10 +363,7 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
             <div className="ride-modal__body flex min-h-0 flex-1">
               {/* Карта и кнопка — одна колонка: кнопка действует на карту и обязана стоять
                   при ней, а не уезжать под список. */}
-              <div className="ride-modal__mapcol flex min-h-0 flex-col">
-                {map}
-                {randomPathBar}
-              </div>
+              <div className="ride-modal__mapcol flex min-h-0 flex-col">{map}</div>
               {list}
             </div>
             {summaryLine}
@@ -417,7 +371,6 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
         ) : (
           <>
             {map}
-            {randomPathBar}
             {summaryLine}
             {list}
           </>
@@ -439,45 +392,6 @@ function SummaryStat({ value, unit }: { value: number; unit: string }) {
 
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
-/* Строка броска под картой. Размеры и цвета — только токенами: волна одевает её вместе
-   со всем окном, своей палитры у неё нет (DESIGN §10). */
-const rollRow = { marginTop: 8 } satisfies CSSProperties;
-
-const rollButton = {
-  ...mono,
-  fontSize: "var(--fs-modal-meta)",
-  color: "var(--accent)",
-  background: "var(--bg-surface-muted)",
-  border: "1px solid var(--border-tile)",
-  borderRadius: "var(--radius-sm)",
-  padding: "6px 12px",
-  cursor: "pointer",
-} satisfies CSSProperties;
-
-const rollGhost = {
-  ...mono,
-  fontSize: "var(--fs-modal-small)",
-  color: "var(--text-tertiary)",
-  background: "none",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
-  padding: "6px 10px",
-  cursor: "pointer",
-} satisfies CSSProperties;
-
-/* Замена кнопке, когда роутер не ответил: та же строка, тот же кегль — меняется смысл, не вёрстка. */
-const rollNote = {
-  ...mono,
-  fontSize: "var(--fs-modal-small)",
-  color: "var(--text-tertiary)",
-} satisfies CSSProperties;
-
-const rollReadout = {
-  ...mono,
-  fontSize: "var(--fs-modal-small)",
-  color: "var(--text-tertiary)",
-  marginLeft: "auto",
-} satisfies CSSProperties;
 const monoTertiary = {
   fontFamily: "var(--font-mono)",
   fontSize: "var(--fs-modal-meta)",

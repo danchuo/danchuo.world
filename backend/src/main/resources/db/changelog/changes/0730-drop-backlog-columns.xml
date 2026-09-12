@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Колонки-заготовки дня (PRD §9). Заведены были «на будущее» и год простояли пустыми:
+      экранное время Apple программно недоступно, фото дня не делали, а прогресс чтения
+      давно считает слайс reading — посессионно и в процентах, то есть точнее и в другом
+      месте. Ничего не переносим: писать в них было нечему. Понадобятся — заведём вместе
+      с каналом, который в них пишет.
+    -->
+    <changeSet id="0730-day-record-drop-backlog-columns" author="danchuo">
+        <dropColumn tableName="day_record" columnName="screen_time_minutes"/>
+        <dropColumn tableName="day_record" columnName="reading_progress_percent"/>
+        <dropColumn tableName="day_record" columnName="day_photo_url"/>
+    </changeSet>
+</databaseChangeLog>

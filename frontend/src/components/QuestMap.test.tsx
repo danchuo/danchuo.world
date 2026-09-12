@@ -39,7 +39,7 @@ describe("QuestMap", () => {
     ]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
-    // Итога дня «N/7» на карте нет (решение владельца): счёт читается самой тропой.
+    // Итога дня «N/7» на карте нет: счёт читается самой тропой.
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
@@ -287,7 +287,7 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     expect(screen.getByText("Утро")).toBeInTheDocument();
     expect(screen.getByText("шоу Утро")).toBeInTheDocument();
-    // Часов начала на карточке нет (решение владельца): она отвечает «что это было, сколько
+    // Часов начала на карточке нет: она отвечает «что это было, сколько
     // его было и какой это был кусок», а не «во сколько я включил».
     const card = screen.getAllByTestId("quest-card")[0];
     expect(card).toHaveTextContent("47 мин");
@@ -844,7 +844,7 @@ describe("QuestMap · чтение", () => {
 
     expect(screen.getByTestId("quest-book-title-1")).toHaveTextContent("Хребты безумия");
     expect(screen.getByText("35% → 42%")).toBeInTheDocument();
-    // Цифры подписаны словом — оно объясняет, что это за проценты (решение владельца).
+    // Цифры подписаны словом — оно объясняет, что это за проценты.
     expect(screen.getByText(/прочитано/)).toBeInTheDocument();
     // Часов у чтения нет ни в каком виде: единственное известное нам время — момент синка
     // полки, то есть конец захода с непредсказуемым лагом (см. `readingCard.ts`).

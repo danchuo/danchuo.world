@@ -35,8 +35,7 @@ function summary(date: string, over: Partial<DaySummary> = {}): DaySummary {
     steps: null,
     sleepMinutes: null,
     contributions: null,
-    monster: null,
-    monsterReported: false,
+    monsterDrunk: null,
     ...over,
   } as DaySummary;
 }

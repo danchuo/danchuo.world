@@ -1615,6 +1615,30 @@ body {
   display: block;
   pointer-events: none;
 }
+/* Подложка на время смены кадра: прошлый снимок, размытый. Лежит СНАРУЖИ `.drop-frame__view`,
+   поэтому не участвует в его проявлении и закрывает зазор целиком — а зазор тут двойной:
+   пропорция карточки меняется сразу, снимок декодируется позже, и слой кадра вдобавок въезжает
+   с нуля прозрачности. Без неё в этот момент просвечивало стекло волны.
+   Масштаб — потому что блюр съедает края: без него по кромке осталась бы светлая кайма. */
+.drop-frame__hold {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background-image: var(--drop-frame-hold);
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px);
+  transform: scale(1.08);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Движения тут нет, но и лишнего размытия при спокойном режиме не нужно: подложка остаётся
+     заслонкой, только честной — прошлый кадр как он есть. */
+  .drop-frame__hold {
+    filter: none;
+    transform: none;
+  }
+}
 .drop-frame__img {
   position: absolute;
   inset: 0;

@@ -72,12 +72,6 @@ class ReadingService(
     /** Суммарно прочитанные минуты за сутки — подпись пункта дисциплины. */
     fun minutesOn(date: LocalDate): Int = ReadingDayRollup.minutes(secondsOn(date))
 
-    /** Прочитанные секунды по датам диапазона — пакетное чтение календаря. */
-    fun secondsByDate(from: LocalDate, to: LocalDate): Map<LocalDate, Int> =
-        sessions.listByDateRange(from, to)
-            .groupBy { it.date }
-            .mapValues { (_, rows) -> rows.sumOf { it.readSeconds } }
-
     // ── запись ──
 
     /**

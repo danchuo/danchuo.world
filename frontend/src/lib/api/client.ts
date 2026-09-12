@@ -84,11 +84,6 @@ export function getArtifacts(init?: RequestInit): Promise<ArtifactView[]> {
   return getJson<ArtifactView[]>(`/api/artifacts`, init);
 }
 
-/** Активная волна (`GET /api/theme/active`) — токены для инжекта в `:root`. */
-export function getActiveTheme(init?: RequestInit): Promise<ThemeView> {
-  return getJson<ThemeView>(`/api/theme/active`, init);
-}
-
 /** Выпущенные волны (`GET /api/themes`) — для переключателя. */
 export function getThemes(init?: RequestInit): Promise<ThemeView[]> {
   return getJson<ThemeView[]>(`/api/themes`, init);

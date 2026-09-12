@@ -31,9 +31,8 @@ const DAY_VIEW = {
   health: { steps: 8421, sleepMinutes: 437, sleepStages: null },
   workouts: [{ type: "Бег", durationMinutes: 32, activeEnergyKcal: 290, distanceMeters: 5200 }],
   discipline: DISCIPLINE,
-  monster: { key: "ultra", name: "Ultra Paradise", imageUrl: null, accentColor: "#6ec1e4" },
   // Монстр выпит сегодня, но «чисто» держит вчерашнюю серию (правило «сегодня не роняет», §5.6).
-  monsterReported: true,
+  monsterDrunk: true,
   monsterCleanStreak: 5,
 };
 
@@ -64,9 +63,8 @@ function summaries(from: string, to: string) {
       // (чип на нём молчит), у «сегодня» значение заведомо ненулевое — иначе эталон не
       // закреплял бы сам чип.
       contributions: has ? (iso === TODAY ? 7 : i % 4 === 0 ? 0 : 1 + ((i * 5) % 12)) : null,
-      monster: has && i % 3 === 0 ? { key: "ultra", name: "Ultra", accentColor: "#6ec1e4" } : null,
-      // Монстра отмечали в каждый день с записью (шорткат отработал), §5.6.
-      monsterReported: has,
+      // Монстра отмечали в каждый день с записью (шорткат отработал), §5.6; пил — каждый третий.
+      monsterDrunk: has ? i % 3 === 0 : null,
     });
     d.setUTCDate(d.getUTCDate() + 1);
     i++;

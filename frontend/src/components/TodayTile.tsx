@@ -93,17 +93,9 @@ export function TodayTile({
   const otherMonth = day != null && day.date.slice(0, 7) !== today.slice(0, 7);
   // Номер дня жизни — подсказкой на дате: дата остаётся датой, счёт всплывает по наведению.
   const lifeDay = day ? lifeDayLabel(day.date) : null;
-  /**
-   * Монстр тремя состояниями, а не двумя. Отмечали за день ⇒ вкус либо выбран («пил»), либо
-   * нет — и тогда это ЧЕСТНОЕ «не пил». Не отмечали ⇒ ответа нет вовсе: `null`.
-   *
-   * Разделитель — `monsterReported`, а НЕ `hasData`: запись дня создаёт health-ingest (авто
-   * 12/18/24 MSK), поэтому она есть почти всегда, тогда как вкус пишет другой, интерактивный
-   * шорткат. По `hasData` сегодняшний день с одними шагами объявлялся бы чистым — ровно то,
-   * что и было видно на борде (замечено владельцем). Признак считает бэк по наличию отметки
-   * пункта `monster` в `checklist_entry` (§5.6).
-   */
-  const monsterDrunk = day && day.monsterReported ? day.monster != null : null;
+  // Монстр тремя состояниями (§5.6): `null` — за день не отмечали, и вердикта нет вовсе.
+  // Ответ приходит готовым с бэка; `undefined` старого кэша читаем как «не отмечали».
+  const monsterDrunk = day?.monsterDrunk ?? null;
   const tileStyle = otherMonth ? { ...style, background: "var(--surface-othermonth)" } : style;
   return (
     <TileShell

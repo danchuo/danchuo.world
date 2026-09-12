@@ -55,9 +55,6 @@ class AnxShelf(private val config: ReadingConfig) {
         return resolved.takeIf { it.isRegularFile() }
     }
 
-    /** Есть ли вообще что читать: для лампы свежести и для «не сконфигурировано» на борде. */
-    fun isReadable(): Boolean = root()?.let { Files.isDirectory(it) } == true
-
     private companion object {
         const val ANX_DIR = "anx"
         const val DATA_DIR = "data"

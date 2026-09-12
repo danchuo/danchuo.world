@@ -6,8 +6,8 @@ import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 
 /**
- * Неизвестный ключ в `ingest/daily` (пункт дисциплины или вкус монстра) — ловит
- * опечатку в шортке, иначе данные молча терялись бы. [kind] = `checklist_item` | `monster_flavor`.
+ * Неизвестный ключ пункта дисциплины в `ingest/daily` — ловит опечатку в шортке,
+ * иначе данные молча терялись бы. [kind] = `checklist_item`.
  */
 class UnknownReferenceException(val kind: String, val key: String) :
     RuntimeException("unknown $kind key: $key")

@@ -17,11 +17,13 @@ import java.time.LocalDate
  * Запись наполняется несколькими слайсами через [DayRecordService] (единая точка
  * инвариантов — генезис-гард, `updatedAt`):
  * - `health` → шаги, сон и его фазы (`ingest/health`);
- * - `checklist` → имя дня + вкус монстра (`ingest/daily`).
+ * - `checklist` → имя дня (`ingest/daily`).
  *
- * `monsterFlavorId` — плоская ссылка на `monster_flavor` (FK в миграции, без
- * JPA-отношения: слайсы держим расцепленными). Поля `screenTime…/readingProgress…/
- * dayPhotoUrl` — задел бэклога (§9), схема готова, ingest M1 их не трогает.
+ * Монстра запись дня НЕ несёт: «пил / не пил» живёт отметкой пункта `monster`
+ * в `checklist_entry` (§5.6) — там же, где считается его прогресс.
+ *
+ * Колонок «на будущее» тут нет: `screen_time/reading_progress/day_photo` прожили год
+ * незаполненными и сняты (§9). Заведём, когда появится канал, который в них пишет.
  */
 @Entity
 @Table(name = "day_record")
@@ -71,20 +73,6 @@ class DayRecord {
      */
     @Column(name = "contributions")
     var contributions: Int? = null
-
-    /** Вкус монстра дня (FK → monster_flavor); `null` = «не пил». */
-    @Column(name = "monster_flavor_id")
-    var monsterFlavorId: Long? = null
-
-    // ── Задел бэклога (§9): схема есть, ingest M1 не заполняет ──
-    @Column(name = "screen_time_minutes")
-    var screenTimeMinutes: Int? = null
-
-    @Column(name = "reading_progress_percent")
-    var readingProgressPercent: Int? = null
-
-    @Column(name = "day_photo_url")
-    var dayPhotoUrl: String? = null
 
     @Column(name = "created_at", nullable = false)
     lateinit var createdAt: Instant

@@ -82,8 +82,8 @@ class PodcastPoller(
             episodeName = item.name ?: return null,
             episodeUrl = item.externalUrls?.spotify,
             showId = show?.id,
-            // Название шоу — «автор» карточки; издателя плеер не отдаёт (решение владельца:
-            // названия достаточно). Без шоу эпизод не карточка — пропускаем отсчёт целиком.
+            // Название шоу — «автор» карточки; издателя плеер не отдаёт, и названия хватает.
+            // Без шоу эпизод не карточка — пропускаем отсчёт целиком.
             showName = show?.name ?: return null,
             showUrl = show?.externalUrls?.spotify,
             imageUrl = item.images.smallestAtLeast(THUMB_MIN_PX) ?: show?.images.smallestAtLeast(THUMB_MIN_PX),

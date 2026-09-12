@@ -2,20 +2,18 @@ package world.danchuo.checklist
 
 import jakarta.enterprise.context.ApplicationScoped
 import world.danchuo.days.DayRecordService
-import world.danchuo.monster.MonsterFlavorRepository
 import java.time.LocalDate
 
 /**
- * Оркестрация `ingest/daily` (PRD §5.6): ручной слой дня в один тап — имя дня,
- * прогресс пунктов дисциплины и вкус монстра. Слайс checklist «владеет» эндпоинтом,
- * но пишет через публичные швы соседей ([DayRecordService] — имя/вкус на дне,
- * [MonsterFlavorRepository] — резолв вкуса), не лазая в их БД.
+ * Оркестрация `ingest/daily` (PRD §5.6): ручной слой дня в один тап — имя дня, прогресс
+ * пунктов дисциплины и монстр. Слайс checklist «владеет» эндпоинтом, но имя дня пишет через
+ * публичный шов соседа ([DayRecordService]), не лазая в его БД.
  *
  * Семантика — **снапшот ручного ввода за день** (шорткат шлёт всё разом):
  * - `title` отсутствует/пуст ⇒ имя дня очищается; идемпотентная правка задним числом.
- * - `monsterFlavorKey` задан ⇒ ставится вкус и пункт `monster` = 1; `null`/нет ⇒
- *   «не пил» (вкус сбрасывается, пункт `monster` = 0). Пункт монстра — **производная**
- *   от вкуса (§5.6), ручной счётчик `monster` в `items` игнорируется.
+ * - `monster` непустой ⇒ пункт `monster` = 1 («пил»), пустой/нет ⇒ 0 («не пил»). Ручной
+ *   счётчик `monster` в `items` игнорируется: у монстра свой канал, иначе один факт приезжал
+ *   бы двумя путями и они могли бы разойтись.
  * - `items` — прогресс прочих пунктов, зажимается в `0..target`, upsert по (date,item).
  *
  * Пункт `journal` штатно ставится **производно** — минутами в приложении «Журнал» (см.
@@ -28,26 +26,17 @@ class DailyIngestService(
     private val dayRecordService: DayRecordService,
     private val checklistItems: ChecklistItemRepository,
     private val checklistEntries: ChecklistEntryRepository,
-    private val monsterFlavors: MonsterFlavorRepository,
 ) {
 
     fun ingest(
         date: LocalDate,
         title: String?,
         items: Map<String, Int>,
-        monsterFlavorKey: String?,
+        monster: String?,
     ) {
-        // Вкус монстра: резолвим ключ (422 на опечатку), он же ведёт пункт monster.
-        val flavor = monsterFlavorKey
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                monsterFlavors.findByKey(it)
-                    ?: throw UnknownReferenceException("monster_flavor", it)
-            }
+        dayRecordService.applyDailyMeta(date, title)
 
-        dayRecordService.applyDailyMeta(date, title, flavor?.id)
-
-        // Прочие пункты дисциплины (monster ведём отдельно — он производная от вкуса).
+        // Прочие пункты дисциплины (monster ведём отдельно — у него свой канал).
         items.forEach { (key, count) ->
             if (key == MONSTER_ITEM_KEY) return@forEach
             val item = checklistItems.findByKey(key)
@@ -55,9 +44,12 @@ class DailyIngestService(
             checklistEntries.upsert(date, item, count)
         }
 
-        // Производный пункт monster: выбран вкус ⇒ 1, «не пил» ⇒ 0.
+        // Монстр: значение непустое ⇒ пил, пустое/нет ⇒ не пил. ЧТО именно прислали — неважно:
+        // шорткат до сих пор шлёт название вкуса, и он остаётся рабочим без правок на телефоне.
+        // Отметка пишется ВСЕГДА — её наличие и означает «шорткат за день отработал» (§5.6),
+        // а отсутствие строки читается как «не отмечали», а не как «не пил».
         checklistItems.findByKey(MONSTER_ITEM_KEY)?.let { monsterItem ->
-            checklistEntries.upsert(date, monsterItem, if (flavor != null) 1 else 0)
+            checklistEntries.upsert(date, monsterItem, if (!monster.isNullOrBlank()) 1 else 0)
         }
     }
 

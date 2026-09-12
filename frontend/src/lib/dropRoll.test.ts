@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  FRAME_STEP_COOLDOWN_MS,
+  FRAME_WHEEL_TRAVEL_PX,
   SWIPE_NOTCH,
   centerScroll,
+  frameWheelStep,
   nearestFrameIndex,
   rollMotionStep,
   startFrameIndex,
@@ -264,5 +267,63 @@ describe("centerScroll — ячейка в середине окна", () => {
 
   it("за максимум прокрутки цель не уезжает: недостижимой точки не бывает", () => {
     expect(centerScroll(900, 78, 246, 300)).toBe(300);
+  });
+});
+
+describe("frameWheelStep — шаг плитки «последний дроп» трекпадом", () => {
+  /** Провести пальцами: события по [dx] каждые [everyMs], начиная через [afterMs] после шага. */
+  function drag(dx: number, count: number, everyMs: number, afterMs: number) {
+    let acc = 0;
+    let since = afterMs;
+    let steps = 0;
+    for (let i = 0; i < count; i += 1) {
+      const d = frameWheelStep(dx, 0, acc, since);
+      acc = d.acc;
+      if (d.dir !== 0) {
+        steps += 1;
+        since = 0;
+      }
+      since += everyMs;
+    }
+    return steps;
+  }
+
+  it("непрерывный жест листает НЕ один кадр — ради этого правило и переписано", () => {
+    // Ровно жалоба: ведёшь пальцами не отрываясь, а кадр меняется единожды. Секунда
+    // уверенного движения обязана дать несколько кадров.
+    const steps = drag(20, 120, 8, FRAME_STEP_COOLDOWN_MS);
+    expect(steps).toBeGreaterThan(1);
+  });
+
+  it("шаг стоит пройденного пути, а не одного события", () => {
+    const small = frameWheelStep(FRAME_WHEEL_TRAVEL_PX - 1, 0, 0, 9999);
+    expect(small.dir).toBe(0);
+    expect(small.acc).toBe(FRAME_WHEEL_TRAVEL_PX - 1);
+    expect(frameWheelStep(1, 0, small.acc, 9999).dir).toBe(1);
+  });
+
+  it("пока шаг не остыл, путь не копится вовсе — хвост инерции не строчит кадрами", () => {
+    // Инерция после маха приходит тем же потоком событий; будь она зачтена, короткий мах
+    // пролистывал бы дроп целиком — с этого и начинался прежний замок.
+    const hot = frameWheelStep(400, 0, 0, FRAME_STEP_COOLDOWN_MS - 1);
+    expect(hot.dir).toBe(0);
+    expect(hot.acc).toBe(0);
+  });
+
+  it("направление: вправо — следующий кадр, влево — предыдущий", () => {
+    expect(frameWheelStep(FRAME_WHEEL_TRAVEL_PX, 0, 0, 9999).dir).toBe(1);
+    expect(frameWheelStep(-FRAME_WHEEL_TRAVEL_PX, 0, 0, 9999).dir).toBe(-1);
+  });
+
+  it("разворот жеста обнуляет накопленное: передумавшему досчитывать нечего", () => {
+    const half = frameWheelStep(60, 0, 0, 9999);
+    expect(half.acc).toBe(60);
+    // Пошли в другую сторону — прежние 60px не должны помогать набрать порог назад.
+    expect(frameWheelStep(-30, 0, half.acc, 9999)).toEqual({ dir: 0, acc: -30 });
+  });
+
+  it("дельта в строках (Firefox) переводится в пиксели, иначе порог недостижим", () => {
+    expect(frameWheelStep(6, 1, 0, 9999).dir).toBe(1);
+    expect(frameWheelStep(6, 0, 0, 9999).dir).toBe(0);
   });
 });

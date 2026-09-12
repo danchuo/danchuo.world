@@ -90,18 +90,13 @@ class DayRecordService(
         }
 
     /**
-     * Применить ручную мету дня (PRD §5.6): имя дня и вкус монстра (`null` = «не пил»).
+     * Применить ручную мету дня (PRD §5.6): имя дня.
      * Сбрасывает кэш проекции дня (`day-view`): `ingest/daily` всегда проходит здесь, поэтому
      * инвалидация покрывает и запись отметок дисциплины того же запроса (стрики пересчитаются).
      */
     @CacheInvalidateAll(cacheName = "day-view")
-    fun applyDailyMeta(
-        date: LocalDate,
-        title: String?,
-        monsterFlavorId: Long?,
-    ): DayRecord = upsert(date) { day ->
+    fun applyDailyMeta(date: LocalDate, title: String?): DayRecord = upsert(date) { day ->
         day.title = title?.takeIf { it.isNotBlank() }
-        day.monsterFlavorId = monsterFlavorId
     }
 
     /**

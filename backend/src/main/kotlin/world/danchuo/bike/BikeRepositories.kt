@@ -22,10 +22,6 @@ class RideRepository : PanacheRepository<Ride> {
     /** Самая свежая поездка (по времени старта) — фолбэк, когда в текущем году поездок ещё нет. */
     fun latest(): Ride? = findAll(Sort.by("startTime", Sort.Direction.Descending)).firstResult()
 
-    /** Самый большой `external_id` среди сохранённых — граница инкрементального поллинга. */
-    fun maxExternalId(): Long? =
-        find("ORDER BY externalId DESC").firstResult()?.externalId
-
     /** Уникальные адреса станций (старт+финиш, без null) — для геокодинга точек ([StationGeocoder]). */
     fun distinctAddresses(): Set<String> {
         val em = getEntityManager()

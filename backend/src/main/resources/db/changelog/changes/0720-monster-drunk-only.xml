@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Монстр — только факт «пил / не пил» (PRD §5.6). Вкусы сняты: единственный носитель
+      факта теперь checklist_entry пункта `monster`, где он и так вёлся (1 = пил, 0 = не пил,
+      строки нет = не отмечали). day_record.monster_flavor_id хранил тот же факт вторым
+      экземпляром — перед сносом переносим из него всё, чего в отметках не хватает.
+    -->
+    <changeSet id="0720-monster-entry-backfill-missing" author="danchuo">
+        <sql>
+            INSERT INTO checklist_entry (date, item_id, count)
+            SELECT d.date, i.id, 1
+            FROM day_record d
+            CROSS JOIN checklist_item i
+            WHERE i.key = 'monster'
+              AND d.monster_flavor_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM checklist_entry e
+                  WHERE e.date = d.date AND e.item_id = i.id
+              )
+        </sql>
+    </changeSet>
+
+    <!-- Расхождение двух носителей: вкус выбран, а отметка нулевая. Верен вкус — его ставил шорткат. -->
+    <changeSet id="0720-monster-entry-backfill-zero" author="danchuo">
+        <sql>
+            UPDATE checklist_entry e
+            SET count = 1
+            FROM day_record d, checklist_item i
+            WHERE e.date = d.date
+              AND e.item_id = i.id
+              AND i.key = 'monster'
+              AND d.monster_flavor_id IS NOT NULL
+              AND e.count = 0
+        </sql>
+    </changeSet>
+
+    <changeSet id="0720-day-record-drop-flavor" author="danchuo">
+        <dropForeignKeyConstraint baseTableName="day_record" constraintName="fk_day_record_monster_flavor"/>
+        <dropColumn tableName="day_record" columnName="monster_flavor_id"/>
+    </changeSet>
+
+    <changeSet id="0720-drop-monster-flavor" author="danchuo">
+        <dropTable tableName="monster_flavor"/>
+    </changeSet>
+</databaseChangeLog>

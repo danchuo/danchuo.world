@@ -214,8 +214,8 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                      миг, что открылось. Держим только фокус без прижатого указателя. */
                   onFocus={dup ? undefined : () => !marquee.isPointerDown() && setActive(idx)}
                   onClick={() => setActive((cur) => (cur === idx ? null : idx))}
-                  /* Зазор картинка↔подпись — крупнее прежних 4px: на волне 01 подпись липла
-                     к предмету и читалась его частью, а не отдельной строкой. */
+                  /* Зазор картинка↔подпись держим крупным: на тесном подпись липнет
+                     к предмету и читается его частью, а не отдельной строкой. */
                   className={`${vertical ? "my-3" : "mx-4"} inline-flex flex-col items-center gap-2 align-middle`}
                   style={{ background: "none", border: "none", cursor: "pointer" }}
                 >

@@ -22,9 +22,7 @@ function buildWindow(today: string = TODAY): DaySummary[] {
     // Растяжка сделана по чётным числам — материал для линзы.
     disciplineCounts: { stretch: Number(date.slice(8)) % 2 === 0 ? 1 : 0, reading: 2 },
     // Монстра отмечали в каждый день с записью — иначе линза молчала бы всюду.
-    monsterReported: date <= today && date !== GAP,
-    monster:
-      date === "2026-06-20" ? { key: "mango-loco", name: "Mango Loco", accentColor: "#F4A52A" } : null,
+    monsterDrunk: date <= today && date !== GAP ? false : null,
   }));
 }
 
@@ -35,7 +33,7 @@ const MONSTER_LENS = { key: "monster", occurrence: 1, label: "монстр" };
 function buildMonsterWindow(): DaySummary[] {
   return buildWindow().map((d) =>
     d.date === "2026-06-16"
-      ? { ...d, monster: { key: "mango-loco", name: "Mango Loco", accentColor: "#F4A52A" } }
+      ? { ...d, monsterDrunk: true }
       : d,
   );
 }
@@ -88,16 +86,13 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("name-mark-2026-06-18")).toBeInTheDocument();
   });
 
-  it("монстр не показывается в ячейке: ни пикселя цвета, ни строки в ховер-сводке", () => {
+  it("монстр не показывается в ячейке: ни метки, ни строки в ховер-сводке", () => {
+    // День, за который монстр ВЫПИТ, — и без линзы ячейка об этом молчит (§6).
     render(
-      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+      <Calendar days={buildMonsterWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
-    const cell = screen.getByTestId("day-2026-06-20");
-    // Ни пикселя-акцента, ни accentColor в инлайновых стилях ячейки и её детей.
-    expect(screen.queryByTestId("monster-pixel-2026-06-20")).not.toBeInTheDocument();
-    expect(cell.outerHTML).not.toContain("#F4A52A");
-    // Ховер-сводка и подпись для скринридера — без вкуса.
-    expect(cell.getAttribute("title")).not.toContain("Mango Loco");
+    const cell = screen.getByTestId("day-2026-06-16");
+    expect(screen.queryByTestId("monster-pixel-2026-06-16")).not.toBeInTheDocument();
     expect(cell.getAttribute("title")).not.toContain("монстр");
     expect(cell.getAttribute("aria-label")).not.toContain("монстр");
     // Сама сводка при этом жива.
@@ -422,8 +417,7 @@ describe("Calendar (окно целыми неделями)", () => {
     // «не читал» у любой другой линзы — именно этого сигнала на сетке и не хватало.
     const drunk = screen.getByTestId("lens-frame-2026-06-16");
     expect(drunk.getAttribute("class")).toContain("cal-lens-digit--drunk");
-    // 17-е — чист: отметки НЕТ. Зелёная рамка на чистых днях пробовалась и снята — их
-    // подавляющее большинство, и сетка заливалась зелёным сплошь (решение владельца).
+    // 17-е — чист: отметки НЕТ. Зелёная рамка на чистых днях отклонена (DESIGN §5.1).
     expect(screen.queryByTestId("lens-frame-2026-06-17")).toBeNull();
     // Дырка в записи ответа не даёт тем более.
     expect(screen.queryByTestId(`lens-frame-${GAP}`)).toBeNull();
@@ -432,7 +426,7 @@ describe("Calendar (окно целыми неделями)", () => {
   it("день без запуска шортката не считается чистым: ни отметки, ни строки «не пил»", () => {
     // Запись за день есть (её создаёт health-ingest), монстра никто не отмечал.
     const days = buildWindow().map((d) =>
-      d.date === "2026-06-17" ? { ...d, monsterReported: false } : d,
+      d.date === "2026-06-17" ? { ...d, monsterDrunk: null } : d,
     );
     render(
       <Calendar
@@ -530,7 +524,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
       sleepMinutes: null,
       contributions: null,
       disciplineCounts: { stretch: 0, reading: 0 },
-      monster: null,
+      monsterDrunk: null,
     }));
   }
 

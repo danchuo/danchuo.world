@@ -11,7 +11,7 @@ import java.time.LocalDate
  * [DayView] (фазы сна, тренировки, поэлементная дисциплина):
  * - [steps]/[sleepMinutes] — ряды мини-графика (§5.4); null ≠ 0.
  * - [title] — маркер имени дня + ховер-превью (§5.6).
- * - [monster] — акцент-цвет пиксель-метки дня в ячейке (DESIGN §6).
+ * - [monsterDrunk] — вердикт монстра за день для линзы календаря (§5.3).
  * - [disciplineCounts] — счётчик по каждому активному пункту для **линзы календаря** (§5.3).
  *
  * Пустые/будущие дни диапазона тоже попадают в ответ ([hasData] = `false`) — календарь
@@ -42,21 +42,10 @@ data class DaySummary(
      * период не существовало».
      */
     val disciplineCounts: Map<String, Int>,
-    /** Монстр дня; `null` = «не пил» ЛИБО «не отмечали» — различает [monsterReported]. */
-    val monster: MonsterMark?,
     /**
-     * Отмечали ли монстра за день (§5.6) — тот же признак, что в `DayView.monsterReported`:
-     * наличие отметки пункта `monster` в `checklist_entry` (её `ingest/daily` пишет всегда,
-     * 1 или 0). Нужен линзе календаря: без него день, за который шорткат не запускали,
-     * попадал бы в «не пил» наравне с честно чистым.
+     * Пил ли монстра за день — те же три состояния, что в `DayView.monsterDrunk`: `null` = не
+     * отмечали, `true` = пил, `false` = не пил. Третье нужно линзе календаря: без него день,
+     * за который шорткат не запускали, попадал бы в «не пил» наравне с честно чистым.
      */
-    val monsterReported: Boolean,
-)
-
-/** Метка монстра для ячейки календаря: имя для превью + акцент для пиксель-метки. */
-@RegisterForReflection
-data class MonsterMark(
-    val key: String,
-    val name: String,
-    val accentColor: String?,
+    val monsterDrunk: Boolean?,
 )

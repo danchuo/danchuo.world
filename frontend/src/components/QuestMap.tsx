@@ -11,6 +11,7 @@ import type {
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
+import { CoverPlate } from "./SpotifyMark";
 import { LISTENED_CAPTION, episodeForStop, listenedLabel, stretchLabel } from "@/lib/podcastCard";
 import { bookForStop, progressLabel, PROGRESS_CAPTION } from "@/lib/readingCard";
 import { SummaryModal } from "./SummaryModal";
@@ -537,7 +538,12 @@ function EpisodePreview({
     >
       <foreignObject x={x} y={y} width={PREVIEW_SIZE} height={PREVIEW_SIZE}>
         <div className="quest-preview__box">
-          <Cover url={episode.imageUrl} alt="" size={PREVIEW_SIZE} />
+          <Cover
+            url={episode.imageUrl}
+            alt=""
+            size={PREVIEW_SIZE}
+            fallback={<CoverPlate seed={episode.episodeUrl ?? episode.episodeName} size={PREVIEW_SIZE} />}
+          />
         </div>
       </foreignObject>
     </g>
@@ -615,7 +621,15 @@ function PodcastCard({
     >
       <foreignObject x={cx + dx - half} y={top} width={CARD_W} height={height}>
         <div className="quest-card__box" style={CARD_TYPE_SCALE}>
-          <NowPlayingCard track={trackOf(episode)} coverSize={CARD_COVER}>
+          <NowPlayingCard
+            track={trackOf(episode)}
+            coverSize={CARD_COVER}
+            /* Обложки нет или она не приехала — на её месте плашка Spotify, та же, что в
+               музыкальной плитке: эпизод приехал оттуда же, и отказ у него общий с треком.
+               Тот же `fallback` стоит у превью обложки (`EpisodePreview`) — картинка одна,
+               и показывать её отсутствие двумя разными способами нечем оправдать. */
+            coverFallback={<CoverPlate seed={episode.episodeUrl ?? episode.episodeName} size={CARD_COVER} />}
+          >
             {/* Сумма минут захода — тише куска: она отвечает «сколько всего», чтобы не
                 вычитать одно из другого в уме. Подпись стоит здесь, а не в строке ниже, по
                 прозаической причине: карточка подкаста фиксированной ширины (в отличие от

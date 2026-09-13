@@ -80,8 +80,15 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
    *
    * Гасим ПРОЗРАЧНОСТЬЮ, а не размонтированием: карте надо быть в разметке, чтобы начать
    * грузиться и было чему доехать (тот же приём, что у ленты дропов с её `.is-ready`).
+   *
+   * ⚠️ Готовность помнит ВОЛНУ, чью карту показали, а не голое «карта была»: [RideMap]
+   * пересобирается на смену волны (пины и стиль приезжают с ней), и метка от прежней волны
+   * открывала бы полосу данных над пустым местом — то самое мигание, которого нет на
+   * перезагрузке страницы.
    */
-  const [mapReady, setMapReady] = useState(false);
+  const [readyWave, setReadyWave] = useState<string | null>(null);
+  const waveKey = wave ?? "";
+  const mapReady = readyWave === waveKey;
 
   /**
    * Высота полосы данных — замером, а не числом в коде: её задаёт CSS (`--ride-band-*` плюс сам
@@ -135,7 +142,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
               finishLon={latest.finishLon!}
               wave={wave}
               padTop={bandH}
-              onReady={() => setMapReady(true)}
+              onReady={() => setReadyWave(waveKey)}
             />
           ) : (
             <span className="ride-frame__map" style={{ background: "var(--bg-surface-muted)" }} aria-hidden />

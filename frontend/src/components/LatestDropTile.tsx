@@ -336,10 +336,16 @@ export function LatestDropTile({
   // события: рука ведёт непрерывно, и шаг обязан зависеть от пройденного пути, а не от того,
   // насколько часто браузер прислал `pointermove`.
   // `moved` гасит клик после жеста — иначе свайп ещё и открывал бы галерею.
+  // ⚠️ Метка живёт ровно один жест и снимается НАЧАЛОМ следующего, а не кликом, который её
+  // прочитал: завершающий клик приходит не всегда — на тач-экране свайп им не оборачивается
+  // вовсе, на мыши его съедает нативное перетаскивание картинки, — и метка, снимаемая только
+  // в обработчике клика, доживала до следующего нажатия и глотала его. Со стороны: полистал
+  // плёнку, ткнул в кадр — ничего, открывает лишь второе нажатие.
   const dragRef = useRef<{ from: number; done: boolean } | null>(null);
   const movedRef = useRef(false);
   const onFramePointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    movedRef.current = false;
     dragRef.current = { from: e.clientX, done: false };
   };
   const onFramePointerMove = (e: PointerEvent<HTMLButtonElement>) => {
@@ -539,10 +545,7 @@ export function LatestDropTile({
               onPointerCancel={onFramePointerEnd}
               onClick={() => {
                 // Жест только что листал плёнку — значит это был свайп, а не клик по кадру.
-                if (movedRef.current) {
-                  movedRef.current = false;
-                  return;
-                }
+                if (movedRef.current) return;
                 setOpenedAt(frame.imageUrl);
                 setOpen(true);
               }}

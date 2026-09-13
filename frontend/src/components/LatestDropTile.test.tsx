@@ -353,6 +353,22 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(document.querySelector(".drop-modal__panel")).toBeNull();
   });
 
+  it("edition=frame: после свайпа СЛЕДУЮЩЕЕ нажатие открывает галерею, а не пропадает", async () => {
+    getDropsMock.mockResolvedValue([DROP]);
+    getDropMock.mockResolvedValue([landscape(0), landscape(1)]);
+
+    render(<LatestDropTile edition="frame" />);
+    const card = await screen.findByLabelText(/Открыть дроп/);
+    // Жест, который браузер НЕ завершил кликом: на тач-экране свайп кликом не оборачивается,
+    // а на мыши его съедает нативное перетаскивание картинки. Метка «это был жест» обязана
+    // умереть вместе с жестом — иначе её снимало бы следующее нажатие вместо открытия.
+    swipe(card, -70);
+    pointer(card, "pointerdown", 0);
+    pointer(card, "pointerup", 0);
+    fireEvent.click(card);
+    await waitFor(() => expect(document.querySelector(".drop-modal__panel")).not.toBeNull());
+  });
+
   it("edition=frame: кадр открывает модалку так же, как мозаика", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0)]);

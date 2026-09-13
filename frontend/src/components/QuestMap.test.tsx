@@ -294,6 +294,26 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(card).toHaveTextContent("0 → 47 мин");
   });
 
+  /**
+   * Обложка эпизода не приехала (CDN Spotify висит) — на её месте встаёт та же запасная плашка
+   * Spotify, что и в музыкальной плитке, а не глухой прямоугольник. Превью у остановки и
+   * карточка показывают отказ ОДИНАКОВО: это одна и та же обложка одного и того же эпизода.
+   */
+  it("обложка эпизода не приехала ⇒ плашка Spotify и в карточке, и в превью у остановки", () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />,
+    );
+
+    act(() => void vi.advanceTimersByTime(3_000));
+
+    const card = screen.getAllByTestId("quest-card")[0];
+    expect(card.querySelector(".cover-plate")).not.toBeNull();
+    const preview = container.querySelector('[data-testid="quest-preview-podcasts-1"]');
+    expect(preview!.querySelector(".cover-plate")).not.toBeNull();
+    vi.useRealTimers();
+  });
+
   it("кусок горит зелёным целиком — вместе с единицей", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 

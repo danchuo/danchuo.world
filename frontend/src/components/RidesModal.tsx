@@ -233,10 +233,15 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
      снят, а взамен нижняя строка растворяется под краем колонки (`--fade`, common.css) — знание
      о том, что список длиннее окна, обязано остаться, когда полосу убрали.
 
-     Строй строки в развороте: имя дня крупно, дата мелко при нём, под ними — станции. Цифры
-     поездки в строках НЕ повторяются: они стоят в шапке у карты, и показывать их ещё и здесь
-     значило бы задать один вопрос дважды — список тогда читался таблицей, где все строки
-     одинаково громкие. В колоночной раскладке цифры остаются в строке: другой шапки там нет. */
+     Строй строки в развороте: имя дня, километры при нём, дата мелко справа, под ними —
+     станции. Километры — ЕДИНСТВЕННАЯ цифра, которая повторяется из шапки: «сколько проехал»
+     — первый вопрос к чужой строке, и отвечать на него выбором строки значило бы заставить
+     перебрать весь список. Прочие цифры (время, калории, деньги) остаются только в шапке
+     у карты: со всеми сразу список читался таблицей одинаково громких строк.
+     В колоночной раскладке цифры остаются в строке целиком: другой шапки там нет.
+
+     Строка разворота мельче колоночной на треть (`--ride-row-scale`): ширина колонки отдана
+     карте, и набор прежнего кегля в ней жил бы одними многоточиями. */
   const list = (
     <ul
       ref={listRef}
@@ -258,24 +263,21 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
                 isSel ? "is-selected" : ""
               }`}
             >
-              <div className="flex items-baseline justify-between gap-2">
-                <span
-                  style={{
-                    color: isSel ? "var(--accent)" : "var(--text-primary)",
-                    fontSize: "var(--fs-modal-row)",
-                  }}
-                >
-                  {relativeDayRu(r.rideDate, today)}
+              <div className="flex min-w-0 items-baseline justify-between gap-2">
+                {/* Имя дня и километры — ОДНА группа слева: они про одну поездку и читаются
+                    подряд. Дата держится правого края строки (служебная метка стоит там, где
+                    её ищут глазами), а место между ними выбирает усечение имени — уступает
+                    именно оно, потому что оно одно тут переменной длины. */}
+                <span className="ride-modal__when flex min-w-0 items-baseline">
+                  <span
+                    className="ride-modal__day"
+                    style={{ color: isSel ? "var(--accent)" : "var(--text-primary)" }}
+                  >
+                    {relativeDayRu(r.rideDate, today)}
+                  </span>
+                  {spread && <span className="ride-modal__row-km">{formatKm(r.distanceMeters)}</span>}
                 </span>
-                <span
-                  style={{
-                    ...mono,
-                    color: "var(--text-tertiary)",
-                    fontSize: spread ? "var(--fs-modal-small)" : "var(--fs-modal-meta)",
-                  }}
-                >
-                  {r.rideDate}
-                </span>
+                <span className="ride-modal__date shrink-0">{r.rideDate}</span>
               </div>
               {!spread && (
                 <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>

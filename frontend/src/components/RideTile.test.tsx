@@ -1,10 +1,22 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RideView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getRides: vi.fn() }));
-// Leaflet-карта и модалка — заглушки (карта client-only; модалку проверяем отдельно).
-vi.mock("./RideMap", () => ({ RideMap: () => <div data-testid="ride-map" /> }));
+// Карта и модалка — заглушки (карта client-only; модалку проверяем отдельно). Заглушка карты
+// повторяет главное в её жизненном цикле: на смену волны карта ПЕРЕСОБИРАЕТСЯ (пины волны
+// приезжают в стиль), и «готова» она снова только через такт — как настоящая, ждущая тайлы.
+vi.mock("./RideMap", () => ({
+  RideMap: ({ wave, onReady }: { wave?: string | null; onReady?: () => void }) => {
+    useEffect(() => {
+      const t = setTimeout(() => onReady?.(), 0);
+      return () => clearTimeout(t);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wave]);
+    return <div data-testid="ride-map" />;
+  },
+}));
 vi.mock("./RidesModal", () => ({
   RidesModal: ({ edition, onClose }: { edition?: string; onClose: () => void }) => (
     <div data-testid="rides-modal" data-edition={edition ?? ""}>
@@ -131,5 +143,25 @@ describe("RideTile — редакция `map` (карта во всю плитк
 
     expect(await screen.findByRole("button", { name: "Предыдущие поездки" })).toBeInTheDocument();
     expect(screen.queryByText("последняя")).toBeNull();
+  });
+});
+
+/**
+ * Плитка-карта появляется ВМЕСТЕ с картой — и на перезагрузке, и на смене волны: полоса данных
+ * на прогрессивном блюре, висящая над пустым местом, читается сбоем, а не загрузкой.
+ */
+describe("RideTile — редакция `map` ждёт карту", () => {
+  it("смена волны снова гасит плитку: описание не выходит на экран раньше города", async () => {
+    getRidesMock.mockResolvedValue([base({ id: 10 })]);
+    const { container, rerender } = render(<RideTile edition="map" wave="wave-03" />);
+
+    await screen.findByRole("button", { name: "Открыть карту поездок" });
+    const tile = () => container.querySelector(".ride-card--map")!;
+    await waitFor(() => expect(tile()).toHaveClass("is-ready"));
+
+    rerender(<RideTile edition="map" wave="wave-02" />);
+    // Карта новой волны ещё не собралась — готовность прежней ей не наследуется.
+    expect(tile()).not.toHaveClass("is-ready");
+    await waitFor(() => expect(tile()).toHaveClass("is-ready"));
   });
 });

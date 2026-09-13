@@ -268,10 +268,18 @@ describe("RidesModal — данные выбранной поездки в ша�
     expect(within(head as HTMLElement).getByText("4.2 км")).toBeInTheDocument();
   });
 
-  it("строки списка в развороте несут только день, дату и станции — без цифр", () => {
+  it("в строке разворота — день, километры при нём, дата и станции; прочих цифр нет", () => {
     render(
       <RidesModal
-        rides={[base({ id: 1, rideDate: "2026-07-12", startAddress: "ул. Свежая, 1", finishAddress: "пл. Финиш, 2" })]}
+        rides={[
+          base({
+            id: 1,
+            rideDate: "2026-07-12",
+            distanceMeters: 6900,
+            startAddress: "ул. Свежая, 1",
+            finishAddress: "пл. Финиш, 2",
+          }),
+        ]}
         today="2026-07-13"
         edition="map"
         onClose={() => {}}
@@ -281,6 +289,9 @@ describe("RidesModal — данные выбранной поездки в ша�
     const row = screen.getByRole("option");
     expect(within(row).getByText("2026-07-12")).toBeInTheDocument();
     expect(within(row).getByText(/ул. Свежая, 1/)).toBeInTheDocument();
+    // Километры стоят при имени дня: до выбора строки видно, сколько за ней проехано.
+    expect(within(row).getByText("6.9 км")).toBeInTheDocument();
+    // Остальные цифры по-прежнему живут только в шапке у карты — иначе список рябит.
     expect(within(row).queryByText(/ккал/)).toBeNull();
     expect(within(row).queryByText(/мин/)).toBeNull();
   });

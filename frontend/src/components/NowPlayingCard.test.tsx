@@ -46,6 +46,22 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
     expect(onError).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * Порог ожидания — ТРИ секунды: он отвечает не на «сколько грузится картинка», а на «после
+   * чего пустое место хуже заглушки», и восемь секунд дырки в виджете успевали прочитаться
+   * поломкой.
+   */
+  it("порог ожидания — три секунды: до них ещё ждём, после них уже заглушка", () => {
+    vi.useFakeTimers();
+    const { queryByTestId } = render(<Cover url="https://i.scdn.co/a.jpg" alt="" fallback={PLATE} />);
+
+    act(() => void vi.advanceTimersByTime(2_900));
+    expect(queryByTestId("plate")).toBeNull();
+
+    act(() => void vi.advanceTimersByTime(200));
+    expect(queryByTestId("plate")).toBeInTheDocument();
+  });
+
   it("картинка успела загрузиться ⇒ ожидание снимается, заглушка не подменяет её потом", () => {
     vi.useFakeTimers();
     const onError = vi.fn();

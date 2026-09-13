@@ -23,13 +23,33 @@ const WAVE01_SPRITES: Partial<Record<string, string>> = {
 };
 
 /**
+ * Фирменные марки платформ — оригиналы, не перерисовки (`/assets/social/brand/*.svg`).
+ * Вектор, а не PNG: марка живёт и в 20px ряду, и на плитке вчетверо крупнее, а растр
+ * пришлось бы держать в нескольких размерах.
+ *
+ * Instagram и Telegram — свои цветные глифы; GitHub и X — свои же марки в БЕЛОМ: это штатный
+ * вариант обеих для тёмной подложки, а чёрные на тёмном стекле пропадают (рядом, под теми же
+ * именами с суффиксом `-black`, лежат и они — на случай светлой волны).
+ *
+ * Компонент только ПУБЛИКУЕТ адрес переменной; рисовать марку цветом или красить одноцветную
+ * маску токеном — решает скин волны (ноль хардкод-цветов, DESIGN §10.2).
+ */
+const BRAND_MARKS: Partial<Record<string, string>> = {
+  github: "/assets/social/brand/github.svg",
+  telegram: "/assets/social/brand/telegram.svg",
+  instagram: "/assets/social/brand/instagram.svg",
+  x: "/assets/social/brand/x.svg",
+};
+
+/**
  * Плитка «Соцсети» (L) — PRD §5.8. Квадратная сетка карточек-ссылок (иконка + название),
  * вместо прежней бегущей строки: все ссылки видны разом, ничего не мельтешит. Колонок
  * столько, чтобы сетка была квадратной (2×2 до 4 ссылок, 3×3 до 9, дальше 4×4). Спрайт —
  * статика фронта (`/assets/social/*.svg`), в базе красится токеном `--text-primary` через
  * CSS-маску (`.social-icon` в common.css), поэтому следует за активной волной (ноль
  * хардкод-цветов). Скин волны 01 подменяет маску цветным пиксель-спрайтом
- * (`.social-icon--sprite`, wave-01.css). Пусто ⇒ тихий empty.
+ * (`.social-icon--sprite`, wave-01.css), волна 03 — фирменной маркой платформы
+ * (`.social-icon--brand`, [BRAND_MARKS]). Пусто ⇒ тихий empty.
  */
 export function SocialTile({ style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
@@ -84,12 +104,17 @@ export function SocialTile({ style, className }: SocialTileProps) {
                   {l.icon ? (
                     <span
                       aria-hidden
-                      className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}`}
+                      className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}${
+                        BRAND_MARKS[l.platform] ? " social-icon--brand" : ""
+                      }`}
                       style={
                         {
                           "--social-mask": `url(${l.icon})`,
                           ...(WAVE01_SPRITES[l.platform]
                             ? { "--social-sprite": `url(${WAVE01_SPRITES[l.platform]})` }
+                            : {}),
+                          ...(BRAND_MARKS[l.platform]
+                            ? { "--social-brand": `url(${BRAND_MARKS[l.platform]})` }
                             : {}),
                         } as CSSProperties
                       }

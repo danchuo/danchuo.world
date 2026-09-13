@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: на борд возвращается виджет соцсетей — очередной из тех, что 0480 спрятал
+      до тех пор, пока каждый не будет одет под стекло (DESIGN §10.2).
+
+      Стоит ПОЛОСОЙ в нижней середине холста: колонки 16-24, строки 24-26. Место выбрано по
+      соседям — слева консоль проектов (5-11), справа карта велобайка (29-35), сверху лента
+      дропов; полоса ложится между ними, не притираясь ни к одному. Три строки высоты, потому
+      что содержимого ровно на одну строку марок: у плитки нет ни плиты, ни подписей, и лишняя
+      высота была бы пустотой, растягивающей ряд.
+
+      Мобильный стек получает виджет последним — ссылки это подпись борда, а не его начало.
+
+      Дельту раскладки правим ТОЧЕЧНО (`jsonb_set` по существующему ключу `tiles.social`):
+      ключ в дельте есть с 0480, промежуточных узлов создавать не нужно.
+    -->
+    <changeSet id="0750-wave-03-social" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,social}',
+  $J${"col": 16, "row": 24, "colSpan": 9, "rowSpan": 3}$J$::jsonb
+) || jsonb_build_object(
+  'mobileOrder',
+  (layout -> 'mobileOrder') || '["social"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(layout, '{tiles,social}', $J${"hidden": true}$J$::jsonb)
+  || jsonb_build_object(
+       'mobileOrder',
+       (layout -> 'mobileOrder') - 'social'
+     )
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

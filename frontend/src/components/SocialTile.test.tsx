@@ -48,6 +48,26 @@ describe("SocialTile", () => {
     ).toBe("4");
   });
 
+  /**
+   * Фирменную марку платформы компонент только ПУБЛИКУЕТ (адрес в `--social-brand` + метка
+   * `social-icon--brand`); показать её или красить одноцветную маску токеном — дело скина
+   * волны. Платформе без своей марки переменная не приезжает вовсе, иначе скин нарисовал бы
+   * пустой фон вместо значка.
+   */
+  it("публикует фирменную марку платформы переменной, а решение оставляет скину", async () => {
+    const el = await grid(["github", "telegram", "x", "instagram", "mastodon"]);
+    const icon = (p: string) => el.querySelector<HTMLElement>(`[aria-label="${p}"] .social-icon`)!;
+
+    for (const p of ["github", "telegram", "x", "instagram"]) {
+      expect(icon(p)).toHaveClass("social-icon--brand");
+      expect(icon(p).style.getPropertyValue("--social-brand")).toBe(`url(/assets/social/brand/${p}.svg)`);
+      // Одноцветная маска остаётся при ней: волна вправе выбрать её, а не марку.
+      expect(icon(p).style.getPropertyValue("--social-mask")).toBe(`url(/assets/social/${p}.svg)`);
+    }
+    expect(icon("mastodon")).not.toHaveClass("social-icon--brand");
+    expect(icon("mastodon").style.getPropertyValue("--social-brand")).toBe("");
+  });
+
   /** Одному ряду в стеке нужно САМО число ссылок — из числа колонок его не вывести. */
   it("отдаёт число ссылок переменной --social-count (ряд в мобильном стеке)", async () => {
     const el = await grid(["github", "telegram", "x", "instagram"]);

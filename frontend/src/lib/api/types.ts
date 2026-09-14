@@ -291,6 +291,21 @@ export interface InstagramPostView {
   postedAt: string;
 }
 
+/**
+ * Визитка Telegram (`GET /api/telegram/profile`, PRD §5.18). Бэкенд отвечает 204, пока визитка
+ * не забрана, — клиент превращает это в `null`.
+ *
+ * ⚠️ `avatarUrl` ведёт на НАШ бэкенд, а не на CDN Telegram: зритель борда не должен ходить за
+ * картинкой к мессенджеру. Ссылки на профиль здесь нет намеренно — она уже лежит в соцссылке,
+ * под которой всплывает карточка. `bio` — статус владельца; `null`, когда он пуст.
+ */
+export interface TelegramProfileView {
+  name: string;
+  username: string;
+  bio: string | null;
+  avatarUrl: string | null;
+}
+
 /** Артефакт marquee (`GET /api/artifacts`); `firstMentionedOn` — только в ховер-поповере (§5.8). */
 export interface ArtifactView {
   name: string;

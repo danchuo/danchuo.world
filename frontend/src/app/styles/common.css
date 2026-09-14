@@ -1324,13 +1324,20 @@ body {
 .hover-tip[data-open="true"] {
   opacity: 1;
 }
+.hover-tip--card[data-open="true"] {
+  pointer-events: auto;
+}
 
 /* Подсказка-КАРТОЧКА (превью поста соцсети, DESIGN §7.9). Обнуляет всю отделку текстовой:
    у карточки свой кант, своя подложка и свои поля — иначе она сидела бы в чужой рамке.
    ⚠️ И, в отличие от текстовой, ЛОВИТ указатель: внутри живые ссылки, до которых надо доехать
    курсором. Держит карточку открытой при этом переезде сам компонент (отсрочка `LEAVE_MS`). */
 .hover-tip--card {
-  pointer-events: auto;
+  /* Закрытая карточка — прозрачная, но она никуда не делась и стоит на своих последних
+     координатах. С `pointer-events: auto` она перехватывала бы указатель над куском борда,
+     где для глаза ничего нет: соседняя марка под ней переставала бы отзываться на наведение.
+     Указатель ловит только раскрытая. */
+  pointer-events: none;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -1348,21 +1355,31 @@ body {
    здесь нет намеренно (исключение из «ноль хардкод-цветов»: это брендовые константы
    Instagram, как и фирменные марки платформ в `assets/social/brand`). Волна решает
    только, показывать ли карточку вовсе (редакция `peek`, DESIGN §10.1).
-   Светлая тема Instagram — выбор владельца из двух его штатных. */
+   Светлая тема Instagram — выбор владельца из двух его штатных.
+
+   Размеры записаны ОРИГИНАЛЬНЫМИ числами эмбеда и умножены на `--ig-scale` — тот же приём,
+   что у визитки Telegram ниже, и та же причина: на борде карточка гость над плиткой, а не
+   страница во весь браузер. Множитель подобран так, чтобы ОБЫЧНЫЙ текст обеих реплик встал
+   на один кегль (14px эмбеда × 0.9 ≈ 16px визитки × 0.79 ≈ 12.6px): две всплывающие карточки
+   читаются рядом, и разнобой в кеглях выдавал бы их за куски разных интерфейсов быстрее,
+   чем разные палитры. Заголовок визитки при этом остаётся заголовком — равнять его не с чем,
+   у поста заголовка нет вовсе. */
 .ig-peek {
   --ig-bg: #ffffff;
   --ig-ink: #1c1e21;
   --ig-strong: #000000;
   --ig-dim: #737373;
+  /* Доля оригинала — см. врез выше: общий кегль обычного текста с визиткой Telegram. */
+  --ig-scale: 0.9;
 
-  width: 300px;
+  width: calc(300px * var(--ig-scale));
   max-width: calc(100vw - 16px);
   overflow: hidden;
   /* Отделяет карточку от борда ТЕНЬЮ, а не кантом. Волосок `#dbdbdb` эмбеда придуман для
      белой страницы, где он и есть край карточки; над тёмным бордом он читается светлой
      полосой сбоку от кадра — кадр идёт в край, и волосок оказывается рамкой вокруг него.
      Тень даёт тот же «лист поверх» и не спорит с кадром. */
-  border-radius: 6px;
+  border-radius: calc(6px * var(--ig-scale));
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.32);
   background: var(--ig-bg);
   color: var(--ig-ink);
@@ -1374,17 +1391,17 @@ body {
 .ig-peek__head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: calc(10px * var(--ig-scale));
+  padding: calc(10px * var(--ig-scale));
   color: inherit;
   text-decoration: none;
 }
 /* Кольцо сторис — фирменный градиент Instagram: аватар 30px внутри кольца 34px. */
 .ig-peek__ring {
   flex: none;
-  width: 34px;
-  height: 34px;
-  padding: 2px;
+  width: calc(34px * var(--ig-scale));
+  height: calc(34px * var(--ig-scale));
+  padding: calc(2px * var(--ig-scale));
   border-radius: 50%;
   background: conic-gradient(from 200deg, #feda77, #f58529, #dd2a7b, #8134af, #515bd4, #feda77);
 }
@@ -1393,7 +1410,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid var(--ig-bg);
+  border: calc(2px * var(--ig-scale)) solid var(--ig-bg);
   object-fit: cover;
 }
 .ig-peek__avatar--blank {
@@ -1401,9 +1418,9 @@ body {
 }
 .ig-peek__handle {
   overflow: hidden;
-  font-size: 14px;
+  font-size: calc(14px * var(--ig-scale));
   font-weight: 600;
-  line-height: 18px;
+  line-height: calc(18px * var(--ig-scale));
   color: var(--ig-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1421,14 +1438,14 @@ body {
 .ig-peek__actions {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 8px 10px;
+  gap: calc(14px * var(--ig-scale));
+  padding: calc(8px * var(--ig-scale)) calc(10px * var(--ig-scale));
   color: var(--ig-strong);
 }
 .ig-peek__actions svg {
   display: block;
-  width: 24px;
-  height: 24px;
+  width: calc(24px * var(--ig-scale));
+  height: calc(24px * var(--ig-scale));
 }
 /* Значки — настоящие органы (ссылка на пост, на комментарии, копирование ссылки), поэтому
    у кнопки снимается вся её собственная отделка: ряд обязан остаться рядом одинаковых
@@ -1450,18 +1467,18 @@ body {
 }
 .ig-peek__counts {
   margin: 0;
-  padding: 0 10px 6px;
-  font-size: 14px;
+  padding: 0 calc(10px * var(--ig-scale)) calc(6px * var(--ig-scale));
+  font-size: calc(14px * var(--ig-scale));
   font-weight: 600;
-  line-height: 18px;
+  line-height: calc(18px * var(--ig-scale));
   color: var(--ig-strong);
   font-variant-numeric: tabular-nums;
 }
 .ig-peek__caption {
   margin: 0;
-  padding: 0 10px;
-  font-size: 14px;
-  line-height: 18px;
+  padding: 0 calc(10px * var(--ig-scale));
+  font-size: calc(14px * var(--ig-scale));
+  line-height: calc(18px * var(--ig-scale));
   /* Длинная подпись обрезается тремя строками: карточка всплывает у края борда, и пост на
      пол-экрана перекрыл бы соседние плитки вместо того, чтобы их дополнять. */
   display: -webkit-box;
@@ -1476,9 +1493,9 @@ body {
 .ig-peek__comments {
   display: block;
   margin: 0;
-  padding: 6px 10px 0;
-  font-size: 14px;
-  line-height: 18px;
+  padding: calc(6px * var(--ig-scale)) calc(10px * var(--ig-scale)) 0;
+  font-size: calc(14px * var(--ig-scale));
+  line-height: calc(18px * var(--ig-scale));
   color: var(--ig-dim);
   text-decoration: none;
 }
@@ -1487,12 +1504,141 @@ body {
 }
 .ig-peek__stamp {
   margin: 0;
-  padding: 8px 10px 10px;
-  font-size: 10px;
+  padding: calc(8px * var(--ig-scale)) calc(10px * var(--ig-scale)) calc(10px * var(--ig-scale));
+  font-size: calc(10px * var(--ig-scale));
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ig-dim);
 }
+/* ── Визитка Telegram (PRD §5.18) ────────────────────────────────────────────
+   ⚠️ РЕПЛИКА чужого интерфейса, как и карточка Instagram выше: пропорции и цвета сняты с
+   `telegram.css` живой страницы `t.me/{ник}` и НЕ следуют волне. Токенов волны здесь нет
+   намеренно — это брендовые константы Telegram (DESIGN §7.9). Взята тёмная тема
+   мессенджера: её же оригинал показывает у владельца.
+
+   Все размеры записаны ОРИГИНАЛЬНЫМИ числами страницы и умножены на `--tg-scale` — одно
+   осознанное отступление от копии: в полную величину карточка спорит с плитками борда, а
+   она тут гость, а не виджет. Держать множитель отдельно от чисел обязательно: иначе
+   происхождение каждого размера теряется, и сверить реплику с источником уже нечем. */
+.tg-peek {
+  /* Тёмная тема telegram.css: --box-bg / --text-color / --second-text-color / --accent-btn-color. */
+  --tg-bg: #1e1e1e;
+  --tg-ink: #ffffff;
+  --tg-dim: #7d7f81;
+  --tg-accent: #1c93e3;
+  --tg-accent-hover: #1a8ad5;
+  /* Гость на борде, а не виджет: карточка ужата до этой доли оригинала целиком, вместе с
+     кеглями, — пропорции страницы `t.me` при этом сохраняются до единого числа. */
+  --tg-scale: 0.79;
+
+  /* Уже оригинала ДО масштаба: 360px вместо 400px при той же высоте. Единственное место,
+     где пропорция страницы `t.me` нарушена нарочно — карточка всплывает над рядом марок,
+     идущим поперёк борда, и вытянутая по вертикали она с этим рядом не спорит, а стоит
+     поперёк него. Число намеренно осталось «оригиналом минус», а не готовыми пикселями:
+     видно и исходную ширину, и величину отступления. */
+  width: calc(360px * var(--tg-scale));
+  max-width: calc(100vw - 16px);
+  padding: calc(32px * var(--tg-scale)) 0;
+  border-radius: calc(16px * var(--tg-scale));
+  background: var(--tg-bg);
+  color: var(--tg-ink);
+  /* Системный стек Telegram (`html.native_fonts body`) — им страница и набрана. */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Тень плотнее штатных `0 2px 4px rgba(0,0,0,.1)`: те придуманы для светлой страницы, а на
+     тёмном стекле борда тёмная карточка без опоры читается ещё одной плиткой. */
+  box-shadow: 0 2px 4px rgb(0 0 0 / 45%), 0 14px 34px rgb(0 0 0 / 50%);
+}
+.tg-peek__photo {
+  padding-bottom: calc(16px * var(--tg-scale));
+  text-align: center;
+}
+.tg-peek__image {
+  display: inline-block;
+  width: calc(122px * var(--tg-scale));
+  height: calc(122px * var(--tg-scale));
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: top;
+}
+/* Аккаунт без фотографии: круг остаётся на месте, иначе карточка подпрыгивает на свою высоту. */
+.tg-peek__image--blank {
+  background: #2b2b2b;
+}
+.tg-peek__title {
+  max-width: calc(340px * var(--tg-scale));
+  margin: 0 auto;
+  padding: 0 calc(10px * var(--tg-scale));
+  overflow: hidden;
+  font-size: calc(26px * var(--tg-scale));
+  font-weight: bold;
+  line-height: calc(32px * var(--tg-scale));
+  text-align: center;
+  text-overflow: ellipsis;
+}
+.tg-peek__extra {
+  padding: calc(6px * var(--tg-scale)) calc(16px * var(--tg-scale)) 0;
+  color: var(--tg-dim);
+  font-size: calc(15px * var(--tg-scale));
+  line-height: calc(18px * var(--tg-scale));
+  text-align: center;
+}
+.tg-peek__bio {
+  display: -webkit-box;
+  max-height: calc(125px * var(--tg-scale));
+  margin: calc(10px * var(--tg-scale)) calc(16px * var(--tg-scale)) 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  font-size: calc(16px * var(--tg-scale));
+  line-height: calc(25px * var(--tg-scale));
+  text-align: center;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+.tg-peek__action {
+  margin-top: calc(24px * var(--tg-scale));
+  line-height: 0;
+  text-align: center;
+}
+.tg-peek__button {
+  display: inline-block;
+  height: calc(42px * var(--tg-scale));
+  padding: calc(13px * var(--tg-scale)) calc(24px * var(--tg-scale));
+  overflow: hidden;
+  border-radius: calc(22px * var(--tg-scale));
+  background-color: var(--tg-accent);
+  color: #fff;
+  font-size: calc(14px * var(--tg-scale));
+  font-weight: bold;
+  line-height: calc(17px * var(--tg-scale));
+  text-decoration: none;
+  text-transform: uppercase;
+  vertical-align: top;
+  -webkit-font-smoothing: antialiased;
+  /* Блик, бегущий по кнопке, — жест самого Telegram (класс `shine` у живой кнопки). */
+  background-image: linear-gradient(270deg, rgb(100 181 239 / 0%) 48.44%, #64b5ef 75.52%, rgb(100 181 239 / 0%) 100%);
+  background-repeat: no-repeat;
+  animation: tg-peek-shine linear 5s infinite;
+}
+.tg-peek__button:hover,
+.tg-peek__button:active {
+  background-color: var(--tg-accent-hover);
+}
+@keyframes tg-peek-shine {
+  0% {
+    background-position: -500px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-peek__button {
+    background-image: none;
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hover-tip {
     transition: none;

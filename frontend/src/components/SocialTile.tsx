@@ -1,17 +1,19 @@
 "use client";
 
 import { useCallback, type CSSProperties } from "react";
-import { getLatestInstagramPost, getSocialLinks } from "@/lib/api/client";
-import type { InstagramPostView, SocialLinkView } from "@/lib/api/types";
+import { getLatestInstagramPost, getSocialLinks, getTelegramProfile } from "@/lib/api/client";
+import type { InstagramPostView, SocialLinkView, TelegramProfileView } from "@/lib/api/types";
 import { HoverTip } from "./HoverTip";
 import { InstagramPeek } from "./InstagramPeek";
+import { TelegramPeek } from "./TelegramPeek";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
 interface SocialTileProps {
   /**
-   * Редакция плитки (DESIGN §10.1). `peek` — под маркой Instagram всплывает последний пост
-   * (PRD §5.17); любое другое значение (и его отсутствие) — просто ряд ссылок.
+   * Редакция плитки (DESIGN §10.1). `peek` — под маркой всплывает то, что платформа показывает
+   * сама: у Instagram последний пост (PRD §5.17), у Telegram визитка профиля (PRD §5.18).
+   * Любое другое значение (и его отсутствие) — просто ряд ссылок.
    *
    * Решает ВОЛНА через свою layout-дельту, а не проверка ключа волны в коде: иначе каждая
    * новая волна требовала бы правки компонента, и обещание «новая волна = запись в БД»
@@ -70,9 +72,10 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
   const links = data ?? [];
   const isEmpty = phase === "loaded" && links.length === 0;
 
-  // Пост тянем, только если редакция его показывает: на остальных волнах запроса нет вовсе.
-  // Пусто (аккаунт не подключён, пост ещё не забран) — `null`, и карточки просто не будет:
-  // марка остаётся обычной ссылкой (DESIGN §7).
+  // Превью тянем, только если редакция их показывает: на остальных волнах запросов нет вовсе.
+  // Пусто (аккаунт не подключён, источник ещё не забран) — `null`, и карточки просто не будет:
+  // марка остаётся обычной ссылкой (DESIGN §7). Источники независимы: молчащий Instagram не
+  // отменяет визитку Telegram и наоборот.
   const peek = useTileData<InstagramPostView | null>(
     useCallback(
       (signal) => (edition === "peek" ? getLatestInstagramPost({ signal }) : Promise.resolve(null)),
@@ -81,6 +84,22 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
     `instagram-latest-${edition ?? "plain"}`,
   );
   const post = edition === "peek" ? peek.data ?? null : null;
+
+  const card = useTileData<TelegramProfileView | null>(
+    useCallback(
+      (signal) => (edition === "peek" ? getTelegramProfile({ signal }) : Promise.resolve(null)),
+      [edition],
+    ),
+    `telegram-profile-${edition ?? "plain"}`,
+  );
+  const profile = edition === "peek" ? card.data ?? null : null;
+
+  /** Что всплывает под маркой. `undefined` ⇒ подсказки нет вовсе (HoverTip рендерит якорь голым). */
+  const peekOf = (l: SocialLinkView) => {
+    if (post && l.platform === "instagram") return <InstagramPeek post={post} />;
+    if (profile && l.platform === "telegram") return <TelegramPeek profile={profile} href={l.url} />;
+    return undefined;
+  };
   const cols = links.length <= 4 ? 2 : links.length <= 9 ? 3 : 4;
 
   return (
@@ -113,7 +132,7 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
           >
             {links.map((l) => (
               <li key={l.platform} className="min-h-0 min-w-0">
-                <HoverTip fill content={post && l.platform === "instagram" ? <InstagramPeek post={post} /> : undefined}>
+                <HoverTip fill content={peekOf(l)}>
                 <a
                   href={l.url}
                   target="_blank"

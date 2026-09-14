@@ -62,7 +62,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // data-wave — ключ активной волны на <html>: помимо цвет-токенов волна может нести
     // СВОЙ СКИН (рамки/фон/декор/шрифт) — CSS под `[data-wave="…"]` в globals.css (DESIGN §10.2).
     // SSR ставит ключ владельца; переключатель волн меняет его вживую (WaveProvider).
-    <html lang="ru" data-wave={theme?.key ?? undefined} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
+    // suppressHydrationWarning — про `data-fonts`: его ставят ВОРОТА ШРИФТА (ниже) ещё до
+    // гидрации, поэтому серверная разметка и живой <html> расходятся по этому атрибуту
+    // заведомо. Иначе React репортит это ошибкой на каждой загрузке в деве и глушит собой
+    // настоящие расхождения.
+    <html suppressHydrationWarning lang="ru" data-wave={theme?.key ?? undefined} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
       <head>
         {/* Ворота шрифта (DESIGN §8.3). Стоят ПЕРВЫМИ в голове и до разметки: из эффекта
             React они выполнились бы уже после первой отрисовки, и борд успел бы мелькнуть

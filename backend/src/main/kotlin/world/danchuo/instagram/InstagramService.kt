@@ -10,7 +10,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 import java.time.Instant
-import java.time.OffsetDateTime
 
 /**
  * Забор последнего поста владельца (PRD §5.17): профиль, свежий пост ленты и байты картинок.
@@ -83,20 +82,12 @@ class InstagramService(
         post.mediaType = item.mediaType ?: "IMAGE"
         post.likeCount = item.likeCount
         post.commentsCount = item.commentsCount
-        post.postedAt = item.timestamp?.let { parseTimestamp(it) } ?: post.postedAt
+        post.postedAt = item.timestamp?.let { parseInstagramTimestamp(it) } ?: post.postedAt
         post.username = profile.username ?: post.username
         post.fetchedAt = now
         posts.persist(post)
         return changed
     }
-
-    /**
-     * Instagram присылает время со смещением (`2026-09-13T08:20:31+0000`) — без зоны его
-     * разбирать нельзя, иначе пост «выходит» по часам сервера.
-     */
-    private fun parseTimestamp(raw: String): Instant? =
-        runCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull()
-            ?: runCatching { Instant.parse(raw) }.getOrNull()
 
     private fun download(url: String): ByteArray? {
         val request = HttpRequest.newBuilder(URI.create(url))

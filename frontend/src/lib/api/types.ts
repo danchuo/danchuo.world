@@ -281,7 +281,7 @@ export interface InstagramPostView {
   username: string;
   permalink: string;
   caption: string | null;
-  /** `IMAGE` · `VIDEO` · `CAROUSEL_ALBUM` — карточка помечает альбом и видео значком. */
+  /** `IMAGE` · `VIDEO` · `CAROUSEL_ALBUM` — как их называет Instagram. */
   mediaType: string;
   imageUrl: string | null;
   avatarUrl: string | null;

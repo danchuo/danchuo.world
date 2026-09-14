@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: лента дропов встаёт на строку выше и на две колонки правее.
+
+      Двигаются ТОЛЬКО координаты, размер прежний (8 на 9). Отсюда и точечные jsonb_set по
+      ключам `col` и `row`, а не подмена всей записи плитки: у неё есть редакция `carousel`,
+      и запись целиком пришлось бы переписывать с ней вместе, рискуя потерять её при
+      следующей правке соседнего числа.
+    -->
+    <changeSet id="0800-wave-03-drops-shift" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(layout, '{tiles,photoDrops,col}', '19'::jsonb),
+  '{tiles,photoDrops,row}', '2'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(layout, '{tiles,photoDrops,col}', '17'::jsonb),
+  '{tiles,photoDrops,row}', '3'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

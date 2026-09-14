@@ -12,6 +12,10 @@ import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.MultivaluedMap
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
 
 /**
  * Обмен кода на токен (PRD §5.17). Живёт на `api.instagram.com` — ОТДЕЛЬНОМ хосте от самого
@@ -134,3 +138,26 @@ data class InstagramMediaItem(
     @param:JsonProperty("like_count") val likeCount: Int? = null,
     @param:JsonProperty("comments_count") val commentsCount: Int? = null,
 )
+
+/**
+ * Смещение БЕЗ двоеточия (`+0000`) — именно так Instagram пишет `timestamp` у медиа.
+ * Штатные разборщики такую форму не берут: `ISO_OFFSET_DATE_TIME` ждёт `+00:00`, а
+ * `Instant.parse` — `Z`.
+ */
+private val BASIC_OFFSET: DateTimeFormatter = DateTimeFormatterBuilder()
+    .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    .appendOffset("+HHMM", "Z")
+    .toFormatter()
+
+/**
+ * Время публикации поста.
+ *
+ * ⚠️ **Промах здесь не виден ни в логе, ни в ответе API.** Непрочитанное время оставляет посту
+ * [Instant.EPOCH] по умолчанию, и наружу уезжает валидный ISO 1970 года — карточка на борде
+ * пишет «20710 дн назад» и выглядит поломкой вёрстки, а не разбора. Поэтому берём все три
+ * формы смещения, а не одну документированную.
+ */
+internal fun parseInstagramTimestamp(raw: String): Instant? =
+    runCatching { OffsetDateTime.parse(raw, BASIC_OFFSET).toInstant() }.getOrNull()
+        ?: runCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull()
+        ?: runCatching { Instant.parse(raw) }.getOrNull()

@@ -34,7 +34,7 @@ class InstagramPost {
     @Column(name = "caption", columnDefinition = "TEXT")
     var caption: String? = null
 
-    /** `IMAGE`, `VIDEO`, `CAROUSEL_ALBUM` — карточка рисует значок альбома/видео. */
+    /** `IMAGE`, `VIDEO`, `CAROUSEL_ALBUM` — как их называет Instagram. */
     @Column(name = "media_type", nullable = false)
     lateinit var mediaType: String
 

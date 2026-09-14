@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 /**
  * Разбор ответов Instagram: форма поля важнее его содержимого — рассинхрон роняет ВЕСЬ обмен
@@ -48,5 +49,39 @@ class InstagramClientsTest {
         val parsed = mapper.readValue(json, InstagramShortTokenResponse::class.java)
 
         assertEquals("IGAA-short", parsed.accessToken)
+    }
+
+    /**
+     * Время поста. Instagram пишет смещение БЕЗ двоеточия (`+0000`) — такую форму не берёт ни
+     * `OffsetDateTime.parse`, ни `Instant.parse`, и пост молча уезжает в Instant.EPOCH:
+     * на борде это «20710 дн назад».
+     */
+    @Test
+    fun `время поста разбирается со смещением без двоеточия`() {
+        assertEquals(
+            Instant.parse("2026-08-29T17:20:31Z"),
+            parseInstagramTimestamp("2026-08-29T17:20:31+0000"),
+        )
+    }
+
+    @Test
+    fun `время поста разбирается со смещением через двоеточие`() {
+        assertEquals(
+            Instant.parse("2026-08-29T14:20:31Z"),
+            parseInstagramTimestamp("2026-08-29T17:20:31+03:00"),
+        )
+    }
+
+    @Test
+    fun `время поста разбирается в форме Z`() {
+        assertEquals(
+            Instant.parse("2026-08-29T17:20:31Z"),
+            parseInstagramTimestamp("2026-08-29T17:20:31Z"),
+        )
+    }
+
+    @Test
+    fun `неразбираемое время не роняет разбор, а отдаёт null`() {
+        assertNull(parseInstagramTimestamp("вчера вечером"))
     }
 }

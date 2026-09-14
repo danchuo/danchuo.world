@@ -1326,8 +1326,11 @@ body {
 }
 
 /* Подсказка-КАРТОЧКА (превью поста соцсети, DESIGN §7.9). Обнуляет всю отделку текстовой:
-   у карточки свой кант, своя подложка и свои поля — иначе она сидела бы в чужой рамке. */
+   у карточки свой кант, своя подложка и свои поля — иначе она сидела бы в чужой рамке.
+   ⚠️ И, в отличие от текстовой, ЛОВИТ указатель: внутри живые ссылки, до которых надо доехать
+   курсором. Держит карточку открытой при этом переезде сам компонент (отсрочка `LEAVE_MS`). */
 .hover-tip--card {
+  pointer-events: auto;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -1351,13 +1354,16 @@ body {
   --ig-ink: #1c1e21;
   --ig-strong: #000000;
   --ig-dim: #737373;
-  --ig-edge: #dbdbdb;
 
   width: 300px;
   max-width: calc(100vw - 16px);
   overflow: hidden;
-  border: 1px solid var(--ig-edge);
+  /* Отделяет карточку от борда ТЕНЬЮ, а не кантом. Волосок `#dbdbdb` эмбеда придуман для
+     белой страницы, где он и есть край карточки; над тёмным бордом он читается светлой
+     полосой сбоку от кадра — кадр идёт в край, и волосок оказывается рамкой вокруг него.
+     Тень даёт тот же «лист поверх» и не спорит с кадром. */
   border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.32);
   background: var(--ig-bg);
   color: var(--ig-ink);
   /* Системный стек Instagram — замер на живом эмбеде. */
@@ -1370,6 +1376,8 @@ body {
   align-items: center;
   gap: 10px;
   padding: 10px;
+  color: inherit;
+  text-decoration: none;
 }
 /* Кольцо сторис — фирменный градиент Instagram: аватар 30px внутри кольца 34px. */
 .ig-peek__ring {
@@ -1391,11 +1399,6 @@ body {
 .ig-peek__avatar--blank {
   background: #efefef;
 }
-.ig-peek__who {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
 .ig-peek__handle {
   overflow: hidden;
   font-size: 14px;
@@ -1404,11 +1407,6 @@ body {
   color: var(--ig-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.ig-peek__sub {
-  font-size: 12px;
-  line-height: 14px;
-  color: var(--ig-dim);
 }
 /* Кадр квадратом — лента Instagram кадрирует превью именно так, независимо от пропорции
    оригинала; без фиксированной пропорции карточка прыгала бы по высоте от поста к посту. */
@@ -1431,6 +1429,21 @@ body {
   display: block;
   width: 24px;
   height: 24px;
+}
+/* Значки — настоящие органы (ссылка на пост, на комментарии, копирование ссылки), поэтому
+   у кнопки снимается вся её собственная отделка: ряд обязан остаться рядом одинаковых
+   глифов, а не кнопкой среди ссылок. Пригасание под курсором — жест самого Instagram. */
+.ig-peek__act {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.ig-peek__act:hover {
+  opacity: 0.55;
 }
 .ig-peek__save {
   margin-left: auto;
@@ -1461,11 +1474,16 @@ body {
   color: var(--ig-strong);
 }
 .ig-peek__comments {
+  display: block;
   margin: 0;
   padding: 6px 10px 0;
   font-size: 14px;
   line-height: 18px;
   color: var(--ig-dim);
+  text-decoration: none;
+}
+.ig-peek__comments:hover {
+  color: var(--ig-strong);
 }
 .ig-peek__stamp {
   margin: 0;

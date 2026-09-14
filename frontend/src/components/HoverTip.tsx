@@ -39,6 +39,12 @@ interface HoverTipProps {
 /** Зазор между якорем и подсказкой, он же отступ от края экрана. */
 const GAP = 4;
 const EDGE = 8;
+/**
+ * Отсрочка скрытия карточки. Ровно про [GAP]: между якорем и карточкой есть пустая полоса,
+ * и указатель, едущий на карточку, успевает побывать вне обоих. Мгновенное скрытие делало
+ * ссылки карточки недостижимыми — до них было физически не доехать.
+ */
+const LEAVE_MS = 220;
 
 /**
  * Подсказка-мини-плитка в стиле активной волны — HTML-близнец SVG-тултипа карты-тропы
@@ -91,11 +97,28 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
     setPos({ top, left });
   }, []);
 
+  const leaving = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopLeaving = useCallback(() => {
+    if (leaving.current) clearTimeout(leaving.current);
+    leaving.current = null;
+  }, []);
+
   const show = useCallback(() => {
+    stopLeaving();
     place();
     setOpen(true);
-  }, [place]);
-  const hide = useCallback(() => setOpen(false), []);
+  }, [place, stopLeaving]);
+  const hide = useCallback(() => {
+    stopLeaving();
+    setOpen(false);
+  }, [stopLeaving]);
+  /** Уход с якоря у карточки — не приказ гаснуть, а начало отсрочки: см. [LEAVE_MS]. */
+  const hideSoon = useCallback(() => {
+    stopLeaving();
+    leaving.current = setTimeout(() => setOpen(false), LEAVE_MS);
+  }, [stopLeaving]);
+
+  useEffect(() => stopLeaving, [stopLeaving]);
 
   // Экран уехал или изменился — подсказка прячется, а не висит оторванной от якоря.
   useEffect(() => {
@@ -116,6 +139,8 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
       className="hover-tip hover-tip--card"
       aria-hidden="true"
       data-open={open ? "true" : undefined}
+      onPointerEnter={show}
+      onPointerLeave={hide}
       style={pos ? { top: pos.top, left: pos.left } : undefined}
     >
       {content}
@@ -140,7 +165,7 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
         className={`hover-tip-anchor${fill ? " hover-tip-anchor--fill" : ""}`}
         aria-describedby={content ? undefined : id}
         onPointerEnter={show}
-        onPointerLeave={hide}
+        onPointerLeave={content ? hideSoon : hide}
         onFocus={show}
         onBlur={hide}
       >

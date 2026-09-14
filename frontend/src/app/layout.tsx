@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Jersey_10, Manrope, IBM_Plex_Mono } from "next/f
 import { cookies } from "next/headers";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 import { FaviconSpinner } from "@/components/FaviconSpinner";
+import { FONT_GATE_SCRIPT } from "@/lib/fontGate";
 import { fetchDisplayTheme, serializeTokensToCss } from "@/lib/theme";
 import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 import "./globals.css";
@@ -63,6 +64,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // SSR ставит ключ владельца; переключатель волн меняет его вживую (WaveProvider).
     <html lang="ru" data-wave={theme?.key ?? undefined} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
       <head>
+        {/* Ворота шрифта (DESIGN §8.3). Стоят ПЕРВЫМИ в голове и до разметки: из эффекта
+            React они выполнились бы уже после первой отрисовки, и борд успел бы мелькнуть
+            системным начертанием — ровно то, что ворота и лечат. */}
+        <script dangerouslySetInnerHTML={{ __html: FONT_GATE_SCRIPT }} />
         {tokens && (
           // Переопределяет :root-дефолты globals.css значениями активной волны из БД.
           <style id="wave-tokens" dangerouslySetInnerHTML={{ __html: serializeTokensToCss(tokens) }} />

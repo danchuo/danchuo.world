@@ -59,6 +59,10 @@ test.beforeEach(async ({ page }) => {
   await stubApi(page);
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+  // Ворота шрифта (DESIGN §7.10): борд скрыт, пока не приехали шрифты волны. Без этого
+  // ожидания снимок успевает застать пустое место — а раньше ловил гонку со сменой
+  // начертания, то есть эталоны были нестабильны и до ворот.
+  await page.waitForFunction(() => document.documentElement.dataset.fonts !== "pending");
 });
 
 test("per-tile visual regression", async ({ page }, testInfo) => {

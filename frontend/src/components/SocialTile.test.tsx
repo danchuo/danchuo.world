@@ -125,4 +125,20 @@ describe("SocialTile — превью последнего поста (реда�
     expect(screen.queryByText(/отметок/)).toBeNull();
     expect(screen.queryByText(/комментариев/)).toBeNull();
   });
+
+  it("марка с карточкой стоит в ячейке так же, как марки без неё", async () => {
+    // ⚠️ Регрессия прода. Обёртка подсказки появляется ВМЕСТЕ с данными — то есть у одной
+    // марки из четырёх и только когда пост доехал. `inline-block`-обёртка схлопывала ссылку
+    // с `w-full` в ноль: знак уезжал из ячейки влево-вверх, пока соседи стояли на месте.
+    // Обёртка обязана быть безразличной к раскладке, потому что она то есть, то нет.
+    const { container } = render(<SocialTile edition="peek" />);
+    await screen.findByText("вечерний двор", { exact: false });
+
+    const anchors = container.querySelectorAll(".hover-tip-anchor");
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0]).toHaveClass("hover-tip-anchor--fill");
+    // Ссылка внутри обёртки — та же полноразмерная карточка, что и у соседей.
+    expect(anchors[0].querySelector("a")).toHaveClass("h-full", "w-full");
+  });
+
 });

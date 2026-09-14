@@ -7,10 +7,12 @@ import { TileEdgeLight } from "./TileEdgeLight";
  * `getComputedStyle` тут не увидит. Поэтому опт-ин подменяем — проверяем поведение шва,
  * а не движок стилей.
  */
-function waveAsksForLight(on: boolean) {
-  vi.spyOn(window, "getComputedStyle").mockImplementation(
-    () => ({ getPropertyValue: () => (on ? "1" : "") }) as unknown as CSSStyleDeclaration,
-  );
+function waveAsksForLight(on: boolean, perTile: Record<string, string> = {}) {
+  vi.spyOn(window, "getComputedStyle").mockImplementation((el: Element) => {
+    const id = (el as HTMLElement).dataset?.tileId;
+    const value = id !== undefined && id in perTile ? perTile[id] : on ? "1" : "";
+    return { getPropertyValue: () => value } as unknown as CSSStyleDeclaration;
+  });
 }
 
 /** Плитка с честной коробкой: в jsdom `getBoundingClientRect` сам по себе отдаёт нули. */
@@ -40,6 +42,19 @@ describe("TileEdgeLight", () => {
     move(el, 300, 50); // правый верхний угол
     expect(el.style.getPropertyValue("--tile-dx")).toBe("1.000");
     expect(el.style.getPropertyValue("--tile-dy")).toBe("-1.000");
+  });
+
+  it("плитка, которая свет не рисует, вектора не получает", () => {
+    // Запись наследуемой переменной метит на перерасчёт ВСЁ поддерево плитки, и так на каждое
+    // движение мыши. Плитке без плиты это не даёт ничего, а на WebKit заново растрирует
+    // фоновые картинки внутри — марки соцсетей моргали (docs/pitfalls.md).
+    waveAsksForLight(true, { social: "0" });
+    const el = tile("social", { left: 100, top: 50, width: 200, height: 100 });
+    render(<TileEdgeLight wave="wave-03" />);
+
+    move(el, 300, 50);
+    expect(el.style.getPropertyValue("--tile-dx")).toBe("");
+    expect(el.style.getPropertyValue("--tile-dy")).toBe("");
   });
 
   it("волна свет не просит — шов молчит и не вешает слушателя", () => {

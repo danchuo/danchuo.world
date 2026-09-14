@@ -22,6 +22,17 @@ interface HoverTipProps {
    * где текст короткий (номер дня жизни, длина стрика).
    */
   phrase?: boolean;
+  /**
+   * Якорь занимает ячейку целиком вместо `inline-block` по содержимому.
+   *
+   * ⚠️ Нужен везде, где обёрнутое само тянется на всю ячейку (`w-full`/`h-full`). Обёртка
+   * появляется ВМЕСТЕ с подсказкой, то есть по данным: у одной плитки из ряда она есть, у
+   * соседних нет, и `inline-block` схлопывал бы растянутого ребёнка в ноль — предмет уезжал
+   * бы из своей ячейки ровно в тот момент, когда доехали данные. Обёртка обязана быть
+   * безразличной к раскладке; `display: contents` для этого не годится — у якоря не осталось
+   * бы коробки, а по ней считается место подсказки.
+   */
+  fill?: boolean;
   children: ReactNode;
 }
 
@@ -53,7 +64,7 @@ const EDGE = 8;
  * Скринридеру подсказка достаётся через `aria-describedby` — как описание, а не как имя:
  * дата обязана остаться датой, номер дня жизни лишь дополняет её (DESIGN §4).
  */
-export function HoverTip({ text, content, phrase = false, children }: HoverTipProps) {
+export function HoverTip({ text, content, phrase = false, fill = false, children }: HoverTipProps) {
   const id = useId();
   const anchorRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
@@ -126,7 +137,7 @@ export function HoverTip({ text, content, phrase = false, children }: HoverTipPr
     <>
       <span
         ref={anchorRef}
-        className="hover-tip-anchor"
+        className={`hover-tip-anchor${fill ? " hover-tip-anchor--fill" : ""}`}
         aria-describedby={content ? undefined : id}
         onPointerEnter={show}
         onPointerLeave={hide}

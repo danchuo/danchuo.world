@@ -113,7 +113,7 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
           >
             {links.map((l) => (
               <li key={l.platform} className="min-h-0 min-w-0">
-                <HoverTip content={post && l.platform === "instagram" ? <InstagramPeek post={post} /> : undefined}>
+                <HoverTip fill content={post && l.platform === "instagram" ? <InstagramPeek post={post} /> : undefined}>
                 <a
                   href={l.url}
                   target="_blank"

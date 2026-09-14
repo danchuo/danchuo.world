@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03, правая колонка: соцсети ужимаются до ОДНОЙ строки, музыка подтягивается на
+      освободившееся место, переключатель волн теряет строку сверху.
+
+      Марки соцсетей меряются от ШИРИНЫ своей плитки (токен `social-icon-size`, в cqw), а не от её
+      высоты, поэтому вторая строка знакам ничего не давала — она была воздухом под ними.
+      Сняв её, сохраняем прежний зазор до музыки: соцсети кончались на 3-й строке при музыке с
+      5-й, то есть просвет в одну строку; теперь соцсети кончаются на 2-й, и музыка встаёт на
+      4-ю. Двигать надо ИМЕННО музыку — иначе просвет удвоился бы и колонка развалилась бы на
+      две несвязанные группы.
+
+      Переключатель ужимается сверху: низ (19-я строка) держит его строй с плиткой велобайка
+      под ним, а лишняя строка была у него над содержимым.
+    -->
+    <changeSet id="0790-wave-03-right-column" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    jsonb_set(
+      layout,
+      '{tiles,social}',
+      $J${"col": 34, "row": 2, "colSpan": 7, "rowSpan": 1, "edition": "peek"}$J$::jsonb
+    ),
+    '{tiles,music}',
+    $J${"col": 31, "row": 4, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+  ),
+  '{tiles,waveSwitcher}',
+  $J${"col": 29, "row": 17, "colSpan": 6, "rowSpan": 3}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    jsonb_set(
+      layout,
+      '{tiles,social}',
+      $J${"col": 34, "row": 2, "colSpan": 7, "rowSpan": 2, "edition": "peek"}$J$::jsonb
+    ),
+    '{tiles,music}',
+    $J${"col": 31, "row": 5, "colSpan": 10, "rowSpan": 6}$J$::jsonb
+  ),
+  '{tiles,waveSwitcher}',
+  $J${"col": 29, "row": 16, "colSpan": 6, "rowSpan": 4}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

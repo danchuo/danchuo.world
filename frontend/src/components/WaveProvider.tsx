@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { ThemeView } from "@/lib/api/types";
 import { resolveLayout, type ResolvedLayout, type WaveLayout } from "@/lib/layout";
 import { applyThemeTokens } from "@/lib/theme";
@@ -23,7 +32,18 @@ interface WaveContextValue {
   applyWave: (theme: ThemeView, opts?: { remember?: boolean }) => void;
 }
 
+/** Волна, применённая к борду: раскладка, ключ скина и токены (у SSR-волны их нет). */
+interface Applied {
+  layout: ResolvedLayout;
+  key: string | null;
+  tokens: ThemeView["tokens"] | null;
+}
+
 const WaveContext = createContext<WaveContextValue | null>(null);
+
+/* `useLayoutEffect` шумит предупреждением при серверном рендере клиентского компонента —
+   на сервере берём обычный эффект (тот же приём, что в [ArtifactMarquee]). */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export function useWave(): WaveContextValue {
   const ctx = use(WaveContext);
@@ -41,23 +61,41 @@ export function WaveProvider({
   children: ReactNode;
 }) {
   // Мержим layout волны поверх дефолта один раз на старте; дальше — на каждый своп волны.
-  const [layout, setLayout] = useState<ResolvedLayout>(() => resolveLayout(initialLayout));
-  const [activeKey, setActiveKey] = useState<string | null>(initialActiveKey ?? null);
+  // Скин и раскладка держатся ОДНИМ состоянием намеренно — см. врез у эффекта ниже.
+  const [wave, setWave] = useState<Applied>(() => ({
+    layout: resolveLayout(initialLayout),
+    key: initialActiveKey ?? null,
+    tokens: null,
+  }));
 
   const applyWave = useCallback((theme: ThemeView, opts?: { remember?: boolean }) => {
-    applyThemeTokens(theme.tokens); // цвет-токены — в :root (без перезагрузки)
-    // data-wave на <html> переключает СКИН волны (рамки/фон/декор/шрифт) — CSS под
-    // `[data-wave="…"]` в globals.css (DESIGN §10.2). Это и есть «разные стили под разные волны».
-    if (typeof document !== "undefined") document.documentElement.setAttribute("data-wave", theme.key);
-    setLayout(resolveLayout(theme.layout)); // раскладка — в состояние борда
-    setActiveKey(theme.key);
+    setWave({ layout: resolveLayout(theme.layout), key: theme.key, tokens: theme.tokens });
     // Persist the pick so a reload re-renders the same wave via SSR (see waveCookie.ts).
     if (opts?.remember !== false) rememberWave(theme.key);
   }, []);
 
+  /**
+   * Скин волны — в разметку, но **в том же кадре, что и раскладка**.
+   *
+   * ⚠️ Писать `data-wave` и токены прямо из обработчика нельзя. Разметка правится сразу,
+   * а раскладка едет через состояние React, то есть доезжает следующим коммитом — и между
+   * ними успевает пройти отрисовка. Борд в этот момент стоит в СТАРЫХ редакциях под НОВЫМ
+   * скином: на свопе в PRIME карточка велобайка волны 01 успевала мелькнуть на стекле
+   * (замер: ~80–120мс, поймано владельцем). Эффект раскладки (до отрисовки, после коммита)
+   * склеивает оба изменения в один кадр.
+   */
+  useIsomorphicLayoutEffect(() => {
+    if (!wave.key || typeof document === "undefined") return;
+    // Токены есть только у пришедшей волны: на старте они уже стоят в `:root` от SSR.
+    if (wave.tokens) applyThemeTokens(wave.tokens);
+    // data-wave на <html> переключает СКИН волны (рамки/фон/декор/шрифт) — CSS под
+    // `[data-wave="…"]` в globals.css (DESIGN §10.2). Это и есть «разные стили под разные волны».
+    document.documentElement.setAttribute("data-wave", wave.key);
+  }, [wave]);
+
   const value = useMemo<WaveContextValue>(
-    () => ({ layout, activeKey, applyWave }),
-    [layout, activeKey, applyWave],
+    () => ({ layout: wave.layout, activeKey: wave.key, applyWave }),
+    [wave, applyWave],
   );
 
   return <WaveContext.Provider value={value}>{children}</WaveContext.Provider>;

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: календарь возвращается на борд в редакции «поле» (DESIGN 5.2).
+
+      Плитка была спрятана с самого сида волны — виджеты возвращаются по одному, когда каждый
+      одет под стекло. Здесь запись плитки переписывается ЦЕЛИКОМ, а не точечными jsonb_set по
+      ключам: в дельте у календаря лежал один `hidden`, координат и редакции у него не было
+      вовсе, и терять при подмене нечего.
+
+      Слот — колонки 19..27, строки 13..22: пустая середина борда под лентой дропов
+      (кончается строкой 10) и левее переключателя волн (начинается колонкой 29). Размер
+      взят дефолтный, 9 на 10 — пропорция клетки у календаря уже подобрана под него.
+
+      Мобильный порядок перечисляется заново: тайл, не названный в нём, уезжает в хвост
+      стека по дефолтному порядку, а календарь тут главная навигация и стоять последним
+      не должен.
+    -->
+    <changeSet id="0810-wave-03-calendar-field" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    layout,
+    '{tiles,calendar}',
+    '{"col":19,"row":13,"colSpan":9,"rowSpan":10,"hidden":false,"edition":"field"}'::jsonb
+  ),
+  '{mobileOrder}',
+  '["music","latestDrop","calendar","photoDrops","ride","projects","waveSwitcher","social"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(layout, '{tiles,calendar}', '{"hidden":true}'::jsonb),
+  '{mobileOrder}',
+  '["music","latestDrop","photoDrops","ride","projects","waveSwitcher","social"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

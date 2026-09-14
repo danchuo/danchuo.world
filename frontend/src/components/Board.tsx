@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { shiftAnchor } from "@/lib/calendarWindow";
-import { mskToday } from "@/lib/date";
+import { addDays, mskToday } from "@/lib/date";
 import type { DisciplineLens } from "@/lib/disciplineLens";
 import { statsWindow, type StatsRange } from "@/lib/statsWindow";
 import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
@@ -39,12 +39,34 @@ type Status = "loading" | "error" | "loaded";
 const WEEKS_BEFORE = 2;
 const WEEKS_AFTER = 1;
 
+/**
+ * Вперёд окно редакции «поле» не заходит вовсе (DESIGN §5.2).
+ *
+ * Будущая неделя занимала целую строку сетки под то, чего не может быть: данных за будущее не
+ * бывает, и строка оставалась пустой всегда. Следующая неделя остаётся доступной шагом вперёд —
+ * она уезжает в кромку, а кромка рисуется только у сдвинутого окна.
+ */
+const FIELD_WEEKS_AFTER = 0;
+
+/**
+ * Глубина холста волны (§10.2) — две последние недели, и **всегда они**, независимо от того,
+ * куда отлистан календарь.
+ *
+ * Холст рисуется данными борда, и сперва он читал то же окно, что сетка календаря. Но окно
+ * календаря — состояние ОДНОГО виджета, а холст лежит под всеми: шаг листания перекрашивал
+ * всю страницу, будто сменилась волна. Свой диапазон стоит одного запроса за сессию и снимает
+ * это сцепление в корне: подпирать холст чужим состоянием больше нечем.
+ */
+const BACKDROP_DAYS = 14;
+
 
 /** Данные/хендлеры борда, прокидываемые в каждый тайл. */
 interface BoardData {
   day: DayView | null;
   dayStatus: Status;
   summaries: DaySummary[];
+  /** Диапазон холста волны (§10.2) — последние две недели, независимо от окна календаря. */
+  backdropDays: DaySummary[];
   rangeStatus: Status;
   selected: string;
   today: string;
@@ -60,6 +82,11 @@ interface BoardData {
   resetWindow: () => void;
   /** Упёрлось ли окно в генезис — дальше назад листать нечего. */
   canGoBack: boolean;
+  /**
+   * Сколько недель окна отданы кромке календаря (§5.2). Считает борд: окно грузит он,
+   * а ширина окна и размер кромки — одно и то же число, и разъехаться им нельзя.
+   */
+  edgeWeeks: number;
   /** Линза дисциплины (§5.3): выбранная на карте-тропе остановка, по которой размечен календарь. */
   lens: DisciplineLens | null;
   setLens: (lens: DisciplineLens | null) => void;
@@ -85,6 +112,13 @@ export function Board() {
   // и только её: выбранный день листание не трогает — это просмотр истории, а не выбор дня.
   const [anchor, setAnchor] = useState(today);
 
+  // Кромка календаря (DESIGN §5.2) показывает НАСТОЯЩИЕ соседние недели, поэтому окно берётся
+  // на неделю шире с каждого края — их отрезает сам календарь. Знание про размер окна живёт
+  // здесь, потому что окно грузит борд; какая редакция у плитки — говорит волна.
+  const fieldCalendar = layout.tiles.calendar.edition === "field";
+  const edgeWeeks = fieldCalendar ? 1 : 0;
+  const weeksAfter = fieldCalendar ? FIELD_WEEKS_AFTER : WEEKS_AFTER;
+
   const [selected, setSelected] = useState(today);
   // Линза живёт на борде, а не в плитке: её ставит карта-тропа «Сегодня», а читает календарь.
   // Смену выбранного дня она переживает намеренно — это взгляд на историю, а не состояние дня.
@@ -100,7 +134,7 @@ export function Board() {
     shownAnchor,
     canGoBack,
     retry: retryRange,
-  } = useCalendarWindow(anchor, WEEKS_BEFORE, WEEKS_AFTER);
+  } = useCalendarWindow(anchor, WEEKS_BEFORE + edgeWeeks, weeksAfter + edgeWeeks);
 
   // Выборка графиков — своя (шире окна календаря) и **следует за выбранным днём**: борд это
   // машина времени, и уехав в июнь, читатель ждёт июньских графиков (§7.4). Переносится лениво,
@@ -110,6 +144,11 @@ export function Board() {
     // `statsWindow` возвращает тот же объект, когда двигать нечего, — состояние не меняется.
     setStatsRange((cur) => statsWindow(selected, today, cur));
   }, [selected, today]);
+
+  // Холст волны читает свой диапазон, а не окно календаря (см. [BACKDROP_DAYS]). Конец
+  // прибит к «сегодня»: лента называется лентой ПРОЖИТЫХ дней, дальше неё брать нечего.
+  const backdropFrom = useMemo(() => addDays(today, -(BACKDROP_DAYS - 1)), [today]);
+  const { days: backdropDays } = useDayRange(backdropFrom, today, null);
 
   const {
     days: statsHistory,
@@ -132,6 +171,7 @@ export function Board() {
     day,
     dayStatus,
     summaries,
+    backdropDays,
     rangeStatus,
     selected,
     today,
@@ -142,6 +182,7 @@ export function Board() {
     shiftWeeks: (weeks: number) => setAnchor((cur) => shiftAnchor(cur, today, weeks)),
     resetWindow: () => setAnchor(today),
     canGoBack,
+    edgeWeeks,
     lens,
     setLens,
     retryDay,
@@ -158,8 +199,8 @@ export function Board() {
        телефона отставал бы от плиток на всю прокрутку. */
     <main className="relative min-h-screen p-4">
       {/* Фоновый слой волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином.
-          Волне 03 он рисует холст — ленту прожитых дней из того же окна календаря, что и сетка. */}
-      <WaveBackdrop summaries={summaries} today={today} wave={activeKey} />
+          Волне 03 он рисует холст — ленту последних прожитых дней. */}
+      <WaveBackdrop summaries={backdropDays} today={today} wave={activeKey} />
 
       {/* Ховер-шов волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином
           через `--tile-edge-light`. Волне 03 он даёт кромку, ловящую свет курсора. */}
@@ -310,6 +351,8 @@ function BoardTile({
           canGoBack={data.canGoBack}
           lens={data.lens}
           onLensChange={data.setLens}
+          edition={edition}
+          edgeWeeks={data.edgeWeeks}
           style={style}
           className={className}
         />
@@ -344,12 +387,12 @@ function BoardTile({
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":
-      // Окно календаря едет в переключатель тем же материалом, что и в холст борда: карта
-      // волны, чей фон сделан из данных, показывает кусок этого фона (DESIGN §2.6).
+      // В переключатель едет РОВНО ТОТ ЖЕ диапазон, что в холст борда: карта волны, чей фон
+      // сделан из данных, показывает не похожий узор, а кусок этого фона (DESIGN §2.6).
       return (
         <WaveSwitcher
           orientation={orientation}
-          summaries={data.summaries}
+          summaries={data.backdropDays}
           today={data.today}
           style={style}
           className={className}

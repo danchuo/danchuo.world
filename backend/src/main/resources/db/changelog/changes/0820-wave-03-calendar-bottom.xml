@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: календарь уезжает в самый низ борда, переключатель волн поднимается наверх.
+
+      Календарь занимает те же 9 на 10 клеток, но нижним краем встаёт на последнюю строку
+      сетки (19..28). Переключатель садится в левый верх (колонки 5..10, строки 2..4) над
+      лентой дропов, по её же левому краю: правый верх занят соцсетями.
+
+      Позиции правятся СЛИЯНИЕМ (jsonb ||), а не подменой записи целиком: у обеих плиток в
+      дельте лежат ещё размеры и редакция, и подмена стёрла бы их.
+
+      Мобильный порядок следует за бордом: переключатель первым, календарь последним.
+    -->
+    <changeSet id="0820-wave-03-calendar-bottom" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    jsonb_set(
+      layout,
+      '{tiles,calendar}',
+      (layout->'tiles'->'calendar') || '{"col":19,"row":19}'::jsonb
+    ),
+    '{tiles,waveSwitcher}',
+    (layout->'tiles'->'waveSwitcher') || '{"col":5,"row":2}'::jsonb
+  ),
+  '{mobileOrder}',
+  '["waveSwitcher","music","latestDrop","photoDrops","ride","projects","social","calendar"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    jsonb_set(
+      layout,
+      '{tiles,calendar}',
+      (layout->'tiles'->'calendar') || '{"col":19,"row":13}'::jsonb
+    ),
+    '{tiles,waveSwitcher}',
+    (layout->'tiles'->'waveSwitcher') || '{"col":29,"row":17}'::jsonb
+  ),
+  '{mobileOrder}',
+  '["music","latestDrop","calendar","photoDrops","ride","projects","waveSwitcher","social"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

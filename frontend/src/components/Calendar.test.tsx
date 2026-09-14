@@ -788,3 +788,343 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.getByTestId("day-2026-06-15")).not.toHaveAttribute("data-future");
   });
 });
+
+describe("Calendar — редакция «поле» (§5.2)", () => {
+  function renderField(days = buildWindow(), extra: Record<string, unknown> = {}) {
+    return render(
+      <Calendar
+        days={days}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+        {...extra}
+      />,
+    );
+  }
+
+  it("базовая редакция поля не заводит — незнакомая волна не должна получить его случайно", () => {
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" edition="таблица" />,
+    );
+    expect(document.querySelector(".cal-grid--field")).toBeNull();
+    // Рамка и заливка остаются инлайном, как в базе.
+    expect(screen.getByTestId(`day-${TODAY}`).getAttribute("style")).toContain("border");
+  });
+
+  it("в поле клетка не несёт ни рамки, ни заливки — вид целиком за скином", () => {
+    renderField();
+    expect(document.querySelector(".cal-grid--field")).not.toBeNull();
+    const style = screen.getByTestId(`day-${TODAY}`).getAttribute("style") ?? "";
+    expect(style).not.toContain("border:");
+    expect(style).not.toContain("background:");
+  });
+
+  it("клетка несёт вес дня переменной, а не готовым цветом", () => {
+    renderField();
+    // У «сегодня» доехали два канала из четырёх: шаги (8421 из 10000) и дисциплина
+    // (оба пункта закрыты). Сна и вкладов нет — они честно тянут вес вниз.
+    const today = screen.getByTestId(`day-${TODAY}`).getAttribute("style") ?? "";
+    expect(today).toMatch(/--day-weight:\s*0\.461/);
+  });
+
+  it("у будущего дня и у пропуска вес нулевой", () => {
+    renderField();
+    for (const date of ["2026-06-20", GAP]) {
+      const style = screen.getByTestId(`day-${date}`).getAttribute("style") ?? "";
+      expect(style).toMatch(/--day-weight:\s*0\.000/);
+    }
+  });
+
+  it("включённая линза гасит поле: свет и отметка не спорят за один тон", () => {
+    renderField(buildWindow(), { lens: STRETCH_LENS, onLensChange: () => {} });
+    expect(document.querySelector(".cal-grid--field[data-lens]")).not.toBeNull();
+  });
+
+  it("без линзы гасить нечего", () => {
+    renderField();
+    expect(document.querySelector(".cal-grid--field[data-lens]")).toBeNull();
+  });
+})
+
+describe("Calendar — кромка вместо стрелок (§5.2)", () => {
+  /** Окно на неделю шире сетки с каждого края — ровно то, что борд шлёт редакции «поле». */
+  function buildWideWindow(today: string = TODAY): DaySummary[] {
+    const { from, to } = weekWindowAround(today, 3, 2);
+    return datesInRange(from, to).map((date) => ({
+      date,
+      title: null,
+      hasData: date <= today && date !== GAP,
+      steps: date <= today ? 5000 : null,
+      sleepMinutes: null,
+      contributions: null,
+      disciplineCounts: { stretch: 1, reading: 0 },
+      monsterDrunk: null,
+    }));
+  }
+
+  function renderEdge(extra: Record<string, unknown> = {}) {
+    const onShiftWeeks = vi.fn();
+    render(
+      <Calendar
+        days={buildWideWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+        edgeWeeks={1}
+        onShiftWeeks={onShiftWeeks}
+        onResetWindow={() => {}}
+        {...extra}
+      />,
+    );
+    return { onShiftWeeks };
+  }
+
+  it("кромка прошлой недели рисуется и листает назад", async () => {
+    const { onShiftWeeks } = renderEdge();
+    const edge = screen.getByTestId("calendar-edge-prev");
+    await userEvent.click(edge);
+    expect(onShiftWeeks).toHaveBeenCalledWith(-1);
+  });
+
+  it("недели кромок не попадают в сетку — высота сетки не зависит от них", () => {
+    renderEdge();
+    // Окно 42 дня: неделя уходит в хвостовую кромку, ещё две не влезают в потолок высоты
+    // (§5.2) — в сетке остаются три ряда, две прошлые недели и текущая.
+    expect(screen.getAllByRole("gridcell")).toHaveLength(21);
+  });
+
+  it("вся неделя кромки — одна кнопка, а не семь", () => {
+    renderEdge();
+    const edge = screen.getByTestId("calendar-edge-prev");
+    expect(edge.querySelectorAll("button")).toHaveLength(0);
+    expect(edge.querySelectorAll(".cal-edge-cell")).toHaveLength(7);
+  });
+
+  it("клетки кромки несут вес дня — полоска светится, а не просто нумерует", () => {
+    renderEdge();
+    const cells = screen.getByTestId("calendar-edge-prev").querySelectorAll(".cal-edge-cell");
+    const lit = [...cells].filter((c) =>
+      /--day-weight:\s*0\.[1-9]/.test(c.getAttribute("style") ?? ""),
+    );
+    expect(lit.length).toBeGreaterThan(0);
+  });
+
+  it("в поле стрелок нет: шаг несёт кромка, глиф сказал бы то же дважды", () => {
+    renderEdge({ anchor: "2026-06-04" });
+    expect(screen.queryByTestId("calendar-prev")).toBeNull();
+    expect(screen.queryByTestId("calendar-next")).toBeNull();
+  });
+
+  it("дома строка листания не рисуется вовсе — пустой ряд читался бы дырой", () => {
+    renderEdge();
+    expect(document.querySelector(".cal-nav")).toBeNull();
+    expect(screen.queryByTestId("calendar-edge-next")).toBeNull();
+  });
+
+  it("у сдвинутого окна появляются кромка вперёд и возврат «сегодня»", async () => {
+    const { onShiftWeeks } = renderEdge({ anchor: "2026-06-04" });
+    expect(screen.getByTestId("calendar-home")).toBeTruthy();
+    await userEvent.click(screen.getByTestId("calendar-edge-next"));
+    expect(onShiftWeeks).toHaveBeenCalledWith(1);
+  });
+
+  it("у генезиса кромки назад нет, а её дни достаются сетке", () => {
+    renderEdge({ canGoBack: false });
+    expect(screen.queryByTestId("calendar-edge-prev")).toBeNull();
+    expect(screen.getAllByRole("gridcell")).toHaveLength(35);
+  });
+
+  it("«сегодня» уходит из ярлыка на нижний край плитки — строка сверху не появляется", async () => {
+    const onResetWindow = vi.fn();
+    renderEdge({ anchor: "2026-06-04", onResetWindow });
+    const home = screen.getByTestId("calendar-home");
+    expect(home.className).toContain("cal-home-pill");
+    // Ряда управления в ярлыке больше нет вовсе — ради этого таблетку вниз и уносили.
+    expect(document.querySelector(".cal-nav")).toBeNull();
+    await userEvent.click(home);
+    expect(onResetWindow).toHaveBeenCalled();
+  });
+
+  it("базовая редакция держит «сегодня» в строке листания", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        anchor="2026-06-04"
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+        onResetWindow={() => {}}
+      />,
+    );
+    const home = screen.getByTestId("calendar-home");
+    expect(home.className).toContain("cal-nav-home");
+    expect(document.querySelector(".cal-nav")?.contains(home)).toBe(true);
+  });
+
+  it("базовая редакция кромок не заводит и стрелки сохраняет", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        onShiftWeeks={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId("calendar-edge-prev")).toBeNull();
+    expect(screen.getByTestId("calendar-prev")).toBeTruthy();
+  });
+});
+
+describe("Calendar — месяц с новой строки (§5.2)", () => {
+  /** Среда сентября: окно захватывает стык, а 1 сентября 2026 приходится на вторник. */
+  const SEP = "2026-09-15";
+
+  /** Окно 2026-08-31 … 2026-09-27 — четыре недели, из которых август занял один день. */
+  function crossWindow(): DaySummary[] {
+    const { from, to } = weekWindowAround(SEP, 2, 1);
+    return datesInRange(from, to).map((date) => ({
+      date,
+      title: null,
+      hasData: date <= SEP,
+      steps: null,
+      sleepMinutes: null,
+      contributions: null,
+      disciplineCounts: undefined,
+      monsterDrunk: null,
+    }));
+  }
+
+  function renderCross(extra: Record<string, unknown> = {}) {
+    return render(
+      <Calendar
+        days={crossWindow()}
+        selected={SEP}
+        today={SEP}
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+        {...extra}
+      />,
+    );
+  }
+
+  it("первое число уезжает на новую строку — стык метит перенос, а не линия", () => {
+    renderCross();
+    // Понедельник 31 августа остаётся последним днём своей строки, вторник 1 сентября
+    // начинает следующую и стоит в своей колонке дня недели.
+    expect(screen.getByTestId("day-2026-08-31").getAttribute("style")).toContain("grid-row: 1");
+    const first = screen.getByTestId("day-2026-09-01").getAttribute("style") ?? "";
+    expect(first).toContain("grid-row: 2");
+    expect(first).toContain("grid-column: 2");
+    // Слоя линий в этой редакции нет вовсе.
+    expect(document.querySelector(".cal-month-edges")).toBeNull();
+  });
+
+  it("имя месяца встаёт в пустой кусок перед ним, а не в клетку дня", () => {
+    renderCross();
+    const mark = screen.getByTestId("month-gap-2026-09-01");
+    expect(mark).toHaveTextContent(/сентябрь/i);
+    // Голова новой строки — один понедельник, имя ушло в широкий хвост прошлой:
+    // шесть клеток, оставшихся от августа.
+    expect(mark.getAttribute("style")).toContain("grid-row: 1");
+    expect(mark.getAttribute("style")).toContain("grid-column: 2 / 8");
+    expect(screen.queryByTestId("month-mark-2026-09-01")).toBeNull();
+  });
+
+  it("сетка вырастает на ряд: перенос стоит неделю слотов", () => {
+    renderCross();
+    const grid = document.querySelector(".cal-grid--field") as HTMLElement;
+    expect(grid.style.gridTemplateRows).toContain("repeat(5");
+    // Пропорция считается от того же числа строк — иначе сетка вылезла бы за плитку.
+    expect(grid.style.aspectRatio).toBe("7 / 5");
+  });
+
+  it("с кромками перенос сетку не растит: верхняя строка уходит за край", () => {
+    // Окно, которое борд шлёт редакции: две прошлые недели и текущая, плюс по неделе на
+    // кромку с каждого края. Перенос добавляет строку, и лишней становится верхняя: высота
+    // плитки не зависит от того, попал ли в окно стык месяцев.
+    const { from, to } = weekWindowAround(SEP, 3, 1);
+    const wide = datesInRange(from, to).map((date) => ({
+      date,
+      title: null,
+      hasData: date <= SEP,
+      steps: null,
+      sleepMinutes: null,
+      contributions: null,
+      disciplineCounts: undefined,
+      monsterDrunk: null,
+    })) as DaySummary[];
+    render(
+      <Calendar
+        days={wide}
+        selected={SEP}
+        today={SEP}
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+        edgeWeeks={1}
+        onShiftWeeks={() => {}}
+      />,
+    );
+    const grid = document.querySelector(".cal-grid--field") as HTMLElement;
+    expect(grid.style.gridTemplateRows).toContain("repeat(3");
+    // 31 августа стояло один в срезанной строке — оно в одном шаге назад.
+    expect(screen.queryByTestId("day-2026-08-31")).toBeNull();
+    // Вместе со строкой уехал и её пустой кусок, поэтому месяц называет клетка.
+    expect(screen.queryByTestId("month-gap-2026-09-01")).toBeNull();
+    expect(screen.getByTestId("month-mark-2026-09-01")).toHaveTextContent(/сен/i);
+  });
+
+  it("ход окна метится направлением — по нему скин и рисует наплыв", () => {
+    const { rerender } = renderCross({ anchor: SEP });
+    const frame = () => document.querySelector(".tile-frame")?.getAttribute("data-roll");
+    // Стоячее окно ничем не метится: наплыв — это событие, а не состояние.
+    expect(frame()).toBeNull();
+
+    rerender(
+      <Calendar
+        days={crossWindow()}
+        selected={SEP}
+        today={SEP}
+        anchor="2026-09-08"
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+      />,
+    );
+    expect(frame()).toBe("back");
+  });
+
+  it("базовая редакция наплыва не заводит", () => {
+    const { rerender } = render(
+      <Calendar days={crossWindow()} selected={SEP} today={SEP} anchor={SEP} onSelect={() => {}} state="loaded" />,
+    );
+    rerender(
+      <Calendar days={crossWindow()} selected={SEP} today={SEP} anchor="2026-09-08" onSelect={() => {}} state="loaded" />,
+    );
+    expect(document.querySelector(".tile-frame")?.getAttribute("data-roll")).toBeNull();
+  });
+
+  it("базовая редакция переноса не заводит — стык там по-прежнему в слое линий", () => {
+    render(
+      <Calendar
+        days={crossWindow()}
+        selected={SEP}
+        today={SEP}
+        onSelect={() => {}}
+        state="loaded"
+      />,
+    );
+    expect(document.querySelector(".cal-month-edges")).not.toBeNull();
+    expect(screen.getByTestId("day-2026-09-01").getAttribute("style")).not.toContain("grid-row");
+    expect(screen.queryByTestId("month-gap-2026-09-01")).toBeNull();
+  });
+});

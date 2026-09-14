@@ -1,6 +1,8 @@
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DaySummary } from "@/lib/api/types";
+import { FIELD_ROWS, splitFieldWindow } from "@/lib/calendarEdge";
 import { monthEdges } from "@/lib/calendarWindow";
+import { dayWeight } from "@/lib/dayWeight";
 import { dayOfMonth, monthNameRu, monthOf, monthShortRu, weekdayMondayIndex } from "@/lib/date";
 import {
   lensMatch,
@@ -38,6 +40,17 @@ interface CalendarProps {
   lens?: DisciplineLens | null;
   /** Снятие линзы крестиком в ярлыке. Без обработчика крестик не рисуется. */
   onLensChange?: (lens: DisciplineLens | null) => void;
+  /**
+   * Редакция тайла (DESIGN §10.1): `field` — поле света вместо таблицы клеток (§5.2).
+   * Незнакомое имя и пустое значение — базовая сетка в рамках.
+   */
+  edition?: string;
+  /**
+   * На сколько недель борд взял окно шире сетки — под **кромки** (§5.2), полоски, которыми
+   * листают. `0` (дефолт) — окно ровно по сетке, кромок нет и листают стрелками; тогда сетке
+   * достаётся всё окно целиком, потому что резать нечего.
+   */
+  edgeWeeks?: number;
   style?: CSSProperties;
   className?: string;
 }
@@ -92,23 +105,59 @@ export function Calendar({
   canGoBack = true,
   lens = null,
   onLensChange,
+  edition,
+  edgeWeeks = 0,
   style,
   className,
 }: CalendarProps) {
+  // Редакция «поле» (§5.2): клетка теряет рамку и подложку, а вопрос «сколько» уезжает
+  // в яркость. Ветка одна на весь рендер — вид клетки расходится только здесь.
+  const field = edition === "field";
+
+  // Кромки (§5.2) — недели по краям окна, показанные полоской: они же орган листания.
+  // Здесь же считается раскладка месяцев и держится потолок высоты сетки: всё это арифметика
+  // по позициям в окне, и ошибиться в ней тихо — значит уронить высоту сетки.
+  const slices = useMemo(
+    () =>
+      field
+        ? splitFieldWindow(days, { edges: edgeWeeks > 0, canGoBack, maxRows: FIELD_ROWS })
+        : null,
+    [days, field, edgeWeeks, canGoBack],
+  );
+  const gridDays = useMemo(() => (slices ? slices.grid.map((p) => p.day) : days), [slices, days]);
+
   // Выравнивание по неделям: пустые ячейки перед первым днём до понедельника. Борд шлёт
   // окно целыми неделями (§5.3), так что штатно pad = 0; расчёт остаётся страховкой на
   // случай произвольного диапазона — сетка не должна разъезжаться от чужой выборки.
-  const pad = days.length > 0 ? weekdayMondayIndex(days[0].date) : 0;
-  const weeks = Math.max(1, Math.ceil((pad + days.length) / 7));
+  const pad = !field && gridDays.length > 0 ? weekdayMondayIndex(gridDays[0].date) : 0;
+  const weeks = Math.max(1, slices ? slices.rows : Math.ceil((pad + gridDays.length) / 7));
   const windowAnchor = anchor ?? today;
   // Ступенька границ месяцев — прогонами, а не поклеточно (см. `monthEdges` и слой ниже).
   // Текущий месяц метку не получает: он назван плиткой «Сегодня», и линия там была бы шумом.
   const currentMonth = monthOf(today);
-  const edges = useMemo(() => monthEdges(days, pad, currentMonth), [days, pad, currentMonth]);
+  const edges = useMemo(
+    () => (field ? null : monthEdges(gridDays, pad, currentMonth)),
+    [field, gridDays, pad, currentMonth],
+  );
+  // Первые числа, которым пустого куска не досталось: месяц начался с понедельника, с самого
+  // края окна или его кусок уехал за потолок высоты. Имя тогда несёт сама клетка.
+  const inlineMonths = useMemo(() => new Set(slices?.inline ?? []), [slices]);
   // Домашнее положение = окно вокруг сегодня. Оно же — единственное, из которого некуда
   // идти вперёд, поэтому вторая стрелка и возврат в нём просто не рисуются.
   const shifted = windowAnchor !== today;
   const canPage = Boolean(onShiftWeeks);
+  // В «поле» шаг несёт кромка (§5.2), поэтому стрелки не рисуются: полоска и глиф сказали бы
+  // одно и то же дважды. Возврат домой кромкой не выражается — она умеет шаг, а не прыжок, —
+  // и «сегодня» остаётся единственным жильцом строки. Дома в ней не остаётся ничего, и
+  // строка не рисуется вовсе: пустой ряд на волне без подписей читался бы дырой.
+  const showStepGlyphs = !field;
+  const showHome = shifted && Boolean(onResetWindow);
+  // …а сама «сегодня» в этой редакции уезжает таблеткой на нижний край плитки: в ярлыке она
+  // держала целую строку ради одного слова, и появлялась эта строка ровно тогда, когда
+  // читатель смотрит историю, — то есть сдвигала сетку под ним. Снизу она ничего не двигает.
+  const homeAtBottom = field;
+  const hasNav =
+    canPage && ((showHome && !homeAtBottom) || (showStepGlyphs && (canGoBack || shifted)));
   const heading = shifted ? monthNameRu(windowAnchor, today) : "календарь";
 
   // Листание колесом/тачпадом по всей плитке (PRD §5.3): те же шаги, что у стрелок, и те же
@@ -116,6 +165,75 @@ export function Calendar({
   // заменяет, а дополняет (на таче колеса нет, а видимый орган управления нужен всегда).
   const shellRef = useRef<HTMLElement>(null);
   useWheelPaging(shellRef, onShiftWeeks, { back: canGoBack, forward: shifted });
+
+  /**
+   * Ход окна — коротким наплывом вместо подмены (§5.2): колесом листают подряд, и содержимое,
+   * меняющееся мгновенно, читается обрывом. Здесь только НАПРАВЛЕНИЕ хода, само движение
+   * рисует скин: длительность приезжает токеном, и волна вправе не анимировать ничего.
+   *
+   * Метка снимается через два кадра отрисовки: первый показывает стартовое смещение, со
+   * второго идёт переход обратно. Одного мало — состояние и разметка успевают слиться в один
+   * кадр, и перехода не случается вовсе.
+   */
+  const [roll, setRoll] = useState<"back" | "forward" | null>(null);
+  const rolledFrom = useRef(windowAnchor);
+  useEffect(() => {
+    const from = rolledFrom.current;
+    if (from === windowAnchor) return;
+    rolledFrom.current = windowAnchor;
+    setRoll(windowAnchor < from ? "back" : "forward");
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setRoll(null));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [windowAnchor]);
+
+  /**
+   * Кромка (§5.2) — неделя полоской в треть высоты, растворённая маской в плиту, и она же
+   * кнопка шага. Орган управления тут — сами данные: видно не «можно листать», а какие дни
+   * там лежат и насколько они были плотными.
+   *
+   * Вся полоска — ОДНА кнопка, а не семь: неделя здесь неделима, шаг у неё один, и семь
+   * соседних кнопок с одинаковым действием только засорили бы обход с клавиатуры.
+   */
+  function edgeRow(week: DaySummary[], step: -1 | 1) {
+    if (week.length === 0) return null;
+    const back = step < 0;
+    const last = week[week.length - 1];
+    return (
+      <button
+        type="button"
+        data-testid={back ? "calendar-edge-prev" : "calendar-edge-next"}
+        aria-label={back ? "показать предыдущую неделю" : "показать следующую неделю"}
+        title={`${dayOfMonth(week[0].date)} — ${dayOfMonth(last.date)} ${monthShortRu(last.date)}`}
+        onClick={() => onShiftWeeks?.(step)}
+        className={`cal-edge cursor-pointer ${back ? "cal-edge--before" : "cal-edge--after"}`}
+      >
+        {week.map((d) => (
+          <span
+            key={d.date}
+            className="cal-edge-cell"
+            data-weekend={weekdayMondayIndex(d.date) >= 5 || undefined}
+            data-future={d.date > today || undefined}
+            style={
+              {
+                // Колонка своя у каждой клетки: после среза строк кромке может достаться
+                // неполная неделя, а стоять под своей подписью дня она обязана всё равно.
+                gridColumn: weekdayMondayIndex(d.date) + 1,
+                "--day-weight": dayWeight(d).toFixed(3),
+              } as CSSProperties
+            }
+          >
+            {dayOfMonth(d.date)}
+          </span>
+        ))}
+      </button>
+    );
+  }
 
   return (
     <TileShell
@@ -156,9 +274,9 @@ export function Calendar({
             )}
           </span>
 
-          {canPage && (
+          {hasNav && (
             <span className="cal-nav flex shrink-0 items-center gap-1">
-              {canGoBack && (
+              {showStepGlyphs && canGoBack && (
                 <button
                   type="button"
                   data-testid="calendar-prev"
@@ -169,7 +287,7 @@ export function Calendar({
                   ‹
                 </button>
               )}
-              {shifted && (
+              {showStepGlyphs && shifted && (
                 <button
                   type="button"
                   data-testid="calendar-next"
@@ -199,22 +317,25 @@ export function Calendar({
       style={style}
       className={className}
     >
-      <div className="tile-frame flex h-full flex-col gap-1">
+      <div className="tile-frame relative flex h-full flex-col gap-1" data-roll={(field && roll) || undefined}>
         {/* Шапка дней недели — выходные тоном выделены. Зазор общий с сеткой дней (6px):
             разойдись они, колонки шапки перестали бы стоять над своими числами. */}
         <div
-          className="grid gap-1.5"
+          className={`grid gap-1.5${field ? " cal-grid--field-head" : ""}`}
           style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
         >
           {WEEKDAYS.map((w, i) => (
             <div
               key={w}
               aria-hidden
+              data-weekend={i >= 5 || undefined}
               className="t-cal-weekday text-center"
               style={{
                 fontFamily: "var(--font-mono)",
                 color: "var(--text-tertiary)",
-                background: i >= 5 ? "var(--cal-weekend)" : undefined,
+                // Плашка выходного — инлайном только в базе: в «поле» выходной несёт тон
+                // (§5.2), и заливка шапки стала бы вторым голосом того же сигнала.
+                background: !field && i >= 5 ? "var(--cal-weekend)" : undefined,
                 borderRadius: "var(--radius-sm)",
               }}
             >
@@ -223,12 +344,19 @@ export function Calendar({
           ))}
         </div>
 
+        {/* Кромка шага назад — прошлая неделя над сеткой (§5.2). */}
+        {slices && edgeRow(slices.before, -1)}
+
         {/* Сетка дней: ровно `weeks` строк, недели слева направо с понедельника. */}
         {/* Зазор 6px, а не 4: линия стыка месяцев живёт В ЖЁЛОБЕ и на узком зазоре садилась
             на край клетки. Расширение жёлоба ужимает саму клетку — ширина сетки фиксирована. */}
         <div
           role="grid"
-          className="relative grid min-h-0 gap-1.5"
+          // Линза гасит поле насовсем (§5.2): её отметка — кольцо в акценте, и на светящейся
+          // клетке того же тона она бы утонула. Свет и линза отвечают на разные вопросы,
+          // поэтому сильнее тот, ради которого линзу включили.
+          data-lens={field && lens ? true : undefined}
+          className={`relative grid min-h-0 gap-1.5${field ? " cal-grid--field" : ""}`}
           style={{
             gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
             gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))`,
@@ -258,6 +386,7 @@ export function Calendar({
               днём). В своём слое отрезок один на весь прогон и ни от чего этого не зависит.
               Слой `absolute`, поэтому грид-элементом родителя не становится; `aria-hidden` +
               `pointer-events: none` — он декорация и кликам не мешает. */}
+          {edges && (
           <div
             aria-hidden
             className="cal-month-edges grid gap-1.5"
@@ -283,8 +412,35 @@ export function Calendar({
               />
             ))}
           </div>
+          )}
 
-          {days.map((d) => {
+          {/* Имена месяцев редакции «поле» — в том же слое-двойнике и по той же причине, что
+              линии выше: подпись занимает несколько клеток разом, и грид-элементом сетки дней
+              ей не стать, не заняв их места. Имя всегда называет месяц, который НАЧИНАЕТСЯ,
+              и стоит в пустом куске перед ним (§5.2). */}
+          {slices && slices.marks.length > 0 && (
+            <div
+              aria-hidden
+              className="cal-month-gaps grid gap-1.5"
+              style={{
+                gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))`,
+              }}
+            >
+              {slices.marks.map((m) => (
+                <span
+                  key={`month-gap-${m.date}`}
+                  data-testid={`month-gap-${m.date}`}
+                  className="cal-month-gap"
+                  style={{ gridRow: m.row + 1, gridColumn: `${m.from + 1} / ${m.to + 1}` }}
+                >
+                  {monthNameRu(m.date, today)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {gridDays.map((d, i) => {
             const isToday = d.date === today;
             const isSelected = d.date === selected;
             const isFuture = d.date > today;
@@ -295,11 +451,19 @@ export function Calendar({
 
             // Подпись месяца ходит парой со своей линией: без неё она повисла бы сиротой,
             // а в домашнем окне ещё и повторяла бы то, что уже написано в «Сегодня».
-            const startsMonth = dayOfMonth(d.date) === 1 && monthOf(d.date) < currentMonth;
+            // В «поле» линий нет, и в клетке остаётся только то, чему не нашлось пустого
+            // куска: месяц, начавшийся с понедельника или с самого края окна.
+            const startsMonth = field
+              ? inlineMonths.has(d.date)
+              : dayOfMonth(d.date) === 1 && monthOf(d.date) < currentMonth;
+            // Явные координаты — только в «поле»: там слоты не идут подряд (§5.2).
+            const place = slices ? slices.grid[i] : null;
 
             // Пропуск несёт РАМКА, а не заливка: заливка занята вопросом «когда» (выходной /
             // будущее), и раньше «прошёл, но пусто» и «ещё не наступил» красились одинаково —
             // пропуск читался как будущее.
+            // В «поле» рамок и подложек нет вовсе — вид клетки целиком за скином редакции,
+            // поэтому инлайн-стили ей не назначаются: инлайн перебил бы CSS без шанса.
             const border = isToday
               ? "2px solid var(--border-pixel)"
               : isSelected
@@ -353,15 +517,19 @@ export function Calendar({
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontWeight: isToday ? 500 : 400,
-                  border,
                   borderRadius: "var(--radius-sm)",
-                  background: base,
+                  ...(field
+                    ? // Вес дня едет переменной, а не готовым цветом: из него скин считает и
+                      // яркость свечения, и всё, что волна захочет к нему привязать.
+                      { "--day-weight": dayWeight(d).toFixed(3) }
+                    : { border, background: base }),
+                  ...(place === null ? null : { gridRow: place.row + 1, gridColumn: place.col + 1 }),
                   // Цифра чужого месяца больше не приглушается: это был тот же сигнал, что и
                   // снятая заливка, и он инвертировался бы ровно так же — просто тише.
                   color:
                     isFuture || dimmedByLens ? "var(--text-tertiary)" : "var(--text-primary)",
                   opacity: isFuture ? 0.7 : 1,
-                }}
+                } as CSSProperties}
               >
                 {/* Отметка линзы — скруглённая рамка на самой цифре (§5.1 DESIGN); цвет
                     рамки даёт тон линзы. */}
@@ -397,6 +565,24 @@ export function Calendar({
             );
           })}
         </div>
+
+        {/* Кромка шага вперёд. Дома её нет: идти некуда, и полоска была бы мёртвым органом —
+            ровно то, от чего в базовой редакции убрана вторая стрелка. */}
+        {shifted && slices && edgeRow(slices.after, 1)}
+
+        {/* Возврат домой — таблетка на нижнем крае плитки (§5.2). Своей строки она не берёт
+            и сетку не двигает: лежит поверх, наполовину съезжая в поля карточки. */}
+        {homeAtBottom && showHome && (
+          <button
+            type="button"
+            data-testid="calendar-home"
+            aria-label="вернуть календарь к сегодня"
+            onClick={onResetWindow}
+            className="cal-home-pill cursor-pointer"
+          >
+            сегодня
+          </button>
+        )}
       </div>
     </TileShell>
   );

@@ -1,11 +1,12 @@
-import { render, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SocialLinkView } from "@/lib/api/types";
 import { SocialTile } from "./SocialTile";
 
-vi.mock("@/lib/api/client", () => ({ getSocialLinks: vi.fn() }));
-import { getSocialLinks } from "@/lib/api/client";
+vi.mock("@/lib/api/client", () => ({ getSocialLinks: vi.fn(), getLatestInstagramPost: vi.fn() }));
+import { getLatestInstagramPost, getSocialLinks } from "@/lib/api/client";
 const getSocialLinksMock = vi.mocked(getSocialLinks);
+const getPostMock = vi.mocked(getLatestInstagramPost);
 
 afterEach(() => vi.clearAllMocks());
 
@@ -72,5 +73,56 @@ describe("SocialTile", () => {
   it("отдаёт число ссылок переменной --social-count (ряд в мобильном стеке)", async () => {
     const el = await grid(["github", "telegram", "x", "instagram"]);
     expect(el.style.getPropertyValue("--social-count")).toBe("4");
+  });
+});
+
+describe("SocialTile — превью последнего поста (редакция peek)", () => {
+  const post = {
+    username: "danchuo_",
+    permalink: "https://instagram.com/p/abc",
+    caption: "вечерний двор",
+    mediaType: "IMAGE",
+    imageUrl: "/api/instagram-media/post",
+    avatarUrl: "/api/instagram-media/avatar",
+    likes: 347,
+    comments: 12,
+    postedAt: "2026-09-11T18:00:00Z",
+  };
+
+  async function tile(edition?: string) {
+    getSocialLinksMock.mockResolvedValue([link("instagram"), link("telegram")]);
+    const { container } = render(<SocialTile edition={edition} />);
+    await within(container).findByLabelText("instagram");
+    return container;
+  }
+
+  it("без редакции пост не запрашивается вовсе: на других волнах это просто ряд ссылок", async () => {
+    await tile();
+    expect(getPostMock).not.toHaveBeenCalled();
+  });
+
+  it("в редакции peek карточка поста висит у марки Instagram", async () => {
+    getPostMock.mockResolvedValue(post);
+    await tile("peek");
+    // Карточка живёт в ПОРТАЛЕ (плитка режет содержимое, см. HoverTip), поэтому ищем
+    // её в документе, а не в контейнере плитки.
+    const card = await screen.findByText("347 отметок «Нравится»");
+    expect(card).not.toBeNull();
+    expect(document.querySelector(".ig-peek")).not.toBeNull();
+  });
+
+  it("пустой источник карточку не рисует: марка остаётся обычной ссылкой", async () => {
+    getPostMock.mockResolvedValue(null);
+    const container = await tile("peek");
+    expect(document.querySelector(".ig-peek")).toBeNull();
+    expect(container.querySelector('a[aria-label="instagram"]')).not.toBeNull();
+  });
+
+  it("спрятанные владельцем счётчики не рисуются вовсе — ноль соврал бы", async () => {
+    getPostMock.mockResolvedValue({ ...post, likes: null, comments: null });
+    await tile("peek");
+    await screen.findByText("вечерний двор", { exact: false });
+    expect(screen.queryByText(/отметок/)).toBeNull();
+    expect(screen.queryByText(/комментариев/)).toBeNull();
   });
 });

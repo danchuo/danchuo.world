@@ -548,6 +548,23 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
     measure();
   }, [measure, state, isEmpty, contentSig]);
 
+  // ⚠️ Шрифт доезжает ПОЗЖЕ первого замера, и это ломает сжатие молча. Ширина карточки считается
+  // от `scrollWidth` строк; замерь их запасным шрифтом — карточка выйдет у́же, чем нужно
+  // настоящему, и длинная строка (обычно альбом, он усечён многоточием) обрежется, хотя в ячейке
+  // ещё оставалось место. ResizeObserver сюда не помогает: подмена шрифта не меняет ни ячейку,
+  // ни состав контента, то есть ни один из живых поводов пересчитать не срабатывает.
+  useEffect(() => {
+    const fonts = typeof document !== "undefined" ? document.fonts : undefined;
+    if (!fonts?.ready) return; // jsdom и старые движки — живём первым замером
+    let alive = true;
+    fonts.ready.then(() => {
+      if (alive) measure();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [measure, state, isEmpty, contentSig]);
+
   // ResizeObserver держит замер живым: внешняя ширина ячейки (ресайз окна, смена волны) И размер
   // контента — так карточка **пере**сжимается сама, когда трек обновился в фоне (поллинг) и стал
   // шире/уже. Петли нет: натуральная ширина берётся с `max-content`-строк и не зависит от ширины

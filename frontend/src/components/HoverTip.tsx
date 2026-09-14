@@ -7,6 +7,16 @@ interface HoverTipProps {
   /** Текст подсказки. `null` ⇒ подсказки нет: якорь рендерится голым, без обёртки. */
   text?: string | null;
   /**
+   * Подсказка-КАРТОЧКА вместо строки текста (превью поста соцсети, DESIGN §7.9). Размещается
+   * тем же кодом, что и текстовая: задача «всплыть у якоря и не попасть под клип плитки» у них
+   * одна, и решать её дважды значило бы держать две копии выбора направления.
+   *
+   * ⚠️ Карточка уходит из дерева доступности (`aria-hidden`), в отличие от текстовой подсказки:
+   * та ОПИСЫВАЕТ якорь и потому подцеплена `aria-describedby`, а карточка — картинка рядом со
+   * ссылкой, и зачитывать её содержимое как описание ссылки на профиль незачем.
+   */
+  content?: ReactNode;
+  /**
    * Подсказка-ФРАЗА, а не короткая строчка: переносится по словам и капается по ширине.
    * По умолчанию подсказка в одну строку (`nowrap`) — так её задумывал SVG-собрат у огонька,
    * где текст короткий (номер дня жизни, длина стрика).
@@ -43,7 +53,7 @@ const EDGE = 8;
  * Скринридеру подсказка достаётся через `aria-describedby` — как описание, а не как имя:
  * дата обязана остаться датой, номер дня жизни лишь дополняет её (DESIGN §4).
  */
-export function HoverTip({ text, phrase = false, children }: HoverTipProps) {
+export function HoverTip({ text, content, phrase = false, children }: HoverTipProps) {
   const id = useId();
   const anchorRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
@@ -87,9 +97,19 @@ export function HoverTip({ text, phrase = false, children }: HoverTipProps) {
     };
   }, [open, hide]);
 
-  if (!text) return <>{children}</>;
+  if (!text && !content) return <>{children}</>;
 
-  const tip = (
+  const tip = content ? (
+    <span
+      ref={tipRef}
+      className="hover-tip hover-tip--card"
+      aria-hidden="true"
+      data-open={open ? "true" : undefined}
+      style={pos ? { top: pos.top, left: pos.left } : undefined}
+    >
+      {content}
+    </span>
+  ) : (
     <span
       ref={tipRef}
       className={`hover-tip${phrase ? " hover-tip--phrase" : ""}`}
@@ -107,7 +127,7 @@ export function HoverTip({ text, phrase = false, children }: HoverTipProps) {
       <span
         ref={anchorRef}
         className="hover-tip-anchor"
-        aria-describedby={id}
+        aria-describedby={content ? undefined : id}
         onPointerEnter={show}
         onPointerLeave={hide}
         onFocus={show}

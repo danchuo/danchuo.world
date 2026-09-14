@@ -1,12 +1,23 @@
 "use client";
 
 import { useCallback, type CSSProperties } from "react";
-import { getSocialLinks } from "@/lib/api/client";
-import type { SocialLinkView } from "@/lib/api/types";
+import { getLatestInstagramPost, getSocialLinks } from "@/lib/api/client";
+import type { InstagramPostView, SocialLinkView } from "@/lib/api/types";
+import { HoverTip } from "./HoverTip";
+import { InstagramPeek } from "./InstagramPeek";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
 interface SocialTileProps {
+  /**
+   * Редакция плитки (DESIGN §10.1). `peek` — под маркой Instagram всплывает последний пост
+   * (PRD §5.17); любое другое значение (и его отсутствие) — просто ряд ссылок.
+   *
+   * Решает ВОЛНА через свою layout-дельту, а не проверка ключа волны в коде: иначе каждая
+   * новая волна требовала бы правки компонента, и обещание «новая волна = запись в БД»
+   * перестало бы быть правдой.
+   */
+  edition?: string;
   style?: CSSProperties;
   className?: string;
 }
@@ -51,13 +62,25 @@ const BRAND_MARKS: Partial<Record<string, string>> = {
  * (`.social-icon--sprite`, wave-01.css), волна 03 — фирменной маркой платформы
  * (`.social-icon--brand`, [BRAND_MARKS]). Пусто ⇒ тихий empty.
  */
-export function SocialTile({ style, className }: SocialTileProps) {
+export function SocialTile({ edition, style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
     useCallback((signal) => getSocialLinks({ signal }), []),
     "social-links",
   );
   const links = data ?? [];
   const isEmpty = phase === "loaded" && links.length === 0;
+
+  // Пост тянем, только если редакция его показывает: на остальных волнах запроса нет вовсе.
+  // Пусто (аккаунт не подключён, пост ещё не забран) — `null`, и карточки просто не будет:
+  // марка остаётся обычной ссылкой (DESIGN §7).
+  const peek = useTileData<InstagramPostView | null>(
+    useCallback(
+      (signal) => (edition === "peek" ? getLatestInstagramPost({ signal }) : Promise.resolve(null)),
+      [edition],
+    ),
+    `instagram-latest-${edition ?? "plain"}`,
+  );
+  const post = edition === "peek" ? peek.data ?? null : null;
   const cols = links.length <= 4 ? 2 : links.length <= 9 ? 3 : 4;
 
   return (
@@ -90,6 +113,7 @@ export function SocialTile({ style, className }: SocialTileProps) {
           >
             {links.map((l) => (
               <li key={l.platform} className="min-h-0 min-w-0">
+                <HoverTip content={post && l.platform === "instagram" ? <InstagramPeek post={post} /> : undefined}>
                 <a
                   href={l.url}
                   target="_blank"
@@ -129,6 +153,7 @@ export function SocialTile({ style, className }: SocialTileProps) {
                   )}
                   <span className="social-label max-w-full truncate px-1">{l.name}</span>
                 </a>
+                </HoverTip>
               </li>
             ))}
           </ul>

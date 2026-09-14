@@ -70,6 +70,15 @@ services:
       DANCHUO_SPOTIFY_REDIRECT_URI: ${DANCHUO_SPOTIFY_REDIRECT_URI:-https://danchuo.world/api/spotify/callback}
       DANCHUO_SPOTIFY_TOKEN_KEY: ${DANCHUO_SPOTIFY_TOKEN_KEY:-}
 
+      # Instagram (PRD 5.17): optional — absent creds mean the slice reports "not configured".
+      # The redirect URI must be https and match the app dashboard exactly: Instagram refuses
+      # a loopback address, so the one-time OAuth can only be done against the live domain.
+      # Snapshot images live under the film volume, so no extra mount is needed.
+      DANCHUO_INSTAGRAM_CLIENT_ID: ${DANCHUO_INSTAGRAM_CLIENT_ID:-}
+      DANCHUO_INSTAGRAM_CLIENT_SECRET: ${DANCHUO_INSTAGRAM_CLIENT_SECRET:-}
+      DANCHUO_INSTAGRAM_REDIRECT_URI: ${DANCHUO_INSTAGRAM_REDIRECT_URI:-https://danchuo.world/api/instagram/callback}
+      DANCHUO_INSTAGRAM_TOKEN_KEY: ${DANCHUO_INSTAGRAM_TOKEN_KEY:-}
+
       # Velobike (B4): push ingest works without config; the poller stays off by default
       # (external API sits behind Qrator — see application.properties).
       DANCHUO_BIKE_PHONE: ${DANCHUO_BIKE_PHONE:-}

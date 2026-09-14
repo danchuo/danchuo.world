@@ -6,10 +6,18 @@
  * виджеты появились, причём каждый в свой момент. Ворота собирают это в одно событие — борд
  * возникает сразу одетым.
  *
+ * ⚠️ **`document.fonts.ready` опрашивается только после первой раскладки.** Файл шрифта
+ * запрашивается не разбором CSS, а раскладкой текста, которому он нужен: пока раскладки не
+ * было, набор шрифтов документа ПУСТ, и «готов» он отвечает мгновенно. Chrome это прячет —
+ * он держит обещание до первой раскладки сам; WebKit отдаёт его сразу, и ворота открывались
+ * раньше, чем уходил первый запрос за шрифтом, — ровно то мигание, что они лечат. Поэтому
+ * подписка ждёт `DOMContentLoaded` и выжимает раскладку чтением `offsetHeight`: после него
+ * запросы ушли, и обещание отвечает про настоящие файлы.
+ *
  * ⚠️ **Атрибут ставит сам скрипт, а не сервер.** Разметка приезжает без него, поэтому при
  * выключенном JS ворот нет вовсе и борд виден — иначе отключённый JS давал бы пустую страницу.
- * По той же причине [FONT_GATE_TIMEOUT_MS] стоит раньше подписки на `document.fonts.ready`:
- * шрифт, который не приехал, не имеет права спрятать сайт насовсем.
+ * По той же причине [FONT_GATE_TIMEOUT_MS] стоит раньше всякого ожидания: шрифт, который не
+ * приехал, не имеет права спрятать сайт насовсем.
  *
  * ⚠️ **Скрипт обязан стоять в `<head>`, до разметки.** Из `useEffect` он выполнится уже после
  * гидратации — борд к тому времени нарисован, и ворота показали бы его, спрятали и показали
@@ -27,6 +35,37 @@ export const FONT_GATE_SCRIPT = `(function(){
     r.setAttribute("data-fonts", "pending");
     setTimeout(done, ${FONT_GATE_TIMEOUT_MS});
     var f = document.fonts;
-    if (f && f.ready && f.ready.then) { f.ready.then(done, done); } else { done(); }
+    if (!f || !f.ready || !f.ready.then) return done();
+    var wait = function(){
+      try { void document.body.offsetHeight; } catch (e) {}
+      f.ready.then(done, done);
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wait);
+    else wait();
   } catch (e) { done(); }
 })();`;
+
+/**
+ * Подписка на открытие ворот для тех, кому мало спрятаться: фоновый холст РЕЖЕТ ленту по
+ * замеру знака и должен пересчитать её, когда приехало настоящее начертание.
+ *
+ * Читает состояние ворот, а не `document.fonts.ready` напрямую: у ворот оно единственно
+ * верное (см. врез выше), да и потолок ожидания учтён тут же. Ворот нет вовсе (JS выключен
+ * на первой отрисовке, jsdom-тест) ⇒ ждать нечего, зовём сразу.
+ *
+ * Возвращает отписку.
+ */
+export function onFontsReady(run: () => void): () => void {
+  const root = document.documentElement;
+  if (root.getAttribute("data-fonts") !== "pending") {
+    run();
+    return () => {};
+  }
+  const observer = new MutationObserver(() => {
+    if (root.getAttribute("data-fonts") === "pending") return;
+    observer.disconnect();
+    run();
+  });
+  observer.observe(root, { attributes: true, attributeFilter: ["data-fonts"] });
+  return () => observer.disconnect();
+}

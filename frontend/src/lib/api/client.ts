@@ -6,6 +6,7 @@ import type {
   FilmPhotoView,
   FreshnessView,
   InstagramPostView,
+  TelegramProfileView,
   NowPlayingView,
   ProjectView,
   RecentTrackView,
@@ -92,6 +93,18 @@ export async function getLatestInstagramPost(init?: RequestInit): Promise<Instag
   if (res.status === 204) return null;
   if (!res.ok) throw new ApiError(res.status, url);
   return (await res.json()) as InstagramPostView;
+}
+
+/**
+ * Визитка Telegram (`GET /api/telegram/profile`, PRD §5.18). Пустота — 204 без тела, как у
+ * последнего поста: читать её как JSON нельзя, отдаём `null` и карточку просто не рисуем.
+ */
+export async function getTelegramProfile(init?: RequestInit): Promise<TelegramProfileView | null> {
+  const url = `${BASE}/api/telegram/profile`;
+  const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });
+  if (res.status === 204) return null;
+  if (!res.ok) throw new ApiError(res.status, url);
+  return (await res.json()) as TelegramProfileView;
 }
 
 /** Артефакты marquee (`GET /api/artifacts`). */

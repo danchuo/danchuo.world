@@ -45,7 +45,8 @@ class InstagramTokenService(
         val long = graph.exchangeLongLived("ig_exchange_token", config.clientSecret().orElse(""), shortToken)
         val longToken = long.accessToken
             ?: error("Instagram не вернул долгоживущий токен")
-        repository.save(box.encrypt(longToken), short.permissions ?: config.scopes(), Instant.now())
+        val granted = short.permissions?.takeIf { it.isNotEmpty() }?.joinToString(",") ?: config.scopes()
+        repository.save(box.encrypt(longToken), granted, Instant.now())
     }
 
     /** Расшифрованный токен для читающих. `null` — аккаунт не подключён или токен уже мёртв. */

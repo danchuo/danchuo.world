@@ -1,5 +1,6 @@
 package world.danchuo.instagram
 
+import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.ws.rs.Consumes
@@ -76,11 +77,20 @@ interface InstagramGraphClient {
     ): InstagramMediaPage
 }
 
+/**
+ * Короткоживущий токен первого шага обмена.
+ *
+ * ⚠️ [permissions] приезжает МАССИВОМ, хотя в документации Instagram описан строкой.
+ * Тип обязан принимать обе формы, иначе рассинхрон валит ВЕСЬ обмен кода — а код одноразовый,
+ * и чинится это только новым заходом владельца в браузер.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class InstagramShortTokenResponse(
     @param:JsonProperty("access_token") val accessToken: String? = null,
     @param:JsonProperty("user_id") val userId: String? = null,
-    @param:JsonProperty("permissions") val permissions: String? = null,
+    @param:JsonProperty("permissions")
+    @param:JsonFormat(with = [JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY])
+    val permissions: List<String>? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

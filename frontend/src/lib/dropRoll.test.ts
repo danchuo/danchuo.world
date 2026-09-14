@@ -295,6 +295,34 @@ describe("frameWheelStep — шаг плитки «последний дроп»
     expect(steps).toBeGreaterThan(1);
   });
 
+  /**
+   * Мах по трекпаду с инерцией, как его шлёт macOS: короткий разгон и длинный затухающий
+   * хвост — около секунды событий каждые ~16мс, дельта падает геометрически. Суммарный путь
+   * такого маха огромен (сотни пикселей), но ЖЕСТ один.
+   */
+  function flick(peak: number, decay: number, count: number, everyMs: number) {
+    let acc = 0;
+    let since = FRAME_STEP_COOLDOWN_MS;
+    let steps = 0;
+    for (let i = 0; i < count; i += 1) {
+      const d = frameWheelStep(peak * Math.pow(decay, i), 0, acc, since);
+      acc = d.acc;
+      if (d.dir !== 0) {
+        steps += 1;
+        since = 0;
+      }
+      since += everyMs;
+    }
+    return steps;
+  }
+
+  it("один мах с инерцией стоит ОДНОГО кадра, а не двух", () => {
+    // Жалоба владельца: за одно пролистывание тачпадом плитка успевает сменить два снимка.
+    // Виноват не разгон, а хвост: он переживает остывание, и следующее окно докатывается
+    // инерцией, которой человек уже не управляет.
+    expect(flick(50, 0.94, 60, 16)).toBe(1);
+  });
+
   it("шаг стоит пройденного пути, а не одного события", () => {
     const small = frameWheelStep(FRAME_WHEEL_TRAVEL_PX - 1, 0, 0, 9999);
     expect(small.dir).toBe(0);
@@ -323,7 +351,10 @@ describe("frameWheelStep — шаг плитки «последний дроп»
   });
 
   it("дельта в строках (Firefox) переводится в пиксели, иначе порог недостижим", () => {
-    expect(frameWheelStep(6, 1, 0, 9999).dir).toBe(1);
-    expect(frameWheelStep(6, 0, 0, 9999).dir).toBe(0);
+    // Одно и то же число значит РАЗНОЕ в двух режимах. Величину берём от самого порога,
+    // а не константой: подогнанное под порог число молча ломается вместе с ним.
+    const lines = FRAME_WHEEL_TRAVEL_PX / 2;
+    expect(frameWheelStep(lines, 1, 0, 9999).dir).toBe(1);
+    expect(frameWheelStep(lines, 0, 0, 9999).dir).toBe(0);
   });
 });

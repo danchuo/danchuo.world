@@ -330,7 +330,7 @@ function BoardTile({
     case "ride":
       return <RideTile wave={data.wave} edition={edition} style={style} className={className} />;
     case "social":
-      return <SocialTile style={style} className={className} />;
+      return <SocialTile edition={edition} style={style} className={className} />;
     case "marquee":
       return <ArtifactMarquee orientation={orientation} style={style} className={className} />;
     case "hero":

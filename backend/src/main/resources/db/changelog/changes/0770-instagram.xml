@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Последний пост Instagram (PRD §5.17). Две синглтон-строки: токен владельца и сам пост —
+      аккаунт один, и на борде показывается ровно один пост.
+
+      Токен лежит ШИФРОВАННО (AES-GCM, PRD §8), как refresh Spotify, и время выдачи хранится
+      отдельной колонкой: продление выдаёт новый шестидесятидневный срок, и считать его можно
+      только от выдачи.
+
+      Картинки поста и аватара в БД не лежат вовсе — только на диске: ссылки Instagram
+      подписаны и живут часами, поэтому байты снимаются себе (InstagramImageStorage).
+    -->
+    <changeSet id="0770-instagram-token" author="danchuo">
+        <createTable tableName="instagram_token">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="encrypted_access_token" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="issued_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scope" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0770-instagram-post" author="danchuo">
+        <createTable tableName="instagram_post">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="media_id" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permalink" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="caption" type="TEXT"/>
+            <column name="media_type" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Счётчики обнуляемы: владелец вправе спрятать их у поста, и тогда API их не шлёт. -->
+            <column name="like_count" type="INTEGER"/>
+            <column name="comments_count" type="INTEGER"/>
+            <column name="posted_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="username" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fetched_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

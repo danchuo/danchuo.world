@@ -7,7 +7,7 @@ import type { FilmPhotoView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn(), getDrop: vi.fn() }));
 import { getDrop, getDrops } from "@/lib/api/client";
-import { FRAME_STEP_COOLDOWN_MS } from "@/lib/dropRoll";
+import { FRAME_STEP_COOLDOWN_MS, FRAME_WHEEL_TRAVEL_PX } from "@/lib/dropRoll";
 const getDropsMock = vi.mocked(getDrops);
 const getDropMock = vi.mocked(getDrop);
 
@@ -274,8 +274,11 @@ describe("LatestDropTile — редакции (волна выбирает че�
     // Ровно жалоба владельца: пальцы ведут не отрываясь, курсор при этом стоит на месте —
     // и раньше кадр менялся ОДИН раз за весь жест. Ведение — это события, разделённые
     // настоящим временем, поэтому и тут паузы настоящие.
+    // Шаг события выводим из порога, а не держим числом: подогнанное под порог число
+    // молча ломается вместе с ним, и тест начинает проверять не то, что написано.
+    const perEvent = Math.ceil((FRAME_WHEEL_TRAVEL_PX + 40) / 4);
     for (let burst = 0; burst < 3; burst += 1) {
-      for (let i = 0; i < 4; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
+      for (let i = 0; i < 4; i += 1) fireEvent.wheel(card, { deltaX: perEvent, deltaY: 0 });
       await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
     }
     await waitFor(() => expect(shownSeq(container)).toBe("3"));

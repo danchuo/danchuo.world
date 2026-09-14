@@ -269,6 +269,28 @@ export interface SocialLinkView {
   icon: string | null;
 }
 
+/**
+ * Последний пост Instagram (`GET /api/instagram/latest`, PRD §5.17). Бэкенд отвечает 204,
+ * пока аккаунт не подключён, — клиент превращает это в `null`.
+ *
+ * ⚠️ `imageUrl` и `avatarUrl` ведут на НАШ бэкенд, а не на CDN Instagram: подписанные ссылки
+ * источника живут часами, поэтому байты сняты себе. `likes`/`comments` — `null`, когда
+ * владелец спрятал счётчики у поста: это законное состояние, строку просто не рисуем.
+ */
+export interface InstagramPostView {
+  username: string;
+  permalink: string;
+  caption: string | null;
+  /** `IMAGE` · `VIDEO` · `CAROUSEL_ALBUM` — карточка помечает альбом и видео значком. */
+  mediaType: string;
+  imageUrl: string | null;
+  avatarUrl: string | null;
+  likes: number | null;
+  comments: number | null;
+  /** ISO-8601 UTC; «2 дня назад» считает фронт, как у остальных плиток. */
+  postedAt: string;
+}
+
 /** Артефакт marquee (`GET /api/artifacts`); `firstMentionedOn` — только в ховер-поповере (§5.8). */
 export interface ArtifactView {
   name: string;

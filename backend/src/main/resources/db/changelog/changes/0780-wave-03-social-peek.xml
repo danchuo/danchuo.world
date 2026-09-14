@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03 включает редакцию соцсетей, в которой под маркой Instagram всплывает последний
+      пост (PRD §5.17). Решение приезжает РАСКЛАДКОЙ волны, а не проверкой ключа волны в коде:
+      иначе каждая следующая волна требовала бы правки компонента.
+
+      Место плитки правится тем же запросом: редакция — поле того же спана, и разбирать его
+      на два обновления незачем. Что где стоит — DESIGN §10.2.
+    -->
+    <changeSet id="0780-wave-03-social-peek" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,social}',
+  $J${"col": 34, "row": 2, "colSpan": 7, "rowSpan": 2, "edition": "peek"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(layout, '{tiles,social}', $J${"col": 34, "row": 2, "colSpan": 7, "rowSpan": 2}$J$::jsonb)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

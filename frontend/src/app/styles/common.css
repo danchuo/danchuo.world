@@ -1316,6 +1316,157 @@ body {
 .hover-tip[data-open="true"] {
   opacity: 1;
 }
+
+/* Подсказка-КАРТОЧКА (превью поста соцсети, DESIGN §7.9). Обнуляет всю отделку текстовой:
+   у карточки свой кант, своя подложка и свои поля — иначе она сидела бы в чужой рамке. */
+.hover-tip--card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  white-space: normal;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* ── Превью поста Instagram (PRD §5.17) ──────────────────────────────────────
+   ⚠️ РЕПЛИКА чужого интерфейса: размеры и цвета сняты с живого эмбеда
+   `instagram.com/p/…/embed` и НЕ следуют волне — в этом весь смысл. Токенов волны
+   здесь нет намеренно (исключение из «ноль хардкод-цветов»: это брендовые константы
+   Instagram, как и фирменные марки платформ в `assets/social/brand`). Волна решает
+   только, показывать ли карточку вовсе (редакция `peek`, DESIGN §10.1).
+   Светлая тема Instagram — выбор владельца из двух его штатных. */
+.ig-peek {
+  --ig-bg: #ffffff;
+  --ig-ink: #1c1e21;
+  --ig-strong: #000000;
+  --ig-dim: #737373;
+  --ig-edge: #dbdbdb;
+
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  overflow: hidden;
+  border: 1px solid var(--ig-edge);
+  border-radius: 6px;
+  background: var(--ig-bg);
+  color: var(--ig-ink);
+  /* Системный стек Instagram — замер на живом эмбеде. */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Тень плотнее штатной: на тёмном стекле волны белая карточка иначе висит без опоры. */
+  box-shadow: 0 2px 4px rgb(0 0 0 / 45%), 0 14px 34px rgb(0 0 0 / 50%);
+}
+.ig-peek__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+/* Кольцо сторис — фирменный градиент Instagram: аватар 30px внутри кольца 34px. */
+.ig-peek__ring {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 2px;
+  border-radius: 50%;
+  background: conic-gradient(from 200deg, #feda77, #f58529, #dd2a7b, #8134af, #515bd4, #feda77);
+}
+.ig-peek__avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--ig-bg);
+  object-fit: cover;
+}
+.ig-peek__avatar--blank {
+  background: #efefef;
+}
+.ig-peek__who {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.ig-peek__handle {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--ig-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ig-peek__sub {
+  font-size: 12px;
+  line-height: 14px;
+  color: var(--ig-dim);
+}
+/* Кадр квадратом — лента Instagram кадрирует превью именно так, независимо от пропорции
+   оригинала; без фиксированной пропорции карточка прыгала бы по высоте от поста к посту. */
+.ig-peek__shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 100%;
+  object-fit: cover;
+  background: #f3f5f7;
+}
+.ig-peek__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 10px;
+  color: var(--ig-strong);
+}
+.ig-peek__actions svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+.ig-peek__save {
+  margin-left: auto;
+}
+.ig-peek__counts {
+  margin: 0;
+  padding: 0 10px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--ig-strong);
+  font-variant-numeric: tabular-nums;
+}
+.ig-peek__caption {
+  margin: 0;
+  padding: 0 10px;
+  font-size: 14px;
+  line-height: 18px;
+  /* Длинная подпись обрезается тремя строками: карточка всплывает у края борда, и пост на
+     пол-экрана перекрыл бы соседние плитки вместо того, чтобы их дополнять. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.ig-peek__caption b {
+  font-weight: 600;
+  color: var(--ig-strong);
+}
+.ig-peek__comments {
+  margin: 0;
+  padding: 6px 10px 0;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--ig-dim);
+}
+.ig-peek__stamp {
+  margin: 0;
+  padding: 8px 10px 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ig-dim);
+}
 @media (prefers-reduced-motion: reduce) {
   .hover-tip {
     transition: none;
@@ -3228,6 +3379,19 @@ body {
   height: 100%;
   margin-inline: auto;
 }
+/* Играет трек или стоит на паузе ⇒ карточка ростом с контент, на всех волнах.
+   ⚠️ Сжатие — ПАРАМЕТР (`--music-fit-h`), от которого скин вправе отказаться, а не правило,
+   с которым волне пришлось бы бороться. Волне, у которой виджет и ЕСТЬ картинка во всю
+   плитку (Obscura с приехавшей обложкой), рост по тексту ломает саму композицию: она
+   ставит `--music-fit-h: 100%` и остаётся во всю ячейку. Под играющий
+   трек список недавних убран (плитка показывает что-то одно), и остаток ячейки был пустым
+   местом под шкалой. В режиме `recent` высота остаётся полной намеренно: список меряет
+   доступное место своей обёрткой (`.music-recent`, flex-1), и карточка ростом с контент
+   отняла бы у него ту самую высоту, по которой он решает, сколько рядов показать. */
+[data-music-mode="playing"] .music-card,
+[data-music-mode="paused"] .music-card {
+  height: var(--music-fit-h, var(--music-card-h, 100%));
+}
 
 /* Подложка во всю карточку (слот `backdrop` в [TileShell]) — обрезана краем самой плитки.
    Волна кладёт сюда обложку играющего трека через `--music-cover`.
@@ -3334,7 +3498,11 @@ body {
   display: none;
   align-items: center;
   gap: 8px;
-  margin-top: auto;
+  /* ⚠️ Шкала идёт СРАЗУ за альбомом, а не прижимается к низу плитки (`margin-top: auto`).
+     Прижим стоил двух бед разом: между альбомом и шкалой зияла дыра во всю свободную
+     вертикаль, а замер карточки принимал использованное значение авто-отступа за контент
+     (`naturalCardHeight` суммирует margin'ы) — и сжатие к контенту не срабатывало никогда,
+     потому что «естественная» высота выходила равной полной. */
   padding-top: 6px;
   font-family: var(--font-mono);
   font-size: var(--fs-music-source);

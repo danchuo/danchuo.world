@@ -5,6 +5,7 @@ import type {
   FilmDropView,
   FilmPhotoView,
   FreshnessView,
+  InstagramPostView,
   NowPlayingView,
   ProjectView,
   RecentTrackView,
@@ -76,6 +77,21 @@ export function getProjects(init?: RequestInit): Promise<ProjectView[]> {
 /** Соцссылки (`GET /api/social-links`). */
 export function getSocialLinks(init?: RequestInit): Promise<SocialLinkView[]> {
   return getJson<SocialLinkView[]>(`/api/social-links`, init);
+}
+
+/**
+ * Последний пост Instagram (`GET /api/instagram/latest`, PRD §5.17).
+ *
+ * ⚠️ Пустота здесь — 204 БЕЗ ТЕЛА, и читать её как JSON нельзя: `res.json()` на пустом теле
+ * бросает, и «аккаунт ещё не подключён» приехало бы на борд ошибкой. Отдаём `null` —
+ * плитка молча не рисует карточку (DESIGN §7).
+ */
+export async function getLatestInstagramPost(init?: RequestInit): Promise<InstagramPostView | null> {
+  const url = `${BASE}/api/instagram/latest`;
+  const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });
+  if (res.status === 204) return null;
+  if (!res.ok) throw new ApiError(res.status, url);
+  return (await res.json()) as InstagramPostView;
 }
 
 /** Артефакты marquee (`GET /api/artifacts`). */

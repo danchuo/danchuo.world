@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
 import { WaveBackdrop } from "./WaveBackdrop";
@@ -114,5 +114,28 @@ describe("WaveBackdrop", () => {
     const text = ribbonOf(container).textContent ?? "";
     expect(text).toContain("день длинных созвонов");
     expect(text).not.toContain("тихий понедельник");
+  });
+  /**
+   * Лента режется по ЗАМЕРУ знака, а системное начертание и шрифт волны меряются по-разному:
+   * посчитанная до шрифта раскладка не достаёт до края. Сигнал пересчёта — ворота шрифта
+   * (`fontGate.ts`), а не `document.fonts.ready`: у ворот учтён и потолок ожидания, и то,
+   * что до первой раскладки набор шрифтов пуст и отвечает «готов» мгновенно.
+   */
+  it("пересобирает ленту, когда открылись ворота шрифта", async () => {
+    restoreWall = mockWall(600);
+    document.documentElement.setAttribute("data-fonts", "pending");
+    const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
+    const ribbon = ribbonOf(container);
+    const before = ribbon.querySelectorAll(".wave-backdrop-line").length;
+
+    // Шрифт приехал — стена та же, а знак стал у́же: строк должно стать больше.
+    restoreWall?.();
+    restoreWall = mockWall(900);
+    document.documentElement.setAttribute("data-fonts", "ready");
+
+    await waitFor(() =>
+      expect(ribbon.querySelectorAll(".wave-backdrop-line").length).toBeGreaterThan(before),
+    );
+    document.documentElement.removeAttribute("data-fonts");
   });
 });

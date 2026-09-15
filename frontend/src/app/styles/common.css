@@ -2599,6 +2599,241 @@ body {
    живого прогона владельцем): сетка 3×3 клеток 3:2 с поворотом стоячих кадров — «нагружено»,
    а переворачивать снимки не хочется. */
 
+/* ── Редакция плитки «сон» — `echo`, промер глубины (DESIGN §7.7) ────────────────────────
+   Ночь занимает плитку целиком, без полей и без слова «сон»: предметом работает сама ночь,
+   как в редакции кадра предметом работает снимок. Весь текст лежит НА ночи в нижней полосе
+   прогрессивного блюра — тот же приём, что у подписи кадра (`.drop-frame__band`) и у данных
+   поездки на карте (`.ride-frame__band`).
+
+   Переключатель режима — вся плитка целиком (см. `.sleep-echo` ниже): ссылка в углу спорила
+   бы с рисунком, а второго жеста у плитки нет. Геометрия столбов при этом НЕ меняется —
+   сумма это `transform` на тех же столбах (см. `sleepEcho.ts`), поэтому переход между
+   режимами играет CSS, а не покадровый пересчёт, и площадь цвета сохраняется по построению. */
+.sleep-card--echo {
+  /* Содержимое — сама ночь, полей у неё нет (тот же размен, что у `.drop-card--frame`). */
+  padding: 0;
+}
+.sleep-echo {
+  /* Геометрия полосы подписи объявлена ЗДЕСЬ, а не на самой полосе: от этих же чисел
+     считаются маски блюра, а слои блюра лежат снаружи полосы (см. ниже) и её высоту узнать
+     не могут. `--sleep-band-solid` — плотная зона от нижнего края, `--sleep-band-feather` —
+     длина растушёвки над ней. */
+  --sleep-band-solid: 26px;
+  --sleep-band-feather: 34px;
+  /* Контейнер размера для кеглей полосы (`--fs-band-*`, §8.1): без него `cqw` считается от
+     вьюпорта и подпись на маленькой плитке выходит во весь экран. */
+  container-type: inline-size;
+  position: relative;
+  display: block;
+  width: 100%;
+  /* Своя высота там, где родитель молчит (§8) — тот же приём, что у `.ride-frame`: в бенто
+     высота приходит от плитки и `100%` разрешается (при двух определённых размерах
+     `aspect-ratio` не действует), а в мобильном стеке высоты у родителя нет, `100%`
+     схлопывается в `auto`, и пропорцию задаёт сам промер. */
+  height: 100%;
+  aspect-ratio: 8 / 5;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+button.sleep-echo {
+  cursor: pointer;
+}
+.sleep-echo__sounding {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Столб одной минуты. Сжатие в брусок идёт от НИЖНЕЙ кромки столба: `transform-box: fill-box`
+   переводит начало координат в собственный бокс фигуры, и дно бруска остаётся на своём
+   горизонте — глубина фазы читается и в сумме. Считать начало координат по viewBox тут
+   нельзя: у каждого столба своё дно, и одной записи на всех не вышло бы. */
+.sleep-echo__col {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transition: transform var(--sleep-echo-ms, 720ms) var(--sleep-echo-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+/* Горизонты глубин — тончайшая гравировка: без неё уровень, на котором за ночь не было ни
+   минуты, теряется совсем, и промер врёт про глубину. */
+.sleep-echo__floor {
+  stroke: var(--sleep-floor, var(--border-tile));
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+/* Профиль дна — линия, которая имеет смысл ТОЛЬКО в хронологии: у суммы нет порядка минут,
+   и линия, проведённая по пересортированным столбам, была бы неправдой. Поэтому она входит
+   ПОСЛЕ пересортировки (задержка во всю её длительность), а уходит сразу — иначе ехала бы
+   поверх разъезжающихся столбов.
+   Свечение — параметр волны: у скина без него линия остаётся просто линией. */
+.sleep-echo__trace {
+  fill: none;
+  stroke: var(--sleep-rem);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  filter: var(--sleep-trace-glow, none);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.sleep-echo.is-timed .sleep-echo__trace {
+  opacity: 1;
+  transition: opacity 260ms ease var(--sleep-echo-ms, 720ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sleep-echo__col,
+  .sleep-echo__trace,
+  .sleep-echo.is-timed .sleep-echo__trace {
+    transition: none;
+  }
+}
+
+/* Полоса подписи — СНИЗУ, как у кадра дропа: спуск ночи читается слева направо и сверху вниз,
+   и самое ценное в нём — переходы между горизонтами, а не последний, самый глубокий уровень.
+   Его полоса и накрывает размытием, не прячась при этом в плашку. */
+.sleep-echo__band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  /* Верх полосы над подписью; ниже растушёвки блюр и скрим уже полные. Высота полосы
+     = растушёвка + сама подпись, поэтому длинная подпись углубляет её сама, без замеров. */
+  padding: var(--sleep-band-feather) 14px 12px;
+  pointer-events: none;
+}
+/* Скрим под текстом — псевдоэлементом НАД слоями блюра и под содержимым полосы. Тихий:
+   полосу держит блюр, а заливка только добивает контраст там, где под размытием оказался
+   светлый горизонт. */
+.sleep-echo__band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bg-page) 46%, transparent) 0,
+    color-mix(in srgb, var(--bg-page) 26%, transparent) var(--sleep-band-solid),
+    transparent 100%
+  );
+}
+/* Блюр — `backdrop-filter` на слое ростом С ПЛИТКУ, открытом маской только снизу.
+   ⚠️ Ростом с плитку, а не с полосу, и это несущее. Выборка `backdrop-filter` зажимается
+   краями бокса: слой ростом с полосу дал бы вдоль своей верхней кромки смаз краевых
+   пикселей — ту самую линию, на которой уже спотыкались в плитке дропа (docs/pitfalls.md).
+   У слоя во всю плитку зажим приходится на её собственные края, а маска гасит слой глубоко
+   внутри рисунка, далеко от любой кромки. Копией картинки, как у дропа, тут не отделаться:
+   копировать пришлось бы полтысячи фигур промера.
+
+   Проходов два, потому что переход обязан быть ПРОГРЕССИВНЫМ: мягкий держится дольше,
+   плотный кончается раньше — один проход с одной маской даёт перегиб «полный блюр →
+   резкость», который глаз ловит линией. */
+.sleep-echo__blur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.sleep-echo__blur--soft {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 0.45),
+    transparent calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 1.15)
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 0.45),
+    transparent calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 1.15)
+  );
+}
+.sleep-echo__blur--deep {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.4)) saturate(1.05);
+  backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.4)) saturate(1.05);
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 var(--sleep-band-solid),
+    rgb(0 0 0 / 0.5) calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 0.3),
+    transparent calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 0.6)
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 var(--sleep-band-solid),
+    rgb(0 0 0 / 0.5) calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 0.3),
+    transparent calc(var(--sleep-band-solid) + var(--sleep-band-feather) * 0.6)
+  );
+}
+/* Кегли — общие с подписью кадра и полосой поездки (`--fs-band-*`): все три лежат на
+   прогрессивном блюре поверх собственной картинки плитки и стоят на одном борде. */
+.sleep-echo__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  min-width: 0;
+}
+/* Длительность ночи — единственный крупный знак на плитке: на вопрос «как я спал» отвечает
+   она, а фазы при ней уточнение. Не переносится и не ужимается. */
+.sleep-echo__total {
+  font-size: var(--fs-band-title);
+  color: var(--text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+/* Слово режима — СОСТОЯНИЕ, а не кнопка: кнопка тут вся плитка. Пунктир под ним оставлен
+   ровно затем, чтобы это состояние читалось переключаемым. */
+.sleep-echo__mode {
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  color: var(--accent);
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  border-bottom: 1px dotted currentColor;
+}
+.sleep-echo__meta {
+  margin-left: auto;
+  /* Каждая строка — свой элемент, а не перенос через `<br>`: строки тут разные данные
+     («лёг–встал» и «не спал»), и любая из них может отсутствовать сама по себе. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  line-height: 1.35;
+  color: var(--text-tertiary);
+  text-align: right;
+  white-space: nowrap;
+  /* Место в строке уступает МЕТА-часть: усечённое «лёг–встал» всё ещё читается, усечённая
+     длительность ночи — нет. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Доли фаз — они же вечная легенда: цвет подписи и есть цвет горизонта, поэтому отдельной
+   легенды у промера нет вовсе и её место досталось рисунку. */
+.sleep-echo__phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 0.9em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  line-height: 1.25;
+}
+.sleep-echo__phase {
+  white-space: nowrap;
+}
+
 /* ── Редакция ленты дропов `carousel` — карусель архива (DESIGN §7.5) ────────────────────
    Кадры едут вертикальной лентой, и главный тот, что встал в СЕРЕДИНУ окна. Прокрутка и
    есть орган управления: наведение в раскладке не участвует вообще, поэтому лента не

@@ -6,6 +6,7 @@ import { formatSleep, formatSleepShort } from "@/lib/format";
 import { HoverTip } from "./HoverTip";
 import { NightBand } from "./NightBand";
 import { STAGE_COLOR } from "./nightGeometry";
+import { SleepEcho } from "./SleepEcho";
 import { SleepNoData } from "./SleepNoData";
 import { sleepPhases } from "./sleepPhases";
 import { SleepBigIcon } from "./StatsIcons";
@@ -16,6 +17,12 @@ interface SleepTileProps {
   day: DayView | null;
   state: TileState;
   onRetry?: () => void;
+  /**
+   * Редакция виджета (DESIGN §7.7, §10.1) — выбирает ВОЛНА через раскладку
+   * (`tiles.sleep.edition`); компонент о волнах не знает. `echo` — промер глубины во всю
+   * плитку (см. [SleepEcho]); незнакомое имя ⇒ дефолтная вёрстка «сумма + полоса ночи».
+   */
+  edition?: string;
   style?: CSSProperties;
   className?: string;
 }
@@ -51,7 +58,7 @@ function PixelBar({ pct, color }: { pct: number; color: string }) {
  * второй тайл: это один и тот же вопрос «как я спал», заданный с разной точностью, — и место
  * в бенто у него одно. Сумма остаётся видом по умолчанию, полоса приезжает по запросу.
  */
-export function SleepTile({ day, state, onRetry, style, className }: SleepTileProps) {
+export function SleepTile({ day, state, onRetry, edition, style, className }: SleepTileProps) {
   const [showBand, setShowBand] = useState(false);
   // «Лёг–встал» приезжает из загруженной ночи (см. NightBand): в шапке ему тесно по смыслу,
   // но там оно не тратит отдельной строки под полосой — вертикаль в этой плитке дороже.
@@ -62,6 +69,22 @@ export function SleepTile({ day, state, onRetry, style, className }: SleepTilePr
   const showEmpty = state === "loaded" && !hasData;
   const phases = sleepPhases(day?.health.sleepStages);
   const awake = day?.health.sleepStages?.awake ?? null;
+
+  if (edition === "echo") {
+    return (
+      <TileShell
+        state={showEmpty ? "loaded" : state}
+        onRetry={onRetry}
+        ariaLabel="Сон"
+        style={style}
+        className={`sleep-card--echo ${className ?? ""}`}
+      >
+        {showEmpty && <SleepNoData />}
+        {/* key по дню: смена выбранного дня грузит ночь заново, а не показывает чужую. */}
+        {hasData && <SleepEcho key={day.date} date={day.date} stages={day.health.sleepStages} />}
+      </TileShell>
+    );
+  }
 
   return (
     <TileShell

@@ -340,6 +340,7 @@ function BoardTile({
           day={data.day}
           state={data.dayStatus}
           onRetry={data.retryDay}
+          edition={edition}
           style={style}
           className={className}
         />

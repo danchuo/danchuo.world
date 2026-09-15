@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: сон возвращается на борд в редакции «эхолот» (DESIGN §7.7, §10.2).
+
+      До сих пор виджет был у этой волны спрятан: прежняя вёрстка (бары долей слева, дорожки
+      ночи справа) — это язык волны 01, и на стекле она читалась гостем. «Эхолот» рисует ночь
+      промером глубины во всю плитку, без полей и без слова «сон», — тем же строем, что кадр
+      в плитке дропа и данные поездки на карте.
+
+      Место: колонки 19..27, строки 12..19 — свободный блок между каруселью дропов (кончается
+      на 10-й строке) и календарём (начинается с 21-й). Ширина ВЗЯТА У КАЛЕНДАРЯ, а не
+      подобрана: обе плитки стоят одной колонкой, и разъехавшиеся края читались бы браком
+      вёрстки. Строки 11 и 20 остаются воздухом — прослойкой до соседей сверху и снизу.
+
+      Пропорция при этом получается близкой к 8:5 (335×209 на опорной ширине владельца) —
+      ровно та, на которой промер и размечен: спуск ночи читается слева направо, и плитке
+      положено быть лежачей.
+    -->
+    <changeSet id="0860-wave-03-sleep-echo" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,sleep}',
+  $J${"col": 19, "row": 12, "colSpan": 9, "rowSpan": 8, "hidden": false, "edition": "echo"}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,sleep}',
+  $J${"hidden": true}$J$::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

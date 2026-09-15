@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: календарь теряет ещё одну строку сверху — колонки 19..27, строки 21..28.
+
+      Сетка «поля» держит три строки при любой высоте плитки (DESIGN 5.2), поэтому лишняя
+      высота уходила не клеткам, а воздуху между ними. Нижний край остаётся на последней
+      строке борда: таблетка «сегодня» садится на него, и двигать её некуда.
+    -->
+    <changeSet id="0840-wave-03-calendar-shorter" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,calendar}',
+  (layout->'tiles'->'calendar') || '{"row":21,"rowSpan":8}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,calendar}',
+  (layout->'tiles'->'calendar') || '{"row":20,"rowSpan":9}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

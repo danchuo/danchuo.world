@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   WHEEL_IDLE_MS,
-  WHEEL_LOCK_MS,
   WHEEL_MIN_STEP_GAP_MS,
+  WHEEL_NOTCH_PX,
   WHEEL_STEP_PX,
   initialWheelState,
   wheelStep,
@@ -22,6 +22,16 @@ function run(events: Array<[travel: number, now: number]>, start: WheelState = i
   return { steps, state };
 }
 
+/** Ровный поток мелких дельт тачпада: `total` пикселей за шаги по `delta`, каждые 16мс. */
+function glide(total: number, delta: number, from = 0): Array<[number, number]> {
+  const events: Array<[number, number]> = [];
+  const dir = Math.sign(total);
+  for (let moved = 0, t = from; moved < Math.abs(total); moved += Math.abs(delta), t += 16) {
+    events.push([dir * Math.abs(delta), t]);
+  }
+  return events;
+}
+
 describe("wheelTravel — доминирующая ось в пикселях (PRD §5.3)", () => {
   it("вертикаль: вниз — вперёд, вверх — назад", () => {
     expect(wheelTravel(0, 100, 0)).toBe(100);
@@ -34,63 +44,70 @@ describe("wheelTravel — доминирующая ось в пикселях (P
   });
 
   it("строки и страницы (deltaMode 1/2) переводятся в пиксели, а не считаются единицами", () => {
-    // Firefox отдаёт колесо строками (3 за щелчок): без перевода три «пикселя» шага не дали бы.
-    expect(Math.abs(wheelTravel(0, 3, 1))).toBeGreaterThanOrEqual(WHEEL_STEP_PX);
-    expect(Math.abs(wheelTravel(0, 1, 2))).toBeGreaterThanOrEqual(WHEEL_STEP_PX);
+    // Firefox отдаёт колесо строками (3 за щелчок): без перевода три «пикселя» не дотянули бы
+    // даже до щелчка, и колесо в нём листало бы втрое туже, чем в Chrome.
+    expect(Math.abs(wheelTravel(0, 3, 1))).toBeGreaterThanOrEqual(WHEEL_NOTCH_PX);
+    expect(Math.abs(wheelTravel(0, 1, 2))).toBeGreaterThanOrEqual(WHEEL_NOTCH_PX);
   });
 });
 
-describe("wheelStep — щелчок мыши и жест тачпада дают по одному шагу", () => {
-  it("щелчок колеса мыши (100px) — сразу один шаг", () => {
+describe("wheelStep — щелчок мыши дискретен, жест тачпада аналоговый", () => {
+  it("щелчок колеса мыши — ровно одна неделя, без остатка", () => {
     expect(run([[100, 0]]).steps).toEqual([1]);
     expect(run([[-100, 0]]).steps).toEqual([-1]);
+    // Щелчок вдвое крупнее недели не даёт двух: у мыши промежуточных положений нет.
+    expect(run([[WHEEL_STEP_PX * 2, 0]]).steps).toEqual([1]);
   });
 
-  it("мелкие дельты тачпада копятся и дают шаг, только перейдя порог", () => {
+  it("сила жеста слышна: короткое движение не листает, длинное листает дальше", () => {
+    // Порог — цена недели для мелких дельт. Ниже него окно стоит: это и есть «слабо».
+    expect(run(glide(-WHEEL_STEP_PX * 0.6, -12)).steps).toEqual([]);
+    const long = run(glide(-WHEEL_STEP_PX * 3, -12)).steps;
+    expect(long.length).toBeGreaterThanOrEqual(2);
+    expect(long.every((s) => s === -1)).toBe(true);
+  });
+
+  it("остаток жеста переносится: две половины подряд дают неделю, как одно движение", () => {
+    // Иначе календарь «терял» пройденное на каждом шаге и тугел тем сильнее, чем мельче дельты.
+    const half = glide(-WHEEL_STEP_PX * 0.9, -9);
+    const { state } = run(half);
+    expect(Math.abs(state.acc)).toBeGreaterThan(0);
+    expect(run(glide(-WHEEL_STEP_PX * 0.9, -9, 16 * half.length), state).steps).toEqual([-1]);
+  });
+
+  it("инерционный хвост тачпада докатывает окно, а не глотается", () => {
+    // Хвост — продолжение жеста, и раньше он съедался целиком: размашистый свайп двигал окно
+    // ровно на неделю, сколько бы пикселей за ним ни прилетело.
+    const tail: Array<[number, number]> = [];
+    for (let t = 16, d = 30; t < 700; t += 16, d = Math.max(2, d * 0.93)) tail.push([-d, t]);
+    expect(run([[-100, 0], ...tail]).steps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("быстрое вращение колеса не обгоняет наплыв: между шагами держится зазор", () => {
     const { steps } = run([
-      [-20, 0],
-      [-20, 16],
-      [-20, 32],
+      [-100, 0],
+      [-100, 30],
+      [-100, 60],
+      [-100, 90],
     ]);
     expect(steps).toEqual([-1]);
   });
 
-  it("инерция после шага глотается: пока события идут подряд, второго шага нет", () => {
-    // Тачпад после жеста досылает затухающий хвост ещё сотни миллисекунд.
-    const tail: Array<[number, number]> = [];
-    for (let t = 16; t < 900; t += 16) tail.push([-30, t]);
-    expect(run([[-100, 0], ...tail]).steps).toEqual([-1]);
-  });
-
-  it("быстрое вращение колеса мыши листает не один раз за очередь: щелчки идут сквозь блокировку", () => {
-    // Четыре щелчка по 100px через 50мс — шаги не слипаются ближе минимального зазора, но и не
-    // глотаются до тишины (так календарь «крутился туго»).
+  it("отложенный шаг не пропадает — он уходит первым же событием после зазора", () => {
     const { steps } = run([
       [-100, 0],
-      [-100, 50],
-      [-100, 100],
-      [-100, 150],
+      [-100, 30],
+      [-5, WHEEL_MIN_STEP_GAP_MS + 1],
     ]);
-    expect(steps.length).toBeGreaterThanOrEqual(2);
-    expect(steps.every((s) => s === -1)).toBe(true);
+    expect(steps).toEqual([-1, -1]);
   });
 
-  it("два щелчка ближе минимального зазора сливаются в один шаг", () => {
-    expect(run([[-100, 0], [-100, WHEEL_MIN_STEP_GAP_MS - 1]]).steps).toEqual([-1]);
-  });
-
-  it("ровное движение двумя пальцами после шага продолжает листать, а не ждёт тишины", () => {
-    // После первого шага дельты не убывают (дрожат вокруг 14px): это не хвост инерции,
-    // а живое движение — оно обязано копиться и давать следующие шаги.
-    const events: Array<[number, number]> = [[-100, 0]];
-    const jitter = [12, 16, 11, 18, 13, 17, 12, 19, 14, 20];
-    for (let i = 0; i < 40; i++) events.push([-jitter[i % jitter.length], 16 * (i + 1)]);
-    const { steps } = run(events);
-    expect(steps.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it("после паузы длиннее блокировки следующий жест листает снова", () => {
-    expect(run([[-100, 0], [-100, WHEEL_LOCK_MS + 1]]).steps).toEqual([-1, -1]);
+  it("очередь отложенного не растёт: жест кончился — окно встало", () => {
+    // Иначе снятые с тачпада пальцы оставляли бы календарь ехать по накопленному запасу.
+    const flick: Array<[number, number]> = [];
+    for (let i = 0; i < 12; i++) flick.push([-100, i * 10]);
+    const { state } = run(flick);
+    expect(Math.abs(state.acc)).toBeLessThanOrEqual(WHEEL_STEP_PX);
   });
 
   it("накопленное сбрасывается после простоя: два ленивых касания с перерывом не складываются", () => {
@@ -102,12 +119,8 @@ describe("wheelStep — щелчок мыши и жест тачпада даю�
   });
 
   it("смена направления не наследует накопленное чужого знака", () => {
-    const { steps } = run([
-      [-30, 0],
-      [30, 16],
-      [30, 32],
-    ]);
-    expect(steps).toEqual([1]);
+    const { steps } = run([...glide(-WHEEL_STEP_PX * 0.9, -9), ...glide(WHEEL_STEP_PX * 0.9, 9, 200)]);
+    expect(steps).toEqual([]);
   });
 
   it("нулевое перемещение ничего не меняет", () => {

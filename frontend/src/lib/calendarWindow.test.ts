@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasEarlierWeeks, monthEdges, shiftAnchor } from "./calendarWindow";
+import { anchorOnDay, hasEarlierWeeks, monthEdges, shiftAnchor } from "./calendarWindow";
 import { datesInRange } from "./date";
 
 const TODAY = "2026-08-04"; // вторник
@@ -126,5 +126,15 @@ describe("monthEdges — ступенька границы месяцев", () =
     const { rows, cols } = monthEdges(window("2026-08-24", "2026-09-20"), 0, NOW);
     expect(rows).toEqual([]);
     expect(cols).toEqual([]);
+  });
+});
+
+describe("anchorOnDay — опора, поставленная на день (§5.3)", () => {
+  it("опорой становится сам день: окно соберётся вокруг его недели", () => {
+    expect(anchorOnDay("2026-06-02", "2026-09-15")).toBe("2026-06-02");
+  });
+
+  it("за «сегодня» опора не уезжает — как и при листании", () => {
+    expect(anchorOnDay("2026-09-18", "2026-09-15")).toBe("2026-09-15");
   });
 });

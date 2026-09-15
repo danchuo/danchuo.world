@@ -846,6 +846,23 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     renderField();
     expect(document.querySelector(".cal-grid--field[data-lens]")).toBeNull();
   });
+
+  it("точки «есть имя» в поле нет — на «доехал ли день» отвечает свет клетки", () => {
+    renderField();
+    expect(screen.queryByTestId(`name-mark-${TODAY}`)).toBeNull();
+    // В базовой редакции точка остаётся: там свет не считается вовсе.
+    render(
+      <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
+    );
+    expect(screen.getByTestId(`name-mark-${TODAY}`)).toBeInTheDocument();
+  });
+
+  it("нативной подсказки в поле нет, а сводка дня остаётся скринридеру", () => {
+    renderField();
+    const cell = screen.getByTestId(`day-${TODAY}`);
+    expect(cell).not.toHaveAttribute("title");
+    expect(cell.getAttribute("aria-label")).toContain("шаги");
+  });
 })
 
 describe("Calendar — кромка вместо стрелок (§5.2)", () => {
@@ -866,12 +883,15 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
 
   function renderEdge(extra: Record<string, unknown> = {}) {
     const onShiftWeeks = vi.fn();
+    const onSelect = vi.fn();
+    const onFocusDay = vi.fn();
     render(
       <Calendar
         days={buildWideWindow()}
         selected={TODAY}
         today={TODAY}
-        onSelect={() => {}}
+        onSelect={onSelect}
+        onFocusDay={onFocusDay}
         state="loaded"
         edition="field"
         edgeWeeks={1}
@@ -880,14 +900,33 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
         {...extra}
       />,
     );
-    return { onShiftWeeks };
+    return { onShiftWeeks, onSelect, onFocusDay };
   }
 
-  it("кромка прошлой недели рисуется и листает назад", async () => {
-    const { onShiftWeeks } = renderEdge();
+  it("клик по дню кромки забирает его в сетку, а не листает вслепую", async () => {
+    const { onShiftWeeks, onFocusDay } = renderEdge();
+    const cell = screen.getByTestId("calendar-edge-prev").querySelectorAll("button")[3];
+    const date = cell.getAttribute("data-testid")?.replace("edge-day-", "");
+    await userEvent.click(cell);
+    expect(onFocusDay).toHaveBeenCalledWith(date);
+    // Шаг на неделю такой гарантии не даёт: перенос месяца съедает ряд, и день остаётся
+    // за краем сетки — ровно то, ради чего у жеста своя опора, а не листание.
+    expect(onShiftWeeks).not.toHaveBeenCalled();
+  });
+
+  it("без обработчика «забрать в сетку» клик по кромке просто выбирает день", async () => {
+    const { onSelect } = renderEdge({ onFocusDay: undefined });
+    const cell = screen.getByTestId("calendar-edge-prev").querySelectorAll("button")[0];
+    const date = cell.getAttribute("data-testid")?.replace("edge-day-", "");
+    await userEvent.click(cell);
+    expect(onSelect).toHaveBeenCalledWith(date);
+  });
+
+  it("нативной подсказки с диапазоном недели у кромки нет", () => {
+    renderEdge();
     const edge = screen.getByTestId("calendar-edge-prev");
-    await userEvent.click(edge);
-    expect(onShiftWeeks).toHaveBeenCalledWith(-1);
+    expect(edge).not.toHaveAttribute("title");
+    expect([...edge.querySelectorAll("button")].some((b) => b.hasAttribute("title"))).toBe(false);
   });
 
   it("недели кромок не попадают в сетку — высота сетки не зависит от них", () => {
@@ -897,11 +936,11 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(screen.getAllByRole("gridcell")).toHaveLength(21);
   });
 
-  it("вся неделя кромки — одна кнопка, а не семь", () => {
+  it("у каждого дня кромки своя кнопка: действия у них разные", () => {
     renderEdge();
     const edge = screen.getByTestId("calendar-edge-prev");
-    expect(edge.querySelectorAll("button")).toHaveLength(0);
-    expect(edge.querySelectorAll(".cal-edge-cell")).toHaveLength(7);
+    expect(edge.tagName).not.toBe("BUTTON");
+    expect(edge.querySelectorAll("button.cal-edge-cell")).toHaveLength(7);
   });
 
   it("клетки кромки несут вес дня — полоска светится, а не просто нумерует", () => {
@@ -926,10 +965,12 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
   });
 
   it("у сдвинутого окна появляются кромка вперёд и возврат «сегодня»", async () => {
-    const { onShiftWeeks } = renderEdge({ anchor: "2026-06-04" });
+    const { onFocusDay } = renderEdge({ anchor: "2026-06-04" });
     expect(screen.getByTestId("calendar-home")).toBeTruthy();
-    await userEvent.click(screen.getByTestId("calendar-edge-next"));
-    expect(onShiftWeeks).toHaveBeenCalledWith(1);
+    const next = screen.getByTestId("calendar-edge-next").querySelectorAll("button")[0];
+    const date = next.getAttribute("data-testid")?.replace("edge-day-", "");
+    await userEvent.click(next);
+    expect(onFocusDay).toHaveBeenCalledWith(date);
   });
 
   it("у генезиса кромки назад нет, а её дни достаются сетке", () => {
@@ -949,6 +990,14 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onResetWindow).toHaveBeenCalled();
   });
 
+  it("«сегодня» возвращает и окно, и выбранный день", async () => {
+    const onResetWindow = vi.fn();
+    const { onSelect } = renderEdge({ anchor: "2026-06-04", selected: "2026-06-02", onResetWindow });
+    await userEvent.click(screen.getByTestId("calendar-home"));
+    expect(onResetWindow).toHaveBeenCalled();
+    expect(onSelect).toHaveBeenCalledWith(TODAY);
+  });
+
   it("базовая редакция держит «сегодня» в строке листания", () => {
     render(
       <Calendar
@@ -965,6 +1014,26 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     const home = screen.getByTestId("calendar-home");
     expect(home.className).toContain("cal-nav-home");
     expect(document.querySelector(".cal-nav")?.contains(home)).toBe(true);
+  });
+
+  it("«сегодня» базовой редакции возвращает выбранный день так же, как таблетка «поля»", async () => {
+    const onResetWindow = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected="2026-06-02"
+        today={TODAY}
+        anchor="2026-06-04"
+        onSelect={onSelect}
+        state="loaded"
+        onShiftWeeks={() => {}}
+        onResetWindow={onResetWindow}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("calendar-home"));
+    expect(onResetWindow).toHaveBeenCalled();
+    expect(onSelect).toHaveBeenCalledWith(TODAY);
   });
 
   it("базовая редакция кромок не заводит и стрелки сохраняет", () => {

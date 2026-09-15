@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { DaySummary, DayView } from "@/lib/api/types";
-import { shiftAnchor } from "@/lib/calendarWindow";
+import { anchorOnDay, shiftAnchor } from "@/lib/calendarWindow";
 import { addDays, mskToday } from "@/lib/date";
 import type { DisciplineLens } from "@/lib/disciplineLens";
 import { statsWindow, type StatsRange } from "@/lib/statsWindow";
@@ -74,6 +74,8 @@ interface BoardData {
   statsHistory: DaySummary[];
   statsStatus: Status;
   selectDay: (date: string) => void;
+  /** Забрать день в календарь: выбрать его и переставить окно так, чтобы он попал в сетку. */
+  focusDay: (date: string) => void;
   /** Опора окна календаря (§5.3): день, вокруг недели которого собрано `summaries`. */
   anchor: string;
   /** Листание окна календаря на N недель (−1 назад, +1 вперёд). */
@@ -178,6 +180,12 @@ export function Board() {
     statsHistory,
     statsStatus,
     selectDay: setSelected,
+    // Выбор и опора разом — это НЕ листание (§5.3): жест адресован дню, и вернуть в ответ
+    // одно окно значило бы ответить не на тот вопрос.
+    focusDay: (date: string) => {
+      setSelected(date);
+      setAnchor(anchorOnDay(date, today));
+    },
     anchor: shownAnchor,
     shiftWeeks: (weeks: number) => setAnchor((cur) => shiftAnchor(cur, today, weeks)),
     resetWindow: () => setAnchor(today),
@@ -344,6 +352,7 @@ function BoardTile({
           today={data.today}
           anchor={data.anchor}
           onSelect={data.selectDay}
+          onFocusDay={data.focusDay}
           state={data.rangeStatus}
           onRetry={data.retryRange}
           onShiftWeeks={data.shiftWeeks}

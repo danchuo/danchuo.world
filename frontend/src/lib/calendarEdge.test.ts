@@ -42,12 +42,26 @@ describe("splitFieldWindow", () => {
     expect(at(w, "2026-08-31")).toBeUndefined();
   });
 
-  it("кромка — календарная неделя перед первой неделей сетки", () => {
-    // Сетка начинается 1 сентября, его неделя открывается 31 августа ⇒ кромке достаётся
-    // предыдущая целая неделя. Полоска обязана оставаться неделей пн→вс: колонки кромки
-    // стоят под теми же подписями, что колонки сетки.
+  it("кромка — строка, которая въедет следующим шагом, а не календарная неделя", () => {
+    // Перенос месяца отдал 31 августа отдельную строку. Отвечать неделей 24..30 значило бы
+    // обещать не то: шаг назад приводит 31-е, а 31-е при этом не показано ВООБЩЕ — ни в
+    // сетке, ни в кромке. Полоска обязана показывать ровно то, что въедет.
     const w = splitFieldWindow(window("2026-09-15"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
-    expect(dates(w.before)).toEqual(datesInRange("2026-08-24", "2026-08-30"));
+    expect(dates(w.before)).toEqual(["2026-08-31"]);
+  });
+
+  it("шаг назад приводит в сетку ровно то, что стояло в кромке", () => {
+    const home = splitFieldWindow(window("2026-09-15"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
+    const back = splitFieldWindow(window("2026-09-08"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
+    const topRow = back.grid.filter((p) => p.row === 0).map((p) => p.day.date);
+    expect(topRow).toEqual(dates(home.before));
+    // И полоска на новом месте показывает уже следующую строку, а не ту же самую.
+    expect(dates(back.before)).toEqual(datesInRange("2026-08-24", "2026-08-30"));
+  });
+
+  it("без стыка месяцев строка и есть целая неделя", () => {
+    const w = splitFieldWindow(window("2026-06-18"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
+    expect(dates(w.before)).toHaveLength(7);
   });
 
   it("срезанная метка месяца уезжает в клетку первого числа", () => {

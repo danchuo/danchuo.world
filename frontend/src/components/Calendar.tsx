@@ -28,6 +28,12 @@ interface CalendarProps {
    */
   anchor?: string;
   onSelect: (date: string) => void;
+  /**
+   * Забрать день в сетку (§5.2): выбрать его и переставить окно так, чтобы он в неё попал.
+   * Нужен кромке — её дни по определению лежат за краем сетки, и одного выбора им мало.
+   * Без обработчика клик по кромке просто выбирает день, как клик по клетке.
+   */
+  onFocusDay?: (date: string) => void;
   state: TileState;
   onRetry?: () => void;
   /** Сдвиг окна на N недель (−1 назад, +1 вперёд). Без обработчика листания нет вовсе. */
@@ -86,6 +92,8 @@ function hoverSummary(d: DaySummary, today: string, lensLine: string | null): st
  * краем достаются листанием: тихий ряд стрелок над шапкой двигает опору на неделю за клик,
  * из сдвинутого окна есть шаг вперёд и возврат к сегодня. Листание меняет только ОКНО —
  * выбранный день (а с ним и плитка «Сегодня») остаётся там, где был: это просмотр, а не выбор.
+ * Два жеста из правила выходят намеренно: клик по еле видному дню кромки забирает его в сетку
+ * (выбор плюс опора на него), а «сегодня» возвращает домой и окно, и выбранный день разом.
  *
  * С включённой **линзой** (§5.3) календарь становится фильтром по одной остановке карты-тропы:
  * совпавший день обводится рамкой со скошенными углами в чистом акценте, несовпавший гасит
@@ -98,6 +106,7 @@ export function Calendar({
   today,
   anchor,
   onSelect,
+  onFocusDay,
   state,
   onRetry,
   onShiftWeeks,
@@ -160,6 +169,15 @@ export function Calendar({
     canPage && ((showHome && !homeAtBottom) || (showStepGlyphs && (canGoBack || shifted)));
   const heading = shifted ? monthNameRu(windowAnchor, today) : "календарь";
 
+  // «Сегодня» возвращает не только окно, но и выбранный день. Кнопка названа днём, и читатель
+  // ждёт от неё именно день; окно само по себе возвращает жест листания, которым его и увели.
+  // Обработчик общий на обе редакции: таблетка «поля» и глиф базовой сетки — одна кнопка,
+  // просто в разных местах плитки.
+  const goHome = () => {
+    onResetWindow?.();
+    onSelect(today);
+  };
+
   // Листание колесом/тачпадом по всей плитке (PRD §5.3): те же шаги, что у стрелок, и те же
   // границы — дома вперёд некуда, у генезиса некуда назад. Стрелки остаются: жест их не
   // заменяет, а дополняет (на таче колеса нет, а видимый орган управления нужен всегда).
@@ -193,32 +211,32 @@ export function Calendar({
   }, [windowAnchor]);
 
   /**
-   * Кромка (§5.2) — неделя полоской в треть высоты, растворённая маской в плиту, и она же
-   * кнопка шага. Орган управления тут — сами данные: видно не «можно листать», а какие дни
-   * там лежат и насколько они были плотными.
+   * Кромка (§5.2) — соседняя неделя полоской в треть высоты, растворённая маской в плиту.
+   * Орган управления тут — сами данные: видно не «можно листать», а какие дни там лежат
+   * и насколько они были плотными.
    *
-   * Вся полоска — ОДНА кнопка, а не семь: неделя здесь неделима, шаг у неё один, и семь
-   * соседних кнопок с одинаковым действием только засорили бы обход с клавиатуры.
+   * Клик по еле видному дню **забирает его в сетку**: день становится выбранным, а окно
+   * переставляется опорой НА него. Поэтому кнопка здесь у каждого дня своя, а не одна на
+   * полоску: действия у них разные, и общая кнопка обещала бы шаг вслепую.
    */
-  function edgeRow(week: DaySummary[], step: -1 | 1) {
+  function edgeRow(week: DaySummary[], back: boolean) {
     if (week.length === 0) return null;
-    const back = step < 0;
-    const last = week[week.length - 1];
     return (
-      <button
-        type="button"
+      <div
         data-testid={back ? "calendar-edge-prev" : "calendar-edge-next"}
-        aria-label={back ? "показать предыдущую неделю" : "показать следующую неделю"}
-        title={`${dayOfMonth(week[0].date)} — ${dayOfMonth(last.date)} ${monthShortRu(last.date)}`}
-        onClick={() => onShiftWeeks?.(step)}
-        className={`cal-edge cursor-pointer ${back ? "cal-edge--before" : "cal-edge--after"}`}
+        className={`cal-edge ${back ? "cal-edge--before" : "cal-edge--after"}`}
       >
         {week.map((d) => (
-          <span
+          <button
             key={d.date}
-            className="cal-edge-cell"
+            type="button"
+            data-testid={`edge-day-${d.date}`}
+            aria-label={`${dayOfMonth(d.date)} ${monthShortRu(d.date)}, показать в календаре`}
             data-weekend={weekdayMondayIndex(d.date) >= 5 || undefined}
             data-future={d.date > today || undefined}
+            data-selected={d.date === selected || undefined}
+            onClick={() => (onFocusDay ?? onSelect)(d.date)}
+            className="cal-edge-cell cursor-pointer"
             style={
               {
                 // Колонка своя у каждой клетки: после среза строк кромке может достаться
@@ -229,9 +247,9 @@ export function Calendar({
             }
           >
             {dayOfMonth(d.date)}
-          </span>
+          </button>
         ))}
-      </button>
+      </div>
     );
   }
 
@@ -303,7 +321,7 @@ export function Calendar({
                   type="button"
                   data-testid="calendar-home"
                   aria-label="вернуть календарь к сегодня"
-                  onClick={onResetWindow}
+                  onClick={goHome}
                   className="cal-nav-home cursor-pointer"
                 >
                   сегодня
@@ -344,8 +362,8 @@ export function Calendar({
           ))}
         </div>
 
-        {/* Кромка шага назад — прошлая неделя над сеткой (§5.2). */}
-        {slices && edgeRow(slices.before, -1)}
+        {/* Прошлая неделя над сеткой — кромка (§5.2). */}
+        {slices && edgeRow(slices.before, true)}
 
         {/* Сетка дней: ровно `weeks` строк, недели слева направо с понедельника. */}
         {/* Зазор 6px, а не 4: линия стыка месяцев живёт В ЖЁЛОБЕ и на узком зазоре садилась
@@ -511,7 +529,10 @@ export function Calendar({
                 data-lens={match ?? undefined}
                 aria-current={isToday ? "date" : undefined}
                 aria-label={`${dayOfMonth(d.date)}, ${hoverSummary(d, today, lensLine)}`}
-                title={hoverSummary(d, today, lensLine)}
+                // Нативной подсказки в «поле» нет (§5.2): её рисует ОС мимо всей визуальной
+                // системы борда — тот же довод, по которому `title` снят с даты (§4.1).
+                // Скринридеру сводка остаётся: она в `aria-label`, а не в подсказке.
+                title={field ? undefined : hoverSummary(d, today, lensLine)}
                 onClick={() => onSelect(d.date)}
                 className="t-cal-day relative flex min-h-0 cursor-pointer items-center justify-center"
                 style={{
@@ -552,8 +573,10 @@ export function Calendar({
                   </span>
                 )}
 
-                {/* Маркер «есть имя» (§5) — мелкая пиксель-точка снизу. */}
-                {d.title && (
+                {/* Маркер «есть имя» (§5) — мелкая пиксель-точка снизу. В «поле» её нет:
+                    на поле света точка читается ответом на вопрос «доехал ли день», а на
+                    него уже отвечает яркость клетки (§5.2). */}
+                {d.title && !field && (
                   <span
                     data-testid={`name-mark-${d.date}`}
                     aria-hidden
@@ -566,9 +589,10 @@ export function Calendar({
           })}
         </div>
 
-        {/* Кромка шага вперёд. Дома её нет: идти некуда, и полоска была бы мёртвым органом —
-            ровно то, от чего в базовой редакции убрана вторая стрелка. */}
-        {shifted && slices && edgeRow(slices.after, 1)}
+        {/* Следующая неделя. Дома её нет: там она была бы неделей будущего — пустой полоской
+            из одних чисел, ровно той мёртвой формой, от которой в базовой редакции убрана
+            вторая стрелка. */}
+        {shifted && slices && edgeRow(slices.after, false)}
 
         {/* Возврат домой — таблетка на нижнем крае плитки (§5.2). Своей строки она не берёт
             и сетку не двигает: лежит поверх, наполовину съезжая в поля карточки. */}
@@ -577,7 +601,7 @@ export function Calendar({
             type="button"
             data-testid="calendar-home"
             aria-label="вернуть календарь к сегодня"
-            onClick={onResetWindow}
+            onClick={goHome}
             className="cal-home-pill cursor-pointer"
           >
             сегодня

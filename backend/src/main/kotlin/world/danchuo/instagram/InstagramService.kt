@@ -12,16 +12,9 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Забор последнего поста владельца (PRD §5.17): профиль, свежий пост ленты и байты картинок.
- *
- * ⚠️ **Картинки снимаются, пока ссылка жива.** И `media_url`, и `profile_picture_url` —
- * подписанные URL со сроком в несколько часов; всё, что не скачано в этом же проходе, потом
- * уже не скачать ([InstagramImageStorage]).
- *
- * ⚠️ **Кадр перекачивается, только когда сменился пост** (сверка по `media_id`). Ссылка у
- * того же поста меняется от запроса к запросу, так что сравнивать по ней нельзя, а качать
- * мегабайт каждые полчаса — незачем. Аватар обновляется вместе с постом: отдельного признака
- * «сменилась аватарка» у API нет, а раз в пост — достаточно часто.
+ * Fetches the owner's latest post: profile, newest feed item and the image bytes. Images are taken
+ * WHILE THE LINK IS STILL ALIVE — whatever this pass misses cannot be fetched later. The frame is
+ * re-downloaded only when `media_id` changed, and the avatar rides along with it. PRD §5.17
  */
 @ApplicationScoped
 class InstagramService(
@@ -39,8 +32,8 @@ class InstagramService(
     }
 
     /**
-     * Один проход. `true` — пост обновился. Ошибки внешнего источника наружу не выпускаем:
-     * борду они не нужны, на плитке останется прежний пост.
+     * One pass. `true` when the post changed. External errors are not let out: the board has no
+     * use for them, and the tile keeps the previous post.
      */
     @Transactional
     fun fetchLatest(now: Instant = Instant.now()): Boolean {
@@ -60,8 +53,8 @@ class InstagramService(
         val existing = posts.current()
         val changed = existing == null || existing.mediaId != mediaId
 
-        // Картинки тянем только на смене поста — ссылка живёт часами, но мегабайт каждые
-        // полчаса ради того же кадра не нужен никому.
+        // Images are fetched only when the post changes — the link lives for hours, and nobody
+        // needs a megabyte every half hour for the same frame.
         if (changed) {
             val picture = item.thumbnailUrl ?: item.mediaUrl
             if (picture == null) {
@@ -96,7 +89,7 @@ class InstagramService(
             .build()
         return runCatching {
             val response = http.send(request, HttpResponse.BodyHandlers.ofByteArray())
-            // Просроченная подпись приходит именно так: 403 с пустым телом.
+            // An expired signature arrives exactly like this: a 403 with an empty body.
             if (response.statusCode() !in 200..299) error("HTTP ${response.statusCode()}")
             response.body()
         }.onFailure { log.warn("instagram: картинку скачать не удалось: ${it.message}") }

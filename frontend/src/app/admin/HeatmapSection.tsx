@@ -7,7 +7,7 @@ import type { HeatmapView } from "@/lib/api/types";
 
 const mono = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" } satisfies CSSProperties;
 
-/** Дефолтная раскладка борда (волна 01) — на ней рисуем оверлей-хитмапу. */
+/** Use the default board layout for the heatmap overlay. */
 const LAYOUT = resolveLayout(null);
 
 /* Static part of a heatmap cell; per-tile gridArea and intensity fill stay inline. */
@@ -23,15 +23,9 @@ const heatCellStyle: CSSProperties = {
   padding: 2,
 };
 
-/**
- * Хитмапа кликов (B2, PRD §5.11) — секция внизу /admin (тот же bearer, что дропы; рендерится
- * только после логина). **Потайловая**, не пиксельная: рисуем сам bento борда и заливаем каждый
- * тайл интенсивностью по доле кликов — честная картина «куда смотрят/тыкают», стабильная через
- * вьюпорты и волны. Куки не ставит; данные cookieless, боты исключены, вклад одного посетителя
- * в тайл ограничен.
- */
+/** Authenticated tile-level click heatmap. PRD §5.11. */
 export function HeatmapSection({ token }: { token: string }) {
-  // Публичная страница одна — `/`; фильтр по path остаётся в API (forward-compat), но в UI не нужен.
+  // Only the public board is exposed in this UI; the API retains its path filter.
   const path = "/";
   const [data, setData] = useState<HeatmapView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +80,7 @@ export function HeatmapSection({ token }: { token: string }) {
         </p>
       )}
 
-      {/* Оверлей: реальная сетка борда, тайлы залиты интенсивностью кликов. */}
+      {/* The overlay: the board's real grid, tiles filled by click intensity. */}
       <div
         style={{
           display: "grid",
@@ -109,8 +103,7 @@ export function HeatmapSection({ token }: { token: string }) {
               style={{
                 ...heatCellStyle,
                 gridArea: gridArea(span),
-                // Заливка по интенсивности (прозрачность растёт с долей кликов). В монохромной
-                // админке --accent = чёрный, так что шкала — оттенки серого.
+                // Click share controls accent opacity.
                 background: `color-mix(in srgb, var(--accent) ${Math.round(8 + ratio * 84)}%, transparent)`,
               }}
             >
@@ -121,7 +114,6 @@ export function HeatmapSection({ token }: { token: string }) {
         })}
       </div>
 
-      {/* Таблица-легенда: тайлы по убыванию кликов + клики мимо плиток. */}
       {data && data.tiles.length > 0 && (
         <table className="mt-6 w-full" style={{ borderCollapse: "collapse", fontSize: 13 }}>
           <thead>

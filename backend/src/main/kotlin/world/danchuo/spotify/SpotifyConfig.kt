@@ -5,106 +5,99 @@ import io.smallrye.config.WithDefault
 import java.util.Optional
 
 /**
- * Конфиг внешнего источника Spotify (PRD §M3, §8) — весь OAuth/кэш живёт в слайсе,
- * ядро внешних источников не знает. Значения — в `application.properties` под
- * префиксом `danchuo.spotify`; секреты в prod строго из env, в коммит не попадают.
- *
- * Креды — `Optional`: до регистрации Spotify-приложения их нет (env пуст), и слайс
- * обязан подниматься «не сконфигурированным», а не падать ([isConfigured]). Важно:
- * SmallRye трактует пустую строку как отсутствие значения, поэтому именно `Optional`,
- * а не `String` с пустым дефолтом (иначе валидация конфига роняет старт в prod).
+ * Config of the Spotify source; secrets come strictly from env in prod. Credentials are `Optional`
+ * because before the app is registered there are none and the slice must boot UNCONFIGURED rather
+ * than fail — SmallRye reads an empty string as absent, so an empty default would not do. §8
  */
 @ConfigMapping(prefix = "danchuo.spotify")
 interface SpotifyConfig {
 
-    /** Client ID зарегистрированного Spotify-приложения. */
+    /** Client ID of the registered Spotify app. */
     fun clientId(): Optional<String>
 
-    /** Client Secret приложения (Basic-auth на token-эндпоинте). */
+    /** Client Secret of the app (Basic auth on the token endpoint). */
     fun clientSecret(): Optional<String>
 
     /**
-     * Redirect URI, в точности как прописан в дашборде Spotify-приложения. Указывает на
-     * [SpotifyAuthResource] callback; в `application.properties` есть loopback-дефолт.
+     * Redirect URI, exactly as registered in the Spotify app dashboard. It points at the
+     * [SpotifyAuthResource] callback; `application.properties` holds a loopback default.
      */
     fun redirectUri(): Optional<String>
 
-    /** OAuth-скоупы read-only слоя: now-playing / recently-played / top. */
+    /** OAuth scopes of the read-only layer: now-playing / recently-played / top. */
     @WithDefault("user-read-currently-playing user-read-recently-played user-top-read")
     fun scopes(): String
 
     /**
-     * Ключ шифрования refresh-токена at-rest (PRD §8): Base64 ровно 32 байта (AES-256).
-     * Сгенерировать: `openssl rand -base64 32`. В prod — из env, не в коммите.
+     * At-rest encryption key for the refresh token (PRD §8): Base64 of exactly 32 bytes (AES-256).
+     * Generate with `openssl rand -base64 32`. From env in prod, never in a commit.
      */
     fun tokenEncryptionKey(): Optional<String>
 
     /**
-     * Запись прослушанных подкастов (PRD §5.6). Методы объявлены, чтобы SmallRye-валидация
-     * `@ConfigMapping` приняла свойства `danchuo.spotify.podcast.*` под префиксом; интервал
-     * читается плейсхолдером `@Scheduled` в [PodcastPoller], остальное — прямо отсюда.
+     * Podcast listening capture (PRD §5.6). These methods exist so SmallRye `@ConfigMapping`
+     * validation accepts the `danchuo.spotify.podcast.*` properties under the prefix; the interval
+     * is read via a `@Scheduled` placeholder in [PodcastPoller], the rest straight from here.
      */
     fun podcast(): Podcast
 
     interface Podcast {
-        /** Включена ли запись прослушивания (в `%test` выключена — иначе тесты полезут наружу). */
+        /** Whether listening capture runs (off in `%test`, or tests would reach outside). */
         @WithDefault("true")
         fun enabled(): Boolean
 
         /**
-         * Интервал опроса плеера (формат Quarkus `every`). Минута — компромисс: недобор на
-         * старте сессии не превышает интервал, а 1440 запросов в сутки для лимитов Spotify
-         * незаметны.
+         * Player poll interval (Quarkus `every` format). A minute is the compromise: the shortfall
+         * at a session's start never exceeds the interval, while 1440 requests a day are
+         * negligible against Spotify's limits.
          */
         @WithDefault("60s")
         fun pollInterval(): String
 
         /**
-         * Рынок для запроса каталога. Без него (и без страны в токене) Spotify считает контент
-         * недоступным и отдаёт пустой ответ.
+         * Market for catalogue requests. Without it (and without a country in the token) Spotify
+         * considers the content unavailable and answers empty.
          */
         @WithDefault("RU")
         fun market(): String
 
         /**
-         * Сколько молчания рвёт сессию. Пауза короче — та же сессия (вышел из метро, доиграл);
-         * длиннее — новое прослушивание, даже если эпизод тот же. На сумму минут за день не
-         * влияет вовсе, только на то, одной строкой лягут сессии или двумя.
+         * How much silence breaks a session. A shorter pause is the same session; a longer one is
+         * a new listening even for the same episode. It does not affect the day's minute total at
+         * all, only whether sessions land as one row or two.
          */
         @WithDefault("15")
         fun sessionGapMinutes(): Long
 
         /**
-         * Сколько паузы всё ещё считается ТЕМ ЖЕ заходом на борде (PRD §5.6). Порог хранения
-         * выше сделан под опрос раз в минуту и рвёт сессию там, где человек прослушивание
-         * прерванным не считает: обед посреди эпизода — это не «послушал второй раз». Поэтому
-         * карточки собираются по своему, более широкому порогу; на запись и на сумму минут за
-         * день он не влияет вовсе, только на то, сколькими карточками рассказан день.
+         * How much of a pause still counts as the SAME sitting on the board. The storage gap above
+         * is built for a once-a-minute poll and breaks a session where a person would not — lunch
+         * mid-episode is not a second listen. It changes only how many cards tell a day. PRD §5.6
          */
         @WithDefault("45")
         fun runGapMinutes(): Long
 
-        /** Пересказ прослушанного куска (PRD §5.16.1) — добыча текста выпуска. */
+        /** Summarising a listened stretch (PRD §5.16.1) — fetching the episode's text. */
         fun summary(): Summary
 
         interface Summary {
 
             /**
-             * Включена ли добыча вовсе. Выключенная не ломает ничего: очередь просто не увидит
-             * подкастового источника, а карточки останутся без кнопки (в `%test` выключена —
-             * иначе тесты полезли бы в чужие раздачи).
+             * Whether fetching runs at all. Disabled it breaks nothing: the queue simply sees no
+             * podcast source and the cards stay without a button (off in `%test`, or tests would
+             * reach into other people's hosting).
              */
             @WithDefault("true")
             fun enabled(): Boolean
 
-            /** Каталог, в котором ищется RSS-фид шоу. Ключа не требует. */
+            /** The catalogue a show's RSS feed is searched in. Needs no key. */
             @WithDefault("https://itunes.apple.com")
             fun itunesUrl(): String
 
             /**
-             * На сколько окон режется заход и какой длины каждое. Четыре по три минуты — это
-             * 720 аудиосекунд при бесплатном лимите 7200 в час и ~9 тысяч знаков расшифровки
-             * при потолке выдержки в 12 тысяч: обе границы взяты с запасом, но без простоя.
+             * How many windows a sitting is cut into, and how long each is. Four of three minutes
+             * is 720 audio seconds against a free limit of 7200 an hour, and about 9 thousand
+             * transcript characters against a 12 thousand excerpt cap: both with room, no idling.
              */
             @WithDefault("4")
             fun windows(): Int
@@ -113,9 +106,9 @@ interface SpotifyConfig {
             fun windowMs(): Long
 
             /**
-             * Потолок на один кусок аудио, байт. Держит запрос внутри лимита провайдера (25 МБ)
-             * даже на самом плотном потоке: три минуты 320 kbps — это 7 МБ, так что потолок
-             * срабатывает только на чём-то ненормальном.
+             * Cap on one audio chunk, in bytes. It keeps the request inside the provider's 25 MB
+             * limit even on the densest stream: three minutes at 320 kbps is 7 MB, so the cap only
+             * ever fires on something abnormal.
              */
             @WithDefault("20000000")
             fun maxSliceBytes(): Long
@@ -123,15 +116,15 @@ interface SpotifyConfig {
             @WithDefault("10")
             fun connectTimeoutSeconds(): Long
 
-            /** Куски аудио — это мегабайты; минуты ожидания здесь норма, а не подвисание. */
+            /** Audio chunks are megabytes; minutes of waiting here are normal, not a hang. */
             @WithDefault("120")
             fun readTimeoutSeconds(): Long
         }
     }
 
     /**
-     * Сконфигурирован ли слайс целиком. Пока чего-то нет — публичные GET отдают пусто,
-     * а OAuth-флоу не запускается (защита от полупустого старта).
+     * Whether the slice is fully configured. While anything is missing the public GETs answer
+     * empty and the OAuth flow will not start — a guard against a half-empty start.
      */
     fun isConfigured(): Boolean =
         clientId().orElse("").isNotBlank() &&

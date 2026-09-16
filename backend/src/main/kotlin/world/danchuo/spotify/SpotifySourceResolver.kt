@@ -6,12 +6,9 @@ import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.rest.client.inject.RestClient
 
 /**
- * Резолв имени источника воспроизведения (PRD §M3): `context` отдаёт только тип/ссылку/uri,
- * без имени. Имя плейлиста/артиста добираем отдельным запросом по id из uri и **кэшируем**
- * (имена почти не меняются, TTL в `application.properties`).
- *
- * Отдельный бин (а не метод в [SpotifyService]) — чтобы `@CacheResult` сработал: при
- * self-invocation внутри одного бина CDI-интерцептор кэша не включается.
+ * Resolves the playback source's name: `context` gives only a type, link and uri, so the playlist
+ * or artist name is fetched by id and cached (names barely change). It is a separate bean so that
+ * `@CacheResult` fires at all — the cache interceptor is skipped on self-invocation.
  */
 @ApplicationScoped
 class SpotifySourceResolver(
@@ -20,9 +17,9 @@ class SpotifySourceResolver(
 ) {
 
     /**
-     * Имя источника по [uri] (`spotify:playlist:ID` / `spotify:artist:ID` /
-     * `spotify:user:…:collection`). `null`, если тип без имени или запрос не удался —
-     * имя лишь украшение, его отсутствие не должно ронять now-playing.
+     * The source name for [uri] (`spotify:playlist:ID` / `spotify:artist:ID` / a collection).
+     * `null` when the type has no name or the request failed — the name is only decoration and
+     * its absence must not bring down now-playing.
      */
     @CacheResult(cacheName = "spotify-source-name")
     fun name(@CacheKey uri: String): String? = try {

@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackToClose } from "./useBackToClose";
 
-/** «Назад» системы: браузер снимает верхнюю запись и отдаёт состояние той, что под ней. */
+/** The system Back: the browser drops the top entry and returns the state of the one below. */
 function pressBack(state: unknown) {
   act(() => {
     window.dispatchEvent(new PopStateEvent("popstate", { state }));
@@ -12,10 +12,10 @@ function pressBack(state: unknown) {
 let back: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  // Историю страницы возвращаем к чистому листу: тесты кладут в неё свои записи.
+  // The page history is reset to a clean slate: the tests put their own entries in it.
   window.history.replaceState(null, "");
-  // `back` подменяем: настоящий шаг назад в jsdom асинхронный и прислал бы свой `popstate`
-  // поверх того, которым тест изображает нажатие кнопки.
+  // `back` is stubbed: a real step back in jsdom is asynchronous and would send its own `popstate`
+  // over the one the test uses to play the button press.
   back = vi.spyOn(window.history, "back").mockImplementation(() => {});
 });
 
@@ -26,8 +26,8 @@ afterEach(() => {
 
 describe("useBackToClose — системное «Назад» закрывает всплывшее окно, а не уводит с сайта", () => {
   it("открытое окно кладёт в историю свою запись", () => {
-    // Ради этой записи всё и затевается: без неё «Назад» на андроиде уходит с сайта,
-    // потому что закрывать браузеру нечего — модалка в историю не попадала.
+    // This entry is the whole point: without it Back on Android leaves the site, because the
+    // browser has nothing to close — the modal never entered the history.
     renderHook(() => useBackToClose(true, () => {}));
 
     expect(window.history.state).toMatchObject({ danchuoOverlay: 1 });
@@ -43,8 +43,8 @@ describe("useBackToClose — системное «Назад» закрывае�
   });
 
   it("закрыли крестиком — свою запись из истории снимаем сами", () => {
-    // Иначе запись остаётся висеть, и первое «Назад» после закрытия уходит в пустой шаг:
-    // зритель жмёт кнопку, а на экране ничего не меняется.
+    // Otherwise the entry hangs around and the first Back after closing is an empty step: the
+    // viewer presses the button and nothing on screen changes.
     const { unmount } = renderHook(() => useBackToClose(true, () => {}));
 
     unmount();
@@ -57,14 +57,14 @@ describe("useBackToClose — системное «Назад» закрывае�
     const { unmount } = renderHook(() => useBackToClose(true, onClose));
 
     pressBack(null);
-    unmount(); // окно закрылось в ответ на popstate — записи в истории уже нет
+    unmount(); // the overlay closed in response to popstate — its history entry is already gone
 
     expect(back).not.toHaveBeenCalled();
   });
 
   it("слои закрываются по одному: «Назад» гасит верхний, нижний остаётся", () => {
-    // Кадр во весь экран поверх галереи дропа — ровно этот случай (§7.5): первое «Назад»
-    // возвращает к сетке кадров, второе закрывает саму галерею.
+    // A fullscreen frame over a drop gallery is exactly this case (§7.5): the first Back returns
+    // to the frame grid, the second closes the gallery itself.
     const closeBottom = vi.fn();
     const closeTop = vi.fn();
     renderHook(() => useBackToClose(true, closeBottom));
@@ -77,14 +77,14 @@ describe("useBackToClose — системное «Назад» закрывае�
   });
 
   it("закрытие верхнего слоя крестиком не гасит нижний", () => {
-    // Верхний слой снимает свою запись сам (`history.back`), и приходящий следом `popstate`
-    // не должен читаться нижним слоем как «нажали Назад».
+    // The top layer removes its own entry (`history.back`), and the `popstate` that follows must
+    // not be read by the lower layer as "Back was pressed".
     const closeBottom = vi.fn();
     renderHook(() => useBackToClose(true, closeBottom));
     const top = renderHook(() => useBackToClose(true, () => {}));
 
     top.unmount();
-    pressBack({ danchuoOverlay: 1 }); // ответ браузера на наш же history.back()
+    pressBack({ danchuoOverlay: 1 }); // the browser's answer to our own history.back()
 
     expect(closeBottom).not.toHaveBeenCalled();
   });

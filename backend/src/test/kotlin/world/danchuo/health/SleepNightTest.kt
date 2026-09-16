@@ -11,11 +11,9 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * Ночь как она была (PRD §5.4, реестр I-23): раскладка ночи по времени вместо одной суммы.
- *
- * Сумма отвечает «сколько», полоса — «как»: во сколько лёг, где провалился, в 3:40 не спал.
- * Куски приходят с ingest'а те же самые, что и раньше — разница в том, что теперь они
- * доживают до отдачи, а не схлопываются в четыре числа.
+ * The night as it happened (PRD §5.4, registry I-23): laid out in time instead of one sum. The
+ * sum answers "how much", the band answers "how" — when sleep began, where it dropped, that at
+ * 3:40 there was none. Ingest receives the same chunks; now they survive to output.
  */
 class SleepNightTest {
 
@@ -27,7 +25,7 @@ class SleepNightTest {
     private fun seg(stage: SleepStage, from: String, to: String) =
         SleepSegment(stage, at(from), at(to))
 
-    /** Ночь 23:20 → 07:20 с пробуждением в 06:00 (та же, что в [SleepSessionizerTest]). */
+    /** The 23:20 → 07:20 night with a waking at 06:00 (the same one as in [SleepSessionizerTest]). */
     private fun night() = listOf(
         seg(SleepStage.LIGHT, "2026-07-27T23:20", "2026-07-27T23:50"),
         seg(SleepStage.DEEP, "2026-07-27T23:50", "2026-07-28T00:40"),
@@ -37,7 +35,7 @@ class SleepNightTest {
         seg(SleepStage.DEEP, "2026-07-28T06:20", "2026-07-28T07:20"),
     )
 
-    // --- сборка ночи из кусков ---
+    // --- assembling the night from chunks ---
 
     @Test
     fun `night keeps chunks in order and keeps the awake gap visible`() {
@@ -47,7 +45,7 @@ class SleepNightTest {
         assertEquals(SleepStage.LIGHT, parts.first().stage)
         assertEquals(at("2026-07-27T23:20"), parts.first().start)
         assertEquals(at("2026-07-28T07:20"), parts.last().end)
-        // Пробуждение — не дырка в данных, а факт ночи: оно остаётся куском своей фазы.
+        // A waking is not a hole in the data but a fact of the night: it stays a chunk of its phase.
         assertTrue(parts.any { it.stage == SleepStage.AWAKE && it.start == at("2026-07-28T06:00") })
     }
 
@@ -55,14 +53,14 @@ class SleepNightTest {
     fun `overlapping sources collapse into one timeline, not a doubled night`() {
         val parts = SleepNight.of(
             listOf(
-                seg(SleepStage.UNSPECIFIED, "2026-07-27T23:00", "2026-07-28T06:00"), // телефон
-                seg(SleepStage.REM, "2026-07-28T01:00", "2026-07-28T02:00"), // часы поверх
+                seg(SleepStage.UNSPECIFIED, "2026-07-27T23:00", "2026-07-28T06:00"), // the phone
+                seg(SleepStage.REM, "2026-07-28T01:00", "2026-07-28T02:00"), // the watch on top
             ),
             wakeDate,
             msk,
         )
 
-        // 23:00→01:00 · 01:00→02:00 REM · 02:00→06:00 — куски идут подряд и не перекрываются
+        // 23:00→01:00 · 01:00→02:00 REM · 02:00→06:00 — chunks run consecutively and never overlap
         assertEquals(3, parts.size)
         assertEquals(
             listOf(SleepStage.UNSPECIFIED, SleepStage.REM, SleepStage.UNSPECIFIED),
@@ -73,8 +71,8 @@ class SleepNightTest {
 
     @Test
     fun `a night without a watch reads as light — the client has no fifth phase`() {
-        // «Спал, фаза неизвестна» — это разметка телефона, а не пятая фаза: в сумме дня она
-        // уже идёт в light, и полоса обязана говорить то же самое.
+        // "Asleep, phase unknown" is the phone's own labelling, not a fifth phase: the day's sum
+        // already folds it into light, and the band must say the same thing.
         val band = SleepBand.of(
             SleepNight.of(
                 listOf(seg(SleepStage.UNSPECIFIED, "2026-07-27T23:10", "2026-07-28T07:10")),
@@ -92,7 +90,7 @@ class SleepNightTest {
         val band = SleepBand.of(
             SleepNight.of(
                 listOf(
-                    seg(SleepStage.AWAKE, "2026-07-27T23:00", "2026-07-27T23:30"), // лёг и ворочался
+                    seg(SleepStage.AWAKE, "2026-07-27T23:00", "2026-07-27T23:30"), // in bed, tossing
                     seg(SleepStage.LIGHT, "2026-07-27T23:30", "2026-07-28T06:00"),
                 ),
                 wakeDate,
@@ -101,9 +99,9 @@ class SleepNightTest {
             wakeDate,
             msk,
         )!!
-        assertEquals(300, band.onsetMinute) // 23:00 — лёг
-        assertEquals(330, band.asleepFromMinute) // 23:30 — уснул
-        assertEquals(390, band.asleepMinutes) // полчаса возни в сон не идут
+        assertEquals(300, band.onsetMinute) // 23:00 — in bed
+        assertEquals(330, band.asleepFromMinute) // 23:30 — asleep
+        assertEquals(390, band.asleepMinutes) // half an hour of tossing is not sleep
     }
 
     @Test
@@ -111,7 +109,7 @@ class SleepNightTest {
         val parts = SleepNight.of(
             listOf(
                 seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T02:00"),
-                // 20 минут без семплов: та же сессия, но полоса обязана показать провал
+                // 20 minutes without samples: the same session, but the band must show the gap
                 seg(SleepStage.LIGHT, "2026-07-28T02:20", "2026-07-28T06:00"),
             ),
             wakeDate,
@@ -127,8 +125,8 @@ class SleepNightTest {
     fun `daytime nap does not stretch the band — the night is the longest session`() {
         val parts = SleepNight.of(
             listOf(
-                seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T06:00"), // ночь
-                seg(SleepStage.LIGHT, "2026-07-28T14:00", "2026-07-28T14:40"), // дневной сон
+                seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T06:00"), // the night
+                seg(SleepStage.LIGHT, "2026-07-28T14:00", "2026-07-28T14:40"), // a daytime nap
             ),
             wakeDate,
             msk,
@@ -148,15 +146,15 @@ class SleepNightTest {
         assertTrue(parts.isEmpty())
     }
 
-    // --- ось полосы: минуты от 18:00 MSK кануна ---
+    // --- the band's axis: minutes from 18:00 MSK the evening before ---
 
     @Test
     fun `band maps the night onto the evening axis`() {
         val band = SleepBand.of(SleepNight.of(night(), wakeDate, msk), wakeDate, msk)!!
 
-        // 23:20 = 18:00 + 5ч20м
+        // 23:20 = 18:00 + 5h20m
         assertEquals(320, band.onsetMinute)
-        // 07:20 следующего дня = 18:00 + 13ч20м
+        // 07:20 the next day = 18:00 + 13h20m
         assertEquals(800, band.wakeMinute)
         assertEquals(460, band.asleepMinutes)
         assertEquals(320, band.parts.first().fromMinute)
@@ -172,7 +170,7 @@ class SleepNightTest {
 
     @Test
     fun `an early bird before the axis start is clamped, not wrapped around`() {
-        // Уснул в 17:30 — раньше начала оси. Полоса обязана начаться с нуля, а не уехать в конец.
+        // Asleep at 17:30, before the axis starts. The band must begin at zero, not run off the end.
         val band = SleepBand.of(
             SleepNight.of(
                 listOf(seg(SleepStage.LIGHT, "2026-07-27T17:30", "2026-07-28T02:00")),

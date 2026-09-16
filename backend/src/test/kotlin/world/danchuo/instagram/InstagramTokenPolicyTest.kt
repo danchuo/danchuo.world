@@ -7,15 +7,9 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Когда продлевать долгоживущий токен Instagram (PRD §5.17).
- *
- * ⚠️ **Токен живёт 60 дней и продлевается только сам собой, пока жив.** Просроченный не
- * продлить ничем — нужен новый заход владельца через OAuth. Поэтому продлеваем СИЛЬНО заранее:
- * упущенное окно стоит ручного визита, а лишний вызов не стоит ничего.
- *
- * ⚠️ **Второе ограничение — снизу:** Instagram отказывает, пока токену нет суток. Без нижнего
- * порога свежий токен, полученный в OAuth, дёргался бы на первом же такте поллера и получал
- * отказ каждый раз.
+ * When to renew the long-lived Instagram token (PRD §5.17). It lives 60 days and renews only
+ * while alive — an expired one needs the owner back through OAuth — so we renew far in advance.
+ * The lower bound is Instagram's: it refuses while the token is under a day old.
  */
 class InstagramTokenPolicyTest {
 

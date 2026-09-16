@@ -6,12 +6,8 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 
 /**
- * Публичное чтение соцссылок и артефактов (PRD §5.8, §12 M4). Всё на чтение, без токена (§3).
- *
- * - `GET /api/social-links` — ссылки (иконка/название/url) в порядке владельца.
- * - `GET /api/artifacts` — артефакты marquee (картинка/название/дата первого упоминания).
- *
- * Пусто (нет записей) ⇒ пустой массив, не ошибка — фронт рисует тихое пустое состояние.
+ * Public reads of social links and marquee artifacts, token-free like every read (§3). No rows
+ * gives an empty array rather than an error — the frontend draws a quiet empty state. PRD §5.8
  */
 @Path("/api")
 @Produces(MediaType.APPLICATION_JSON)

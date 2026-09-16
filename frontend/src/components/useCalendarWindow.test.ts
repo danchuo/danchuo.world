@@ -11,7 +11,7 @@ const mockGetDays = vi.mocked(getDays);
 
 const TODAY = "2026-08-04";
 
-/** Окно вокруг якоря — то, что отдал бы бэк на непорезанный диапазон. */
+/** The window around an anchor — what the backend would serve for an untrimmed range. */
 function windowOf(anchor: string): DaySummary[] {
   const { from, to } = weekWindowAround(anchor, 2, 1);
   return datesInRange(from, to).map((date) => ({ date }) as DaySummary);
@@ -54,9 +54,9 @@ describe("useCalendarWindow", () => {
   });
 
   /**
-   * Главный контракт: листание не гасит календарь. Состояние loading рисует шиммер ВМЕСТО
-   * сетки, то есть каждый шаг назад схлопывал бы плитку в пустую коробку — ровно та беда,
-   * от которой дневной слой уже спасли ([useSelectedDay], DESIGN §7).
+   * The main contract: paging does not blank the calendar. The loading state draws a shimmer
+   * INSTEAD of the grid, so every step back would collapse the tile into an empty box — the same
+   * trouble the day layer was already saved from ([useSelectedDay], DESIGN §7).
    */
   it("шаг назад не гасит уже показанное окно", async () => {
     const first = deferred();
@@ -70,14 +70,15 @@ describe("useCalendarWindow", () => {
     expect(result.current.status).toBe("loaded");
     expect(result.current.days).toHaveLength(28);
 
-    // Якорь 28.07 — вторник, понедельник его недели 27.07 ⇒ окно начинается 13.07.
+    // Anchor 28.07 is a Tuesday, its week's Monday is 27.07 ⇒ the window starts on 13.07.
     await act(async () => second.resolve(windowOf("2026-07-28")));
     expect(result.current.days[0].date).toBe("2026-07-13");
   });
 
   /**
-   * Опора едет ВМЕСТЕ с данными, а не раньше: подпись месяца и приглушение чужого месяца
-   * считаются от неё, и уехавшая вперёд опора описывала бы окно, которого на экране ещё нет.
+   * The reference moves WITH the data, not ahead of it: the month caption and the dimming of a
+   * foreign month are computed from it, and a reference that ran ahead would describe a window
+   * not yet on screen.
    */
   it("опора меняется только когда приехало её окно", async () => {
     const first = deferred();
@@ -106,7 +107,7 @@ describe("useCalendarWindow", () => {
     await act(async () => slow.resolve(windowOf(TODAY)));
 
     expect(result.current.shownAnchor).toBe("2026-07-21");
-    // Якорь 21.07 — вторник, понедельник 20.07 ⇒ окно начинается 06.07.
+    // Anchor 21.07 is a Tuesday, Monday is 20.07 ⇒ the window starts on 06.07.
     expect(result.current.days[0].date).toBe("2026-07-06");
   });
 
@@ -140,7 +141,8 @@ describe("useCalendarWindow", () => {
   });
 
   it("окно, обрезанное генезисом, дальше назад не листается", async () => {
-    // Бэк клампит `from` к генезису: первый день пришёл позже запрошенного ⇒ раньше нечего.
+    // The backend clamps `from` to genesis: the first day arrived later than requested ⇒ there is
+    // nothing earlier.
     const first = deferred();
     mockGetDays.mockReturnValue(first.promise);
 

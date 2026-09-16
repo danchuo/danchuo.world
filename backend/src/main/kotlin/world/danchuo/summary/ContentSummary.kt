@@ -10,14 +10,14 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/** Чем кончилась попытка пересказать кусок. */
+/** How an attempt to summarise a stretch ended. */
 enum class SummaryStatus {
-    /** Есть что показать: пункты (и, если модель осилила, строка-итог). */
+    /** There is something to show: the points, and a closing line if the model managed one. */
     READY,
 
     /**
-     * Попробовали и не смогли: источника нет, текст не разобрался, модель промолчала. Строка
-     * живёт ради счётчика попыток — фоновый счёт не должен биться в стену вечно.
+     * Tried and failed: no source, the text would not parse, the model stayed silent. The row
+     * exists for the attempt counter — background work must not beat against a wall forever.
      */
     FAILED,
     ;
@@ -26,16 +26,9 @@ enum class SummaryStatus {
 }
 
 /**
- * Пересказ куска, пройденного за один заход (PRD §5.16). Одна строка на заход — ключ составной:
- * [kind] + [sessionId].
- *
- * Делается **только по тексту самого источника**. Пересказ «по памяти модели» рассмотрен и
- * отклонён: на публичном борде он однажды уверенно соврал бы про книгу, которой модель не знает,
- * и отличить это на странице было бы нечем. Отсюда же правило «нет источника — нет кнопки».
- *
- * Она же — память фонового счёта о собственных промахах: недоступная модель или пропавший с
- * полки файл оставляют `failed` с засчитанной попыткой, и очередь идёт дальше, вместо того чтобы
- * выжигать бесплатный лимит на одном и том же заходе.
+ * The summary of a passage covered in one sitting, one row per sitting, keyed by [kind] plus
+ * [sessionId]. It is also the background counter's memory of its own failures: an unreachable
+ * model leaves `failed` with an attempt spent, so the queue moves on. PRD §5.16
  */
 @Entity
 @Table(name = "content_summary")
@@ -44,7 +37,7 @@ class ContentSummary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
-    /** Вид заходa ([SummaryKind]); вместе с [sessionId] образует ключ строки. */
+    /** The sitting's kind ([SummaryKind]); together with [sessionId] it forms the row key. */
     @Column(nullable = false, length = 16)
     var kind: String = SummaryKind.READING.code()
 
@@ -54,23 +47,22 @@ class ContentSummary {
     @Column(nullable = false, length = 16)
     var status: String = SummaryStatus.FAILED.code()
 
-    /** Пункты пересказа — по одному на строку; пусто у неудачной попытки. */
+    /** Summary points, one per line; empty after a failed attempt. */
     @Column(columnDefinition = "TEXT")
     var bullets: String? = null
 
-    /** Строка-итог про весь кусок; `null` — модель её не дала, и это не повод терять пункты. */
+    /** A closing line about the whole stretch; `null` when the model gave none, which is no reason to lose the points. */
     @Column(columnDefinition = "TEXT")
     var takeaway: String? = null
 
-    /** Кто отвечал: бесплатную полосу можно перенастроить, а строка должна помнить автора. */
+    /** Who answered: the free lane can be reconfigured, and the row must remember its author. */
     @Column(length = 96)
     var model: String? = null
 
     /**
-     * Какой кусок покрывает лежащий здесь текст, в долях 0..1. `null` — покрывать нечем (успеха
-     * ещё не было). Заход не застывает в момент первого пересказа: вернулся в пределах паузы —
-     * поллер продлевает ТУ ЖЕ строку сессии, и пересказ её начала перестаёт отвечать за неё
-     * целиком. По этой паре очередь и понимает, что пора освежить.
+     * Which slice the stored text covers, in fractions 0..1; `null` means there has been no
+     * success yet. A sitting does not freeze when first summarised — returning within the pause
+     * extends THAT SAME session row, and this pair is how the queue knows to refresh. PRD §5.16
      */
     @Column(name = "covered_start")
     var coveredStart: Double? = null
@@ -79,9 +71,9 @@ class ContentSummary {
     var coveredEnd: Double? = null
 
     /**
-     * Конец куска, на который целилась ПОСЛЕДНЯЯ попытка. Заход, доросший ещё дальше, — это
-     * новая цель, и счётчик промахов по ней начинается заново: решение «сдаюсь» было принято
-     * про другой кусок.
+     * The end of the stretch the LAST attempt aimed at. A sitting that grew further is a new
+     * target, and the miss counter for it starts over: the decision to give up was made about a
+     * different stretch.
      */
     @Column(name = "target_end")
     var targetEnd: Double? = null
@@ -92,15 +84,15 @@ class ContentSummary {
     @Column(name = "updated_at", nullable = false)
     lateinit var updatedAt: Instant
 
-    /** Готов ли пересказ к показу: статус `ready` и хотя бы один пункт. */
+    /** Whether the summary is ready to show: status `ready` and at least one point. */
     fun isReady(): Boolean =
         status == SummaryStatus.READY.code() && !bullets.isNullOrBlank()
 
-    /** Пункты списком — хранятся строками, наружу идут массивом. */
+    /** The points as a list — stored as lines, served as an array. */
     fun bulletLines(): List<String> =
         bullets?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
 
-    /** Снимок для правил очереди ([SummaryPolicy]) — без сущности и без базы. */
+    /** A snapshot for the queue rules ([SummaryPolicy]) — without the entity and without the DB. */
     fun state(): SummaryState = SummaryState(
         ready = isReady(),
         coveredEnd = coveredEnd,
@@ -109,19 +101,19 @@ class ContentSummary {
     )
 }
 
-/** Доступ к пересказам: чтение — по виду и заходу, запись — только из [SummaryService]. */
+/** Access to summaries: reads by kind and sitting, writes only from [SummaryService]. */
 @ApplicationScoped
 class ContentSummaryRepository : PanacheRepository<ContentSummary> {
 
     fun findBy(kind: SummaryKind, sessionId: Long): ContentSummary? =
         find("kind = ?1 and sessionId = ?2", kind.code(), sessionId).firstResult()
 
-    /** Пересказы пачки заходов одного вида — проекция дня спрашивает про все карточки разом. */
+    /** Summaries for a batch of sittings of one kind — the day projection asks for all cards at once. */
     fun listBy(kind: SummaryKind, sessionIds: Collection<Long>): List<ContentSummary> =
         if (sessionIds.isEmpty()) emptyList()
         else list("kind = ?1 and sessionId in ?2", kind.code(), sessionIds)
 
-    /** Всё, что очередь уже трогала в этом виде: и готовое, и промахнувшееся со счётчиком. */
+    /** Everything the queue has already touched in this kind: both ready and missed, with counters. */
     fun bySession(kind: SummaryKind): Map<Long, ContentSummary> =
         list("kind", kind.code()).associateBy { it.sessionId }
 }

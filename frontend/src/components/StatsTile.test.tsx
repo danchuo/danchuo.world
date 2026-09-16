@@ -4,11 +4,9 @@ import type { DaySummary } from "@/lib/api/types";
 import { StatsTile } from "./StatsTile";
 
 /**
- * Чип вкладов GitHub в плитке статов (§7.4, реестр I-01): «+N» рядом с шагами и сном —
- * «активность другого рода». Чип **следует за выбранным днём**, как и оба читаута.
- *
- * Правило «на нуле молчим» — не косметика: нулевых дней у владельца много подряд, и
- * ежедневный серый «+0» превратился бы в шум. Чип отвечает ровно на вопрос «гит был?».
+ * The GitHub contributions chip in the stats tile (§7.4, registry I-01): "+N" beside steps and
+ * sleep. Staying silent on zero is not cosmetics — the owner has many zero days in a row, and a
+ * daily grey "+0" would become noise. The chip answers exactly "was there any git?".
  */
 const day = (over: Partial<DaySummary>): DaySummary => ({
   date: "2026-07-28",
@@ -77,9 +75,9 @@ describe("StatsTile — чип вкладов GitHub", () => {
   });
 
   /**
-   * Цвет — токеном волны (`--accent-code`), а не зелёным литералом: зелёный GitHub спорил бы
-   * и с персиком волны 01, и с графитом Obscura — ровно за это с борда сняли цвета вкусов
-   * монстра. Волна выбирает свой оттенок, правило «ноль хардкод-цветов» цело.
+   * The colour is a wave token (`--accent-code`), not a green literal: GitHub's green would argue
+   * with every wave's palette, which is exactly why the monster flavour colours were dropped. The
+   * "zero hardcoded colours" rule stays intact.
    */
   it("красится токеном волны, а не литералом", () => {
     render(
@@ -93,7 +91,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
     expect(screen.getByTestId("stats-contributions").style.color).toContain("--accent-code");
   });
 
-  /** Плитка без шагов и сна пуста и без чипа: вклады сами по себе плитку статов не наполняют. */
+  /** A tile with no steps and no sleep is empty even with contributions: they do not fill it. */
   it("не оживляет пустую плитку", () => {
     render(
       <StatsTile
@@ -110,16 +108,15 @@ describe("StatsTile — чип вкладов GitHub", () => {
 
 describe("StatsTile — выходные на оси графика", () => {
   /**
-   * Ось графика — россыпь дат, по которой не видно ритма недели, и провалы выходных читались
-   * случайными (§7.4). Метим их **подписью на оси**, а не заливкой поля: заливка выделяла
-   * выходные слишком темно, а подпись занимает слот, который у выходного всё равно был бы
-   * занят датой.
+   * The chart's axis is a scatter of dates with no visible weekly rhythm, so weekend dips read as
+   * random (§7.4). They are marked BY A LABEL ON THE AXIS rather than a field fill: the fill was
+   * too dark, while the label takes a slot a weekend would have spent on its date anyway.
    */
   const week = (dates: string[]) => history(dates.map((date) => ({ date })));
 
-  // Графики рисуются только по ЗАМЕРУ контейнера, а в jsdom нет `ResizeObserver` — без него
-  // SVG не появляется вовсе и проверять нечего. Подставляем наблюдателя, сразу отдающего
-  // размер: полоса живёт в пиксельной геометрии, `aspect-ratio` её тут не заменит.
+  // The charts are drawn only from a MEASUREMENT of the container, and jsdom has no
+  // `ResizeObserver`: without it no SVG appears at all. We supply one that reports a size at once,
+  // because the band lives in pixel geometry and `aspect-ratio` will not stand in for it.
   const realRO = globalThis.ResizeObserver;
   beforeAll(() => {
     globalThis.ResizeObserver = class {
@@ -139,7 +136,7 @@ describe("StatsTile — выходные на оси графика", () => {
   });
 
   it("подписывает субботу и воскресенье, и только их", () => {
-    // 2026-08-01 — суббота, 02 — воскресенье; 03 — понедельник, 31.07 — пятница.
+    // 2026-08-01 is a Saturday and the 2nd a Sunday; the 3rd is a Monday, 31.07 a Friday.
     render(
       <StatsTile
         history={week(["2026-07-31", "2026-08-01", "2026-08-02", "2026-08-03"])}
@@ -154,8 +151,8 @@ describe("StatsTile — выходные на оси графика", () => {
   });
 
   it("подпись выходного занимает слот даты, а не встаёт рядом с ней", () => {
-    // Главное требование владельца: подписи не должны пересекаться. Слот на оси один,
-    // поэтому у выходного дата не рисуется вовсе — накладываться нечему по построению.
+    // The owner's main requirement: labels must not overlap. There is one slot on the axis, so a
+    // weekend's date is not drawn at all — nothing can overlap by construction.
     render(
       <StatsTile
         history={week(["2026-07-31", "2026-08-01", "2026-08-02", "2026-08-03"])}
@@ -168,7 +165,7 @@ describe("StatsTile — выходные на оси графика", () => {
   });
 
   it("заливки поля у выходных больше нет", () => {
-    // Регрессионный якорь: заливка поля отклонена (DESIGN §7.4).
+    // A regression anchor: the field fill was rejected (DESIGN §7.4).
     render(
       <StatsTile
         history={week(["2026-07-31", "2026-08-01", "2026-08-02"])}

@@ -1,9 +1,6 @@
 import type { MetadataRoute } from "next";
 
-/**
- * sitemap.xml (PRD §12 M5). v1 — одностраничный сайт (борд на `/`); галереи/архивы как
- * отдельные роуты появятся позже (бэклог) и допишутся сюда.
- */
+/** The public board is the only indexable route. PRD §12. */
 const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
 
 export default function sitemap(): MetadataRoute.Sitemap {

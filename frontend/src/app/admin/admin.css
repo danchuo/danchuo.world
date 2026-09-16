@@ -9,10 +9,9 @@
   border-radius: var(--radius-md);
 }
 
-/* Wave switcher in the admin header. The tile keeps its wave skin, but not the board's
-   proportions: 16px of tile padding plus the "волны" meta label left the chips ~17px wide —
-   readable on a board plate, a miss target in a header strip. Padding drops to 8px and the
-   label goes: in a four-item header the row of wave chips names itself. */
+/* Wave switcher in the admin header. The tile keeps its wave skin but not the board's
+   proportions: 16px of tile padding plus a meta label left the chips ~17px wide — readable on a
+   board plate, a miss target in a header strip. Padding drops to 8px and the label goes. */
 .admin-wave-switcher {
   padding: 8px;
 }

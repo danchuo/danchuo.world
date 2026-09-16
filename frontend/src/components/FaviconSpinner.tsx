@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { faviconFrameAt, resolveFavicon } from "@/lib/favicon";
 
-/** Все иконки вкладки в `<head>`; если статической нет — заводим свою. */
+/** Every tab icon in `<head>`; if there is no static one, we add our own. */
 function iconLinks(): HTMLLinkElement[] {
   const links = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'));
   if (links.length > 0) return links;
@@ -14,18 +14,9 @@ function iconLinks(): HTMLLinkElement[] {
 }
 
 /**
- * Крутит Землю в иконке вкладки (DESIGN §10.3). Ничего не рендерит.
- *
- * Кадры лежат спрайт-лентой (см. `lib/favicon.ts`): один запрос, дальше нарезка канвасом в
- * data-URL и смена `href` у `<link rel="icon">` — единственный способ анимировать вкладку в
- * Chrome/Safari, они анимированный GIF в фавиконе не крутят.
- *
- * Волну берём с `<html data-wave>`: её ставит SSR-layout, а переключатель волн меняет вживую —
- * MutationObserver ловит своп и перезаряжает спрайт, не трогая WaveProvider (иконка вкладки
- * не про раскладку борда, поэтому в контекст не лезем).
- *
- * Деградирует молча и всегда в пользу статики: нет канваса, не доехал спрайт,
- * `prefers-reduced-motion` — на вкладке остаётся неподвижная планета (`app/icon.png`).
+ * Spins the Earth in the tab icon; renders nothing. Frames come as a sprite sheet sliced on a
+ * canvas into data-URLs, which is the only way to animate a tab icon in Chrome and Safari — they
+ * refuse animated GIFs there. It degrades silently to the static planet. DESIGN §10.3
  */
 export function FaviconSpinner() {
   const [wave, setWave] = useState<string | null>(() =>
@@ -34,7 +25,7 @@ export function FaviconSpinner() {
 
   useEffect(() => {
     const read = () => setWave(document.documentElement.getAttribute("data-wave"));
-    read(); // волну мог поставить переключатель до того, как эффект успел подписаться
+    read(); // the switcher may have set the wave before the effect subscribed
     const observer = new MutationObserver(read);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-wave"] });
     return () => observer.disconnect();
@@ -46,7 +37,7 @@ export function FaviconSpinner() {
     canvas.width = sprite.cell;
     canvas.height = sprite.cell;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return; // древний браузер — статическая иконка и так на месте
+    if (!ctx) return; // an ancient browser — the static icon is there anyway
 
     let cancelled = false;
     let timer = 0;
@@ -54,8 +45,8 @@ export function FaviconSpinner() {
     const image = new Image();
     image.onload = () => {
       if (cancelled) return;
-      // Нарезаем ленту один раз: дальше анимация — это только смена строки в href,
-      // без канваса на каждый кадр (иконка вкладки перерисовывается 10 раз в секунду).
+      // The sheet is sliced once: after that the animation is only a change of string in href, with
+      // no canvas per frame (the tab icon redraws ten times a second).
       const frames: string[] = [];
       for (let i = 0; i < sprite.frames; i += 1) {
         ctx.clearRect(0, 0, sprite.cell, sprite.cell);
@@ -72,9 +63,9 @@ export function FaviconSpinner() {
       const startedAt = Date.now();
       let shown = 0;
       timer = window.setInterval(() => {
-        // Фоновая вкладка: иконку всё равно никто не смотрит, а браузер душит таймер —
-        // держим кадр и не жжём CPU. Кадр считается от времени, поэтому после возврата
-        // планета оказывается там, где была бы, если б крутилась всё это время.
+        // A background tab: nobody is looking anyway and the browser throttles the timer, so we
+        // hold the frame and burn no CPU. The frame is derived from time, so on return the planet
+        // is where it would have been had it kept spinning.
         if (document.hidden) return;
         const frame = faviconFrameAt(Date.now() - startedAt, sprite);
         if (frame === shown) return;
@@ -82,7 +73,7 @@ export function FaviconSpinner() {
         show(frames[frame]);
       }, sprite.frameMs);
     };
-    image.onerror = () => {}; // спрайт не доехал — остаёмся на статической иконке
+    image.onerror = () => {}; // the sprite did not arrive — stay on the static icon
 
     image.src = sprite.src;
 

@@ -1,15 +1,15 @@
 package world.danchuo.theme
 
 /**
- * Публичная проекция волны (PRD §5.9; DESIGN §10). `GET /api/theme/active` отдаёт активную,
- * `GET /api/themes` — список выпущенных (для переключателя). [tokens] — карта `ключ → значение`
- * (без `--`), которую фронт инжектит в `:root`.
+ * Public projection of a wave: `/api/theme/active` returns the active one and `/api/themes` the
+ * released list for the switcher. [tokens] is a `key -> value` map WITHOUT the `--` prefix, which
+ * the frontend injects into `:root`. PRD §5.9; DESIGN §10
  */
 data class ThemeView(
     val key: String,
     val name: String,
     val tokens: Map<String, String>,
-    /** Layout-блок волны (DESIGN §3, §10); `null` ⇒ фронт берёт дефолт `layout.ts`. */
+    /** The wave's layout block; `null` means the frontend takes the `layout.ts` default. §10 */
     val layout: LayoutSpec?,
     val active: Boolean,
     val releasedAt: String,

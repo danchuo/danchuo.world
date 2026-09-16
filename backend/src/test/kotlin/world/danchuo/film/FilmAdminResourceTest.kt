@@ -14,13 +14,14 @@ import java.util.zip.ZipOutputStream
 import javax.imageio.ImageIO
 
 /**
- * Загрузка фото-дропа через /admin (B1, PRD §5.12): zip с кадрами за bearer → ресайз → хранилище.
- * Проверяем сквозной путь — аплоад, выбор обложки, раздача кадра, удаление — и закрытость записи.
+ * Photo-drop upload through /admin (PRD §5.12): a zip of frames behind the bearer → resize →
+ * storage. Covers the whole path — upload, cover choice, frame serving, deletion — and that
+ * writing is closed.
  */
 @QuarkusTest
 class FilmAdminResourceTest {
 
-    private val token = "dev-ingest-token-change-me" // дефолт danchuo.ingest.token в dev/test
+    private val token = "dev-ingest-token-change-me" // the danchuo.ingest.token default in dev/test
 
     @Test
     fun `upload requires bearer`() {
@@ -33,12 +34,11 @@ class FilmAdminResourceTest {
 
     @Test
     fun `upload processes frames, cover is settable, media served, drop deletable`() {
-        // Загрузка двух кадров + не-картинки (пропускается).
         val dropId = given()
             .header("Authorization", "Bearer $token")
             .multiPart("zip", zipOfImages(2, withJunk = true))
-            // ASCII-заголовок: RestAssured кодирует текстовые multipart-части не в UTF-8, кириллица
-            // в тесте манглится (браузерный FormData шлёт UTF-8 — там ок).
+            // An ASCII title: RestAssured does not encode text multipart parts as UTF-8 and
+            // mangles non-Latin here. The browser's FormData sends UTF-8, so the app is fine.
             .multiPart("title", "Test film 2026")
             .multiPart("date", "2026-06-10")
             .post("/api/ingest/drops")
@@ -49,18 +49,16 @@ class FilmAdminResourceTest {
             .body("drop.photoCount", equalTo(2))
             .extract().jsonPath().getLong("drop.id")
 
-        // Публичный список содержит дроп с обложкой-thumb.
         given().get("/api/drops")
             .then().statusCode(200)
             .body("find { it.id == $dropId }.coverPhotoUrl", startsWith("/api/film-media/$dropId/"))
 
-        // Кадры в админ-сетке: первый помечен обложкой по умолчанию.
+        // The first frame is the cover by default.
         val photoIds = given().header("Authorization", "Bearer $token")
             .get("/api/ingest/drops/$dropId/photos")
             .then().statusCode(200)
             .extract().jsonPath().getList<Int>("id")
 
-        // Переставить обложку на второй кадр.
         given().header("Authorization", "Bearer $token")
             .contentType("application/json")
             .body("""{"photoId": ${photoIds[1]}}""")
@@ -68,12 +66,10 @@ class FilmAdminResourceTest {
             .then().statusCode(200)
             .body("coverPhotoId", equalTo(photoIds[1]))
 
-        // Раздача web-варианта первого кадра.
         given().get("/api/film-media/$dropId/0/web")
             .then().statusCode(200)
             .contentType("image/jpeg")
 
-        // Удаление дропа.
         given().header("Authorization", "Bearer $token")
             .delete("/api/ingest/drops/$dropId")
             .then().statusCode(204)
@@ -82,7 +78,7 @@ class FilmAdminResourceTest {
         given().get("/api/film-media/$dropId/0/web").then().statusCode(404)
     }
 
-    /** Zip из [count] сгенерированных PNG (+ опционально текстовый «мусор» для проверки пропуска). */
+    /** A zip of [count] generated PNGs, optionally with text junk to check that it is skipped. */
     private fun zipOfImages(count: Int, withJunk: Boolean = false): File {
         val file = File.createTempFile("drop", ".zip")
         ZipOutputStream(file.outputStream()).use { zip ->
@@ -98,8 +94,8 @@ class FilmAdminResourceTest {
                 zip.closeEntry()
             }
             if (withJunk) {
-                // Расширение картинки, но не декодируется (имитация HEIC/битого) ⇒ skipped++.
-                // Файл без image-расширения (например .txt) фильтруется раньше и в skipped не идёт.
+                // An image extension that does not decode (a stand-in for HEIC or a corrupt file)
+                // ⇒ skipped++. A non-image extension is filtered earlier and never reaches skipped.
                 zip.putNextEntry(ZipEntry("broken.jpg"))
                 zip.write("not an image".toByteArray())
                 zip.closeEntry()

@@ -10,12 +10,9 @@ import java.util.Base64
 import java.util.Optional
 
 /**
- * [LlmClient] backed by Google's Gemini. Selected with `danchuo.llm.provider=gemini`.
- *
- * Follows the same degradation contract as [GroqLlmClient] — no api-key or a provider error
- * collapses to `null` and never propagates — and adds provider-native structured output, which
- * is why it exists: Groq's remaining vision model states coordinates unreliably and can spend its
- * whole budget "thinking" before emitting any JSON at all.
+ * [LlmClient] backed by Google's Gemini, selected with `danchuo.llm.provider=gemini`. Same
+ * degradation contract as [GroqLlmClient] — no api-key or a provider error collapses to `null` —
+ * plus provider-native structured output, which is the reason it exists. PRD §5.12
  */
 @ApplicationScoped
 @Typed(GeminiLlmClient::class)
@@ -37,7 +34,7 @@ class GeminiLlmClient(
             parts = listOf(GeminiTextPart(userPrompt)),
         )
 
-    /** Усилие рассуждения — понятие Groq; у Gemini его в запросе нет, поле просто не смотрим. */
+    /** Reasoning effort is a Groq notion; Gemini has no such request field, so it is ignored. */
     override fun completeText(systemPrompt: String, userPrompt: String, call: LlmTextCall): String? =
         generate(
             model = call.model,

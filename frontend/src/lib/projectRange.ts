@@ -1,17 +1,17 @@
 /**
- * Форматирование временно́го промежутка проекта (PRD §5.7): «Q3 2025 — Q1 2026» или
- * «Q3 2025 — наст.» (открытый конец). Презентация живёт на фронте — бэк отдаёт сырые числа.
+ * Formatting a project's time range (PRD §5.7): two edges, or one edge and "present" for an open
+ * end. Presentation lives on the frontend — the backend serves raw numbers.
  */
 
-/** Один край диапазона: с кварталом — «Q3 2025», без — просто «2025». */
+/** One edge of the range: with a quarter it is `Q3 2025`, without it just the year. */
 function formatEdge(year: number, quarter: number | null): string {
   return quarter ? `Q${quarter} ${year}` : `${year}`;
 }
 
 /**
- * Диапазон проекта. Открытый конец (`endYear == null`) → «наст.»; иначе — второй край.
- * Кварталы опциональны независимо для начала и конца. Совпадающие края (проект, живший
- * один квартал/год) схлопываются в единственный край без тире.
+ * The project's range. An open end (`endYear == null`) reads as "present"; otherwise the second
+ * edge is printed. Quarters are optional on each edge independently, and matching edges (a project
+ * that lived one quarter or year) collapse into a single edge with no dash.
  */
 export function formatQuarterRange(
   startYear: number,

@@ -9,24 +9,17 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичное чтение пересказов (PRD §5.16.1) — одна точка на все виды источников.
- *
- * Отдельным запросом, а не в проекции дня: это текст на несколько строк, который нужен только
- * раскрытому окну, а проекция едет на каждый день календаря. В карточке дня остаётся один флаг —
- * есть ли что показывать.
- *
- * Вид стоит в пути, а не в слайсе-владельце (`/api/reading/summary/…`, `/api/spotify/…`), потому
- * что отвечает здесь не источник, а общая очередь: строка одна и та же, различается только
- * ключ. Неизвестный вид — 404, как и отсутствующий пересказ: и то и другое значит «показывать
- * нечего», а разбирать это на странице нечем.
+ * Public reads of summaries — one endpoint for every kind of source. A separate request rather
+ * than a field in the day projection, which travels for every calendar day while this text is only
+ * wanted by an opened window. An unknown kind is a 404, like a missing summary. PRD §5.16.1
  */
 @Path("/api/summary")
 class SummaryResource(private val summaries: SummaryService) {
 
     /**
-     * Пересказ пройденного за заход куска. 404 — пересказа нет (не собрался либо ещё в очереди).
-     * Форма ответа при этом не выдумывается: пустой пересказ и отсутствующий — для окна одно и
-     * то же.
+     * The summary of a stretch covered in one sitting. 404 means there is none (it did not come
+     * together, or is still queued). The reply shape is not invented for that case: an empty
+     * summary and an absent one are the same thing to the modal.
      */
     @GET
     @Path("/{kind}/{sessionId}")
@@ -49,14 +42,9 @@ class SummaryResource(private val summaries: SummaryService) {
 }
 
 /**
- * Пересказ куска наружу: пункты и строка-итог. Ничего больше окну не нужно — название, подпись,
- * обложка и границы куска у него уже есть из карточки дня.
- *
- * ⚠️ `@RegisterForReflection` здесь **несущая**, как у всех наших ответов ([SleepNightView],
- * `DayView`, `FilmViews`). Без неё native-образ вырезает у класса геттеры как «никем не
- * вызываемые» — Jackson не находит ни одного свойства и отдаёт `{}` с кодом 200. На JVM
- * (дев, тесты, локальный стек) всё при этом работает, поэтому промах доезжает до прода целым:
- * ровно так предшественник этого эндпоинта туда и приехал пустым.
+ * A summary going out: bullet points and the closing line. The window needs nothing more — title,
+ * caption, cover and passage bounds already came with the day card. `@RegisterForReflection` is
+ * LOAD-BEARING here, as on every response of ours (docs/pitfalls.md).
  */
 @RegisterForReflection
 data class SummaryView(

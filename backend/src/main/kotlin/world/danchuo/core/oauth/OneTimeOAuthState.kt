@@ -7,16 +7,9 @@ import java.time.Instant
 import java.util.Base64
 
 /**
- * CSRF-`state` одноразового OAuth внешнего источника: authorize выдаёт случайный `state`,
- * callback его сверяет и гасит.
- *
- * In-memory и без переживания рестарта — поток личный и редкий (владелец подключает свой
- * аккаунт раз в несколько месяцев); потерянный при рестарте `state` лечится повторным
- * заходом на authorize.
- *
- * ⚠️ **Наследник — на слайс, а не один общий бин.** Держать одно состояние на все источники
- * нельзя: начатая авторизация Instagram затёрла бы `state` начатой авторизации Spotify, и
- * второй callback молча отказал бы. Каждый слайс объявляет свой `@ApplicationScoped`-наследник.
+ * One-shot CSRF `state` for an external OAuth flow: authorize issues it, the callback checks and
+ * burns it. In-memory and not restart-proof on purpose — a lost `state` is cured by authorizing
+ * again. SUBCLASS PER SLICE: one shared bean would let Instagram clobber Spotify's state.
  */
 abstract class OneTimeOAuthState {
 
@@ -28,7 +21,7 @@ abstract class OneTimeOAuthState {
     @Volatile
     private var issuedAt: Instant = Instant.EPOCH
 
-    /** Выдать свежий `state`, затерев прежний (одна авторизация за раз). */
+    /** Issues a fresh `state`, wiping the previous one (one authorization at a time). */
     fun issue(): String {
         val bytes = ByteArray(STATE_BYTES).also(random::nextBytes)
         val value = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
@@ -38,12 +31,12 @@ abstract class OneTimeOAuthState {
     }
 
     /**
-     * Сверить и погасить `state` (одноразовый). Валиден, если совпал и не протух.
-     * Сравнение за константное время — не утекаем по таймингу.
+     * Checks and burns the one-time `state`. Valid when it matches and has not expired.
+     * The comparison is constant-time, so nothing leaks through timing.
      */
     fun consume(candidate: String?): Boolean {
         val current = state
-        state = null // одноразовый: любой исход гасит state
+        state = null // single use: any outcome clears the state
         if (current == null || candidate == null) return false
         if (Duration.between(issuedAt, Instant.now()) > TTL) return false
         return MessageDigest.isEqual(

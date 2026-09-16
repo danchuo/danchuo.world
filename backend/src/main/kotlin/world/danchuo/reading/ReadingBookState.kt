@@ -9,27 +9,19 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Последний **увиденный** процент книги (PRD §5.16) — то, что мы наблюдали на полке до того, как
- * пошло чтение.
- *
- * Зачем отдельная строка, когда проценты уже лежат в сессиях. Сессия появляется, только когда
- * счётчик вырос; а поллер видит книгу на полке ЗАДОЛГО до этого — она лежит на 35% всё утро, и
- * каждый такт мы это наблюдаем и выбрасываем. Из-за этого первый заход по книге, доставшейся нам
- * с чужой историей, оставался без начала: «42%» вместо «35% → 42%», хотя ответ проходил у нас
- * перед носом.
- *
- * Обновляется **после** разбора снимка, а не до: начало захода — это процент, увиденный на
- * ПРЕДЫДУЩЕМ такте. Обнови раньше — и старт совпал бы с финишем, дав пустую стрелку «42% → 42%».
+ * The last percentage of a book we SAW on the shelf, before any reading session existed. It is a
+ * separate row because a session only appears once the counter grew, while the poller watches the
+ * book long before that — without it, a first sitting had no start. PRD §5.16
  */
 @Entity
 @Table(name = "reading_book_state")
 class ReadingBookState {
-    /** Идентификатор книги внутри базы читалки — он же ключ: строка на книгу одна. */
+    /** The book's id inside the reader DB, which is also the key: one row per book. */
     @Id
     @Column(name = "book_id")
     var bookId: Long = 0
 
-    /** Доля 0..1, как хранит читалка. */
+    /** A 0..1 fraction, as the reader stores it. */
     @Column(name = "last_percent")
     var lastPercent: Double? = null
 
@@ -37,15 +29,15 @@ class ReadingBookState {
     lateinit var observedAt: Instant
 }
 
-/** Наблюдения за полкой: читает и пишет только [ReadingService]. */
+/** Shelf observations: only [ReadingService] reads and writes them. */
 @ApplicationScoped
 class ReadingBookStateRepository : PanacheRepositoryBase<ReadingBookState, Long> {
 
-    /** Проценты всех известных книг разом — снимок читается целиком, по одной книге ходить незачем. */
+    /** Every known book's percentage at once — the snapshot is read whole, never book by book. */
     fun percentsByBook(): Map<Long, Double> =
         listAll().mapNotNull { state -> state.lastPercent?.let { state.bookId to it } }.toMap()
 
-    /** Запомнить увиденное; строка на книгу одна, поэтому upsert по ключу. */
+    /** Remembers what was seen; one row per book, so this upserts by the key. */
     fun observe(bookId: Long, percent: Double?, at: Instant) {
         val existing = findById(bookId)
         if (existing != null) {
@@ -53,7 +45,7 @@ class ReadingBookStateRepository : PanacheRepositoryBase<ReadingBookState, Long>
             existing.observedAt = at
             return
         }
-        // Вставка вставляет строку немедленно ⇒ все not-null поля заполняем ДО persist.
+        // The insert writes the row immediately, so every not-null field is filled BEFORE persist.
         persist(
             ReadingBookState().apply {
                 this.bookId = bookId

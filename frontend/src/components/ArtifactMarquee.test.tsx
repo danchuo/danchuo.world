@@ -15,7 +15,7 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, "clientWidth");
 });
 
-/** Заставляет ленту «не влезть» ⇒ она едет и дублирует контент (в jsdom размеров нет). */
+/** Makes the ribbon "not fit" ⇒ it moves and duplicates its content (jsdom has no sizes). */
 function forceScrolling() {
   vi.stubGlobal(
     "ResizeObserver",
@@ -34,12 +34,12 @@ const camera: ArtifactView = {
   firstMentionedOn: "2026-01-15",
 };
 
-// Пропорции реальных предметов ленты (w/h самих PNG).
-const GLASSES = 922 / 318; // 2.90 — вытянуты поперёк себя, «лежат»
-const RACKET = 330 / 1257; // 0.26 — вытянута вдоль себя, «стоит»
-const CAMERA = 1262 / 829; // 1.52 — почти квадратная
+// Proportions of the real items in the ribbon (w/h of the PNGs themselves).
+const GLASSES = 922 / 318; // 2.90 — wide across themselves, they "lie"
+const RACKET = 330 / 1257; // 0.26 — long along itself, it "stands"
+const CAMERA = 1262 / 829; // 1.52 — nearly square
 
-/** Оптический вес предмета — сторона квадрата той же площади. */
+/** An item's optical weight: the side of a square with the same area. */
 const presence = (b: { width: number; height: number }) => Math.sqrt(b.width * b.height);
 
 describe("artifactBox — набок только с разрешения, вес общий", () => {
@@ -47,21 +47,21 @@ describe("artifactBox — набок только с разрешения, ве�
     const racket = artifactBox(RACKET, false, true);
 
     expect(racket.rotate).toBe(true);
-    // Длинная сторона легла вдоль ленты (иначе ракетка была бы ниткой в 11px).
+    // The long side lies along the ribbon (otherwise the racket would be an 11px thread).
     expect(racket.width).toBeGreaterThan(racket.height);
   });
 
   it("очкам класться НЕ разрешено ⇒ в вертикальной ленте волны 02 они не встают на бок", () => {
-    // Правило не геометрическое: у очков есть «правильная сторона», у ракетки её нет.
-    // Пропорцией это не выводится — поэтому разрешение хранится у самого предмета.
+    // The rule is not geometric: sunglasses have a right way up, a racket does not. That cannot
+    // be derived from a proportion, so the permission is stored on the item itself.
     const box = artifactBox(GLASSES, true, false);
     expect(box.rotate).toBe(false);
     expect(box.width / box.height).toBeCloseTo(GLASSES, 2);
   });
 
   it("разрешение само по себе не крутит: предмет уже лежит вдоль ленты", () => {
-    expect(artifactBox(RACKET, true, true).rotate).toBe(false); // вертикальная лента
-    expect(artifactBox(GLASSES, false, true).rotate).toBe(false); // горизонтальная
+    expect(artifactBox(RACKET, true, true).rotate).toBe(false); // vertical ribbon
+    expect(artifactBox(GLASSES, false, true).rotate).toBe(false); // horizontal
   });
 
   it("почти квадратный предмет не крутим даже с разрешения — крутить нечего", () => {
@@ -75,8 +75,8 @@ describe("artifactBox — набок только с разрешения, ве�
   });
 
   it("предметы весят одинаково: равная площадь, а не равная высота", () => {
-    // Равнять по высоте нельзя: широкие очки при той же высоте занимают вдвое больше
-    // места, чем почти квадратная камера, и читаются крупнее. Равняем оптический вес.
+    // Matching by height is wrong: wide sunglasses at the same height take twice the room of a
+    // near-square camera and read larger. We match optical weight.
     const boxes = [
       artifactBox(GLASSES, false, false),
       artifactBox(RACKET, false, true),
@@ -121,24 +121,24 @@ describe("ArtifactMarquee", () => {
     getArtifactsMock.mockResolvedValue([camera]);
     render(<ArtifactMarquee />);
 
-    // В jsdom нет ResizeObserver ⇒ лента не едет ⇒ один предмет рендерится один раз (без дубля).
+    // jsdom has no ResizeObserver ⇒ the ribbon does not move ⇒ one item renders once, no duplicate.
     const label = await screen.findByText("Камера");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    // Клик по предмету открывает меню с датой (ховер сам меню НЕ открывает).
+    // A click on an item opens the menu with the date; hover does NOT open it.
     fireEvent.click(label.closest("button")!);
     const dialog = await screen.findByRole("dialog", { name: "Камера" });
     expect(dialog).toHaveTextContent("15 января 2026");
   });
 
   it("на едущей ленте кликается и копия предмета — мимо неё промахнуться нельзя", async () => {
-    // Лента дублирует контент для бесшовной петли, и мимо зрителя едут обе копии:
-    // если клик живёт только у первой, каждый второй проход предметы «не нажимаются».
+    // The ribbon duplicates its content for a seamless loop and both copies pass the viewer, so
+    // if the click lives only on the first, every other pass the items are unclickable.
     forceScrolling();
     getArtifactsMock.mockResolvedValue([camera]);
     render(<ArtifactMarquee />);
 
-    // Дубль появляется вторым проходом (после замера), поэтому ждём именно двух копий.
+    // The duplicate appears on the second pass, after measuring, so we wait for exactly two copies.
     await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
 
     fireEvent.click(screen.getAllByText("Камера")[1].closest("button")!);
@@ -178,9 +178,9 @@ describe("ArtifactMarquee", () => {
     const dialog = await screen.findByRole("dialog", { name: "Камера" });
     const img = dialog.querySelector("img")!;
 
-    // Жёсткая ширина + потолок высоты = искажение: у вытянутого предмета (ракетка ~1:3.8)
-    // высота упирается в потолок, а заданная ширина не ужимается вслед — предмет плющит.
-    // Поэтому обе стороны ограничиваем ТОЛЬКО потолками, размер считает браузер по пропорции.
+    // A fixed width plus a height ceiling distorts: an elongated item hits the ceiling while the
+    // given width does not follow, and the item is squashed. Both sides are therefore ceilings
+    // only, and the browser computes the size from the proportion.
     expect(img.style.width).toBe("");
     expect(img.style.height).toBe("");
     expect(img.style.maxWidth).not.toBe("");
@@ -194,7 +194,6 @@ describe("ArtifactMarquee", () => {
 
     await screen.findByText("Камера");
     expect(container.querySelector(".artifact-track")).not.toHaveClass("is-scrolling");
-    // Не едет ⇒ контент не дублирован: ровно один предмет (одна картинка).
     expect(container.querySelectorAll("img").length).toBe(1);
   });
 
@@ -221,9 +220,9 @@ describe("ArtifactMarquee", () => {
   });
 
   it("подписи стоят на одной высоте: слот картинки одинаков у любого предмета", async () => {
-    // Предметы разной пропорции дают разную высоту картинки (вес считается по площади), и
-    // подпись под ними прыгала вверх-вниз от предмета к предмету. Слот держит поперечный
-    // габарит ленты независимо от того, что в нём лежит, — строка подписей ровная.
+    // Items of different proportions give pictures of different heights (weight goes by area), and
+    // the caption under them jumped about. The slot holds the ribbon's cross size whatever is in
+    // it, which keeps the row of captions level.
     getArtifactsMock.mockResolvedValue([
       { name: "Очки", imageUrl: "/assets/artifacts/glasses.png", firstMentionedOn: "2026-03-10" },
       { name: "Ракетка", imageUrl: "/assets/artifacts/racket.png", firstMentionedOn: "2026-04-01" },
@@ -243,7 +242,7 @@ describe("ArtifactMarquee", () => {
 
     expect(glasses.parentElement!.style.height).toBe(`${ARTIFACT_SIZE}px`);
     expect(racket.parentElement!.style.height).toBe(`${ARTIFACT_SIZE}px`);
-    // Место ВДОЛЬ ленты остаётся за самим предметом — слот равняет только поперечник.
+    // Room ALONG the ribbon still belongs to the item; the slot only levels the cross size.
     expect(glasses.parentElement!.style.width).not.toBe(racket.parentElement!.style.width);
   });
 
@@ -254,16 +253,16 @@ describe("ArtifactMarquee", () => {
     const { container } = render(<ArtifactMarquee />);
 
     expect(await screen.findByText("Очки")).toBeInTheDocument();
-    // Картинки нет ⇒ ни одного <img> (рисуем пиксель-плейсхолдер), вёрстка не ломается.
+    // No picture ⇒ no `<img>` at all (a pixel placeholder is drawn) and the layout holds.
     expect(container.querySelector("img")).toBeNull();
   });
 });
 
 describe("ArtifactMarquee — лента листается рукой (§7.2)", () => {
   /**
-   * Собственный ход ленты в этих тестах выключен режимом «меньше движения»: он идёт по кадрам
-   * и сдвигал бы замеряемое смещение на случайные доли пикселя. Заодно это и проверка правила —
-   * ход борда режим гасит, а протяжку рукой нет: её затеял сам зритель.
+   * The ribbon's own motion is off here through reduced motion: it runs per frame and would shift
+   * the measured offset by random fractions of a pixel. That doubles as a check of the rule —
+   * the board's motion is damped, a hand drag is not, because the viewer started it.
    */
   beforeEach(() => {
     vi.stubGlobal("matchMedia", () => ({
@@ -273,7 +272,7 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
     }));
   });
 
-  /** Точка указателя: в jsdom нет `PointerEvent`, а без координат протяжка считалась бы из NaN. */
+  /** A pointer with coordinates: jsdom has no `PointerEvent`, and a drag would compute from NaN. */
   function pointer(target: Window | HTMLElement, type: string, x: number) {
     fireEvent(
       target,
@@ -281,14 +280,13 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
     );
   }
 
-  /** Протяжка по ленте: нажали на предмете, повели, отпустили. */
   function dragBy(from: HTMLElement, startX: number, endX: number) {
     pointer(from, "pointerdown", startX);
     pointer(window, "pointermove", endX);
     pointer(window, "pointerup", endX);
   }
 
-  /** Едущая лента с одним предметом: контент дублирован, копия одна ⇒ шаг петли = scrollWidth/2. */
+  /** A moving ribbon with one item: content duplicated, one copy ⇒ loop step = scrollWidth/2. */
   async function renderScrolling() {
     forceScrolling();
     getArtifactsMock.mockResolvedValue([camera]);
@@ -306,27 +304,27 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
     pointer(btn, "pointerdown", 200);
     pointer(window, "pointermove", 140);
 
-    // Лента идёт за рукой в тот же кадр: ждать следующего тика анимации нельзя, иначе
-    // протяжка ощущается как «толкнул и посмотрел, что вышло».
+    // The ribbon follows the hand within the same frame: waiting for the next animation tick makes
+    // the drag feel like "push it and see what happens".
     expect(track.style.left).toBe("-60px");
   });
 
   it("тянем вправо — лента листается НАЗАД и заходит с конца копии, а не упирается в край", async () => {
-    // Полкопии ленты уже уехало? Неважно: назад можно листать бесконечно, как и вперёд.
-    // Шаг петли тут 500 (scrollWidth 1000 на две копии), поэтому −60 читается как 440.
+    // Half a copy already gone by? It does not matter: back scrolls forever, as does forward.
+    // The loop step here is 500 (scrollWidth 1000 over two copies), so −60 reads as 440.
     const { track, btn } = await renderScrolling();
 
     dragBy(btn, 200, 260);
 
-    // Точное число зависит от шага петли (он меряется по вёрстке), поэтому проверяем суть:
-    // лента ушла далеко ЗА пройденные 60px — то есть зашла с конца копии, а не встала в ноль.
+    // The exact number depends on the loop step, measured from layout, so we check the substance:
+    // the ribbon went far PAST the 60px travelled, entering from the copy's end rather than zero.
     expect(track.style.left).not.toBe("0px");
     expect(Number.parseFloat(track.style.left)).toBeLessThan(-60);
   });
 
   it("после протяжки клик по предмету меню НЕ открывает", async () => {
-    // Протащить ленту за предмет — обычное дело: предметы занимают её почти целиком.
-    // Если такой жест ещё и открывает меню, листать ленту нельзя вовсе.
+    // Dragging the ribbon by an item is ordinary — items fill almost all of it. If that gesture
+    // also opened the menu, the ribbon could not be scrolled at all.
     const { btn } = await renderScrolling();
 
     dragBy(btn, 200, 140);
@@ -359,8 +357,8 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
   });
 
   it("нажатие указателем не открывает меню фокусом — иначе клик мышью открывал и тут же закрывал", async () => {
-    // Браузер фокусирует кнопку на нажатии: фокус открывал меню, а следующий за ним клик
-    // (тот же предмет ⇒ переключатель) закрывал его. Мышью меню не открывалось вовсе.
+    // The browser focuses a button on press: focus opened the menu and the click that followed
+    // (same item ⇒ a toggle) closed it, so the menu never opened by mouse at all.
     const { btn } = await renderScrolling();
 
     pointer(btn, "pointerdown", 200);
@@ -378,8 +376,8 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
   });
 
   it("колесо/тачпад при наведении крутит ленту — без единого нажатия", async () => {
-    // Второй способ листать: рука на тачпаде, палец не нажат. Тянуть за предмет
-    // на ноутбуке неудобно, а привычный жест прокрутки над лентой напрашивался сам.
+    // The second way to scroll: a hand on the trackpad with no finger down. Dragging by an item is
+    // awkward on a laptop, and the familiar scroll gesture over the ribbon suggested itself.
     const { track, frame } = await renderScrolling();
 
     fireEvent.wheel(frame, { deltaX: 0, deltaY: 40 });
@@ -405,8 +403,8 @@ describe("ArtifactMarquee — лента листается рукой (§7.2)",
   });
 
   it("колесо не открывает меню предмета и не гасит следующий клик", async () => {
-    // Прокрутка — не жест по предмету: она не должна ни открывать карточку,
-    // ни съедать клик, как это делает протяжка.
+    // Scrolling is not a gesture on an item: it must neither open the card nor swallow the click
+    // the way a drag does.
     const { frame, btn } = await renderScrolling();
 
     fireEvent.wheel(frame, { deltaX: 0, deltaY: 40 });
@@ -446,10 +444,9 @@ describe("ArtifactMarquee — смена волны не оставляет ле
   });
 
   it("смена ориентации чистит ось, по которой лента ехала", async () => {
-    // Волна задаёт направление ленты (§10.1), и посетитель переключает волны сколько хочет.
-    // Пока горизонтальный эффект чистил за собой ЧУЖУЮ ось, `left` оставался от прошлой
-    // волны: в вертикальной ленте предметы стояли сдвинутыми вбок и с каждым переключением
-    // уползали дальше за край виджета.
+    // The wave sets the ribbon's direction (§10.1) and a visitor switches waves freely. While the
+    // horizontal effect cleaned up only its OWN axis, `left` survived from the previous wave and
+    // a vertical ribbon drifted further sideways with every switch.
     forceScrolling();
     getArtifactsMock.mockResolvedValue([camera]);
     const { container, rerender } = render(<ArtifactMarquee />);
@@ -466,12 +463,9 @@ describe("ArtifactMarquee — смена волны не оставляет ле
   });
 
   it("лента, которая перестала ехать, возвращается на место, а не застывает уехавшей", async () => {
-    // Другая волна — другой размер плитки, и предметы в неё могут просто влезть. Шаг петли
-    // тогда нулевой, копии контента нет, ходу неоткуда взяться — но сдвиг от прошлой волны
-    // оставался в стиле, и единственная копия стояла наполовину за краем.
-    //
-    // Пересчёт размеров в жизни запускает ResizeObserver, поэтому здесь он не заглушка, а
-    // рабочий: тест дёргает ровно тот механизм, что и смена волны на борде.
+    // Another wave means another tile size, and the items may simply fit. The loop step is then
+    // zero and there is no content copy — but the offset from the previous wave stayed in the
+    // style, leaving the single copy half past the edge.
     const observers: (() => void)[] = [];
     vi.stubGlobal(
       "ResizeObserver",
@@ -494,7 +488,7 @@ describe("ArtifactMarquee — смена волны не оставляет ле
     fireEvent.wheel(frame, { deltaX: 0, deltaY: 120 });
     expect(track.style.left).not.toBe("");
 
-    // Предметы стали влезать: одна копия у́же окна ⇒ лента больше не едет.
+    // The items now fit: one copy is narrower than the window ⇒ the ribbon stops moving.
     Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => 50 });
     await act(async () => {
       observers.forEach((cb) => cb());

@@ -1,16 +1,10 @@
 /**
- * Кромка, ловящая свет (DESIGN §10.2) — чистая часть ховера волны 03 «PRIME».
- *
- * Здесь только геометрия: точка указателя внутри коробки плитки → вектор от её центра
- * в диапазоне `[-1, 1]` по обеим осям. Что с этим вектором делать, решает **скин волны**:
- * PRIME кладёт его в смещение `inset`-тени, и светящийся торец перетекает на ближнюю
- * к курсору сторону. Слушателя и запись переменных держит [TileEdgeLight].
- *
- * Разделение не ради красоты: геометрия проверяема без DOM, а всё остальное в этом
- * эффекте — это один слушатель и две строчки `style.setProperty`.
+ * The light-catching edge — the pure part of the hover. Only geometry lives here: a pointer inside
+ * a tile's box becomes a vector from its centre in `[-1, 1]`. What to do with that vector is the
+ * SKIN's decision. Split so the geometry is testable without a DOM. DESIGN §10.2
  */
 
-/** Прямоугольник плитки — ровно то подмножество `DOMRect`, что нужно расчёту. */
+/** A tile's rectangle — exactly the subset of `DOMRect` the calculation needs. */
 export interface TileBox {
   left: number;
   top: number;
@@ -18,15 +12,15 @@ export interface TileBox {
   height: number;
 }
 
-/** Вектор от центра плитки к указателю, по каждой оси в `[-1, 1]`. */
+/** The vector from the tile's centre to the pointer, per axis in `[-1, 1]`. */
 export interface EdgeVector {
   dx: number;
   dy: number;
 }
 
 /**
- * `null` — у плитки нет коробки (скрыта волной, ещё не смонтирована): делить не на что,
- * и писать переменные некуда.
+ * `null` means the tile has no box (hidden by a wave, not yet mounted): there is nothing to divide
+ * by and nowhere to write the variables.
  */
 export function edgeVector(box: TileBox, clientX: number, clientY: number): EdgeVector | null {
   if (box.width <= 0 || box.height <= 0) return null;
@@ -36,7 +30,7 @@ export function edgeVector(box: TileBox, clientX: number, clientY: number): Edge
   };
 }
 
-/** Указатель успевает уйти за край между кадрами rAF — без зажима блик оторвался бы от кромки. */
+/** The pointer can leave the edge between rAF frames; unclamped, the highlight would come away. */
 function clamp(v: number): number {
   return Math.min(1, Math.max(-1, v));
 }

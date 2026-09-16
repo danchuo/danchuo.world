@@ -26,7 +26,7 @@ function theme(over: Partial<ThemeView> = {}): ThemeView {
   };
 }
 
-/** Сводка дня для ленты прожитых дней (только поля, которые лента и читает). */
+/** A day summary for the ribbon of lived days (only the fields the ribbon reads). */
 function summary(date: string, over: Partial<DaySummary> = {}): DaySummary {
   return {
     date,
@@ -40,7 +40,7 @@ function summary(date: string, over: Partial<DaySummary> = {}): DaySummary {
   } as DaySummary;
 }
 
-/** Переключатель живёт внутри контекста волны — оборачиваем в провайдер с активной волной. */
+/** The switcher lives inside the wave context — wrap it in a provider with an active wave. */
 function withWave(node: ReactNode) {
   return <WaveProvider initialActiveKey="wave-01">{node}</WaveProvider>;
 }
@@ -50,7 +50,7 @@ describe("WaveSwitcher", () => {
     getThemesMock.mockResolvedValue([theme()]);
     render(withWave(<WaveSwitcher />));
     expect(await screen.findByLabelText("Волна: Волна 01")).toBeInTheDocument();
-    // ровно один элемент на волну — заглушек под будущие волны нет
+    // exactly one element per wave — no placeholders for future waves
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
@@ -81,8 +81,8 @@ describe("WaveSwitcher", () => {
     await waitFor(() => expect(document.cookie).toContain("danchuo_wave=wave-02"));
   });
 
-  // SSR деградировал (бэк недоступен/рейтлимит) ⇒ провайдер стартует без activeKey. Свитчер
-  // самовосстанавливается по списку волн: cookie посетителя → его волна, иначе — активная.
+  // SSR degraded (the backend is down or rate-limited) ⇒ the provider starts with no activeKey.
+  // The switcher heals itself from the wave list: the visitor's cookie, else the active wave.
   it("лечит деградированный SSR: применяет волну из cookie без её перезаписи", async () => {
     document.cookie = "danchuo_wave=wave-02; path=/";
     const setProp = vi.spyOn(document.documentElement.style, "setProperty");
@@ -97,11 +97,9 @@ describe("WaveSwitcher", () => {
     expect(setProp).toHaveBeenCalledWith("--bg-page", "#101010");
   });
 
-  // ── Чип = мини-плитка СВОЕЙ волны (DESIGN §2.6) ────────────────────────────────────
-  // Чип рисуется палитрой и краем той волны, которую предлагает, — а не активной. Поэтому
-  // цвета едут инлайновыми --chip-* переменными из токенов конкретной волны (data-driven:
-  // новая волна получает превью без правок кода), а ключ волны висит атрибутом, чтобы скин
-  // волны мог переопределить форму своего чипа, даже когда на борде активна другая волна.
+  // ── A chip is a mini tile of ITS OWN wave (DESIGN §2.6) ────────────────────────────
+  // It is drawn in the palette and edge of the wave it offers, not the active one, so the colours
+  // travel as inline --chip-* variables from that wave's tokens and its key hangs as an attribute.
   it("рисует чип палитрой своей волны, а не активной", async () => {
     getThemesMock.mockResolvedValue([
       theme(),
@@ -118,13 +116,13 @@ describe("WaveSwitcher", () => {
     expect(second.style.getPropertyValue("--chip-bg")).toBe("#e3f1fe");
     expect(second.style.getPropertyValue("--chip-accent")).toBe("#ff5e24");
     expect(second.style.getPropertyValue("--chip-line")).toBe("#9dc3e6");
-    // ключ волны — зацепка для скина: волна 02 рисует свой чип круглым, лёжа на борде 01
+    // the wave key is the skin's hook: wave 02 draws its own chip round while lying on board 01
     expect(second).toHaveAttribute("data-chip-wave", "wave-02");
   });
 
-  // Силуэт края чипа — НЕ токен `pixel-corners` плитки: тот задан в абсолютных px под
-  // большую карточку и на чипе вырождается в крестик (см. врез у .wave-chip в common.css).
-  // Ступеньку в масштабе ногтя рисует CSS; волна вправе прислать свою отдельным токеном.
+  // A chip's edge silhouette is NOT the tile's `pixel-corners` token: that is set in absolute px
+  // for a large card and degenerates into a cross at chip scale (see the note in common.css).
+  // CSS draws the step at thumbnail scale; a wave may send its own as a separate token.
   it("не тащит на чип полигон плитки, но уважает собственный токен чипа", async () => {
     getThemesMock.mockResolvedValue([
       theme({ tokens: { "pixel-corners": "polygon(0 10px)" } }),
@@ -139,8 +137,8 @@ describe("WaveSwitcher", () => {
     );
   });
 
-  // Волна без части токенов (или волна-новичок с урезанным набором) не должна рвать чип —
-  // недостающее подхватывается токенами борда.
+  // A wave missing some tokens (or a newcomer with a trimmed set) must not tear the chip — what
+  // is missing is picked up from the board's tokens.
   it("не падает на волне с неполным набором токенов", async () => {
     getThemesMock.mockResolvedValue([theme({ tokens: {} })]);
     render(withWave(<WaveSwitcher />));
@@ -149,7 +147,7 @@ describe("WaveSwitcher", () => {
     expect(chip.style.getPropertyValue("--chip-bg")).toBe("var(--bg-surface-muted)");
   });
 
-  // Активная волна читается не только рамкой: чип приподнят «коробочкой» (язык волны 01).
+  // The active wave reads by more than a frame: the chip is raised on its box (wave 01's idiom).
   it("помечает активный чип для скина и скринридера", async () => {
     getThemesMock.mockResolvedValue([
       theme(),
@@ -164,8 +162,8 @@ describe("WaveSwitcher", () => {
     expect(second).toHaveAttribute("data-active", "false");
   });
 
-  // Направление ряда — капабилити раскладки (как у projects/photoDrops/marquee): волна
-  // задаёт его в layout, компонент не решает сам. Дефолт — горизонталь.
+  // The row's direction is a layout capability (as for projects, photoDrops and marquee): the wave
+  // sets it in the layout and the component does not decide for itself. The default is horizontal.
   it("кладёт чипы в ряд по умолчанию и в столбец по ориентации волны", async () => {
     getThemesMock.mockResolvedValue([theme()]);
     const { rerender } = render(withWave(<WaveSwitcher />));
@@ -181,9 +179,9 @@ describe("WaveSwitcher", () => {
     );
   });
 
-  // Зум ужимает CSS-вьюпорт, а демпфер §8.1 уменьшает чип вдвое медленнее контейнера —
-  // на 110% два чипа перестают влезать в ряд. Перенос не решение (владелец: «почему волны
-  // встают вертикально?»): горизонтальный ряд обязан оставаться рядом, чипы жмутся.
+  // Zoom shrinks the CSS viewport while the §8.1 damper shrinks a chip half as fast, so at 110%
+  // two chips stop fitting. Wrapping is not the answer: a horizontal row must stay a row and the
+  // chips squeeze.
   it("не переносит чипы на вторую строку в горизонтальном ряду", async () => {
     getThemesMock.mockResolvedValue([
       theme(),
@@ -206,11 +204,9 @@ describe("WaveSwitcher", () => {
     await waitFor(() => expect(first).toHaveAttribute("aria-pressed", "true"));
     expect(document.cookie).not.toContain("danchuo_wave");
   });
-  // ── Материал карты: лента прожитых дней (DESIGN §2.6, §10.2) ───────────────────────
-  // Карта волны на борде PRIME показывает не эмблему, а КУСОК ХОЛСТА своей волны, а холст
-  // PRIME — сами данные. Поэтому переключатель несёт тот же шов, что и фон борда: слой с
-  // лентой лежит в каждой карте, а показывает его только та волна, которой он нужен
-  // (в базе он выключен — правило «новая волна = запись в БД», DESIGN §10.1).
+  // ── The card's material: the ribbon of lived days (DESIGN §2.6, §10.2) ─────────────
+  // A wave card shows not an emblem but A PIECE OF ITS OWN CANVAS, and one wave's canvas is the
+  // data itself. So the switcher carries the same seam as the board's backdrop, off by default.
   it("кладёт в карту ленту прожитых дней", async () => {
     getThemesMock.mockResolvedValue([theme()]);
     const { container } = render(
@@ -229,7 +225,7 @@ describe("WaveSwitcher", () => {
     expect(ribbon!.textContent).toContain("шаги");
   });
 
-  // Лента — материал, а не подпись: скринридеру она не читается и на выбор волны не влияет.
+  // The ribbon is material, not a label: it is not read aloud and does not affect the choice.
   it("прячет ленту от скринридера", async () => {
     getThemesMock.mockResolvedValue([theme()]);
     const { container } = render(
@@ -240,8 +236,8 @@ describe("WaveSwitcher", () => {
     expect(container.querySelector(".wave-chip__ribbon")).toHaveAttribute("aria-hidden", "true");
   });
 
-  // Данных ещё нет (борд грузится) или волна фон не рисует — карта обязана оставаться
-  // цельной поверхностью, а не пустым слоем с отступами. Тот же размен, что у WaveBackdrop.
+  // With no data yet (the board is loading) or a wave that draws no backdrop, the card must stay a
+  // whole surface rather than an empty layer with padding. The same trade as WaveBackdrop's.
   it("не рисует слой ленты, когда борду нечего сказать", async () => {
     getThemesMock.mockResolvedValue([theme()]);
     const { container } = render(withWave(<WaveSwitcher />));
@@ -250,8 +246,8 @@ describe("WaveSwitcher", () => {
     expect(container.querySelector(".wave-chip__ribbon")).toBeNull();
   });
 
-  // Будущие дни в ленту не едут (та же опора «сегодня», что у холста борда): непрожитый
-  // день печатался бы наравне с прожитым.
+  // Future days do not reach the ribbon (the same "today" anchor as the board's canvas): an
+  // unlived day would print on equal terms with a lived one.
   it("не пускает в ленту дни после сегодня", async () => {
     getThemesMock.mockResolvedValue([theme()]);
     const { container } = render(

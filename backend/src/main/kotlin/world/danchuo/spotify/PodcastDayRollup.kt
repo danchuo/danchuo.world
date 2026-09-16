@@ -4,108 +4,78 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * **Заход** — одно прослушивание одного эпизода глазами борда (PRD §5.6): «взял по дороге на
- * работу», «дослушал вечером». Собирается из строк `podcast_session` склейкой соседних кусков
- * одного эпизода — потому что порог хранения (15 минут молчания) отвечает на другой вопрос:
- * он сделан под опрос плеера раз в минуту и рвёт сессию там, где человек прослушивание
- * прерванным не считает (метро, светофор, обед). Склейка живёт на чтении, запись не трогается.
- *
- * Метаданные снимаются с плеера в момент записи и хранятся вместе с сессией, а не резолвятся
- * заново при чтении: борд показывает историю, а эпизод из каталога Spotify со временем может
- * уехать. Ссылки — те же, что отдаёт `currently-playing`.
+ * A SITTING — one listen of one episode as the board sees it, glued from adjacent `podcast_session`
+ * rows of the same episode. The stored 15-minute gap answers a different question and breaks a
+ * sitting where a person would not. Gluing happens on read; the write side is untouched. §5.6
  */
 data class PodcastRun(
     /**
-     * Id ПЕРВОЙ сессии захода — его ключ наружу (пересказ прослушанного, PRD §5.16.1).
-     *
-     * Собственного id у захода нет: он склеивается на чтении и в базе не лежит. Ключом служит
-     * первая из склеенных строк, и это устойчиво — склейка детерминирована, а сессии только
-     * дописываются: заход не может задним числом начаться раньше.
+     * Id of the FIRST session in the sitting — its key to the outside. A sitting has no id of its
+     * own, being glued on read, and this is stable: gluing is deterministic and sessions are only
+     * ever appended, so a sitting cannot retroactively begin earlier. PRD §5.16.1
      */
     val sessionId: Long,
     val episodeId: String,
-    /** Сколько реально слушал за этот заход, мс (см. [PodcastListenMath]). */
+    /** How much was really listened to in this session, ms (see [PodcastListenMath]). */
     val listenedMs: Long,
-    /** Начало захода — по нему заходы упорядочены и по нему подписана карточка. */
+    /** The session's start — sessions are ordered by it, and the card is captioned by it. */
     val startedAt: Instant,
-    /** Последний отсчёт захода: от него меряется пауза до следующего. */
+    /** The session's last sample: the pause to the next one is measured from here. */
     val endedAt: Instant,
     val episodeName: String,
     val episodeUrl: String?,
-    /** Название шоу — оно же «автор» карточки: издателя (`publisher`) плеер не отдаёт. */
+    /** The show name, which doubles as the card's author: the player returns no `publisher`. */
     val showName: String,
     val showUrl: String?,
     val imageUrl: String?,
-    /** Полная длительность эпизода, мс; `null` — не приехала. Для строки «80 из 85 мин». */
+    /** Full episode length, ms; `null` when it never arrived. For the "80 of 85 min" line. */
     val episodeDurationMs: Long?,
     /**
-     * Кусок ВЫПУСКА, пройденный за этот заход: откуда пошёл зачёт и где остановилась головка.
-     * По нему режется аудио для пересказа прослушанного (§5.16.1).
-     *
-     * `null` у начала — строка записана до того, как мы стали это смотреть; такой заход
-     * пересказа не получает, потому что выдумывать начало нельзя.
+     * The slice of the EPISODE covered by this sitting: where credit began and where the playhead
+     * stopped. The audio for a summary is cut by it. A `null` start means the row predates our
+     * recording it, and such a sitting gets no summary — a beginning must not be invented.
      */
     val startProgressMs: Long? = null,
     val lastProgressMs: Long = 0,
 )
 
 /**
- * Свёртка суток подкастов в отметки пункта и карточки дня (PRD §5.6).
- *
- * Два вопроса считаются по-разному, и это намеренно:
- * - **отметки** — по СУММЕ минут за сутки: каждые полные [OCCURRENCE_MINUTES] закрывают одну
- *   остановку пункта. Порог по минутам, а не по эпизодам и не по «дослушано», — единственная
- *   схема, которая переживает и «два эпизода по 40 минут», и «один двухчасовой пополам»
- *   (рассмотрено и отклонено: `resume_point` c флагом `fully_played` — он молчит про недослушанный
- *   эпизод и не знает, КОГДА и СКОЛЬКО слушали);
- * - **карточки** — по ЗАХОДАМ: первые [max] заходов, каждый из которых перевалил сумму дня через
- *   очередную полную 25-минутку. Проще говоря — карточка показывает, каким заходом закрыта эта
- *   остановка.
- *
- * Расходятся они закономерно: марафон в один присест даёт две отметки и одну карточку — заход-то
- * был один, и второй остановке нечего рассказать сверх первой. Тот же эпизод, взятый по дороге
- * туда и обратно, даёт две отметки и ДВЕ карточки: заходов было два, и они разные.
- *
- * **Рассмотрено и отклонено: карточка на эпизод** (как было до этого). Схема теряла ровно
- * владельческий сценарий — 80 минут одного эпизода двумя заходами рисовались одной карточкой и
- * немым вторым кружком, а все 80 минут подписывались под первым, будто их наслушали разом.
+ * Rolls a day of podcasts into item marks and day cards. The two are counted DIFFERENTLY on
+ * purpose: marks by the day's total minutes, cards by sittings. They diverge predictably — one
+ * marathon is two marks and one card, the same episode there and back is two of each. PRD §5.6
  */
 object PodcastDayRollup {
 
-    /** Минут на одну остановку пункта — общее с чтением. */
+    /** Minutes per one stop of the item — shared with reading. */
     const val OCCURRENCE_MINUTES = 25
 
     private const val MS_PER_MINUTE = 60_000L
     private const val OCCURRENCE_MS = OCCURRENCE_MINUTES * MS_PER_MINUTE
 
     /**
-     * Сколько остановок пункта закрыто за сутки: `min(target, целых порогов в сумме)`.
-     * Делим миллисекунды, а не округлённые минуты, — 49:59 остаётся одной остановкой,
-     * ровно 50:00 становится двумя.
+     * How many stops the item closes in a day: `min(target, whole thresholds in the sum)`. We
+     * divide milliseconds, not rounded minutes, so 49:59 stays one stop and exactly 50:00 is two.
      */
     fun occurrences(totalListenedMs: Long, target: Int): Int =
         if (totalListenedMs <= 0) 0 else minOf(target.toLong(), totalListenedMs / OCCURRENCE_MS).toInt()
 
-    /** Прослушанные минуты для подписи пункта — вниз до целой. */
+    /** Minutes listened for the item's caption — rounded down to a whole. */
     fun listenedMinutes(totalListenedMs: Long): Int =
         if (totalListenedMs <= 0) 0 else (totalListenedMs / MS_PER_MINUTE).toInt()
 
     /**
-     * Заходы дня: сессии, склеенные по паузе [gapMinutes], в хронологическом порядке.
-     *
-     * Склеиваются только соседние куски ОДНОГО эпизода — смена эпизода рвёт заход независимо от
-     * паузы. Сумма минут за день от склейки не меняется вовсе, меняется только то, сколькими
-     * карточками день рассказан.
+     * The day's sittings: sessions glued across a [gapMinutes] pause, in chronological order. Only
+     * adjacent pieces of ONE episode glue — a change of episode breaks the sitting whatever the
+     * pause. Gluing never changes the day's total, only how many cards tell the day.
      */
     fun runs(sessions: List<PodcastRun>, gapMinutes: Long): List<PodcastRun> {
         val merged = mutableListOf<PodcastRun>()
         for (next in sessions.sortedBy { it.startedAt }) {
             val previous = merged.lastOrNull()
             if (previous != null && previous.joins(next, gapMinutes)) {
-                // Ключ захода остаётся ключом ПЕРВОЙ его строки: приклеенный кусок продолжает
-                // тот же заход, а не открывает новый, и пересказ не должен переезжать. Кусок
-                // выпуска растягивается по тому же правилу: начало от первой строки, конец от
-                // последней — заход прошёл их насквозь.
+                // The sitting's key stays the key of its FIRST row: an appended piece continues
+                // that sitting rather than opening a new one, so a summary never moves. The
+                // episode slice stretches the same way — start from the first row, end from last.
                 merged[merged.lastIndex] = previous.copy(
                     listenedMs = previous.listenedMs + next.listenedMs,
                     endedAt = maxOf(previous.endedAt, next.endedAt),
@@ -119,15 +89,9 @@ object PodcastDayRollup {
     }
 
     /**
-     * Карточки дня: первые [max] заходов, перевалившие сумму через очередную 25-минутку.
-     *
-     * Заход считается один раз, сколько бы порогов он ни перешагнул: двухчасовой присест берёт
-     * первую карточку и на вторую не претендует — рассказывать под вторым кружком то же самое
-     * значило бы соврать, что заходов было два.
-     *
-     * Обратная сторона порога по СУММЕ: закрыть остановку может короткий заход, доложивший
-     * последние минуты к чужим (24 + 1). Принято сознательно — альтернатива «карточку берёт
-     * самый длинный вклад» ровно на владельческом сценарии выдаёт один и тот же заход дважды.
+     * The day's cards: the first [max] sittings to push the running total past another 25 minutes.
+     * A sitting counts ONCE however many thresholds it crosses — telling the same thing under a
+     * second stop would claim there were two sittings. The trade-off is documented in PRD §5.6.
      */
     fun cards(runs: List<PodcastRun>, max: Int): List<PodcastRun> {
         val cards = mutableListOf<PodcastRun>()
@@ -141,14 +105,8 @@ object PodcastDayRollup {
         return cards
     }
 
-    /*
-     * Здесь была `episodeMinutes` — минуты каждого эпизода за сутки, знаменатель строки «80 из
-     * 85 мин за день». Строка снята вместе с ней: она защищала от прочтения «эпизод брошен на
-     * середине», когда карточка знала только «45 из 85», а теперь карточка говорит, КАКОЙ кусок
-     * пройден («45 → 95 мин»), и защищать больше не от чего.
-     */
 
-    /** Тянется ли заход дальше куском [next]: тот же эпизод и пауза в пределах порога склейки. */
+    /** Whether a session extends into [next]: the same episode, and a pause within the glue threshold. */
     private fun PodcastRun.joins(next: PodcastRun, gapMinutes: Long): Boolean =
         episodeId == next.episodeId &&
             Duration.between(endedAt, next.startedAt) <= Duration.ofMinutes(gapMinutes)

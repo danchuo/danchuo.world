@@ -6,8 +6,8 @@ import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Test
 
 /**
- * `GET /api/drops*` (PRD §5.12, §12 M4; DESIGN §7.5): каркас фото-дропов. До B1 данных нет —
- * список пуст (не ошибка), неизвестный дроп — 404. Фронт рисует пустое состояние без поломок.
+ * `GET /api/drops*` (PRD §5.12; DESIGN §7.5): the photo-drop skeleton. With no data the list is
+ * empty rather than an error and an unknown drop is a 404, so the frontend draws its empty state.
  */
 @QuarkusTest
 class FilmResourceTest {

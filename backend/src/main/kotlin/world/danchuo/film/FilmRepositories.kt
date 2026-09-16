@@ -4,31 +4,30 @@ import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
 import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
 
-/** Доступ к дропам — новые сверху (по дате дропа, затем по времени загрузки). */
+/** Access to drops, newest first (by drop date, then upload time). */
 @ApplicationScoped
 class FilmDropRepository : PanacheRepository<FilmDrop> {
     fun listOrdered(): List<FilmDrop> =
         listAll(Sort.by("droppedOn", Sort.Direction.Descending).and("createdAt", Sort.Direction.Descending))
 
-    /** Последний (самый свежий) дроп — для тайла-тизера (показывает только его). */
     fun latest(): FilmDrop? = listOrdered().firstOrNull()
 }
 
-/** Доступ к кадрам дропа — в порядке [FilmPhoto.sortOrder]. */
+/** Access to a drop's frames, in [FilmPhoto.sortOrder]. */
 @ApplicationScoped
 class FilmPhotoRepository : PanacheRepository<FilmPhoto> {
     fun listByDrop(dropId: Long): List<FilmPhoto> =
         list("dropId", Sort.by("sortOrder"), dropId)
 
-    /** Удалить кадры дропа из БД (файлы из хранилища чистит сервис). */
+    /** Deletes a drop's frames from the DB (the service cleans the storage files). */
     fun deleteByDrop(dropId: Long): Long = delete("dropId", dropId)
 }
 
-/** Доступ к находкам артефактов на кадрах (PRD §5.12). */
+/** Access to artifact findings on frames (PRD §5.12). */
 @ApplicationScoped
 class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
 
-    /** Показываемые находки: отклонённые владельцем не рисуются ни публично, ни в админке. */
+    /** Displayable findings: ones the owner rejected are drawn neither publicly nor in admin. */
     fun listVisibleByPhotos(photoIds: Collection<Long>): List<ArtifactDetection> =
         if (photoIds.isEmpty()) {
             emptyList()
@@ -39,16 +38,16 @@ class ArtifactDetectionRepository : PanacheRepository<ArtifactDetection> {
     fun listByPhoto(photoId: Long): List<ArtifactDetection> = list("photoId", photoId)
 
     /**
-     * Снести находки модели по кадру, ручные — оставить: перепрогон не должен затирать правку,
-     * сделанную руками (тот же приоритет, что у ручной галочки над производной).
+     * Clears the model's findings for a frame but keeps manual ones: a re-run must not wipe an
+     * edit made by hand (the same precedence a manual tick has over a derived one).
      */
     fun deleteLlmByPhoto(photoId: Long): Long =
         delete("photoId = ?1 and source = ?2", photoId, ArtifactDetection.SOURCE_LLM)
 
     /**
-     * То же, но по одному предмету — прогон, заведённый ради нового артефакта, не должен
-     * трогать находки остальных: модель недетерминирована, и общий снос стёр бы удачные рамки
-     * соседних предметов ради того, что человек не просил перепроверять.
+     * The same for one item only: a pass started for a new artifact must not touch the others'
+     * findings. The model is non-deterministic, and a blanket clear would erase good boxes on
+     * neighbouring items nobody asked to recheck.
      */
     fun deleteLlmByPhotoAndArtifact(photoId: Long, artifactId: Long): Long =
         delete(

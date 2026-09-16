@@ -12,13 +12,9 @@ import world.danchuo.core.config.MskTime
 import java.time.LocalDate
 
 /**
- * `POST /api/ingest/daily` (PRD §5.6, §12 M1) — интерактивный iOS-шорткат в один тап:
- * имя дня + прогресс дисциплины + монстр. За токеном (фильтр ловит `api/ingest`).
- *
- * Идемпотентно (upsert по дате/паре date+item): правка задним числом повторным POST
- * не плодит дубли. Дата ограничена окном ручного ввода [сегодня − N, сегодня] по MSK
- * (`danchuo.checklist.ingest-window-days`): будущее и глубокое прошлое ⇒ 400 — защита
- * от опечатки в дате на телефоне. Логика — в [DailyIngestService].
+ * `POST /api/ingest/daily` — the one-tap iOS shortcut: day name, discipline progress, monster.
+ * Idempotent by date, and the date is clamped to the manual-entry window
+ * (`danchuo.checklist.ingest-window-days`), so a typo on the phone is a 400. PRD §5.6, §12
  */
 @Path("/api/ingest/daily")
 class DailyIngestResource(
@@ -30,14 +26,12 @@ class DailyIngestResource(
     data class DailyIngestRequest(
         val date: LocalDate? = null,
         val title: String? = null,
-        /** Прогресс пунктов: `{itemKey: count}`. Пункт `monster` ведётся своим полем. */
+        /** Item progress as `{itemKey: count}`. The `monster` item has its own field. */
         val items: Map<String, Int> = emptyMap(),
         /**
-         * Монстр: любое непустое значение = «пил», `null`/пусто/нет = «не пил».
-         *
-         * Имя поля — **проводное, а не смысловое**: шорткат на телефоне шлёт сюда название
-         * вкуса, и переименование поля сломало бы его на ровном месте. Само значение больше
-         * ни на что не влияет — вкусы сняты (§5.6).
+         * Monster: any non-empty value means "drank", null or empty means "did not".
+         * The name is WIRE, not semantic — the phone shortcut posts a flavour name here, and
+         * renaming the field would break it for nothing. Flavours themselves are gone (§5.6).
          */
         val monsterFlavorKey: String? = null,
     )

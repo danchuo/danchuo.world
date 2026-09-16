@@ -1,41 +1,15 @@
 import type { ArtifactBoxView } from "./api/types";
 
-/**
- * Насколько рамка подсветки шире самой находки — доля её собственного размера, добавляемая
- * с каждой стороны (PRD §5.12, DESIGN §7.5).
- *
- * Точная рамка по краю предмета читается как обводка, а задача другая — **показать, куда
- * смотреть** (требование владельца — «область рядом», а не контур). Плюс это страховка:
- * у модели рамка бывает чуть смещена, и запас прячет мелкий промах.
- *
- * ⚠️ Не путать с `artifactBox.ts` — там геометрия предметов в бегущей строке, другая задача.
- */
+/** Display padding per side, relative to the detection size; directs attention without tracing the contour. PRD §5.12, DESIGN §7.5. */
 export const HIGHLIGHT_PAD = 0.15;
 
-/**
- * Наименьшая рамка, которую вообще стоит рисовать — доля кадра по каждой оси.
- *
- * Запас `HIGHLIGHT_PAD` пропорционален находке, поэтому мелкую он не спасает: 15% от 2%
- * кадра это по-прежнему 2% кадра. А мелкие находки — норма, а не край: очки на общем плане
- * занимают проценты кадра, и точная рамка вокруг них в мозаике не читается вовсе. Задача
- * подсветки — **показать, куда смотреть**, поэтому у рамки есть пол: ~12% кадра это ≈24px
- * при типичной ширине кадра в галерее (~200px) — уже заметно и ещё не закрывает полкадра.
- *
- * Крутить надо здесь: рамка растёт **на отрисовке**, в БД лежит ответ модели.
- */
+/** Minimum displayed size per axis; tiny detections remain visible without changing stored model output. DESIGN §7.5. */
 export const HIGHLIGHT_MIN = 0.12;
 
-/**
- * Насколько курсор должен уехать, чтобы это считалось протяжкой, а не кликом (доля кадра).
- *
- * Без порога любое случайное касание кадра в разметчике заводило бы находку: точка сама по
- * себе рамкой быть не может, а пол [HIGHLIGHT_MIN] честно раздул бы её до заметного размера —
- * то есть промах мышью выглядел бы как осознанная разметка. Порог берётся по **любой** оси:
- * тонкая полоса вдоль плоского предмета (очки, надпись) — намеренный жест, а не дрожь.
- */
+/** Require movement on either axis so accidental clicks cannot create visible boxes. */
 export const DRAG_DEADZONE = 0.01;
 
-/** Рамка находки в долях кадра — то, что уезжает на бэк (зеркало `BoxInput`). */
+/** Normalized detection box sent to the backend; mirrors BoxInput. */
 export interface BoxRect {
   x0: number;
   y0: number;
@@ -43,21 +17,7 @@ export interface BoxRect {
   y1: number;
 }
 
-/**
- * Собрать рамку из протяжки мышью: две точки в долях кадра → готовая к отправке рамка
- * (PRD §5.12). `null` — жест был кликом, а не протяжкой.
- *
- * Три вещи делаются тут, а не в компоненте, потому что каждая — правило, а не вёрстка.
- * **Порядок углов** — тянуть можно из любого угла, бэк принимает только `x1 > x0`.
- * **Клампинг** — курсор легко выезжает за картинку, а координаты вне `0..1` бэк отвергает.
- * **Пол по каждой оси** — вокруг мелкого предмета рамку мышью не обвести, да и незачем:
- * подсветка отвечает на вопрос «куда смотреть», и меньше [HIGHLIGHT_MIN] она этого не делает.
- *
- * Пол здесь тот же, что на отрисовке, и это осознанно: рисуется всё равно не меньше него,
- * поэтому сохранять более мелкую рамку значило бы хранить число, которого никто не увидит.
- * Расширение на [HIGHLIGHT_PAD] тут **не** применяется — запас добавляет отрисовка, и учесть
- * его дважды значило бы раздувать ручную рамку на каждом пересохранении.
- */
+/** Normalize corner order, clamp to 0..1 and enforce the minimum size; return null for clicks. Apply padding only at render time. PRD §5.12. */
 export function boxFromDrag(
   from: { x: number; y: number },
   to: { x: number; y: number },
@@ -75,7 +35,7 @@ export function boxFromDrag(
   return { x0: round5(x0), y0: round5(y0), x1: round5(x1), y1: round5(y1) };
 }
 
-/** Рамка в долях кадра, готовая к отрисовке: начало + размеры. */
+/** Normalized display box as origin and dimensions. */
 export interface HighlightRect {
   x0: number;
   y0: number;
@@ -83,17 +43,7 @@ export interface HighlightRect {
   height: number;
 }
 
-/**
- * Расширить рамку на [pad] её ширины/высоты в каждую сторону и дотянуть до [min] по каждой
- * оси, не вылезая за кадр.
- *
- * Расширяем **при отрисовке, а не в данных**: в БД лежит то, что действительно ответила
- * модель, поэтому и запас, и пол можно переназначить, ничего не перепрогоняя. Клампинг по
- * краям обязателен — у предмета возле границы кадра рамка иначе ушла бы в минус.
- *
- * Порядок важен: сперва пропорциональный запас, потом пол. Наоборот дотянутая до минимума
- * рамка получила бы ещё 15% сверху и мелкие находки выделялись бы **сильнее** крупных.
- */
+/** Pad before applying the minimum size, then clamp to the frame; changing display padding must not mutate model output. */
 export function padHighlight(
   box: ArtifactBoxView,
   pad: number = HIGHLIGHT_PAD,
@@ -106,10 +56,7 @@ export function padHighlight(
   return { x0: round5(x0), y0: round5(y0), width: round5(x1 - x0), height: round5(y1 - y0) };
 }
 
-/**
- * Округление долей до тысячных процента: сырая арифметика даёт в CSS значения вроде
- * `2.500000000000001%`, а на любой размер кадра этой точности с запасом хватает.
- */
+/** Round normalized coordinates to avoid floating-point noise in CSS percentages. */
 function round5(v: number): number {
   return Math.round(v * 1e5) / 1e5;
 }
@@ -118,14 +65,7 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
-/**
- * Какие рамки накрывают точку [x, y] (доли кадра) — все, а не первая попавшаяся.
- *
- * Наведение считается по **нарисованной** рамке (с запасом и полом), а не по сырой находке:
- * зритель целится в то, что видит. Рамки на кадре пересекаются — предмет на предмете бывает
- * буквально (футболка и очки на одном человеке), и в пересечении отдаются **обе**: решать за
- * зрителя, какую он имел в виду, мы не вправе, а показать две подсказки дешевле, чем угадать.
- */
+/** Return every rendered box under the point, including overlaps; hit-test padded display bounds, not raw detections. */
 export function boxesAt<T extends ArtifactBoxView>(
     boxes: T[],
     x: number,
@@ -139,13 +79,7 @@ export function boxesAt<T extends ArtifactBoxView>(
   });
 }
 
-/**
- * Растянуть отрезок [a, b] до длины [min] вокруг его центра, оставаясь в пределах кадра [0, 1].
- *
- * У края кадра симметричный рост уходит наружу — тогда отрезок **сдвигается внутрь целиком**,
- * а не обрезается: пол важнее центровки, иначе находка у самого края (а это как раз частый
- * случай) снова получила бы рамку меньше минимума.
- */
+/** Expand to min within 0..1; shift the whole interval inward at edges so clipping cannot violate its minimum size. */
 function atLeast(a: number, b: number, min: number): [number, number] {
   const size = b - a;
   const want = Math.min(min, 1);

@@ -6,13 +6,13 @@ import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 
 /**
- * Неизвестный ключ пункта дисциплины в `ingest/daily` — ловит опечатку в шортке,
- * иначе данные молча терялись бы. [kind] = `checklist_item`.
+ * An unknown discipline item key in `ingest/daily` — catches a typo in the shortcut that would
+ * otherwise lose data silently. [kind] is `checklist_item`.
  */
 class UnknownReferenceException(val kind: String, val key: String) :
     RuntimeException("unknown $kind key: $key")
 
-/** 422 на неизвестный ключ — внятная ошибка клиенту, не молчаливая потеря данных. */
+/** 422 on an unknown key: a clear error to the client rather than silent data loss. */
 @Provider
 class UnknownReferenceMapper : ExceptionMapper<UnknownReferenceException> {
     override fun toResponse(ex: UnknownReferenceException): Response =

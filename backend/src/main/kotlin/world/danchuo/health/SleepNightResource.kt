@@ -15,14 +15,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
 /**
- * Деталь ночи (PRD §5.4, реестр I-23): `GET /api/sleep/night/{date}`.
- *
- * Отдельный эндпоинт, а не поле в `DayView`, по двум причинам. Полоса нужна не всегда — тайл
- * «Сон» ходит за ней, только когда её попросили показать, и борд не платит за куски ночи при
- * каждой загрузке. И «обычная ночь» — это агрегат за 30 дней, которому не место в проекции
- * одного дня: он бы считался на каждый перефокус календаря.
- *
- * Публично на чтение, как и всё остальное (§11): бережём креды записи, а не контент.
+ * Night detail: `GET /api/sleep/night/{date}`. A separate endpoint rather than a field on
+ * `DayView` for two reasons — the band is fetched only when actually shown, and "a typical night"
+ * is a 30-day aggregate that would otherwise recompute on every calendar refocus. PRD §5.4
  */
 @Path("/api/sleep")
 @Produces(MediaType.APPLICATION_JSON)
@@ -51,7 +46,7 @@ class SleepNightResource(
 }
 
 /**
- * Сборка детали ночи из сохранённых кусков. Кэшируется: куски меняются только на приёме.
+ * Assembles the night detail from stored chunks. Cached: chunks change only on ingest.
  */
 @ApplicationScoped
 class SleepNightService(
@@ -72,16 +67,15 @@ class SleepNightService(
 }
 
 /**
- * Ответ эндпоинта: ночь, разложенная во времени.
- *
- * Профиля «обычной ночи» здесь **нет** (PRD §5.4): вертикаль занята глубиной сна, и сравнение
- * с привычным окном свелось бы к бледной полоске под осью, которая ни на что не отвечает.
+ * The endpoint's reply: the night laid out in time. There is NO "typical night" profile here
+ * (PRD §5.4) — the vertical is taken by sleep depth, and comparing against a usual window would
+ * come down to a pale strip under the axis that answers nothing.
  */
 @RegisterForReflection
 data class SleepNightView(
     val date: LocalDate,
-    /** Час MSK, с которого идёт отсчёт минут в полосе. */
+    /** The MSK hour the band's minutes are counted from. */
     val axisStartHour: Int,
-    /** `null` = кусков за эту ночь нет (день пустой или запись велась до появления хранения). */
+    /** `null` means no chunks for this night (an empty day, or a day predating chunk storage). */
     val band: SleepBandView?,
 )

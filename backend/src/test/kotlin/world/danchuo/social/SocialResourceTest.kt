@@ -9,12 +9,9 @@ import org.hamcrest.Matchers.notNullValue
 import org.junit.jupiter.api.Test
 
 /**
- * `GET /api/social-links` и `/api/artifacts` (PRD §5.8, §12 M4): публичное чтение,
- * сиды присутствуют, у артефакта — дата первого упоминания (в UI только в меню).
- * Сид артефактов — курируемый набор реальных предметов (миграция 0210 сняла демо-заглушки):
- * «Cyber Y2K Sunglasses» (0210), ракетка YONEX (0220) и мыльница Pentax (0230), у каждого —
- * своя картинка в статике фронта. `imageUrl` остаётся nullable (фронт рисует плейсхолдер), это покрыто юнит-тестом
- * `ArtifactMarquee` на фронте.
+ * `GET /api/social-links` and `/api/artifacts` (PRD §5.8): public reads, seeds present, an
+ * artifact's first-mention date. The artifact seed is a curated set of real items (migrations
+ * 0210/0220/0230); `imageUrl` stays nullable and the frontend draws a placeholder.
  */
 @QuarkusTest
 class SocialResourceTest {
@@ -37,7 +34,7 @@ class SocialResourceTest {
 
     @Test
     fun `real seeded artifact carries its image url`() {
-        // Первый настоящий артефакт (миграция 0210, поверх снятого демо-сида 0070).
+        // The first real artifact (migration 0210, over the removed demo seed 0070).
         given().get("/api/artifacts")
             .then().statusCode(200)
             .body("find { it.name == 'Cyber Y2K Sunglasses' }.imageUrl",
@@ -46,8 +43,8 @@ class SocialResourceTest {
 
     @Test
     fun `racket artifact is seeded with its image and first-mentioned date`() {
-        // Второй настоящий артефакт (миграция 0220): дата первого упоминания заметно
-        // старше первого предмета — порядок ленты курируемый, а не хронологический.
+        // The second real artifact (migration 0220): its first-mention date is markedly older
+        // than the first item's — the marquee's order is curated, not chronological.
         given().get("/api/artifacts")
             .then().statusCode(200)
             .body("find { it.name == 'YONEX ASTROX 10 WHITE PINK 4U' }.imageUrl",
@@ -59,7 +56,7 @@ class SocialResourceTest {
 
     @Test
     fun `camera artifact is seeded with its image and first-mentioned date`() {
-        // Третий настоящий артефакт (миграция 0230) — плёночная мыльница фото-дропов.
+        // The third real artifact (migration 0230) — the point-and-shoot of the photo drops.
         given().get("/api/artifacts")
             .then().statusCode(200)
             .body("find { it.name == 'Pentax Espio 738' }.imageUrl",
@@ -70,8 +67,8 @@ class SocialResourceTest {
 
     @Test
     fun `only the racket may be laid on its side`() {
-        // Класть предмет набок — свойство самого предмета, а не его пропорции: у очков и
-        // мыльницы есть «правильная сторона», у ракетки её нет. По умолчанию — нельзя.
+        // Lying flat is a property of the item, not of its proportion: sunglasses and a camera
+        // have a right way up, a racket does not. The default is "may not".
         given().get("/api/artifacts")
             .then().statusCode(200)
             .body("find { it.name == 'YONEX ASTROX 10 WHITE PINK 4U' }.rotatable", equalTo(true))

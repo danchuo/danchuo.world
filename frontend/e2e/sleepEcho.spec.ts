@@ -12,9 +12,9 @@ const parts = [
 
 test.beforeEach(async ({ page, context, baseURL }) => {
   page.on("pageerror", (error) => console.error(error.message));
-  // Волну выбирает cookie предпочтения (§5.9), и её домен обязан совпадать с baseURL прогона:
-  // в Docker борд открывается по host.docker.internal, cookie для localhost туда не уедет —
-  // страница молча отрендерится активной волной. Assert на `data-wave` ниже это и ловит.
+  // The wave comes from a preference cookie (§5.9) whose domain must match the run's baseURL: in
+  // Docker the board opens on host.docker.internal, a localhost cookie never arrives, and the page
+  // silently renders the active wave instead. The `data-wave` assert below catches that.
   await context.addCookies([{ name: "danchuo_wave", value: "wave-03", url: baseURL! }]);
   await page.clock.setFixedTime(FIXED_TIME);
   await stubApi(page);
@@ -47,8 +47,8 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   const toggle = tile.getByRole("button", { name: "Ночь по часам" });
   const modes = tile.getByTestId("sleep-echo-modes");
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
-  // Формат подписи короткий: между концом ряда и прижатым к краю именем фазы полная запись
-  // не оставляла зазора (§7.7).
+  // The label format is short: the full spelling left no gap between the row's end and the phase
+  // name pinned to the edge (§7.7).
   await expect(tile.getByTestId("sleep-duration-light")).toHaveText("4ч 5м");
   await tile.scrollIntoViewIfNeeded();
   const bounds = await toggle.boundingBox();
@@ -56,8 +56,8 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   const head = await tile.locator(".sleep-echo__head").boundingBox();
   const total = await tile.locator(".sleep-echo__total").boundingBox();
   expect(bounds).not.toBeNull();
-  // Пара миниатюр стоит в НИЖНЕМ правом углу и строкой: она лежит в потоке полосы, правым
-  // концом строки с длительностью, — место отнимает у полосы, а не у рисунка.
+  // The pair of thumbnails sits in the BOTTOM right corner, in the flow of the strip at the right
+  // end of the duration line — it takes room from the strip, not from the drawing.
   expect(corner!.x).toBeGreaterThan(bounds!.x + bounds!.width / 2);
   expect(corner!.y).toBeGreaterThan(bounds!.y + bounds!.height / 2);
   expect(corner!.x + corner!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
@@ -69,23 +69,22 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   });
   expect(chrome).toEqual({ border: "0px", background: "rgba(0, 0, 0, 0)" });
 
-  // Луна — знак предмета в начале полосы: слова «сон» у редакции нет вовсе, и до знака полоса
-  // начиналась прямо с числа.
+  // The moon is the subject's sign at the head of the strip: this edition has no word for "sleep"
+  // at all, and before the sign the strip began with a bare number.
   const moon = await tile.locator(".sleep-echo__moon").boundingBox();
   expect(moon!.x).toBeGreaterThanOrEqual(bounds!.x);
   expect(moon!.x + moon!.width).toBeLessThanOrEqual(total!.x);
 
-  // Краска бруска обязана резолвиться в СВОЮ раскладку: борд держит бенто и стек в DOM сразу,
-  // и общий id градиента уводил бы `url(#…)` на скрытую копию, откуда браузер краску не берёт —
-  // видимая плитка осталась бы с одними горизонтами (§7.7). Геометрия при этом цела, поэтому
-  // проверки боксов ниже такую поломку не видят.
+  // A bar's paint must resolve inside ITS OWN layout: the board holds bento and stack in the DOM
+  // at once, and a shared gradient id would point `url(#…)` at the hidden copy. The geometry stays
+  // intact, so the box checks below cannot see that breakage (§7.7).
   const ownPaint = await tile.locator('[data-testid="sleep-echo-col"]').first().evaluate((el) => {
     const id = (el.getAttribute("fill") ?? "").replace(/^url\(#/, "").replace(/\)$/, "");
     return !!id && document.getElementById(id)?.closest("svg") === el.closest("svg");
   });
   expect(ownPaint).toBe(true);
 
-  // Рамки ночи в сумме нет вовсе: оси времени у суммы нет, и называть её концы нечем.
+  // The sum has no time axis, so there is nothing to name its ends with.
   await expect(tile.getByText("23:00")).toHaveCount(0);
   await expect(tile.getByText(/%/)).toHaveCount(0);
 
@@ -96,11 +95,11 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
     await expect(name).toBeVisible();
     const text = await label.boundingBox();
     const named = await name.boundingBox();
-    // Имена фаз выстроены в столбик у правого края — тем и работают легендой к рядам.
+    // Phase names line up in a column at the right edge — that is what makes them a legend.
     expect(named!.x + named!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
     expect(Math.abs(named!.y - text!.y)).toBeLessThan(2);
-    // Потолок роста рядов (`--sleep-summary-limit`) обязан оставлять место и числу, и имени:
-    // наехав друг на друга, они оба перестают читаться.
+    // The row growth ceiling (`--sleep-summary-limit`) must leave room for both the number and
+    // the name: overlapping, neither can be read.
     expect(text!.x + text!.width).toBeLessThanOrEqual(named!.x);
     const bars = await tile.locator(`[data-testid="sleep-echo-col"][data-stage="${stage}"]`).evaluateAll((els) => {
       const rects = els.map((el) => el.getBoundingClientRect());
@@ -109,8 +108,8 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
     expect(text!.x).toBeGreaterThan(bars.right);
     expect(text!.x + text!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
     expect(Math.abs(text!.y + text!.height / 2 - bars.center)).toBeLessThan(2);
-    // Подписи рядов обязаны кончаться ВЫШЕ полосы: в ней стоят длительность ночи и пара
-    // миниатюр, и самый глубокий ряд проходит к ним ближе всех.
+    // Row labels must end ABOVE the strip, which holds the night's duration and the thumbnails —
+    // the deepest row passes closest to them.
     expect(text!.y + text!.height).toBeLessThanOrEqual(head!.y);
     expect(named!.y + named!.height).toBeLessThanOrEqual(head!.y);
   }
@@ -119,9 +118,9 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect(tile.getByTestId("sleep-duration-light")).toBeHidden();
   await expect(tile.getByTestId("sleep-name-light")).toBeHidden();
-  // Вторая строка полосы освободилась под доли, а её концы называют начало и конец ночи.
-  // Строка обязана лежать в ОДНУ линию: перенос ронял конец ночи под легенду, то есть на
-  // другой уровень, чем начало (за этим и убраны минуты пробуждений из легенды).
+  // The strip's second line is freed for the shares, its ends naming the night's start and end.
+  // It must stay on ONE line: a wrap dropped the night's end under the legend, onto a different
+  // level from its start.
   await expect(tile.getByText("CORE 58%")).toBeVisible();
   const legend = await tile.locator(".sleep-echo__phases").evaluate((el) => ({
     fits: el.scrollWidth <= el.clientWidth,
@@ -130,8 +129,8 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   }));
   expect(legend.fits).toBe(true);
   expect(legend.levels).toBe(1);
-  // Полоса в хронологии поднимается на свою вторую строку, поэтому строка с длительностью
-  // мерится заново: в сумме она стояла ниже — у самого низа плитки.
+  // In the chronology the strip rises to its second line, so the duration line is measured afresh:
+  // in the sum it sat lower, at the very bottom of the tile.
   const headTimed = await tile.locator(".sleep-echo__head").boundingBox();
   expect(legend.below).toBeGreaterThanOrEqual(headTimed!.y + headTimed!.height - 1);
   const from = await tile.getByText("23:00").boundingBox();
@@ -166,7 +165,7 @@ test("long single-phase duration stays after its bar and inside the tile", async
   const end = await tile.locator('[data-testid="sleep-echo-col"]').evaluateAll((els) =>
     Math.max(...els.map((el) => el.getBoundingClientRect().right)));
   expect(text!.x).toBeGreaterThan(end);
-  // Худший случай потолка роста: самое длинное число при имени у края.
+  // The growth ceiling's worst case: the longest number beside a name at the edge.
   expect(text!.x + text!.width).toBeLessThanOrEqual(named!.x);
   expect(text!.x + text!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
   await expect(tile.locator(".sleep-echo__duration")).toHaveCount(1);

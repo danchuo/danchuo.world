@@ -9,15 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Единственная строка с токеном Instagram (PRD §5.17): долгоживущий токен **шифрованно**
- * ([world.danchuo.core.crypto.SecretBox]). Аккаунт-владелец один ⇒ синглтон-строка;
- * повторный OAuth перезаписывает её.
- *
- * ⚠️ Хранится [issuedAt], а не «дата протухания»: продление возвращает новый токен с новым
- * шестидесятидневным сроком, и считать от выдачи — единственный способ не разъехаться с
- * Instagram. Когда продлевать и что считается живым — [InstagramTokenPolicy].
- *
- * В отличие от Spotify пары «refresh + access» здесь нет: токен один и он же ходит в API.
+ * The single row holding Instagram's long-lived token, encrypted at rest. It stores [issuedAt]
+ * rather than an expiry date: renewal returns a new token with a fresh sixty-day term, and
+ * counting from issue is the only way not to drift. Unlike Spotify there is one token. PRD §5.17
  */
 @Entity
 @Table(name = "instagram_token")
@@ -25,15 +19,14 @@ class InstagramToken {
     @Id
     var id: Long = SINGLETON_ID
 
-    /** Долгоживущий токен, зашифрованный AES-GCM (Base64(IV‖ct), §8). */
+    /** Long-lived token encrypted with AES-GCM (Base64(IV||ct), §8). */
     @Column(name = "encrypted_access_token", nullable = false, columnDefinition = "TEXT")
     lateinit var encryptedAccessToken: String
 
-    /** Когда токен выдан (или в последний раз продлён) — от этого считается срок. */
+    /** When the token was issued, or last renewed — its lifetime counts from here. */
     @Column(name = "issued_at", nullable = false)
     var issuedAt: Instant = Instant.EPOCH
 
-    /** Выданные скоупы — для диагностики рассинхрона прав. */
     @Column(name = "scope", nullable = false)
     lateinit var scope: String
 
@@ -41,14 +34,14 @@ class InstagramToken {
     var updatedAt: Instant = Instant.EPOCH
 
     companion object {
-        /** Владелец один — строка одна. */
+        /** One owner means one row. */
         const val SINGLETON_ID = 1L
     }
 }
 
 /**
- * Доступ к синглтон-строке токена ([InstagramToken]). OAuth идемпотентен: [save] — upsert
- * по фиксированному id, повтор не плодит строк.
+ * Access to the singleton token row ([InstagramToken]). OAuth is idempotent: [save] upserts by a
+ * fixed id, so a repeat makes no extra rows.
  */
 @ApplicationScoped
 class InstagramTokenRepository : PanacheRepositoryBase<InstagramToken, Long> {

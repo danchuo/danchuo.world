@@ -16,10 +16,9 @@ interface FreshnessTileProps {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /**
- * Индикатор свежести данных (F) — PRD §8, эра M5. Тихо показывает, когда телефон последний
- * раз достучался до ingest («N назад»). Тянет `GET /api/freshness` сам; `lastIngestAt` пусто
- * (приёмов ещё не было) ⇒ тихий empty, борд не ломается. Метка пересчитывается раз в минуту,
- * чтобы сам индикатор свежести не «застывал».
+ * The data-freshness indicator: quietly shows when the phone last reached ingest. An empty
+ * `lastIngestAt` means no intake yet and renders a quiet empty state. The label recomputes once a
+ * minute so the freshness indicator does not itself go stale. PRD §8
  */
 export function FreshnessTile({ style, className }: FreshnessTileProps) {
   const { phase, data, retry } = useTileData<FreshnessView>(
@@ -27,7 +26,7 @@ export function FreshnessTile({ style, className }: FreshnessTileProps) {
     "freshness",
   );
 
-  // Тик раз в минуту: «N мин назад» не должно застревать на значении момента загрузки.
+  // A tick a minute: "N min ago" must not stick at whatever it was when the page loaded.
   const [, tick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => tick((n) => n + 1), 60_000);
@@ -42,27 +41,24 @@ export function FreshnessTile({ style, className }: FreshnessTileProps) {
       state={isEmpty ? "empty" : phase}
       emptyText="нет приёмов"
       onRetry={retry}
-      /* Ярлык плитки — не слово, а 8-битный дозвон: компьютер, телефон и планета на проводе.
-         Он про то же, что и сама плитка (данные доехали по проводам), и занимает ровно строку
-         подписи. Слово никуда не делось: оно осталось именем картинки для скринридера, а
-         подсказка волны (HoverTip) объясняет саму метрику, а не повторяет ярлык — иконка
-         сама себя не объясняет, а «свежесть — это свежесть» ничего не добавляет. */
+      /* The tile's label is not a word but an 8-bit dial-up: a computer, a phone and a planet on
+         the wire. It says what the tile says — data arrived down the wires — and the word survives
+         as the picture's name for a screen reader. */
       label={
         <HoverTip phrase text="время, когда последний раз обновлялись данные">
           <span data-testid="freshness-dialup" className="t-fresh-dialup" role="img" aria-label="свежесть" />
         </HoverTip>
       }
       ariaLabel="Свежесть данных"
-      // Плитка крошечная (3 кол.) — базовый кегль гасим классом (.t-fresh), чтобы
-      // empty/error-текст влезал; сам кегль — доля плитки, не пиксель (DESIGN §8.1).
+      // The tile is tiny (3 columns), so the base type size is damped by a class to fit the empty
+      // and error text; the size itself is a fraction of the tile, not a pixel (DESIGN §8.1).
       style={style}
       className={`t-fresh ${className ?? ""}`}
     >
       {phase === "loaded" && at !== null && (
-        // Single "N назад" line only. The tile is tiny (3×3 tracks): a second caption line
-        // ("последний приём") used to overflow the centered flex container and overlap the
-        // tile label above. The label «свежесть» already carries that meaning; overflow-hidden
-        // is a belt-and-braces guard for extreme values.
+        // A single "N ago" line only. The tile is tiny (3x3 tracks) and a second caption line used
+        // to overflow the centred flex container and overlap the tile label above it. The label
+        // already carries that meaning; overflow-hidden guards the extreme values.
         <div className="tile-frame flex h-full flex-col justify-center overflow-hidden" style={mono}>
           <span data-testid="freshness-ago" className="t-fresh-ago" style={{ color: "var(--text-primary)" }}>
             {formatAgo(at)}

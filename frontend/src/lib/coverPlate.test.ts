@@ -17,12 +17,12 @@ describe("coverPlate", () => {
   });
 
   it("один и тот же трек — всегда одна и та же плашка", () => {
-    // Иначе плашка менялась бы на каждой перерисовке: список мигал бы цветами сам по себе.
+    // Otherwise the plate would change on every repaint and the list would flicker by itself.
     expect(coverPlate("spotify:track:abc")).toBe(coverPlate("spotify:track:abc"));
   });
 
   it("соседние треки расходятся по плашкам, а не липнут к одной", () => {
-    // Ссылки Spotify отличаются хвостом, и слабый хэш дал бы всему списку один цвет.
+    // Spotify links differ only in their tail, and a weak hash would give the whole list one colour.
     const set = new Set(
       ["1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H"].map((s) => coverPlate(`https://open.spotify.com/track/${s}`)),
     );

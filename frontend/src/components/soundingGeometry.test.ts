@@ -16,7 +16,7 @@ const band: SleepBandView = {
   ],
 };
 
-/** Ночь длиной в реальные семь часов — на ней и проверяется кладка. */
+/** A night a real seven hours long — the brickwork is checked on it. */
 const longBand = (runs: [SleepBandView["parts"][number]["stage"], number][]): SleepBandView => {
   let at = 0;
   const parts = runs.map(([stage, len]) => {
@@ -35,16 +35,17 @@ describe("echoNight — ночь брусками", () => {
     const night = echoNight(band)!;
 
     expect(night.bricks).toHaveLength(64);
-    // Итоги подписи считаются по данным, а не по рисунку: кладка их огрубляет, подпись — нет.
+    // Caption totals are counted from the data, not the drawing: the brickwork coarsens them, the
+    // caption does not.
     expect(night.totals).toEqual({ awake: 10, light: 60, deep: 30, rem: 20 });
-    // Пробуждения в сумму сна не входят — как «Time Asleep» у Apple (§7.7).
+    // Wakings are not part of the sleep sum — as with Apple's "Time Asleep" (§7.7).
     expect(night.asleep).toBe(110);
     expect(night.timed).toBe(true);
   });
 
   it("нумерует брусок внутри его фазы сквозь всю ночь, а не внутри куска", () => {
-    // На этом ранге стоит вся сумма: два разнесённых куска одной фазы обязаны сложиться
-    // в один брусок, иначе бруски суммы перекрывали бы друг друга.
+    // The whole sum rests on this rank: two separated chunks of one phase must add into a single
+    // bar, or the sum's bars would overlap each other.
     const night = echoNight(band)!;
     const light = night.bricks.filter((b) => b.stage === "light");
 
@@ -55,15 +56,15 @@ describe("echoNight — ночь брусками", () => {
     const night = echoNight(band)!;
     const laid = countBy(night.bricks);
 
-    // 10 / 40 / 30 / 40 минут из 120 ⇒ 5.3 / 21.3 / 16 / 21.3 бруска из 64.
+    // 10 / 40 / 30 / 40 minutes of 120 ⇒ 5.3 / 21.3 / 16 / 21.3 bars of 64.
     expect(laid.awake).toBe(5);
     expect(laid.deep).toBe(16);
     expect(laid.light + laid.deep + laid.rem + laid.awake).toBe(64);
   });
 
   it("не теряет короткие разрозненные пробуждения, проигрывающие своему окну", () => {
-    // Семь часов сна с четырьмя пробуждениями по 4 минуты: окно кладки шире любого из них,
-    // и голосованием по окну «не спал» пропал бы с рисунка целиком, оставшись в подписи.
+    // Seven hours of sleep with four 4-minute wakings: the brick window is wider than any of them,
+    // and a vote per window would drop "awake" from the drawing entirely, leaving it in the caption.
     const night = echoNight(
       longBand([
         ["light", 90],
@@ -104,7 +105,7 @@ describe("echoNightFromStages — деградация без хронологи
 
     expect(night.totals).toEqual({ awake: 10, light: 60, deep: 30, rem: 20 });
     expect(night.asleep).toBe(110);
-    // Переключать в такой ночи нечего: «по часам» показал бы выдуманный порядок.
+    // There is nothing to switch in such a night: "by the clock" would show an invented order.
     expect(night.timed).toBe(false);
   });
 
@@ -122,7 +123,7 @@ describe("echoGeometry — промер глубины", () => {
     expect(geometry.columns).toHaveLength(64);
     const last = geometry.columns[63];
     const pitch = ECHO_VIEW.width / 64;
-    // Последний брусок кончается на просвет раньше края — кладка ровная, а не приклеенная.
+    // The last bar ends one gap short of the edge — the brickwork is even, not glued to it.
     expect(last.x + pitch).toBeCloseTo(ECHO_VIEW.width);
   });
 
@@ -137,15 +138,15 @@ describe("echoGeometry — промер глубины", () => {
       const c = geometry.columns.find((col) => col.stage === stage)!;
       return c.y + c.height;
     };
-    // Порядок дорожек один на все редакции виджета (LANES): не спал → REM → базовый → глубокий.
+    // The lane order is one across the widget's editions (LANES): awake → REM → core → deep.
     expect(floorOf("awake")).toBeLessThan(floorOf("rem"));
     expect(floorOf("rem")).toBeLessThan(floorOf("light"));
     expect(floorOf("light")).toBeLessThan(floorOf("deep"));
   });
 
   it("сумма — пересортировка тех же столбов: площадь сохраняется по построению", () => {
-    // Сдвиг ставит брусок на его ранг, а не на новое место с нуля: значит бруски суммы
-    // выложены теми же столбами и ни один не потерян и не удвоен.
+    // The shift puts a bar on its rank rather than at a new place from scratch: the sum's bars are
+    // laid out by the same columns, and none is lost or doubled.
     const pitch = ECHO_VIEW.width / 64;
     const summed = geometry.columns.map((c) => Math.round((c.x + c.shift) / pitch));
     expect(summed).toEqual(night.bricks.map((b) => b.rank));
@@ -154,8 +155,8 @@ describe("echoGeometry — промер глубины", () => {
   it("сжимает столб ко дну его горизонта — дно не двигается", () => {
     for (const c of geometry.columns) {
       const floor = c.y + c.height;
-      // Сжатие идёт от нижней кромки (transform-origin: 50% 100%), поэтому дно бруска
-      // остаётся на своём горизонте — глубина читается и в сумме.
+      // The squash works from the bottom edge (transform-origin: 50% 100%), so a bar's floor stays
+      // on its horizon and the depth reads in the sum too.
       expect(c.height * c.squash).toBeLessThan(c.height);
       expect(floor - c.height * c.squash).toBeGreaterThan(c.y);
     }
@@ -163,7 +164,7 @@ describe("echoGeometry — промер глубины", () => {
 
   it("рисует горизонты и ступенчатый профиль дна", () => {
     expect(geometry.floors).toHaveLength(4);
-    // Профиль ставит точку только на границе фаз: внутри куска дно не меняется.
+    // The profile only places a point at a phase boundary: inside a chunk the floor does not change.
     const runs = night.bricks.filter((b, i) => i === 0 || night.bricks[i - 1].stage !== b.stage).length;
     expect(geometry.profile.split(" ")).toHaveLength(runs * 2);
   });

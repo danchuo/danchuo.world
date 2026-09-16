@@ -7,10 +7,9 @@ import jakarta.ws.rs.core.CacheControl
 import jakarta.ws.rs.core.Response
 
 /**
- * Раздача картинок артефактов, заведённых через `/admin` (PRD §5.8). Публично, как медиа дропов.
- *
- * Кэш короче, чем у кадров: картинку артефакта можно переснять и заменить, оставив тот же id,
- * и висящая неделю копия в браузере была бы неприятным сюрпризом.
+ * Serves artifact pictures created through `/admin` (PRD §5.8). Public, like drop media. The
+ * cache is shorter than for frames: an artifact picture can be redrawn and replaced under the
+ * same id, and a week-old copy in a browser would be an unpleasant surprise.
  */
 @Path("/api/artifact-media")
 class ArtifactMediaResource(

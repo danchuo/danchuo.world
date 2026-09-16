@@ -19,7 +19,7 @@ const box = (x0: number, y0: number, x1: number, y1: number) => ({
 
 describe("padHighlight", () => {
   it("расширяет на долю собственного размера в каждую сторону", () => {
-    // 0.4 × 0.2 при запасе 15% ⇒ +0.06 по X и +0.03 по Y с каждой стороны.
+    // 0.4 × 0.2 with a 15% margin ⇒ +0.06 on X and +0.03 on Y each side.
     const r = padHighlight(box(0.3, 0.4, 0.7, 0.6), 0.15);
     expect(r.x0).toBeCloseTo(0.24, 6);
     expect(r.y0).toBeCloseTo(0.37, 6);
@@ -28,7 +28,7 @@ describe("padHighlight", () => {
   });
 
   it("не вылезает за кадр у самого края", () => {
-    // Предмет вплотную к левому верхнему углу: запас ушёл бы в минус.
+    // An item flush with the top left corner: the margin would go negative.
     const r = padHighlight(box(0.0, 0.0, 0.2, 0.2), 0.5);
     expect(r.x0).toBe(0);
     expect(r.y0).toBe(0);
@@ -55,18 +55,19 @@ describe("padHighlight", () => {
 
 describe("padHighlight — минимальный размер рамки", () => {
   it("крошечная находка дорастает до минимума вокруг своего центра", () => {
-    // Очки на общем плане: 2% кадра. Запас 15% от 2% ничего не решает — рамку не видно.
+    // Sunglasses in a wide shot: 2% of the frame. A 15% margin on 2% decides nothing — the box
+    // would not be visible.
     const r = padHighlight(box(0.5, 0.5, 0.52, 0.52));
     expect(r.width).toBeCloseTo(HIGHLIGHT_MIN, 4);
     expect(r.height).toBeCloseTo(HIGHLIGHT_MIN, 4);
-    // Центр находки не съезжает — рамка растёт в обе стороны одинаково.
+    // The finding's centre does not drift — the box grows equally both ways.
     expect(r.x0 + r.width / 2).toBeCloseTo(0.51, 4);
     expect(r.y0 + r.height / 2).toBeCloseTo(0.51, 4);
   });
 
   it("рост у края кадра сдвигает рамку внутрь, а не режет её", () => {
-    // В углу симметричный рост ушёл бы за кадр: минимум важнее центровки, иначе у самого
-    // края рамка снова оказалась бы меньше минимума.
+    // In a corner symmetric growth would leave the frame: the minimum outranks centring, or at the
+    // very edge the box would again fall below it.
     const r = padHighlight(box(0, 0, 0.01, 0.01));
     expect(r.x0).toBe(0);
     expect(r.y0).toBe(0);
@@ -79,7 +80,7 @@ describe("padHighlight — минимальный размер рамки", () =
   });
 
   it("минимум работает по каждой оси отдельно", () => {
-    // Очки — широкие и очень плоские: ширины хватает, высоту надо поднимать.
+    // Sunglasses are wide and very flat: the width suffices, the height must be raised.
     const r = padHighlight(box(0.2, 0.5, 0.8, 0.51), 0);
     expect(r.width).toBeCloseTo(0.6, 4);
     expect(r.height).toBeCloseTo(HIGHLIGHT_MIN, 4);
@@ -100,13 +101,13 @@ describe("padHighlight — минимальный размер рамки", () =
 describe("boxFromDrag — рамка из протяжки мышью", () => {
   it("протяжка становится рамкой независимо от направления", () => {
     const forward = boxFromDrag({ x: 0.2, y: 0.3 }, { x: 0.6, y: 0.8 });
-    // Тянуть можно из любого угла — рамка одна и та же.
+    // The drag may start from any corner — the box is the same.
     expect(boxFromDrag({ x: 0.6, y: 0.8 }, { x: 0.2, y: 0.3 })).toEqual(forward);
     expect(forward).toEqual({ x0: 0.2, y0: 0.3, x1: 0.6, y1: 0.8 });
   });
 
   it("курсор, ушедший за край кадра, рамку за кадр не уводит", () => {
-    // Мышь легко выезжает за картинку — бэк такую рамку отверг бы (координаты вне 0..1).
+    // A mouse easily leaves the picture — the backend would reject such a box (coordinates outside 0..1).
     const r = boxFromDrag({ x: -0.4, y: 0.5 }, { x: 1.9, y: 1.4 })!;
     expect(r.x0).toBe(0);
     expect(r.y0).toBe(0.5);
@@ -132,21 +133,21 @@ describe("boxFromDrag — рамка из протяжки мышью", () => {
   });
 
   it("минимум работает по каждой оси отдельно", () => {
-    // Плоская протяжка вдоль очков: ширины хватает, высоту поднимаем.
+    // A flat drag along sunglasses: the width suffices, the height is raised.
     const r = boxFromDrag({ x: 0.2, y: 0.5 }, { x: 0.8, y: 0.505 })!;
     expect(r.x1 - r.x0).toBeCloseTo(0.6, 4);
     expect(r.y1 - r.y0).toBeCloseTo(HIGHLIGHT_MIN, 4);
   });
 
   it("клик без протяжки рамкой не становится", () => {
-    // Иначе любое случайное касание кадра заводило бы находку размером с минимум.
+    // Otherwise any stray touch of the frame would create a finding the size of the minimum.
     expect(boxFromDrag({ x: 0.4, y: 0.4 }, { x: 0.4, y: 0.4 })).toBeNull();
     const jitter = DRAG_DEADZONE / 2;
     expect(boxFromDrag({ x: 0.4, y: 0.4 }, { x: 0.4 + jitter, y: 0.4 + jitter })).toBeNull();
   });
 
   it("протяжка по одной оси — намеренная, рамка получается", () => {
-    // Тонкая полоса вдоль предмета: по X ушли далеко, по Y почти не двигались.
+    // A thin strip along the item: far on X, barely moved on Y.
     const r = boxFromDrag({ x: 0.1, y: 0.4 }, { x: 0.7, y: 0.4 });
     expect(r).not.toBeNull();
     expect(r!.y1 - r!.y0).toBeCloseTo(HIGHLIGHT_MIN, 4);
@@ -185,8 +186,8 @@ describe("boxesAt — какие рамки под курсором", () => {
   });
 
   it("судим по НАРИСОВАННОЙ рамке, а не по сырой находке", () => {
-    // Рамка шире находки на запас и дотянута до минимума — курсор в этом «воздухе» тоже
-    // считается наведением, иначе подсказка не ловилась бы там, где рамку видно.
+    // The box is wider than the finding by the margin and stretched to the minimum, and the cursor
+    // in that air counts as a hover — otherwise the hint would not catch where the box is visible.
     const tiny = named("очки", 0.5, 0.5, 0.51, 0.51);
     expect(boxesAt([tiny], 0.545, 0.5).map((b) => b.name)).toEqual(["очки"]);
     expect(boxesAt([tiny], 0.7, 0.7)).toEqual([]);

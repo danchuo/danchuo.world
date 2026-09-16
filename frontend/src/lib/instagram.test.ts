@@ -24,7 +24,7 @@ describe("instagramCommentsUrl", () => {
     );
   });
 
-  /** Хвост запроса у пермалинка бывает, и приклеивание строкой увело бы сегмент в параметры. */
+  /** A permalink may carry a query tail, and appending by string would push the segment into it. */
   it("отбрасывает параметры, а не приписывает сегмент к ним", () => {
     expect(instagramCommentsUrl("https://www.instagram.com/p/DcnkVm1lwyY/?igsh=abc123")).toBe(
       "https://www.instagram.com/p/DcnkVm1lwyY/comments/",

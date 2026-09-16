@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-/** Метка нашей записи в истории: номер слоя, считая от страницы (первое окно — 1). */
+/** The mark on our history entry: the layer's number from the page (the first overlay is 1). */
 const DEPTH_KEY = "danchuoOverlay";
 
 const depthOf = (state: unknown): number => {
@@ -11,38 +11,26 @@ const depthOf = (state: unknown): number => {
 };
 
 /**
- * Системное «Назад» закрывает всплывшее окно, а не уводит с сайта (DESIGN §9, PRD §5.10).
- *
- * На телефоне кнопка «Назад» — главный способ отменить действие, и пока открытое окно не попадало
- * в историю, браузеру нечего было отменять: из галереи дропа зритель вылетал с сайта целиком.
- * Открываясь, окно кладёт в историю свою запись, и «Назад» её снимает — а слушатель `popstate`
- * переводит это в закрытие.
- *
- * **Слои считаются глубиной, а не флагом.** Окон бывает несколько друг над другом (кадр во весь
- * экран поверх галереи), и каждое кладёт свою запись. В `popstate` приезжает состояние той
- * записи, к которой вернулись: слой закрывается, только если вернулись НИЖЕ него. Без этого
- * снятие верхнего слоя крестиком (мы сами делаем шаг назад) читалось бы нижним как «нажали
- * Назад», и одно закрытие схлопывало бы все окна разом.
- *
- * Закрытие не кнопкой (крестик, `Esc`, клик по фону) снимает свою запись само — иначе она висит
- * в истории, и следующее «Назад» уходит в пустой шаг: зритель жмёт кнопку, а на экране ничего.
+ * The system Back button closes an overlay instead of leaving the site. An opening window pushes a
+ * history entry and `popstate` turns its removal into a close. LAYERS COUNT BY DEPTH, not a flag:
+ * a layer closes only if we came back BELOW it, or one Back would collapse them all. DESIGN §9
  */
 export function useBackToClose(open: boolean, onClose: () => void) {
-  // Обработчик читаем из рефа: `onClose` у вызывающих обычно стрелка на месте, и без рефа
-  // эффект переподписывался бы на каждый рендер — то есть снимал и снова клал запись в историю.
+  // The handler is read from a ref: callers usually pass an inline arrow, and without the ref the
+  // effect would resubscribe on every render — removing and re-adding the history entry.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const depth = depthOf(window.history.state) + 1;
-    // Своё поле добавляем К существующему состоянию: там лежит служебное хозяйство роутера,
-    // и затирать его нельзя — по нему он узнаёт свои же записи.
+    // Our field is added TO the existing state: the router keeps its own housekeeping there and
+    // recognises its entries by it, so overwriting is not allowed.
     window.history.pushState({ ...(window.history.state as object | null), [DEPTH_KEY]: depth }, "");
 
     let popped = false;
     const onPop = (e: PopStateEvent) => {
-      if (depthOf(e.state) >= depth) return; // вернулись не ниже нас — закрывать нечего
+      if (depthOf(e.state) >= depth) return; // we came back no deeper than us — nothing to close
       popped = true;
       closeRef.current();
     };

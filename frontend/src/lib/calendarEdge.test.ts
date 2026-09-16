@@ -4,8 +4,8 @@ import { datesInRange, weekWindowAround } from "./date";
 import { FIELD_ROWS, splitFieldWindow } from "./calendarEdge";
 
 /**
- * Окно борда для редакции «поле»: две прошлые недели и текущая, плюс по неделе на кромку
- * с каждого края. Вперёд окно не заходит — будущая неделя живёт только в кромке.
+ * The board's window for the field edition: two past weeks and the current one, plus a week of
+ * margin each side. It never runs ahead — the future week lives only in the margin.
  */
 function window(today: string): DaySummary[] {
   const { from, to } = weekWindowAround(today, 3, 1);
@@ -18,7 +18,7 @@ const at = (w: ReturnType<typeof splitFieldWindow>, date: string) =>
 
 describe("splitFieldWindow", () => {
   it("окно без стыка месяцев: неделя в кромку, три в сетку, неделя в хвост", () => {
-    // Июнь 2026 начинается с понедельника — переноса месяца в окне нет.
+    // June 2026 begins on a Monday — there is no month break inside the window.
     const w = splitFieldWindow(window("2026-06-18"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     expect(dates(w.before)).toEqual(datesInRange("2026-05-25", "2026-05-31"));
     expect(dates(w.grid.map((p) => p.day))).toEqual(datesInRange("2026-06-01", "2026-06-21"));
@@ -33,19 +33,18 @@ describe("splitFieldWindow", () => {
   });
 
   it("перенос месяца не растит сетку: строк по-прежнему три", () => {
-    // 1 сентября 2026 — вторник, и перенос добавляет строку. Лишней становится верхняя.
+    // 1 September 2026 is a Tuesday and the break adds a row. The top one becomes surplus.
     const w = splitFieldWindow(window("2026-09-15"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     expect(w.rows).toBe(3);
     expect(at(w, "2026-09-01")).toMatchObject({ row: 0, col: 1 });
     expect(at(w, "2026-09-20")).toMatchObject({ row: 2, col: 6 });
-    // 31 августа осталось за верхним краем — оно в одном шаге назад.
+    // 31 August stayed past the top edge — it is one step back.
     expect(at(w, "2026-08-31")).toBeUndefined();
   });
 
   it("кромка — строка, которая въедет следующим шагом, а не календарная неделя", () => {
-    // Перенос месяца отдал 31 августа отдельную строку. Отвечать неделей 24..30 значило бы
-    // обещать не то: шаг назад приводит 31-е, а 31-е при этом не показано ВООБЩЕ — ни в
-    // сетке, ни в кромке. Полоска обязана показывать ровно то, что въедет.
+    // The month break gave 31 August a row of its own. Answering with the week 24..30 would promise
+    // the wrong thing: a step back brings the 31st, which is shown NOWHERE right now.
     const w = splitFieldWindow(window("2026-09-15"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     expect(dates(w.before)).toEqual(["2026-08-31"]);
   });
@@ -55,7 +54,7 @@ describe("splitFieldWindow", () => {
     const back = splitFieldWindow(window("2026-09-08"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     const topRow = back.grid.filter((p) => p.row === 0).map((p) => p.day.date);
     expect(topRow).toEqual(dates(home.before));
-    // И полоска на новом месте показывает уже следующую строку, а не ту же самую.
+    // And in its new place the strip shows the next row, not the same one again.
     expect(dates(back.before)).toEqual(datesInRange("2026-08-24", "2026-08-30"));
   });
 
@@ -65,16 +64,16 @@ describe("splitFieldWindow", () => {
   });
 
   it("срезанная метка месяца уезжает в клетку первого числа", () => {
-    // Имя сентября стояло в пустом хвосте верхней строки, а её больше нет: месяц не может
-    // остаться безымянным, и его называет сама клетка — как при начале с понедельника.
+    // September's name stood in the empty tail of the top row, and that row is gone: a month
+    // cannot stay unnamed, so its own cell names it, as when it begins on a Monday.
     const w = splitFieldWindow(window("2026-09-15"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     expect(w.marks).toEqual([]);
     expect(w.inline).toContain("2026-09-01");
   });
 
   it("уцелевшая метка остаётся меткой куска", () => {
-    // Шаг назад от предыдущего случая: строка с 31 августа теперь верхняя в сетке, и её
-    // пустой хвост снова носит имя месяца.
+    // One step back from the previous case: the row with 31 August is now the grid's top one, and
+    // its empty tail carries the month's name again.
     const w = splitFieldWindow(window("2026-09-08"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     expect(at(w, "2026-08-31")).toMatchObject({ row: 0, col: 0 });
     expect(w.marks).toEqual([{ date: "2026-09-01", row: 0, from: 1, to: 7 }]);
@@ -82,7 +81,7 @@ describe("splitFieldWindow", () => {
   });
 
   it("у генезиса строки НЕ срезаются: срезанное стало бы недостижимым", () => {
-    // Кромки назад нет, шагнуть некуда — спрятанная строка пропала бы совсем.
+    // There is no margin back and nowhere to step, so a hidden row would disappear entirely.
     const w = splitFieldWindow(window("2026-09-15"), { edges: true, canGoBack: false, maxRows: FIELD_ROWS });
     expect(w.before).toEqual([]);
     expect(w.rows).toBe(5);
@@ -90,8 +89,8 @@ describe("splitFieldWindow", () => {
   });
 
   it("хвостовая неделя отрезается ВСЕГДА — иначе высота сетки гуляла бы", () => {
-    // Дома шага вперёд нет, но будущая неделя всё равно не должна попасть в сетку:
-    // рисовать её или нет — решает компонент, а сетка обязана остаться в три ряда.
+    // At home there is no step forward, but the future week must still stay out of the grid:
+    // whether to draw it is the component's call, and the grid must remain three rows.
     const w = splitFieldWindow(window("2026-06-18"), { edges: true, canGoBack: true, maxRows: FIELD_ROWS });
     expect(w.after).toHaveLength(7);
     expect(w.grid).toHaveLength(21);
@@ -106,8 +105,8 @@ describe("splitFieldWindow", () => {
   });
 
   it("без кромок всё окно достаётся сетке", () => {
-    // Борд не расширял окно ⇒ резать нечего: кромка не может показывать дни, которых нет,
-    // а срезанная строка стала бы недостижимой.
+    // The board did not widen the window ⇒ there is nothing to trim: a margin cannot show days
+    // that do not exist, and a trimmed row would be unreachable.
     const w = splitFieldWindow(window("2026-09-15"), { edges: false, canGoBack: true, maxRows: FIELD_ROWS });
     expect(w.before).toEqual([]);
     expect(w.after).toEqual([]);

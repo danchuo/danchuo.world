@@ -1,23 +1,19 @@
-/* ═══════════════════ СКИН ВОЛНЫ 01 «Студия / Персик» (DESIGN §10.2) ═══════════════════
- * Базовый скин борда. В отличие от волны 02, правила здесь идут БЕЗ селектора `[data-wave]` —
- * волна 01 это и есть базовый/дефолтный вид, и одновременно ФОЛБЭК: когда бэк недоступен или
- * у волны нет своего скин-блока, борд выглядит как волна 01 (зеркалит фолбэк токенов на :root).
- *
- * :root-токены ниже — дефолтные значения дизайн-переменных. Активная волна из БД переопределяет
- * их через инжект `<style id="wave-tokens">` в <head> (см. layout.tsx, theme.ts). Скин-правила
- * под `[data-wave="<key>"]` других волн (напр. wave-02.css) перекрывают базовые по специфичности.
- *
- * ВАЖНО (порядок каскада): этот файл @import-ится ПОСЛЕ common.css и ДО wave-02.css. reduced-motion
- * для .pixel-tile:hover лежит здесь же, после правила :hover, — не выносить в common (иначе hover
- * волны 01 переопределит его обратно). См. DESIGN §10.2.
- */
+/* WAVE 01 "STUDIO / PEACH" SKIN (DESIGN §10.2). The board's base skin, so unlike wave 02 the rules
+ * here carry NO `[data-wave]` selector: wave 01 is both the default look and the FALLBACK when the
+ * backend is unreachable or a wave has no skin block of its own. */
 
-/*
- * Токены волны 01 «Студия / Персик» (DESIGN §2.1–2.3) в :root = дефолт-фолбэк.
- * Правило: ни одного хардкод-цвета/размера в компонентах — только var(--token).
- */
+/* The `:root` tokens below are the design variables' defaults; the active wave from the database
+ * overrides them through the `<style id="wave-tokens">` inject (see layout.tsx, theme.ts), and other
+ * waves' `[data-wave="<key>"]` rules outweigh the base ones by specificity. */
+
+/* ⚠️ Cascade order: this file is imported AFTER common.css and BEFORE wave-02.css. The reduced-motion
+ * rule for `.pixel-tile:hover` lives here, after the `:hover` rule — moved into common it would be
+ * overridden back by wave 01's hover. */
+
+/* Wave 01 tokens (DESIGN §2.1-2.3) on `:root` = the default fallback. The rule: not one hardcoded
+ * colour or size in components, only `var(--token)`. */
 :root {
-  /* Цвет (§2.1) */
+  /* Colour (DESIGN §2.1) */
   --bg-page: #fdefe7;
   --bg-surface: #ffffff;
   --bg-surface-2: #fffbf8;
@@ -26,106 +22,90 @@
   --text-secondary: #6e635c;
   --text-tertiary: #756a61; /* AA на bg-page/surface (§9): ~4.7:1 / ~5.3:1 для мелкого текста */
   --border: rgba(33, 26, 22, 0.1);
-  /* Крепкий ink-кант (§2.4): кольцо ВЫБОРА — выбранный день календаря, активный свотч
-     переключателя волн. Это НЕ край плитки: край — --border-tile ниже. */
+  /* The firm ink border (DESIGN §2.4) is the SELECTION ring — a chosen calendar day, the active wave
+     swatch. It is NOT the tile's edge: that is `--border-tile` below. */
   --border-pixel: #211a16;
-  /* Линия края виджета (§2.4): тонкий тёплый глиняный контур, обводящий ступенчатый
-     силуэт целиком. Светлее ink-канта намеренно — плитка держится формой и тенью,
-     а не весом линии. */
+  /* The widget's edge line (DESIGN §2.4): a thin warm clay contour tracing the whole stepped
+     silhouette. Deliberately lighter than the ink border — a tile is held by shape and shadow rather
+     than by the weight of a line. */
   --border-tile: #d58b69;
-  /* Палитра фаз сна (§7.7). Дефолт — общие цвета борда: акцент на REM, край плитки на
-     глубокий сон, вторичный и третичный текст на базовый и на пробуждения. Волна вправе
-     переопределить спуск целиком (так делает волна 03), и фаза меняет цвет разом во всех
-     вёрстках виджета. */
+  /* Sleep phase palette (DESIGN §7.7). The default is the board's shared colours: accent on REM, the
+     tile edge on deep sleep, secondary and tertiary text on base sleep and wakings. A wave may
+     override the whole descent (wave 03 does), and a phase changes colour across every layout at once. */
   --sleep-rem: var(--accent);
   --sleep-deep: var(--border-tile);
   --sleep-core: var(--text-secondary);
   --sleep-awake: var(--text-tertiary);
   --tile-line: 2px;
-  /* «Коробочка» (§2.4, итерация 3 по референсу владельца): объём — это ДВЕ полностью
-     совпадающие карточки одного силуэта, смещённые по вертикали. Верхняя (линия +
-     поверхность, псевдо-слои .pixel-tile) приподнята на --tile-depth; из-под неё снизу
-     выглядывает нижняя ПОДЛОЖКА (элемент .pixel-slab со своими псевдо-слоями) — тёплый
-     персиковый градиент в том же глиняном контуре. Не «полоска снизу»: подложка — полная
-     карта, у нижнего края видны и её ступени, и её контур — это и даёт ощущение
-     приподнятой над основанием крышки. --tile-depth: 0px прячет подложку за карточкой.
-     У верхней карты ДВЕ рамки (референс): снаружи — глиняная --border-tile, внутри — очень
-     тонкая белая --tile-inner-color по ВСЕМУ периметру. Снизу глиняной рамки просто НЕТ:
-     слой белой рамки (.pixel-lid) накрывает глиняную плашку до самого низа карты, нижняя
-     кромка остаётся белой — стык с подложкой уместен сам собой, без градиентов (пробовали
-     градиент «в белость» — наслаивался на контур подложки и толстил стык). */
+  /* The "box" (DESIGN §2.4): depth is TWO fully coincident cards of one silhouette, offset vertically.
+     The upper one (line plus surface, the `.pixel-tile` pseudo-layers) is raised by `--tile-depth`, and
+     the lower GROUND (`.pixel-slab` with its own pseudo-layers) shows from under it. */
+
+  /* Not "a strip along the bottom": the ground is a full card, and at the lower edge both its steps and
+     its contour are visible — that is what makes the top read as a lid raised over a base.
+     `--tile-depth: 0px` hides the ground behind the card. */
+
+  /* The upper card has TWO frames: clay `--border-tile` outside and a thin white `--tile-inner-color` all
+     round. At the bottom there is simply NO clay frame — `.pixel-lid` covers the clay plate down to the
+     card's foot, so the lower edge stays white and the joint with the ground needs no gradient. */
   --tile-depth: 6px;
   --tile-slab-1: #efc8b2;
   --tile-slab-2: #dfa083;
   --tile-inner: 1.5px;
-  /* НЕ чистый белый намеренно: #ffffff — самая яркая точка борда (ярче даже низа
-     поверхности #fff5ee) и холодный рядом с тёплым персиком — линия «звенела» издалека.
-     Тёплый крем из палитры отличается от соседей только светлотой — читается как свет
-     на ребре, а не как отдельная линия (так в референсе). */
+  /* Deliberately NOT pure white: `#ffffff` is the brightest point on the board and cold beside warm
+     peach, so the line "rang" from a distance. A warm cream from the palette differs from its
+     neighbours only in lightness and reads as light on an edge rather than as a separate line. */
   --tile-inner-color: #fff3e7;
   --accent: #e2604c;
   --accent-warm: #f4a52a;
   --success: #3e9d77;
   --danger: #d2553f;
-  /* Вклады GitHub (§7.4): зелёный тут смысловой — это цвет гита, — но чужой палитре.
-     Токен назван по РОЛИ, а не по цвету: волна вправе взять любой оттенок, лишь бы он
-     читался как «другой канал». Волна 01 берёт тёплый мшистый, а не гитхабовский
-     кислотный: рядом с персиком тот звенел бы как сигнал тревоги. */
+  /* GitHub contributions (DESIGN §7.4): the green is meaningful here — it is git's colour — but foreign
+     to the palette. The token is named by ROLE, not by colour, so a wave may take any shade as long as
+     it reads as "another channel". Wave 01 takes warm moss: git's acid green would ring as an alarm. */
   --accent-code: #5f9e52;
-  /* Монстр не выпит (§4.2) — свой токен, а НЕ --accent-code: тот назван по роли «другой
-     канал активности» (гит), и одалживать его сюда значит повторить ошибку, от которой его
-     собственный комментарий предостерегает. Оттенок тот же мшистый: рядом с персиком он
-     читается как «хорошо», тогда как --accent (#e2604c) почти совпадал по тону с --danger,
-     и «пил»/«не пил» различались только словом. --success тут не годится — он держит связи
-     тропы, и «не пил» звучал бы как ещё один пройденный пункт дисциплины. */
+  /* Monster not drunk (DESIGN §4.2) — its own token and NOT `--accent-code`, which is named for the role
+     "another activity channel". `--accent` nearly matched `--danger` in tone, so drunk and not-drunk
+     differed only by the word, and `--success` holds the trail's links. */
   --accent-clean: #5f9e52;
 
-  /* Календарь (§5): оттенки выходных и дней соседнего месяца — тихие, AA не ломают.
-     Выходной ТЕМНЕЕ будущего дня (--bg-surface-muted): раньше было наоборот, и в будущей
-     половине окна выходные выглядели светлее будней — колонка сб/вс не читалась вовсе.
-     А вот соседний месяц глубину НЕ получает, хотя по светлоте он теперь почти вровень с
-     выходным: в начале месяца он занимает две трети сетки (замерено 19 ячеек из 28), и
-     затемнение гасило разом весь календарь. Ему хватает второй метки — приглушённой
-     цифры (--text-secondary); выходной несёт только заливку, поэтому глубина у него. */
-  /* Выходной (сб/вс). Опущен ещё на ~2 L* (было #f0e1d8): над БУДУЩИМ днём он поднимался
-     всего на 1.6 L*, и в будущей половине окна колонка сб/вс не читалась вовсе — а окно
-     наполовину состоит из будущего. Теперь зазор ~3.6 L*. Доля экрана мала по построению:
-     сб/вс это 8 ячеек из 28. Выходной теперь единственная заливка-состояние в сетке рядом
-     с «будущим»: месяц из заливок ушёл, поэтому и парного оттенка для «выходного чужого
-     месяца» больше нет — выходной один во всех месяцах окна. */
+  /* Calendar (DESIGN §5): weekend and other-month shades, quiet enough not to break AA. A weekend is
+     DARKER than a future day (`--bg-surface-muted`) — it used to be the other way round, and in the
+     future half of the window the sat/sun column did not read at all. */
+
+  /* The other month gets no depth despite being nearly level in lightness: at the start of a month it
+     occupies two thirds of the grid, and darkening it dimmed the whole calendar. Its second mark, a
+     muted figure, is enough; a weekend carries only a fill, so it gets the depth instead. */
   --cal-weekend: #ecdbd0;
-  /* Линия стыка месяцев в сетке (§5.3) — месяц метится границей, а не заливкой блока дней.
-     Оттенок взят у канта плитки (--border-tile): календарь и край виджета говорят одним
-     языком линии, и на борде не появляется нового цвета. */
+  /* The month joint line in the grid (DESIGN §5.3) — a month is marked by a border, not by filling a
+     block of days. The shade is the tile's border (`--border-tile`): calendar and widget edge speak one
+     language of line, and no new colour appears on the board. */
   --cal-month-line: #d58b69;
-  /* Поверхность плитки «Сегодня», когда выбран день соседнего месяца (§4). */
+  /* Surface of the "Today" tile when a day of the neighbouring month is selected (DESIGN §4). */
   --surface-othermonth: linear-gradient(180deg, #fdf6f1, #f6ece4);
 
-  /* Типографика (§2.2). --font-sans/--font-mono подставляет next/font в layout. */
+  /* Typography (DESIGN §2.2). `--font-sans`/`--font-mono` are supplied by next/font in layout. */
   --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
-  /* Дисплей-шрифт бренд-блока (§10.2). Дефолт = mono (вид волны 01); активная волна 02
-     «Obscura» переопределяет токеном на пиксельный Jersey 10. */
+  /* Display face for the brand block (DESIGN §10.2). The default is mono (wave 01's look); wave 02
+     "Obscura" overrides it with a token pointing at the pixel face Jersey 10. */
   --font-display: var(--font-mono);
 
-  /* Радиусы (§2.3) */
+  /* Radii (DESIGN §2.3) */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
 
-  /* Глубина — плитки парят над фоном (§2.3) */
+  /* Depth — tiles float over the ground (DESIGN §2.3) */
   --elev-1: 0 1px 2px rgba(33, 26, 22, 0.05);
   --elev-2: 0 1px 2px rgba(33, 26, 22, 0.04), 0 6px 14px rgba(33, 26, 22, 0.06),
     0 14px 30px rgba(33, 26, 22, 0.05);
   --elev-3: 0 2px 4px rgba(33, 26, 22, 0.05), 0 10px 22px rgba(33, 26, 22, 0.08),
     0 24px 48px rgba(33, 26, 22, 0.07);
 
-  /* Парящая тень пиксель-рамки — через filter: drop-shadow (§2.4): повторяет
-     ступенчатый силуэт clip-path, который box-shadow обрезал бы. Многослойно.
-     Смещена вправо-вниз (положительный X) и тёплого коричневого тона, а не нейтрально-
-     тёмного: у персика тень читается как тёплая тень справа от плитки, а не серый ореол
-     снизу. Дальний слой уходит вправо заметно дальше, чем вниз (X > Y) — правый край
-     «оторван» от фона сильнее. */
+  /* The pixel frame's floating shadow goes through `filter: drop-shadow` (DESIGN §2.4), so it follows the
+     stepped `clip-path` silhouette that `box-shadow` would cut off. Warm brown and offset right and down:
+     against peach it reads as a warm shadow beside the tile, not a grey halo beneath it. */
   --drop-2: drop-shadow(2px 2px 1px rgba(83, 49, 27, 0.1))
     drop-shadow(5px 7px 10px rgba(83, 49, 27, 0.2));
   --drop-3: drop-shadow(2px 3px 1px rgba(83, 49, 27, 0.12))
@@ -133,24 +113,24 @@
   --drop-4: drop-shadow(3px 4px 2px rgba(83, 49, 27, 0.14))
     drop-shadow(12px 17px 24px rgba(83, 49, 27, 0.26));
 
-  /* Световой кант заполненной плитки (§2.4): верх-лево ловит свет, низ-право чуть
-     утоплено — поверхность читается как объект внутри рамки, не наклейка. inset,
-     поэтому ступенчатый clip-path углов его не срежет. На всех .pixel-tile. */
+  /* Light rim of a filled tile (DESIGN §2.4): top-left catches the light, bottom-right sits slightly
+     sunken, so the surface reads as an object inside a frame rather than a sticker. `inset`, so the
+     stepped corner `clip-path` cannot trim it. */
   --rim: inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 1px 0 0 rgba(255, 255, 255, 0.5),
     inset 0 -3px 7px -4px rgba(33, 26, 22, 0.2),
     inset -3px 0 7px -4px rgba(33, 26, 22, 0.12);
 
-  /* Тёплый вертикальный перелив поверхности плитки — не плоский белый (§2.3); низ
-     заметно теплее верха: передняя грань «коробочки» не белая (§2.4, итерация 3). */
+  /* A warm vertical wash across the tile's surface rather than flat white (DESIGN §2.3); the bottom is
+     noticeably warmer than the top, because the box's front face is not white (§2.4). */
   --surface-fill: linear-gradient(180deg, #ffffff 0%, #fffdfb 35%, #fff5ee 100%);
 
-  /* Пиксель-сетка: 1 «пиксель» = 4 css-px (§2.3) */
+  /* Pixel grid: one "pixel" = 4 css-px (DESIGN §2.3) */
   --px: 4px;
 
-  /* Ступенчатые углы пиксель-рамки (§2.4): 2 ступени по 5px (кратно --px), срез угла 10px.
-     Среднее между исходными 4px и пробным 6px — лесенка заметнее и «прямее» прежней, но
-     не грубая. Ближе к референсу края волны 01. */
+  /* Stepped corners of the pixel frame (DESIGN §2.4): two steps of 5px (a multiple of `--px`) with a
+     10px corner cut. The midpoint between the original 4px and a trialled 6px — the staircase is
+     clearer and straighter than before without turning coarse. */
   --pixel-corners: polygon(
     0 10px, 5px 10px, 5px 5px, 10px 5px, 10px 0,
     calc(100% - 10px) 0, calc(100% - 10px) 5px, calc(100% - 5px) 5px,
@@ -164,11 +144,12 @@
 }
 
 body {
-  /* Фон — тихий персик: тёплый радиальный свет сверху-слева + лёгкое зерно (≈4.5% noise),
-     чтобы заливка не читалась пластиковой (§2.3). Зерно — тайл-SVG feTurbulence (без сети).
-     Точка-сетки здесь НЕТ намеренно: пиксельный холст спорил с обведённой ступенькой края —
-     два пиксельных голоса разом зашумляли воздух между плитками. Пиксель-слой волны 01
-     теперь держит силуэт края, а фон под ним молчит (§2.3, DESIGN §2.4). */
+  /* Ground — quiet peach: warm radial light from the top left plus faint grain (≈4.5% noise), so the
+     fill does not read as plastic (DESIGN §2.3). The grain is a tiled feTurbulence SVG, no network. */
+
+  /* There is deliberately NO dot grid here: a pixel canvas argued with the outlined stepped edge, and
+     two pixel voices at once made noise of the air between tiles. Wave 01's pixel layer now holds the
+     edge silhouette, and the ground beneath it stays silent (DESIGN §2.4). */
   background-color: var(--bg-page);
   background-image: radial-gradient(
       120% 120% at 12% 0%,
@@ -184,64 +165,58 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Карта чипа волны 01 несёт не плоский персик, а САМ ХОЛСТ волны: тёплый свет сверху-слева,
-   тот же градиент, что у `body` выше. На свотче в 34px это было незаметно и не стоило строчки;
-   на карте во всю плитку (борд PRIME, §2.6) плоская заливка читается пустой картонкой.
-   Правило без обёртки `:root[data-wave]` — намеренно: чип волны 01 обязан показывать её холст
-   и лёжа на чужом борде, ровно как чипы волн 02 и 03 несут туда свой край. */
+/* The wave-01 chip card carries not flat peach but the wave's CANVAS itself: the same warm top-left
+   light as `body` above. On a 34px swatch that was invisible and not worth a line; on a full-tile card
+   (PRIME's board, DESIGN §2.6) a flat fill reads as an empty piece of cardboard. */
+
+/* No `:root[data-wave]` wrapper, deliberately: wave 01's chip must show its canvas while lying on
+   someone else's board too, exactly as the chips of waves 02 and 03 carry their edge there. */
 .wave-chip[data-chip-wave="wave-01"] .wave-chip__face::after {
   background-image: radial-gradient(120% 120% at 12% 0%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%);
 }
 
-/* ── КРАЙ ВИДЖЕТА (§2.4) — параметр СКИНА волны, см. врез «Как волна выбирает край» ниже ──
-   Заполненная плитка волны 01: ступенчатый силуэт, ОБВЕДЁННЫЙ тонкой глиняной линией, с
-   видимым нижним ТОРЦОМ (--tile-depth — плитка читается слабом с толщиной, не листом),
-   тёплый перелив поверхности и парящая drop-shadow-тень. Hover-lift — ключевой оживляющий жест
-   (§2.3): приподнимает плитку и углубляет тень за ~180ms. CSS-класс (не инлайн) ради :hover.
+/* THE WIDGET'S EDGE (DESIGN §2.4) — a SKIN parameter, see "how a wave chooses its edge" below. Wave
+   01's filled tile: a stepped silhouette OUTLINED with a thin clay line, with a visible lower side
+   (`--tile-depth`), a warm surface wash and a floating drop-shadow. */
 
-   Почему не `border` + `clip-path` (как было): clip-path режет саму рамку, поэтому на срезе
-   угла линии не остаётся — ступенька выходила «голой» (заливка встык к фону), и весь силуэт
-   читался только по контрасту поверхности. Вместо этого плитка сама СТАЛА плашкой линии, а
-   поверхность легла поверх в ::after, вложенная на --tile-line: линия обводит лестницу
-   целиком, включая срез. */
+/* Rejected: `border` plus `clip-path` — the clip cuts the border itself, so no line survives at a corner cut
+   and the step came out bare. Instead the tile itself BECAME the line plate, with the surface over it in
+   `::after` inset by `--tile-line`, so the line traces the whole staircase including every cut. */
 .pixel-tile {
   --rest-elev: var(--drop-2);
   --hover-elev: var(--drop-3);
-  /* ── ЖЕСТ НАВЕДЕНИЯ — ПАРАМЕТР ВОЛНЫ (DESIGN §2.3, §10.2) ────────────────────────────
-     Ниже объявлен жест волны 01: физический подъём плитки и углубление тени. Он же служит
-     базой, поэтому живёт токенами, а не значениями прямо в `:hover`.
+  /* THE HOVER GESTURE IS A WAVE PARAMETER (DESIGN §2.3, §10.2). Wave 01's gesture — a physical lift and
+     a deepened shadow — is declared below in tokens rather than as values inside `:hover`, and it also
+     serves as the base. */
 
-     Так волна ЗАМЕНЯЕТ жест, а не отменяет чужой. Раньше правило `:hover` держало числа у
-     себя, и волне со своим жестом приходилось знать, чем именно поднята плитка (`top`, а не
-     `transform`), и гасить это вручную. Кто забывал — получал два жеста разом: подъём волны 01
-     плюс собственный. Так и случилось у PRIME, и цена там не косметическая: `filter` на
-     наведённой плитке делает её **Backdrop Root**, то есть на ховере у стеклянной плитки
-     пропадал сам блюр (docs/pitfalls.md).
+  /* That way a wave REPLACES the gesture instead of cancelling someone else's. Previously the `:hover`
+     rule held the numbers itself, so a wave with its own gesture had to know what raised the tile
+     (`top`, not `transform`) and undo it by hand; whoever forgot got both gestures at once. */
 
-     Волна переопределяет четыре токена на `:root[data-wave=…] .pixel-tile` — и жест сменился
-     целиком, без единого правила `:hover`. */
+  /* PRIME did, and the cost there is not cosmetic: a `filter` on a hovered tile makes it a Backdrop
+     Root, so a glass tile lost its blur on hover (docs/pitfalls.md). A wave overrides four tokens on
+     `:root[data-wave=…] .pixel-tile` and the gesture changes entirely, with no `:hover` rule at all. */
   --tile-hover-top: -3px;
   --tile-press-top: -1px;
   --tile-hover-filter: var(--hover-elev);
   --tile-press-filter: var(--rest-elev);
   position: relative;
-  /* Тень висит на НЕклипнутом .pixel-tile, поэтому drop-shadow уходит наружу за силуэт.
-     Ступенчатую форму (и линию края, и поверхность) рисуют клипнутые псевдо-слои ниже.
-     КРИТИЧНО: clip-path и filter НЕЛЬЗЯ держать на одном элементе — clip-path обрезает
-     выхлоп drop-shadow по тому же силуэту, и внешней тени не остаётся вовсе (латентный баг
-     прежней рамки: тень генерилась и тут же срезалась). Поэтому клип — на псевдо, тень — на
-     родителе; альфа для drop-shadow берётся из непрозрачной формы псевдо-слоёв. */
+  /* The shadow hangs on the UNCLIPPED `.pixel-tile`, so `drop-shadow` escapes past the silhouette; the
+     stepped shape is drawn by the clipped pseudo-layers below. */
+
+  /* ⚠️ `clip-path` and `filter` may NOT sit on one element: the clip trims the `drop-shadow` bleed to
+     the same silhouette and no outer shadow survives at all. So the clip goes on the pseudo-elements
+     and the shadow on the parent, taking its alpha from their opaque shape. */
   filter: var(--rest-elev);
-  /* Подъём по наведению едет `top`, а не `transform`, — см. правило ниже у :hover. */
+  /* The hover lift travels by `top`, not `transform` — see the `:hover` rule below. */
   transition: top 180ms ease, filter 180ms ease;
 }
-/* ВЕРХНЯЯ карточка, слой линии (§2.4): клипнутая clay-плашка под поверхностью и контентом,
-   приподнятая над низом плитки на --tile-depth — в открывшуюся полосу выглядывает нижняя
-   подложка .pixel-slab (см. ниже). z-index:-1 — за контентом; ::after (поверхность)
-   рисуется после ::before при равном z, поэтому ложится поверх линии, оставляя её кантом
-   по периметру, включая срез каждой ступени. Кант остаётся только сверху и по бокам:
-   снизу глиняную плашку целиком накрывает слой белой рамки .pixel-lid (их нижние края
-   совпадают) — у нижней кромки верхней карты глины нет, см. референс. */
+/* UPPER card, the line layer (DESIGN §2.4): a clipped clay plate under the surface and the content,
+   raised above the tile's foot by `--tile-depth`, with the `.pixel-slab` ground showing in the strip
+   that opens. `z-index:-1` puts it behind the content, and `::after` paints after it at equal z. */
+
+/* The border survives only at the top and sides: below, the white frame layer `.pixel-lid` covers the
+   clay plate entirely (their lower edges coincide), so there is no clay at the upper card's foot. */
 .pixel-tile::before {
   content: "";
   position: absolute;
@@ -251,11 +226,12 @@ body {
   background: var(--border-tile);
   clip-path: var(--pixel-corners);
 }
-/* Поверхность верхней карточки: тот же силуэт --pixel-corners, вложенный внутрь белой
-   рамки на её толщину (--tile-inner) — белая рамка проступает тонким кантом по всему
-   периметру между глиной и поверхностью (сверху она почти неразличима на белом верхе
-   поверхности — так и в референсе), а снизу остаётся единственной кромкой карты. Второй
-   полигон не нужен — у ::after своя система координат, inset даёт ту же лестницу. */
+/* Surface of the upper card: the same `--pixel-corners` silhouette, inset within the white frame by its
+   thickness (`--tile-inner`), so the white frame shows as a thin border all round between clay and
+   surface, and at the foot remains the card's only edge. */
+
+/* A second polygon is unnecessary — `::after` has its own coordinate system, so the inset yields the
+   same staircase. */
 .pixel-tile::after {
   content: "";
   position: absolute;
@@ -269,13 +245,13 @@ body {
   clip-path: var(--pixel-corners);
   box-shadow: var(--rim); /* световой кант — материальность поверхности (§2.4) */
 }
-/* БЕЛАЯ внутренняя рамка верхней карты (§2.4): полная карта-плашка между глиняной линией
-   и поверхностью. По бокам и сверху вложена в глину на --tile-line, а СНИЗУ доходит до
-   самого низа верхней карты (bottom = var(--tile-depth), как у ::before) — глиняная
-   плашка снизу накрыта целиком, нижняя кромка карты белая. Отдельный элемент-сиблинг
-   .pixel-slab (третий слой верхней карты, псевдо-слоты .pixel-tile заняты): при z:-1 у
-   всех трёх слоёв порядок отрисовки — дерево: ::before (глина) → .pixel-lid (белая) →
-   ::after (поверхность). Волна 02 гасит её вместе с подложкой. */
+/* The WHITE inner frame of the upper card (DESIGN §2.4): a full card-plate between the clay line and the
+   surface. At the sides and top it is inset into the clay by `--tile-line`; at the BOTTOM it reaches the
+   upper card's foot, covering the clay plate entirely, so the card's lower edge is white. */
+
+/* A sibling element rather than a pseudo-element, because both `.pixel-tile` pseudo-slots are taken by the
+   upper card. At z:-1 the three layers paint in tree order — ::before (clay) → .pixel-lid (white) → ::after
+   (surface). Wave 02 hides it together with the ground. */
 .pixel-lid {
   position: absolute;
   inset: var(--tile-line) var(--tile-line) var(--tile-depth) var(--tile-line);
@@ -284,20 +260,20 @@ body {
   background: var(--tile-inner-color);
   clip-path: var(--pixel-corners);
 }
-/* НИЖНЯЯ подложка «коробочки» (§2.4): полная вторая карта того же силуэта, смещённая вниз
-   на --tile-depth, — выглядывает из-под верхней у нижнего края (вместе со своими ступенями
-   и контуром). Отдельный элемент, а не псевдо: оба псевдо-слота .pixel-tile заняты верхней
-   карточкой — рисуют TileShell и панели-модалки. z-index:-2 — под обоими слоями верхней
-   (-1); стековый контекст держит filter на .pixel-tile, за пределы плитки слои не падают.
-   Своя пара слоёв «линия + заливка»: заливка вложена по бокам и снизу на --tile-line, а
-   СВЕРХУ идёт от самого края подложки — верх всё равно скрыт за карточкой, зато в вырезах
-   её нижних ступеней проступает тёплая заливка, а не тёмная линия. Контур подложки —
-   равномерная тёмная глина --border-tile по всему периметру, как у верхней карты
-   (двухцветный контур с 1px-вертикалями пробовали дважды — на стыках ступеней слои с
-   разным вложением дают «скачущую» толщину вертикалей; откатили до уточнения референса).
-   Градиент заливки прибит к видимой полосе (стоп на calc(100% - --tile-depth)) — переход
-   слаб-1 → слаб-2 читается именно на выглядывающем крае. Тень платит .pixel-tile общим
-   drop-shadow — «мягкая тень под коробочкой» повторяет силуэт подложки. */
+/* The box's LOWER ground (DESIGN §2.4): a full second card of the same silhouette, offset down by
+   `--tile-depth`, showing from under the upper one at the foot with its own steps and contour. A separate
+   element rather than a pseudo — both `.pixel-tile` slots are taken by the upper card. */
+
+/* `z-index:-2` puts it under both of the upper card's layers, and the stacking context held by the
+   `.pixel-tile` filter keeps them inside the tile. Its fill is inset at the sides and bottom but runs from
+   the very top edge, so the cuts of the card's lower steps show warm fill rather than a dark line. */
+
+/* The contour is even dark clay all round, as on the upper card. Rejected twice: a two-colour contour with
+   1px verticals — at the step joints, layers with different insets give those verticals a jumping thickness. */
+
+/* The fill gradient is pinned to the visible strip (a stop at `calc(100% - --tile-depth)`), so the slab-1 to
+   slab-2 transition reads exactly on the edge that peeks out. The shadow is paid for by `.pixel-tile`'s
+   shared drop-shadow, which follows the ground's silhouette. */
 .pixel-slab {
   position: absolute;
   inset: 0;
@@ -322,22 +298,26 @@ body {
   );
   clip-path: var(--pixel-corners);
 }
-/* Лоадер-шиммер — прямоугольный ребёнок плитки (inset-0). Силуэт края живёт на ::after (за
-   контентом), поэтому углы шиммера НЕ срезаются: без своего клипа его квадратные углы торчат
-   за ступенчатый край — на долю секунды виден персиковый квадрат (загрузка/быстрый F5). Клипаем
-   шиммер тем же силуэтом. Клип на самой .pixel-tile держать нельзя (конфликт с drop-shadow, см.
-   выше). Волна 02 (круглые карты) этот клип и подъём сбрасывает у себя.
-   bottom: шиммер накрывает только ВЕРХНЮЮ карточку — подложка .pixel-slab видна и на
-   лоадере, «коробочка» не плоскеет на долю секунды при загрузке. Перебивает
-   tailwind-`inset-0` (утилиты в @layer, слои проигрывают внеслойным правилам скина). */
+/* The loader shimmer is a rectangular child of the tile (inset-0). The edge silhouette lives on `::after`,
+   behind the content, so the shimmer's corners are NOT trimmed by it — its square corners stuck out past the
+   stepped edge and a peach square flashed for a fraction of a second on load. */
+
+/* So the shimmer is clipped with the same silhouette. The clip cannot sit on `.pixel-tile` itself, where it
+   would conflict with the drop-shadow (see above). Wave 02, with its round cards, resets this clip and the lift. */
+
+/* `bottom` makes the shimmer cover only the UPPER card, so `.pixel-slab` stays visible during loading and the
+   box does not flatten for a moment. It overrides tailwind's `inset-0` — utilities live in a layer and lose
+   to a skin rule outside one. */
 .pixel-shimmer {
   clip-path: var(--pixel-corners);
   bottom: var(--tile-depth);
 }
-/* «Сегодня» лежит выше остальных уже в покое (§2.3). Плюс медленный пиксель-скан-блик
-   по поверхности (steps → блик едет пиксельными скачками) — лёгкая «жизнь» героя борда,
-   только на фокусной плитке, чтобы не зашуметь весь борд. Блик живёт на слое поверхности,
-   а не на плашке линии, иначе он бы ехал по самому канту. Гаснет под reduced-motion. */
+/* "Today" lies above the rest even at rest (DESIGN §2.3), plus a slow pixel scan sheen across the surface
+   (`steps`, so it travels in pixel jumps) — a little life for the board's hero, on the focus tile only, so
+   the whole board does not get noisy. */
+
+/* The sheen lives on the surface layer rather than on the line plate, or it would travel along the border
+   itself. It goes out under reduced motion. */
 .pixel-tile[data-elevated="true"] {
   --rest-elev: var(--drop-3);
   --hover-elev: var(--drop-4);
@@ -361,59 +341,38 @@ body {
   }
 }
 
-/* ═══ Как волна выбирает край (механизм переключения, DESIGN §10.2) ═══════════════════
- * Край плитки — параметр СКИНА волны, не общий слой: у волн он разный по существу
- * (ступенька волны 01 vs облачная карта волны 02), поэтому единой «машины края» нет —
- * есть дефолт этого файла и явный отказ. Волна выбирает одно из двух:
- *
- *  1) ВЗЯТЬ обведённую ступеньку (дефолт ниже) и подстроить восемью переменными:
- *       --pixel-corners    — силуэт (полигон ступеней)
- *       --border-tile      — цвет глиняной линии (обеих карточек «коробочки»)
- *       --tile-line        — толщина глиняной линии
- *       --tile-depth       — вертикальный сдвиг «коробочки» (0px = подложка спрятана за
- *                            карточкой, плоский край без объёма)
- *       --tile-slab-1/2    — градиент заливки нижней подложки
- *       --tile-inner       — толщина светлой внутренней рамки верхней карты
- *       --tile-inner-color — цвет светлой внутренней рамки (тёплый крем, не белый)
- *     Больше ничего переопределять не надо: и плашка-линия, и вложение ::after, и шиммер
- *     читают их сами. Переменные приходят токенами волны из БД — то есть край новой волны
- *     можно перекрасить/утоньшить/сплющить вообще без правок CSS.
- *
- *  2) ОТКАЗАТЬСЯ и нарисовать свой край — переопределить `.pixel-tile` под своим
- *     `[data-wave="…"]` и погасить слои верхней карточки, белую рамку И подложку:
- *       :root[data-wave="…"] .pixel-tile::before,
- *       :root[data-wave="…"] .pixel-tile::after,
- *       :root[data-wave="…"] .pixel-lid,
- *       :root[data-wave="…"] .pixel-slab { display: none; }
- *     Так делает волна 02 «Obscura» (wave-02.css) — её карты не меняются.
- */
+/* HOW A WAVE CHOOSES ITS EDGE (DESIGN §10.2). The tile edge is a SKIN parameter rather than a shared layer:
+ * waves differ in kind here (wave 01's step against wave 02's cloud card), so there is no single "edge
+ * machine" — only this file's default and an explicit refusal. A wave picks one of two paths. */
 
-/* Пиксельная осыпь угла (§2.4) — подпись-деталь ТОЛЬКО на фокусной плитке «Сегодня»:
-   акцентные пиксели, плотные у самого угла и редеющие вглубь плитки. Пришла на смену четырём
-   угловым заклёпкам: одна деталь в одном углу читается как подпись, четыре одинаковые точки по
-   углам — как разметка (рассмотрено и отклонено, DESIGN §2.4).
+/* 1) TAKE the outlined step below and tune it with eight variables — `--pixel-corners`, `--border-tile`,
+ * `--tile-line`, `--tile-depth` (0px hides the ground behind the card), `--tile-slab-1/2`, `--tile-inner`
+ * and `--tile-inner-color`. DESIGN §10.2 lists what each one governs. */
 
-   Рисуется ОДНИМ элементом: сам он — угловая клетка, остальные 35 — его `box-shadow` со
-   смещениями, кратными клетке `--sc`; цвет теней берётся из `currentColor`, поэтому в списке
-   одни координаты. Отдельный элемент, а не псевдо: оба псевдо-слота .pixel-tile заняты силуэтом
-   края (::before линия, ::after поверхность), а осыпь должна лежать ПОВЕРХ поверхности. Рисует её
-   TileShell по пропу `scatter`. z-index:0 поднимает над псевдо-слоями (z-index:-1);
-   pointer-events:none — осыпь лежит под контентом плитки и мышь не ловит.
+/* Nothing else needs overriding — the line plate, the `::after` inset and the shimmer all read them, and
+ * they arrive as the wave's DB tokens, so a new wave's edge can be recoloured, thinned or flattened with no
+ * CSS edit at all. */
 
-   Раскладка клеток детерминирована и снята офлайн, не «на глаз»: поле 16×12 клеток, шанс
-   заполнения падает с расстоянием до угла ((1 - d/11)^1.35). Две поправки к чистой радиальной
-   формуле, обе по замечаниям владельца на живом борде:
-     • расстояние ЭЛЛИПТИЧЕСКОЕ, d = hypot(c/1.35, r) — осыпь уходит от угла ВЛЕВО дальше, чем
-       вверх, и стелется вдоль нижнего края;
-     • ПРОСЕДАНИЕ у самого угла: p умножается на 0.6 + 0.4 * min(1, d/3.5) — ближние клетки
-       заполняются лишь на 60%, и угол начинается крошкой, а не сплошной печатью. Сплошного
-       ядра нет вовсе; угловая клетка всегда на месте — это сам элемент, а не тень.
-   Хочется гуще/длиннее — меняются эти числа, и список пересобирается целиком.
+/* 2) REFUSE and draw its own: override `.pixel-tile` under its own `[data-wave="…"]` and hide the upper
+ * card's layers, the white frame AND the ground — `::before`, `::after`, `.pixel-lid`, `.pixel-slab`. That
+ * is what wave 02 "Obscura" does, and its cards stay unchanged. */
 
-   Низ отсчитывается от нижнего края ПОВЕРХНОСТИ верхней карточки: низ плитки занят подложкой
-   (--tile-depth), без поправки осыпь села бы на шов торца. */
+/* Pixel corner scatter (DESIGN §2.4) — a signature detail on the "Today" focus tile only: accent pixels,
+   dense at the corner and thinning inward. Rejected: four corner rivets — one detail in one corner reads as
+   a signature, whereas four identical dots at the corners read as registration marks. */
+
+/* Drawn by ONE element: it is the corner cell itself, and the other 35 are its `box-shadow` at offsets that
+   are multiples of `--sc`, coloured from `currentColor` so the list holds only coordinates. A separate
+   element rather than a pseudo — both slots are taken by the edge silhouette, and `z-index:0` lifts it. */
+
+/* The cell layout is deterministic and computed offline, not by eye: a 16×12 field where the fill chance
+   falls with distance from the corner. Two corrections to the pure radial formula — the distance is
+   ELLIPTICAL, and it SAGS at the corner, where cells fill to 60% so the corner begins as crumbs. */
+
+/* The bottom is measured from the lower edge of the upper card's SURFACE: the tile's foot is taken by the
+   ground (`--tile-depth`), and without the correction the scatter would sit on the side's joint. */
 .pixel-scatter {
-  /* Клетка осыпи — 8px, как заклёпки до неё: тот же шаг пиксель-сетки волны. */
+  /* A scatter cell is 8px, like the rivets before it: the same pixel-grid step of the wave. */
   --sc: calc(var(--px) * 2);
   position: absolute;
   right: calc(var(--px) * 2);
@@ -445,17 +404,14 @@ body {
     calc(var(--sc) * -5) calc(var(--sc) * -10);
 }
 @media (hover: hover) {
-  /* ⚠️ Подъём — `top`, а НЕ `transform`, и это третий раз, когда проект наступает на одно
-     и то же (docs/pitfalls.md; до этого — бегущая строка карточки подкаста и тултип в
-     `foreignObject`). Плитка несёт `filter: drop-shadow`, а `transform` вдобавок выносит её
-     в собственный композитный слой WebKit: в Safari у наведённой плитки тень обрывалась
-     прямым краем — читалось светлой полосой вдоль низа. Плитка `position: relative`,
-     поэтому `top` двигает её ровно так же и на поток не влияет. */
+  /* ⚠️ The lift is `top`, NOT `transform`, and this is the third time the project has met the same thing
+     (docs/pitfalls.md). The tile carries `filter: drop-shadow`, and `transform` additionally moves it into
+     its own WebKit compositing layer: in Safari a hovered tile's shadow broke off in a straight edge. */
   .pixel-tile:hover {
     top: var(--tile-hover-top);
     filter: var(--tile-hover-filter);
   }
-  /* Пиксельный «press» — клик утапливает плитку обратно к покою (быстрый отклик). */
+  /* Pixel "press" — a click sinks the tile back to its resting position, for a quick response. */
   .pixel-tile:active {
     top: var(--tile-press-top);
     filter: var(--tile-press-filter);
@@ -463,11 +419,11 @@ body {
   }
 }
 
-/* Приглушённая плитка (§2.4): мягкая рамка, ниже по высоте, без углового узора. */
+/* Muted tile (DESIGN §2.4): a soft frame, lower in height, with no corner pattern. */
 .muted-tile {
-  /* Тот же контракт, что у `.pixel-tile` выше: жест — параметр волны. Приглушённая плитка
-     поднимается `transform`-ом (у неё нет `filter`, значит нет и композитного слоя, ради
-     которого у большой плитки подъём едет `top`-ом). */
+  /* The same contract as `.pixel-tile` above: the gesture is a wave parameter. A muted tile lifts by
+     `transform` — it has no `filter`, hence no compositing layer, which is the only reason the large tile's
+     lift travels by `top`. */
   --muted-hover-shift: -2px;
   --muted-hover-shadow: var(--elev-2);
   position: relative;
@@ -484,8 +440,8 @@ body {
   }
 }
 
-/* Пиксель-арт пустого слота (усиление §2.4): тихая точка-сетка по поверхности —
-   пустой слот «дышит» как пиксельный холст, а не мёртвая заливка. */
+/* Pixel art for an empty slot (DESIGN §2.4): a quiet dot grid across the surface, so an empty slot breathes
+   like a pixel canvas instead of sitting as dead fill. */
 .muted-tile::after {
   content: "";
   position: absolute;
@@ -496,8 +452,8 @@ body {
   border-radius: inherit;
 }
 
-/* …и крошечная пиксель-искра в углу — декор, не несущий смысла (дублируется текстом
-   пустоты). 4 пикселя «плюсом» вокруг центра, кратны --px. */
+/* …and a tiny pixel spark in the corner: decor carrying no meaning, since the emptiness is stated in text as
+   well. Four pixels in a plus around the centre, multiples of `--px`. */
 .muted-tile::before {
   content: "";
   position: absolute;
@@ -516,8 +472,8 @@ body {
   background-position: center top, center bottom, left center, right center;
 }
 
-/* Мигающий пиксель-каретка у идентити-надписи (анимация-жизнь): курсор «danchuo.world▮».
-   Декоративно (aria-hidden) — глиф самого имени остаётся чистым. Гаснет под reduced-motion. */
+/* Blinking pixel caret at the identity line: the cursor in "danchuo.world▮". Decorative (aria-hidden), so
+   the name's own glyphs stay clean. It goes out under reduced motion. */
 @keyframes pixel-caret {
   0%,
   49.99% {
@@ -535,27 +491,21 @@ body {
   animation: pixel-caret 1.1s steps(1, end) infinite;
 }
 
-/* Цветные пиксель-спрайты соцсетей (§3, ряд G): вместо одноцветной маски — рисованные тёплые
-   иконки из референса владельца (/assets/social/wave01/*.png; фон вырезан начисто, вместе
-   с бледным ореолом-свечением исходника — он читался как лишняя подложка с обводкой).
-   Крупнее маски: 28px против 18px — спрайты несут собственный контур и заливку, на 18px
-   они замыливаются; 32px без плашки владельцу великоваты. Платформа без спрайта остаётся
-   маской; волна 02 возвращает маску целиком (wave-02.css). */
+/* Coloured pixel sprites for the social links (DESIGN §3, row G) instead of a single-colour mask: drawn warm
+   icons, with backgrounds cut clean along with the source's pale halo, which read as a stray outlined plate.
+   Larger than the mask — a sprite carries its own contour and fill and smudges when small. */
 .social-icon--sprite {
-  /* Доля карточки, а не фикс (см. .social-icon в common.css). Опорная точка — экран
-     ВЛАДЕЛЬЦА (~1536 CSS-px: 1920 при системном масштабе 125%), где карточка ~34px, а
-     одобренный им размер спрайта — 28px, то есть 82%. Коридор на смотре был узкий: 18px
-     «замылены», 32px «великоваты» — последнее и означало «иконка впритык к краям карточки»,
-     что подтверждает именно эту ширину, а не 1920 (там 32px заняли бы лишь две трети). */
+  /* A share of the card rather than a constant (see `.social-icon` in common.css). The reference is the
+     OWNER'S screen (~1536 CSS-px), where the card is ~34px and the approved sprite size 28px, i.e. 82%. The
+     review corridor was narrow — 18px "smudged", 32px "too big" — which confirms this width, not 1920. */
   --social-icon-size: clamp(20px, calc(13.9px + 41cqw), 88px);
   background: var(--social-sprite) center / contain no-repeat;
   -webkit-mask: none;
   mask: none;
 }
-/* Значок канала у чипа вкладов (§7.4) волна 01 берёт СВОИМ цветным спрайтом — тем же
-   рисованным октокотом, что стоит в соцсетях: одноцветная маска рядом с её тёплыми
-   спрайтами читалась бы как чужой элемент. Размер — заметно меньше соцсетевого: там
-   спрайт сам себе ссылка, здесь он подпись к цифре и делит с ней поясок в 14px. */
+/* Wave 01 takes the contributions chip's channel mark as its OWN coloured sprite, the same drawn octocat as
+   in the social links: a single-colour mask beside its warm sprites would read as a foreign element. Much
+   smaller than the social one — there the sprite is the link itself, here it is a caption to a figure. */
 .git-chip-icon {
   --git-chip-icon-size: clamp(10px, calc(6.5px + 1.95cqw), 28px);
   background: url("/assets/social/wave01/github.png") center / contain no-repeat;
@@ -563,19 +513,18 @@ body {
   mask: none;
 }
 
-/* Плашку-подложку карточки соцссылки волна 01 гасит (параметр скина, см. .social-card в
-   common.css): спрайты — самодостаточные рисованные объекты, лежат прямо на поверхности
-   плитки; квадрат приглушённого тона под каждым читался как лишняя рамка. Сама карточка
-   (тач-таргет, ячейка сетки) остаётся. */
+/* Wave 01 hides the social link card's ground plate (a skin parameter, see `.social-card` in common.css):
+   the sprites are self-sufficient drawn objects lying straight on the tile's surface, and a muted square
+   under each read as a stray frame. The card itself — touch target and grid cell — stays. */
 .social-card {
   --social-card-bg: transparent;
 }
 
-/* reduced-motion: тени остаются, но подъём не дёргается (§9). Лежит ПОСЛЕ :hover-правил
-   волны 01 — порядок важен (равная специфичность). */
+/* Reduced motion: the shadows stay but the lift does not twitch (DESIGN §9). It lies AFTER wave 01's
+   `:hover` rules, and at equal specificity that order matters. */
 @media (prefers-reduced-motion: reduce) {
-  /* Плитка поднимается `top`-ом, приглушённая — по-прежнему `transform`: у неё нет `filter`,
-     а значит и композитного слоя, из-за которого правило выше вообще появилось. */
+  /* The tile lifts by `top` and the muted one still by `transform`: it has no `filter`, hence none of the
+     compositing layer that made the rule above necessary in the first place. */
   .pixel-tile:hover {
     top: auto;
   }

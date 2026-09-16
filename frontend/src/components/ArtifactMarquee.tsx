@@ -12,16 +12,16 @@ import { useBackToClose } from "./useBackToClose";
 import { useMarqueeDrag } from "./useMarqueeDrag";
 import { useTileData } from "./useTileData";
 
-/* `useLayoutEffect` шумит предупреждением при серверном рендере клиентского компонента —
-   на сервере падаем на обычный эффект (тот же приём, что в [MusicTile]). */
+/* `useLayoutEffect` warns during server rendering of a client component, so on the server we
+   fall back to a plain effect (the same device as in [MusicTile]). */
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface ArtifactMarqueeProps {
   style?: CSSProperties;
   className?: string;
   /**
-   * Направление ленты — задаётся волной через layout (`tiles.marquee.orientation`,
-   * DESIGN §10.1). `vertical` — колонка, едет вверх; дефолт — горизонтальная строка.
+   * Direction of the ribbon, set by the wave through its layout. `vertical` is a column travelling
+   * upwards; the default is a horizontal row. DESIGN §10.1
    */
   orientation?: TileOrientation;
 }
@@ -31,7 +31,7 @@ const RU_MONTHS = [
   "июля", "августа", "сентября", "октября", "ноября", "декабря",
 ];
 
-/** «2026-01-15» → «15 января 2026» (парсим по частям — без tz-сдвига от `new Date`). */
+/** "2026-01-15" to a long Russian date, parsed by parts so `new Date` cannot shift the timezone. */
 function formatFirstMentioned(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
@@ -39,15 +39,9 @@ function formatFirstMentioned(iso: string): string {
 }
 
 /**
- * Предмет в самой ленте. Пропорцию берём с картинки (`naturalWidth/Height`) на её загрузке —
- * до замера предмет считается квадратным по потолку ленты. Поворот не двигает место в потоке,
- * поэтому габарит держит обёртка, а у самой картинки стороны меняются местами.
- *
- * **Поперёк ленты слот всегда одного размера** (`ARTIFACT_SIZE`), а предмет центрируется в
- * нём. Предметы равняются по оптическому весу, то есть по площади, — значит высота у них
- * разная (очки 28px против почти квадратной мыльницы 40), и подпись под ними скакала
- * вверх-вниз от предмета к предмету. Вдоль ленты слот по-прежнему по предмету: там разница
- * ширин это и есть честное «каждый предмет своей формы», строку подписей она не ломает.
+ * An item in the ribbon; its aspect ratio is measured from the image on load. ACROSS the ribbon
+ * the slot is always one size with the item centred — items are matched by optical weight, so
+ * their heights differ and captions would otherwise jump. Along it, the slot fits the item.
  */
 function ArtifactThumb({
   src,
@@ -92,13 +86,9 @@ function ArtifactThumb({
 }
 
 /**
- * Лента артефактов (M) — PRD §5.8, DESIGN §7.2. Предметы PNG/GIF + подпись; в самой строке
- * даты нет. **Клик по предмету → небольшое меню-карточка**: увеличенная картинка + название +
- * (мельче) дата первого упоминания. `Esc`/клик вне закрывают.
- *
- * Лента едет ТОЛЬКО когда предметы не влезают в тайл (тогда контент дублируется для бесшовной
- * петли -50%). Один-два предмета помещаются ⇒ строка не дублируется и не анимируется — иначе
- * единственный предмет двоился бы, а на отзуме из-под края выглядывала бы «третья» копия.
+ * The artifact ribbon: items with captions, a click opening a card. It scrolls ONLY when the items
+ * overflow the tile, in which case the content is duplicated for a seamless loop — one or two
+ * items must not be doubled, or a phantom copy peeks in on zoom-out. PRD §5.8, DESIGN §7.2
  */
 export function ArtifactMarquee({ style, className, orientation = "horizontal" }: ArtifactMarqueeProps) {
   const vertical = orientation === "vertical";
@@ -110,23 +100,22 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
   const isEmpty = phase === "loaded" && artifacts.length === 0;
   const [active, setActive] = useState<number | null>(null);
 
-  // Едет ли лента: одна копия контента шире/выше тайла ⇒ дублируем и анимируем (§7.2).
+  // Whether the ribbon travels: one copy of the content overflows the tile, so it is duplicated.
   const containerRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [scrolling, setScrolling] = useState(false);
-  /** Шаг петли — размер ОДНОЙ копии контента вдоль ленты. Им же меряется протяжка. */
+  /** The loop's step — the size of ONE copy of the content. Dragging is measured by it too. */
   const [span, setSpan] = useState(0);
 
-  /* Замер идёт СИНХРОННО после коммита (`useLayoutEffect`), а не в следующем тике: до него
-     `span` равен нулю, а нулевой шаг петли значит «лента влезла» — и ни ход, ни протяжка, ни
-     колесо не работают вовсе. Один пропущенный кадр невидим, но пойманный в этот зазор жест
-     терялся молча (ловилось тестом ленты, падавшим через раз). */
+  /* The measurement runs SYNCHRONOUSLY after commit, not on the next tick: before it `span` is
+     zero, and a zero loop step means "the ribbon fits" — so travel, dragging and the wheel all do
+     nothing. One missed frame is invisible, but a gesture caught in that gap is lost. */
   useIsomorphicLayoutEffect(() => {
     const box = containerRef.current;
     const track = trackRef.current;
     if (!box || !track) return;
     const measure = () => {
-      // Когда дублировано (scrolling), натуральный размер одной копии = половина трека.
+      // Once duplicated, one copy's natural size is half the track.
       const factor = scrolling ? 2 : 1;
       const content = (vertical ? track.scrollHeight : track.scrollWidth) / factor;
       const avail = vertical ? box.clientHeight : box.clientWidth;
@@ -135,21 +124,20 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
       setSpan(over ? content : 0);
     };
     measure();
-    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
     const ro = new ResizeObserver(measure);
     ro.observe(box);
     ro.observe(track);
     return () => ro.disconnect();
-    /* `phase` в зависимостях не для красоты: контент рендерится только в состоянии `loaded`,
-       и до него обеих ссылок нет — эффект уходит в ранний `return`. Без этой зависимости
-       он больше не перезапустится, если состав ленты при этом не изменился (данные приехали
-       из кэша ровно те же), и лента останется с нулевым шагом навсегда. */
+    /* `phase` is in the dependencies for a reason: content renders only in the `loaded` state, and
+       before that neither ref exists, so the effect returns early. Without it the effect would
+       never re-run when the ribbon's contents happened to stay the same. */
   }, [vertical, scrolling, artifacts.length, phase]);
 
-  // Системное «Назад» закрывает меню, а не уводит с сайта (DESIGN §9).
+  // The system Back closes the menu instead of leaving the site (DESIGN §9).
   useBackToClose(active !== null, () => setActive(null));
 
-  // Меню — модалка по центру экрана; закрытие по Esc (клик по фону/повторный клик — ниже).
+  // The menu is a centred modal; Esc closes it (backdrop and repeat clicks are handled below).
   useEffect(() => {
     if (active === null) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setActive(null);
@@ -157,13 +145,13 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
     return () => window.removeEventListener("keydown", onKey);
   }, [active]);
 
-  // Темп ~ по числу артефактов, не быстрее 20с — чтобы читалось, а не мельтешило.
+  // Pace follows the number of artifacts but never beats 20s, so it reads rather than flickers.
   const seconds = Math.max(20, artifacts.length * 6);
-  // Собственный ход, протяжка рукой и колесо/тачпад — один механизм (§7.2): все трое двигают
-  // одно смещение, поэтому лента продолжает ехать оттуда, где её оставили.
+  // Own travel, hand dragging and wheel are ONE mechanism (§7.2): all three move the same offset,
+  // so the ribbon continues from wherever it was left.
   const marquee = useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds });
   const activeArtifact = active !== null ? artifacts[active] : null;
-  // Дублируем контент только когда лента едет; иначе одна копия (без двоения).
+  // Content is duplicated only while the ribbon travels; otherwise one copy, with no doubling.
   const items = scrolling ? [...artifacts, ...artifacts] : artifacts;
 
   return (
@@ -184,8 +172,8 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
             vertical ? "justify-center" : scrolling ? "items-center" : "items-center justify-center"
           }`}
           style={{
-            // Вдоль ленты жест забирает себе лента, поперёк — отдаём странице: на телефоне
-            // палец через тайл обязан прокручивать борд, а не залипать в ней.
+            // Along the ribbon the gesture is the ribbon's; across it, it goes to the page — on a
+            // phone a finger crossing the tile must scroll the board, not stick in it.
             touchAction: scrolling ? (vertical ? "pan-x" : "pan-y") : undefined,
             userSelect: scrolling ? "none" : undefined,
           }}
@@ -202,20 +190,18 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                   key={`${a.name}-${dup ? "dup" : "main"}`}
                   type="button"
                   data-artifact-btn={dup ? undefined : ""}
-                  /* Копия — только для бесшовной петли: её не озвучивают и в неё не таб-ходят.
-                     А вот КЛИК у неё такой же, как у оригинала: мимо зрителя едут обе копии,
-                     и без этого предметы «нажимались через раз» — каждый второй проход ленты
-                     был мёртвым. */
+                  /* The copy exists only for a seamless loop: it is neither announced nor tabbed
+                     into. Its CLICK, though, is the original's — both copies pass the viewer, and
+                     without this items "clicked every other time" as the ribbon cycled. */
                   aria-hidden={dup || undefined}
                   tabIndex={dup ? -1 : 0}
-                  /* Меню по фокусу — клавиатурный эквивалент клика (§9). Фокус ОТ УКАЗАТЕЛЯ
-                     сюда не годится: браузер даёт его на нажатии, меню открывалось до клика, а
-                     клик по тому же предмету — переключатель, и мышью меню закрывалось в тот же
-                     миг, что открылось. Держим только фокус без прижатого указателя. */
+                  /* Menu on focus is the keyboard equivalent of a click (§9). Focus FROM A POINTER
+                     will not do: the browser gives it on press, so the menu opened before the click,
+                     and a click on the same item, being a toggle, closed it again immediately. */
                   onFocus={dup ? undefined : () => !marquee.isPointerDown() && setActive(idx)}
                   onClick={() => setActive((cur) => (cur === idx ? null : idx))}
-                  /* Зазор картинка↔подпись держим крупным: на тесном подпись липнет
-                     к предмету и читается его частью, а не отдельной строкой. */
+                  /* The picture-to-caption gap stays generous: tight, the caption sticks to the
+                     object and reads as part of it rather than as its own line. */
                   className={`${vertical ? "my-3" : "mx-4"} inline-flex flex-col items-center gap-2 align-middle`}
                   style={{ background: "none", border: "none", cursor: "pointer" }}
                 >
@@ -248,11 +234,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
         </div>
       )}
 
-      {/* Меню артефакта — небольшая модалка ПО ЦЕНТРУ ЭКРАНА (как §5.12/§7.6): затемнённый
-          фон, панель `.pixel-tile`, закрытие по Esc / клику по фону. Картинка + название +
-          (мельче) дата первого упоминания. Портал в body: `.pixel-tile` тайла несёт `filter`
-          (containing block для fixed) и `overflow-hidden` — без портала fixed прибился бы к
-          плитке и клипался, а не центрировался по экрану. */}
+      {/* The artifact menu is a small centred modal (§5.12/§7.6). It is portalled into body
+          because the tile's `.pixel-tile` carries `filter` (a containing block for fixed) and
+          `overflow-hidden`: without the portal it would pin to the tile and be clipped. */}
       {activeArtifact && typeof document !== "undefined" && createPortal(
         <div
           className="modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -268,10 +252,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
             style={{ minWidth: 340, maxWidth: "min(94vw, 580px)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Подложка «коробочки» + белая рамка (§2.4) — меню несёт .pixel-tile сам. */}
+            {/* The box backing plus the white frame (§2.4) — the menu carries .pixel-tile itself. */}
             <span className="pixel-slab" aria-hidden />
             <span className="pixel-lid" aria-hidden />
-            {/* Крестик закрытия — правый верхний угол. */}
             <button
               type="button"
               onClick={() => setActive(null)}
@@ -286,12 +269,9 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
               <img
                 src={activeArtifact.imageUrl}
                 alt={activeArtifact.name}
-                /* Обе стороны — ТОЛЬКО потолки, размер считает браузер по пропорции предмета.
-                   Жёсткая ширина + `maxHeight` плющила вытянутые предметы (ракетка ~1:3.8:
-                   высота упиралась в потолок, а ширина оставалась заданной). Ширина капается
-                   в px (широкие очки задают размер ею) ⇒ расширение панели добавляет ПУСТОТУ
-                   по бокам; высокий потолок высоты — доля экрана, чтобы вытянутый предмет был
-                   виден целиком и не вылезал за меню на низком окне. */
+                /* Both sides are ONLY ceilings; the browser sizes by the object's ratio. A fixed
+                   width plus `maxHeight` flattened elongated items (a racket is about 1:3.8 — its
+                   height hit the ceiling while its width stayed as given). */
                 style={{ maxWidth: "min(100%, 400px)", maxHeight: "min(44vh, 420px)", objectFit: "contain", marginTop: 32 }}
               />
             ) : (
@@ -305,10 +285,11 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
                 }}
               />
             )}
-            {/* Подпись отделена от картинки бо́льшим зазором; кегль — от `.modal-scale` (vw),
-                а не контейнерные `t-artifact-*` (в портале контейнера нет ⇒ схлопнулись бы). */}
+            {/* The caption is set off from the picture by a larger gap; its size comes from
+                `.modal-scale` (vw) rather than the container-based `t-artifact-*`, which would
+                collapse in a portal with no container. */}
             <div className="flex flex-col items-center gap-2" style={{ marginTop: 96 }}>
-              {/* Короткие вертикальные штрихи-акценты глиной над и под названием (декор §2.4). */}
+              {/* Short vertical accent strokes above and below the title (decor §2.4). */}
               <span aria-hidden style={{ width: 2, height: 18, background: "var(--border-tile)" }} />
               <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-primary)", fontSize: "clamp(20px, calc(12px + 0.7vw), 32px)" }}>
                 {activeArtifact.name}

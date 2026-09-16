@@ -1,11 +1,6 @@
 import { ImageResponse } from "next/og";
 
-/**
- * OG-картинка соцпревью (PRD §12 M5). Генерится `next/og` в PNG (соцсети не рендерят SVG).
- * Текст — латиницей: дефолтный шрифт `next/og` без кириллицы рисовал бы тофу, а грузить
- * шрифт ради превью — лишняя зависимость. Minimal by owner's request: only the domain,
- * centered on plain white — no tagline, no decor.
- */
+/** Use PNG for social previews and Latin text supported by the default font. PRD §12. */
 export const alt = "danchuo.world";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";

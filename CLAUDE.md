@@ -1,223 +1,252 @@
 # CLAUDE.md
 
-Рабочая инструкция для Claude Code в этом репозитории: соглашения, команды,
-карта кода. Здесь живёт только **долгоживущее** — устройство, правила, команды.
-**Ни хроники веток, ни «где мы сейчас» тут нет:** что сделала ветка — в её PR и сообщении
-коммита, правило — в PRD/DESIGN рядом со своей фичей, версии — в `frontend/package.json`
-и `backend/build.gradle.kts`, архив первого года — `docs/journal.md`.
+Working instructions for Claude Code in this repository: conventions, commands, a map of the code.
+Only **long-lived** things live here — structure, rules, commands. **No branch chronicle and no
+"where we are now":** what a branch did belongs in its PR and commit message, a rule belongs in
+PRD/DESIGN beside its feature, versions live in `frontend/package.json` and
+`backend/build.gradle.kts`, and the first year's archive is `docs/journal.md`.
 
-## Документы — кто за что отвечает
+## Documents — who answers for what
 
-PRD (`docs/PRD-danchuoworld.md`) и DESIGN (`docs/DESIGN.md`) — разделённые источники правды,
-не дублируй между ними:
-- **PRD** = функциональность и acceptance criteria. Визуал описывается нейтрально («стиль активной волны»), без привязки к конкретной волне.
-- **DESIGN** = визуальная спецификация. Только здесь обсуждается декор-слой и конкретика
-  отдельных волн; каталог волн (кто как одет, какая активна) — DESIGN §10.2.
-- При изменениях, затрагивающих обе плоскости, правь оба и держи их согласованными (см. память проекта про синхронизацию PRD/DESIGN).
-- **`docs/journal.md`** = **архив** хроники веток за первый год (заморожен,
-  не пополняется). Ценен отвергнутыми вариантами, замерами и разобранными поломками — их нет
-  ни в коде, ни в PRD/DESIGN. Перед тем как переделывать что-то странное на вид,
-  грепни здесь: возможно, этот путь уже проходили и откатили.
-- `docs/deploy.md` — чеклист раскатки, секреты, откат.
-- `docs/pitfalls.md` — подводные камни инструментов: симптомы, которые выглядят поломкой кода,
-  а на деле свойство инструмента. Диагностический список, а не правила проекта.
-- `docs/artifact-detection-notes.md` — рабочий журнал поиска артефактов на кадрах.
+PRD (`docs/PRD-danchuoworld.md`) and DESIGN (`docs/DESIGN.md`) are separate sources of truth; do
+not duplicate between them:
+- **PRD** = functionality and acceptance criteria. Visuals are described neutrally ("in the active wave's style"), never tied to a particular wave.
+- **DESIGN** = the visual specification. The decor layer and the specifics of individual waves are
+  discussed only here; the catalogue of waves (how each is dressed, which is active) is DESIGN §10.2.
+- For a change touching both planes, edit both and keep them consistent (see the project memory on PRD/DESIGN sync).
+- **`docs/journal.md`** = the **archive** of the first year's branch chronicle (frozen, not extended).
+  Its value is in rejected alternatives, measurements and dissected breakages, which exist neither in
+  the code nor in PRD/DESIGN. Before redoing something that looks strange, grep here: that path may
+  already have been walked and rolled back.
+- `docs/deploy.md` — rollout checklist, secrets, rollback.
+- `docs/pitfalls.md` — tool pitfalls: symptoms that look like broken code but are a property of a
+  tool. A diagnostic list, not project rules.
+- `docs/artifact-detection-notes.md` — working log of artifact detection on frames.
 
-## Карта репозитория
+**Language.** Documents in `docs/` (and this file's Russian counterparts in PRD/DESIGN) are written
+in Russian; **everything else in the repository is English** — code comments, config files, workflows,
+commit messages and PR descriptions.
 
-`backend/` — Quarkus (Kotlin), Gradle. Вертикальные слайсы (PRD §3.1) + `core`.
-Слайс держит внешний источник целиком у себя; ядро не знает о нём.
+## Repository map
 
-| слайс | о чём | публичные точки |
+`backend/` — Quarkus (Kotlin), Gradle. Vertical slices (PRD §3.1) plus `core`. A slice keeps its
+external source entirely to itself; the core knows nothing about it.
+
+| slice | about | public endpoints |
 |---|---|---|
-| `days` | ядро дня: `DayRecord`, `DayRecordService` (единая точка записи, генезис-гард), `DayAggregator`, свежесть | `GET /api/days/{date}`, `GET /api/days?from=&to=`, `GET /api/freshness` |
-| `health` | приём с iOS-шортката: шаги, сессионизация сна (`SleepSessionizer`), дневник (`JournalDetector`) | `POST /api/ingest/health` |
-| `checklist` | пункты дисциплины и отметки; монстр — булев факт отметкой пункта `monster` (приём считает пилом любое непустое значение) | `POST /api/ingest/daily` |
-| `spotify` | OAuth, refresh шифрованно at-rest, Caffeine-кэш; поллер подкастов (`@Scheduled` 60с → `podcast_session`, пункт `podcasts` — производная от минут; сессия помнит и КУСОК эпизода: `start_progress_ms`→`last_progress_ms`); `PodcastSummarySource` — текст прослушанного куска: каталог Apple → RSS → окна аудио по `Range` → распознавание | `GET /api/spotify/{now-playing,recent,top}` |
-| `github` | вклады из HTML-фрагмента профиля, `@Scheduled`; не двигает лампу свежести | едут в `DaySummary` |
-| `reading` | полка Anx Reader по WebDAV: SQLite читалки → сессии чтения (`@Scheduled` 5м → `reading_session`, пункт `reading` — производная от минут); `ReadingSummarySource` — откуда взять текст прочитанного куска (epub с полки) | `GET /api/reading/cover/{id}` |
-| `summary` | пересказ пройденного за заход куска, **общий на все источники**: очередь и попытки (`content_summary`, ключ `kind`+`sessionId`), чистые `SummaryPolicy`/`SummaryWindows`, промпт со словарём по виду, один `SummaryPoller` (`@Scheduled` 2м, бесплатная полоса LLM) на всех. Слайсы дают текст через `SummarySource` | `GET /api/summary/{kind}/{id}` |
-| `bike` | Велобайк: поездки, покупки тарифов, геокодинг станций (Nominatim) | `GET /api/rides`, `/api/rides/stats`, `/api/rides/month-summary` |
-| `film` | фото-дропы: zip → web+thumb, поворот кадров через LLM, поиск артефактов | `GET /api/drops`, `/api/film-media/…` |
-| `llm` | клиент внешних LLM за `LlmClient` (Groq + Gemini); две **полосы** — основная (может быть платной) и бесплатная `LlmLane.FREE` для фоновой работы; распознавание речи (`transcribe`, multipart, свой лимит в аудиосекундах); без ключа — тихий `null` | — |
-| `projects`, `social` | контент борда (проекты, соцссылки, артефакты) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
-| `theme` | волны: токены **и** layout-дельта в JSONB | `GET /api/theme/active`, `/api/themes` |
-| `analytics` | cookieless-бикон + потайловая хитмапа (приватная сводка за bearer) | `POST /api/analytics/{beacon,interactions}` |
-| `core` | bearer-фильтр `/api/ingest/*`, мягкий рейтлимит (два бакета на клиента: чтение и кадры дропа; SSR помечен `X-Danchuo-Internal` и не лимитируется), MSK/генезис-конфиг, кэш-шов | — |
+| `days` | the day's core: `DayRecord`, `DayRecordService` (single write point, genesis guard), `DayAggregator`, freshness | `GET /api/days/{date}`, `GET /api/days?from=&to=`, `GET /api/freshness` |
+| `health` | ingest from the iOS shortcut: steps, sleep sessionisation (`SleepSessionizer`), journal (`JournalDetector`) | `POST /api/ingest/health` |
+| `checklist` | discipline items and their marks; the monster is a boolean fact marked through the `monster` item (ingest treats any non-empty value as drunk) | `POST /api/ingest/daily` |
+| `spotify` | OAuth, refresh encrypted at rest, Caffeine cache; podcast poller (`@Scheduled` 60s → `podcast_session`, the `podcasts` item derived from minutes; a session also remembers the CHUNK of an episode: `start_progress_ms`→`last_progress_ms`); `PodcastSummarySource` — the text of what was heard: Apple catalogue → RSS → audio windows by `Range` → transcription | `GET /api/spotify/{now-playing,recent,top}` |
+| `github` | contributions from the profile's HTML fragment, `@Scheduled`; does not move the freshness lamp | travel in `DaySummary` |
+| `reading` | the Anx Reader shelf over WebDAV: the reader's SQLite → reading sessions (`@Scheduled` 5m → `reading_session`, the `reading` item derived from minutes); `ReadingSummarySource` — where the text of what was read comes from (an epub on the shelf) | `GET /api/reading/cover/{id}` |
+| `summary` | retelling the chunk covered in a sitting, **shared across sources**: queue and attempts (`content_summary`, keyed by `kind`+`sessionId`), pure `SummaryPolicy`/`SummaryWindows`, a prompt with a per-kind vocabulary, one `SummaryPoller` (`@Scheduled` 2m, the LLM's free lane) for all of them. Slices supply text through `SummarySource` | `GET /api/summary/{kind}/{id}` |
+| `bike` | Velobike: rides, tariff purchases, station geocoding (Nominatim) | `GET /api/rides`, `/api/rides/stats`, `/api/rides/month-summary` |
+| `film` | photo drops: zip → web+thumb, frame rotation through an LLM, artifact detection | `GET /api/drops`, `/api/film-media/…` |
+| `llm` | a client for external LLMs behind `LlmClient` (Groq + Gemini); two **lanes** — the main one (which may be paid) and the free `LlmLane.FREE` for background work; speech recognition (`transcribe`, multipart, its own limit in audio-seconds); with no key, a quiet `null` | — |
+| `projects`, `social` | board content (projects, social links, artifacts) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
+| `theme` | waves: tokens **and** the layout delta, in JSONB | `GET /api/theme/active`, `/api/themes` |
+| `analytics` | a cookieless beacon plus a per-tile heatmap (private summary behind a bearer) | `POST /api/analytics/{beacon,interactions}` |
+| `core` | bearer filter on `/api/ingest/*`, a soft rate limit (two buckets per client: reads and drop frames; SSR is marked `X-Danchuo-Internal` and is not limited), MSK and genesis config, the cache seam | — |
 
-`caddy/` — свой образ edge (stock caddy + `caddy-ratelimit` + `cache-handler`). Сам конфиг —
-корневой `Caddyfile`: маршруты, потолки на клиента по зонам, десятисекундный кэш страницы и
-`max_conns_per_host` к фронту. Числа там — из замеров прода, обоснование в комментариях и PRD §8.
-Локального стека это не касается: в `docker-compose.yml` caddy нет, фронт слушает 3000 напрямую.
-Проверять правки edge — отдельным контейнером поверх локальной сети (`--network danchuoworld_default`).
+`caddy/` — our own edge image (stock caddy plus `caddy-ratelimit` and `cache-handler`). The config
+itself is the root `Caddyfile`: routes, per-client ceilings by zone, a ten-second page cache and
+`max_conns_per_host` to the frontend. Its numbers come from production measurements, with the
+reasoning in the comments and PRD §8. None of this touches the local stack: `docker-compose.yml`
+has no caddy and the frontend listens on 3000 directly. Edge changes are checked with a separate
+container over the local network (`--network danchuoworld_default`).
 
-`frontend/` — Next.js (App Router) + TypeScript + Tailwind v4, публичный JSON-клиент
-к Quarkus (только чтение).
+`frontend/` — Next.js (App Router) + TypeScript + Tailwind v4, a public JSON client to Quarkus
+(read-only).
 
-- `src/lib/layout.ts` — реестр тайлов (`TileId`) и bento-раскладка; `resolveLayout(wave)`
-  мержит дельту волны поверх дефолта. Новая волна = запись в БД, без правок кода (DESIGN §10.1).
-- `src/components/*Tile.tsx` — по тайлу на виджет, каждый тянет свой источник сам
-  (`useTileData`, per-tile состояния loading/empty/error/loaded); общий каркас — `TileShell`.
-- Дневной и оконный слои — швы `useSelectedDay` / `useCalendarWindow` поверх общего
-  `useDayRange`: пока едут новые данные, на экране остаются прежние (DESIGN §7 —
-  лоадер уместен, только когда показать нечего).
-- `src/app/admin/` — приватная админка (bearer в sessionStorage, noindex), разделы
-  дропы · артефакты · велопоездки · статистика; следует волнам, как публичный борд.
-- `e2e/` — Playwright, визуальная регрессия пер-тайл; эталоны снимаются **в Docker**
-  (`npm run e2e:docker[:update]`), первый прогон с `--update-snapshots` показывает
-  разошедшиеся снимки как failed — зелёным считается только повторный чистый прогон.
-- Тесты — Vitest + React Testing Library (`*.test.ts(x)` рядом с кодом).
+- `src/lib/layout.ts` — the tile registry (`TileId`) and the bento layout; `resolveLayout(wave)`
+  merges a wave's delta over the default. A new wave is a database row, with no code edits (DESIGN §10.1).
+- `src/components/*Tile.tsx` — one tile per widget, each fetching its own source
+  (`useTileData`, per-tile loading/empty/error/loaded states); the shared shell is `TileShell`.
+- The day and window layers are the `useSelectedDay` / `useCalendarWindow` seams over a shared
+  `useDayRange`: while new data travels, the previous data stays on screen (DESIGN §7 — a loader is
+  right only when there is nothing to show).
+- `src/app/admin/` — the private admin (bearer in sessionStorage, noindex), with sections for drops,
+  artifacts, rides and statistics; it follows waves like the public board.
+- `e2e/` — Playwright, per-tile visual regression; baselines are taken **in Docker**
+  (`npm run e2e:docker[:update]`), and a first run with `--update-snapshots` reports diverged
+  snapshots as failed — only a second, clean run counts as green.
+- Tests are Vitest + React Testing Library (`*.test.ts(x)` beside the code).
 
-Подробная помодульная опись (как слои наполнялись по этапам M1–M5 / B1–B9) —
-в приложении `docs/journal.md`.
+A detailed per-module inventory (how the layers were filled in over stages M1–M5 / B1–B9) is in the
+appendix of `docs/journal.md`.
 
-## Версии стека (самые свежие, что тянем — см. память `latest-stack-preference`)
-- **Java 25** нативно (toolchain + Gradle-демон через `org.gradle.java.home`); байткод-таргет 25 (Java и Kotlin консистентно).
+## Stack versions (the freshest we can take — see the `latest-stack-preference` memory)
+- **Java 25** natively (toolchain plus the Gradle daemon through `org.gradle.java.home`); bytecode target 25, consistently for Java and Kotlin.
 - **Quarkus 3.31.2**, **Kotlin 2.3.20**, **Gradle 9.5.1** (wrapper).
-- Миграции — **Liquibase** (а не Flyway): `quarkus-liquibase`, мастер `backend/src/main/resources/db/changelog/db.changelog-master.xml`, слайсы кладут чейнджлоги в `db/changelog/changes/`.
+- Migrations are **Liquibase** rather than Flyway: `quarkus-liquibase`, master at `backend/src/main/resources/db/changelog/db.changelog-master.xml`, and slices put their changelogs in `db/changelog/changes/`.
 
-## Команды бэкенда (запускать из корня репо)
-- Сборка без тестов: `./backend/gradlew -p backend build -x test`
-- Dev-режим (hot reload, поднимает Postgres через Dev Services — **нужен Docker**): `./backend/gradlew -p backend quarkusDev`
-- Тесты: `./backend/gradlew -p backend test` (требуют Docker для Dev Services Postgres)
-- JDK для Gradle зашит в `backend/gradle.properties` (`D:/Programms/Java/jdk-25`); на другой машине — поправить путь.
+## Backend commands (run from the repository root)
+- Build without tests: `./backend/gradlew -p backend build -x test`
+- Dev mode (hot reload, raises Postgres through Dev Services — **Docker required**): `./backend/gradlew -p backend quarkusDev`
+- Tests: `./backend/gradlew -p backend test` (they need Docker for the Dev Services Postgres)
+- The JDK for Gradle is pinned in `backend/gradle.properties` (`D:/Programms/Java/jdk-25`); on another machine, fix the path.
 
-## Команды фронта (запускать из `frontend/`)
-- Установка: `npm ci` (или `npm install`)
-- Dev-сервер: `npm run dev` (ожидает бэкенд на `NEXT_PUBLIC_API_BASE_URL`, дефолт `http://localhost:8080` — см. `.env.example`)
-- Тесты: `npm run test` (Vitest); типы: `npm run typecheck`; прод-сборка: `npm run build`
-  - Прогон идёт **двумя проектами** (`vitest.config.ts`): `logic` — чистые модули `src/lib/**`
-    в окружении **node**, `dom` — всё остальное в jsdom. Гонять один: `npx vitest --project=logic`.
-    Причина — замер: тесты логики исполняются 0.29с на 154 штуки, а jsdom под них стоил 35с
-    подъёма. Разложение по каталогу, а не по расширению: вне `src/lib` всё как было.
-  - Лог зелёного прогона — **точки** (`dot`) и без консоли прошедших тестов (`silent: "passed-only"`).
-    У упавшего теста печатается всё: и диагностика, и его `console.log`. В CI (`process.env.CI`) —
-    обычный поимённый список: там лог читают постфактум и переспросить не у кого.
-- shadcn пока не подключён — добавим, когда понадобятся его компоненты.
-- **Попробовать фото-дропы:** поднять бэк (`quarkusDev`) + фронт (`npm run dev`), открыть `/admin`, ввести bearer-токен (`danchuo.ingest.token`, в деве дефолт `dev-ingest-token-change-me`), загрузить zip с JPEG/PNG + название + дата → выбрать обложку кликом. Кадры лягут в `danchuo.film.storage-dir` (дефолт `backend/data/film`).
+## Frontend commands (run from `frontend/`)
+- Install: `npm ci` (or `npm install`)
+- Dev server: `npm run dev` (expects the backend at `NEXT_PUBLIC_API_BASE_URL`, default `http://localhost:8080` — see `.env.example`)
+- Tests: `npm run test` (Vitest); types: `npm run typecheck`; production build: `npm run build`
+  - The run goes as **two projects** (`vitest.config.ts`): `logic` — the pure modules of `src/lib/**`
+    in the **node** environment — and `dom` — everything else in jsdom. To run one:
+    `npx vitest --project=logic`. The reason is a measurement: logic tests execute in 0.29s for 154
+    of them, while raising jsdom under them cost 35s. The split is by directory, not by extension:
+    outside `src/lib` everything is as it was.
+  - A green run's log is **dots** (`dot`), with no console output from passing tests
+    (`silent: "passed-only"`). A failing test prints everything, diagnostics and its `console.log`
+    alike. In CI (`process.env.CI`) the usual by-name list is used: there the log is read after the
+    fact, with nobody to ask.
+- shadcn is not wired in yet — we will add it when its components are needed.
+- **To try photo drops:** raise the backend (`quarkusDev`) and the frontend (`npm run dev`), open `/admin`, enter the bearer token (`danchuo.ingest.token`, defaulting to `dev-ingest-token-change-me` in dev), upload a zip of JPEG/PNG plus a title and a date, then pick a cover by clicking. Frames land in `danchuo.film.storage-dir` (default `backend/data/film`).
 
-## Локальный стек — витрина проекта (**localhost:3000 всегда живой**)
+## The local stack is the project's shop window (**localhost:3000 is always live**)
 
-Проект **постоянно крутится** на машине владельца в docker compose (корневой
-`docker-compose.yml`): сайт `http://localhost:3000`, API `http://localhost:8080`,
-postgres `localhost:5432`, WebDAV полки читалки `localhost:6065/dav`. Это **build-образы**, не dev-серверы: hot reload нет, правки кода
-видны только после пересборки. Данные (тома `pgdata`, `filmdata`, `anxdata`) пересборку переживают.
+The project **runs continuously** on the owner's machine in docker compose (the root
+`docker-compose.yml`): the site at `http://localhost:3000`, the API at `http://localhost:8080`,
+postgres at `localhost:5432`, the reader's WebDAV shelf at `localhost:6065/dav`. These are **build
+images**, not dev servers: there is no hot reload, and code changes show only after a rebuild. Data
+(the `pgdata`, `filmdata` and `anxdata` volumes) survives a rebuild.
 
-- **Порт 8080 — стека, и ничей больше.** Не оставлять рядом `quarkusDev`: он садится на
-  `127.0.0.1:8080`, контейнер публикует `0.0.0.0:8080`, и на петле выигрывает узкая привязка —
-  `localhost:8080` начинает отвечать дев-джарником вместо стека, молча и надолго. Нужен
-  hot reload — поднимать его на другом порту (`-Dquarkus.http.port=8082`).
-- **В начале любой работы — идти в этот стек, а не поднимать ещё один сервер.** Посмотреть
-  борд, снять скриншот, потыкать `/admin`, прогнать браузерную проверку — всё против
-  `localhost:3000`. Свой `npm run dev` на свободном порту — крайняя мера (например,
-  предпросмотр ещё не закоммиченной правки), и его надо гасить за собой.
-- **Стек держим в актуальном состоянии.** В конце ветки — пересобрать и показать результат
-  владельцу: `docker compose up -d --build frontend` (или `backend`, или без имени сервиса,
-  если ветка тронула оба). Сборка фронта ~2–4 мин. Ветка считается доделанной, когда
-  на `localhost:3000` крутится её код, а не предыдущий.
-- **Порядок в конце ветки: сперва PR, финальная пересборка — последней.** Работа сделана ⇒
-  открывай пул-реквест и только потом пересобирай стек: сборка идёт минуты, и держать
-  готовый PR в заложниках у неё незачем. Пересборка **посреди** работы — другое дело: если
-  надо что-то проверить на живом борде (скриншот, поведение, данные), пересобирай сколько
-  нужно и PR не открывай — он открывается, когда открывать уже нечего.
-- **Перед выводом «фикс не работает» по localhost** — проверить `docker compose ps` и дату
-  образа: почти всегда там просто ещё старая сборка.
-- Визуальная регрессия (`npm run e2e:docker`) бьёт в `host.docker.internal:3000`, то есть
-  **в этот же стек** — эталоны имеют смысл только на свежепересобранном образе. Другой адрес
-  — через `PW_BASE_URL`.
+- **Port 8080 belongs to the stack and to nobody else.** Do not leave `quarkusDev` running beside it:
+  it binds `127.0.0.1:8080` while the container publishes `0.0.0.0:8080`, and on loopback the
+  narrower binding wins — `localhost:8080` starts answering from the dev jar instead of the stack,
+  silently and for a long time. If hot reload is needed, raise it on another port
+  (`-Dquarkus.http.port=8082`).
+- **At the start of any work, go to this stack rather than raising another server.** Looking at the
+  board, taking a screenshot, poking `/admin`, running a browser check — all of it against
+  `localhost:3000`. A private `npm run dev` on a free port is a last resort (previewing an uncommitted
+  change, say), and it has to be shut down afterwards.
+- **Keep the stack current.** At the end of a branch, rebuild and show the owner the result:
+  `docker compose up -d --build frontend` (or `backend`, or no service name if the branch touched
+  both). A frontend build takes ~2–4 min. A branch counts as finished when `localhost:3000` is
+  running its code rather than the previous one.
+- **Order at the end of a branch: the PR first, the final rebuild last.** The work is done ⇒ open the
+  pull request and only then rebuild the stack: a build takes minutes, and there is no reason to hold
+  a ready PR hostage to it. A rebuild **mid-work** is a different matter: if something has to be
+  checked on the live board (a screenshot, behaviour, data), rebuild as often as needed and do not
+  open the PR — it opens when there is nothing left to open.
+- **Before concluding "the fix does not work" from localhost** — check `docker compose ps` and the
+  image date: almost always it is simply still the old build.
+- Visual regression (`npm run e2e:docker`) hits `host.docker.internal:3000`, that is **this same
+  stack** — baselines only mean anything on a freshly rebuilt image. Another address goes through
+  `PW_BASE_URL`.
 
-## Архитектура (big picture)
+## Architecture (big picture)
 
-Расцепленный монолит, **не** микросервисы:
-- **Бэкенд:** Quarkus (Kotlin), REST JSON API, PostgreSQL + Hibernate Panache, миграции **Liquibase** (заменили Flyway). Кэш — quarkus-cache (Caffeine, in-process; Redis сознательно не нужен в v1). Рейтлимит — собственный in-memory токен-бакет (`RateLimitFilter` в `core`) + L7 в Caddy.
-- **Фронт:** Next.js App Router, изолирован в JSON-клиента к Quarkus.
-- **Деплой:** Docker Compose (app + postgres + caddy), GitHub Actions → GHCR → ssh на VPS. Caddy = TLS + reverse-proxy + отдача статики Next.js.
+A decoupled monolith, **not** microservices:
+- **Backend:** Quarkus (Kotlin), REST JSON API, PostgreSQL + Hibernate Panache, migrations by **Liquibase** (which replaced Flyway). The cache is quarkus-cache (Caffeine, in-process; Redis is deliberately unnecessary in v1). The rate limit is our own in-memory token bucket (`RateLimitFilter` in `core`) plus L7 in Caddy.
+- **Frontend:** Next.js App Router, isolated into a JSON client to Quarkus.
+- **Deploy:** Docker Compose (app + postgres + caddy), GitHub Actions → GHCR → ssh to the VPS. Caddy is TLS, reverse proxy and serving of Next.js statics.
 
-### Сквозные соглашения (легко нарушить, читать до правок данных)
+### Cross-cutting conventions (easy to break; read before editing data)
 
-- **Канонический часовой пояс — MSK (UTC+3).** Все «дни», границы суток (полночь MSK) и агрегаты считаются в MSK независимо от tz сервера/посетителя. Ось данных — `LocalDate` в MSK.
-- **Сон относится ко дню пробуждения.** `sleepMinutes` дня D = сессия сна, завершившаяся пробуждением в день D.
-- **Генезис-дата** в конфиге — отсчёт данных; раньше неё пусто. Будущие дни рендерятся пустыми.
-- **Все данные публичны на чтение.** Защищается не контент, а **креды записи**: мутирующие эндпоинты (`/api/ingest/*`) — за статическим bearer-токеном в `Authorization`; все GET публичны. Ingest идемпотентен (upsert по дате).
-- **Источник данных с телефона — push, не pull.** iOS-шорткаты постят на ingest (Health авто 12/18/24 MSK; чеклист/монстр/имя дня — интерактивный шорткат). Облачного API у Apple нет.
-- **Spotify** опрашивается живьём; refresh-токен шифруется at-rest; Caffeine-кэш гасит нагрузку (now-playing TTL ~20с).
+- **The canonical timezone is MSK (UTC+3).** All "days", day boundaries (MSK midnight) and aggregates are computed in MSK regardless of the server's or visitor's timezone. The data axis is a `LocalDate` in MSK.
+- **Sleep belongs to the day of waking.** Day D's `sleepMinutes` is the sleep session that ended by waking on day D.
+- **The genesis date** in the config is where data starts; before it there is nothing. Future days render empty.
+- **All data is public to read.** What is protected is not the content but the **write credentials**: mutating endpoints (`/api/ingest/*`) sit behind a static bearer token in `Authorization`, while every GET is public. Ingest is idempotent (upsert by date).
+- **Data from the phone is pushed, not pulled.** iOS shortcuts post to ingest (Health automatically at 12/18/24 MSK; checklist, monster and day name through an interactive shortcut). Apple has no cloud API.
+- **Spotify** is polled live; the refresh token is encrypted at rest; the Caffeine cache absorbs the load (now-playing TTL ~20s).
 
-### Дизайн-архитектура (DESIGN.md — правда)
+### Design architecture (DESIGN.md is the truth)
 
-- **Ноль хардкод-цветов/размеров в компонентах.** Все визуальные значения — design tokens (CSS-переменные), хранятся в БД (JSONB), инжектятся в `:root`. `GET /api/theme/active` отдаёт токены активной волны.
-- **Система «волн»:** волна = именованный визуальный стиль (палитра/типографика/декор-слой/layout-спаны), сменяемый по релизам. Смена активной волны меняет весь сайт без правок компонентов; волна может переопределять спаны плиток bento.
-- **Декор волны — надстройка ПОВЕРХ чистой AA-базы,** какой бы ни была волна: он живёт в
-  рамках/иконках/акцентах/лоадерах/календаре и **никогда** в основном тексте, цифрах-данных
-  и навигации. При сомнении: clarity > craft.
-- **Скин волны переопределяет параметры, а не гасит правила базы.** Край плитки, жест наведения,
-  фон, размеры внутренних карточек приезжают токенами/переменными — волна вправе взять дефолт,
-  переопределить его или отказаться; правило соседней волны при этом не трогается.
-  Какая волна активна и чем именно одета — **только** в DESIGN §10.2, не здесь.
-- **Bento 20×14**, плитка «Сегодня» — доминанта; борд виден без скролла на ≥1440px. Per-tile состояния (loading/empty/error/loaded), общего спиннера нет. На тач-устройствах — одноколоночный стек; календарь в нём **тот же**, что в бенто (прежняя недельная полоса `WeekStrip` снята — она показывала одну неделю, то есть отвечала на другой вопрос; замер подтвердил, что 7 колонок влезают: на 360px ячейка ≈44px).
+- **Zero hardcoded colours or sizes in components.** Every visual value is a design token (a CSS variable), stored in the database (JSONB) and injected into `:root`. `GET /api/theme/active` serves the active wave's tokens.
+- **The "wave" system:** a wave is a named visual style (palette, typography, decor layer, layout spans), swapped between releases. Changing the active wave changes the whole site with no component edits, and a wave may override the spans of bento tiles.
+- **A wave's decor sits ON TOP of a clean AA base,** whatever the wave: it lives in borders, icons,
+  accents, loaders and the calendar, and **never** in body text, data figures or navigation. When in
+  doubt: clarity > craft.
+- **A wave's skin overrides parameters rather than cancelling the base's rules.** Tile edge, hover
+  gesture, ground and the sizes of inner cards all arrive as tokens or variables — a wave may take
+  the default, override it or decline, without touching a neighbouring wave's rule. Which wave is
+  active and how it is dressed lives **only** in DESIGN §10.2, not here.
+- **Bento 20×14**, with the "Today" tile as the dominant; the board is visible without scrolling at ≥1440px. Per-tile states (loading/empty/error/loaded), with no shared spinner. On touch devices it becomes a single-column stack, and the calendar in it is **the same one** as in bento (the former `WeekStrip` was removed — it showed one week, i.e. answered a different question; a measurement confirmed that 7 columns fit, a cell being ≈44px at 360px).
 
-## Известные ограничения / решённые вопросы
+## Known limits / settled questions
 
-- **Экранное время (Apple) программно недоступно.** Нет в HealthKit; Screen Time API (DeviceActivity) рендерит отчёт в песочнице-расширении и **не отдаёт сырые числа** наружу. Пока нет реального канала забрать данные с айфона — **не заводить под это ни сущность, ни эндпоинт, ни колонку**. Колонка-заготовка `screen_time_minutes` тут уже была и год простояла пустой — снята. См. PRD §9 (бэклог B2).
-- Вуш/Юрент, прогресс книг, история подкастов — аналогично без публичного API → ручной ввод/research (PRD §9).
+- **Screen time (Apple) is not available programmatically.** It is not in HealthKit, and the Screen Time API (DeviceActivity) renders its report inside a sandboxed extension and **does not hand out raw numbers**. Until there is a real channel for taking the data off the iPhone, **do not create an entity, an endpoint or a column for it**. A placeholder column `screen_time_minutes` was already here and stood empty for a year — it has been removed. See PRD §9 (backlog B2).
+- Whoosh/Urent, book progress and podcast history are likewise without a public API → manual entry or research (PRD §9).
 
-## Подводные камни инструментов
+## Tool pitfalls
 
-Вынесены в **[`docs/pitfalls.md`](docs/pitfalls.md)**: поведение инструментов, которое выглядит
-поломкой кода — окружения Vitest, эталоны Playwright, комментарии Liquibase, общая БД в
-`@QuarkusTest`, bind-маунты и теги образов на VPS, композитные слои WebKit. Спотыкнулся повторно
-— дописывай туда, а не сюда.
+Moved into **[`docs/pitfalls.md`](docs/pitfalls.md)**: tool behaviour that looks like broken code —
+Vitest environments, Playwright baselines, Liquibase comments, the shared database in `@QuarkusTest`,
+bind mounts and image tags on the VPS, WebKit compositing layers. Stumbled on something twice? Write
+it there, not here.
 
-## Рабочий процесс
+## Working process
 
-- Изменения идут через **feature-ветку + PR**, не напрямую в `main` (см. память проекта).
-- Коммиты: маркированный список изменений; крупные задачи разбивать; в сообщениях коммитов **не упоминать AI/ассистента** (см. память проекта).
-- **Одна ветка = один коммит.** Вся работа фичи (бэкенд+инфра / фронт / доки) сводится в **единственный** коммит перед пушем/PR. Правки по ходу ревью не плодят коммиты — копятся и сквошатся в тот же один. При склейке слоёв **сохранять все буллеты** из объединяемых сообщений (конкатенация, ничего не терять). Сквош без интерактива: `git commit --fixup` + `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash <base>`.
-- **Версионирование.** В начале каждой новой ветки `feature/*` или `hotfix/*` инкрементить версию проекта первым коммитом ветки (semver). Версии **две независимые** и живут в коде: фронт — `frontend/package.json`, бэк — `backend/build.gradle.kts`. Инкрементится та, которой касается ветка (тронула обе — обе).
-  - **Щедро используй патч-часть (последнюю цифру) для фиксов и мелких правок.** Крупная новая фича — minor; но косметика, полировка UI, поведенческие фиксы, доработки уже существующего — это **patch**, а не minor. Не гнать minor на каждую мелочь: сомневаешься между minor и patch → patch.
-- **Ветка заканчивается пересборкой локального стека и показом результата** (см. раздел
-  «Локальный стек — витрина проекта»): `docker compose up -d --build <frontend|backend>`,
-  а затем скриншот/описание того, что изменилось на `localhost:3000`. Владелец смотрит
-  результат там же, где живёт сайт, — не на временном сервере, который умрёт вместе с сессией.
-## Комментарии в коде — что пишем, а что нет
+- Changes go through a **feature branch plus a PR**, never straight into `main` (see the project memory).
+- Commits: a bulleted list of changes; split large tasks; **never mention AI or an assistant** in commit messages (see the project memory).
+- **One branch = one commit.** All of a feature's work (backend and infra / frontend / docs) is folded into a **single** commit before pushing and opening the PR. Review fixes do not breed commits — they accumulate and are squashed into that same one. When merging layers, **keep every bullet** from the messages being combined (concatenate; lose nothing). Non-interactive squash: `git commit --fixup` plus `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash <base>`.
+- **Versioning.** At the start of every new `feature/*` or `hotfix/*` branch, bump the project version in the branch's first commit (semver). There are **two independent** versions and they live in the code: the frontend in `frontend/package.json`, the backend in `backend/build.gradle.kts`. Bump the one the branch touches (both, if it touched both).
+  - **Use the patch part generously for fixes and small changes.** A large new feature is a minor; cosmetics, UI polish, behavioural fixes and refinements of what already exists are a **patch**, not a minor. Do not spend a minor on every trifle: in doubt between minor and patch → patch.
+- **A branch ends with a rebuild of the local stack and showing the result** (see "The local stack is
+  the project's shop window"): `docker compose up -d --build <frontend|backend>`, then a screenshot or
+  description of what changed on `localhost:3000`. The owner looks at the result where the site lives,
+  not on a temporary server that dies with the session.
 
-Комментарий обязан быть верен **через год**, а не только в своей ветке. Проверка одна:
-сотри его — вернётся ли баг или повторится ли уже пройденный тупик? Нет ⇒ комментарий лишний.
+## Comments in code
 
-**Пишем:**
-- **Инварианты и ловушки** — почему иначе ломается: «третье состояние обязательно, без него
-  дырка в записи читается как чистый день», «масштаб трансформом, а не высотой: иначе рост
-  кадра пересчитывает раскладку». Это регрессионные якоря, они экономят чтение кода.
-- **`§`-ссылки в PRD/DESIGN/pitfalls** — три токена, а за ними весь разбор. Лучшее соотношение
-  цены и пользы в репозитории; если правило уже описано в доке, в коде остаётся только ссылка.
-- **Отклонённые варианты — одной строкой и со ссылкой:** «рассмотрено и отклонено: X (DESIGN §N)».
-  Сам разбор живёт в доке, а не в файле.
+Two hard limits, checked mechanically (`node scripts/check-comment-budget.mjs`, also
+`npm run lint:comments` and a gate in the PR build):
 
-**Не пишем (и вычищаем, встретив):**
-- **Провенанс сессии** — «просьба владельца», «замечание владельца», «согласовано с владельцем»,
-  цитаты из обсуждения. Кто попросил число, не помогает его менять; причина ценна, авторство нет.
-- **Мёртвые числа и мёртвый код** — «прежние 600мс», «было три кольца, стало два», «детур снят,
-  см. рендер». Описывают то, чего в файле уже нет: агент идёт искать и не находит, после чего
-  перестаёт верить и соседним комментариям. Устаревший комментарий хуже отсутствующего.
-- **Пересказ процесса** — «начинали с 0.22, попробовали 0.17, остановились на 0.20», «раньше
-  считали на глаз». Это сообщение коммита, переехавшее в файл; ему место в PR.
+1. **A comment block is at most 3 lines.** A block is a run of adjacent comment lines; prose counts,
+   while `*/` and empty `*` do not. Longer ⇒ red PR.
+2. **English only.** Cyrillic in a comment is a red PR. The `docs/` folder stays Russian; everything
+   else in the repository — code, configs, build and deploy files, tests — is English. This covers
+   a comment trailing a line of code and a one-line JSX `{/* … */}` as much as a block.
 
-**Прошедшее время — сигнал проверить.** «Раньше было X» почти всегда переписывается в настоящее:
-не «прежде оси считались независимо, и кадр сплющивался», а «считай оси независимо — кадр
-сплющится». Формулировка та же по смыслу, но не протухает и не отсылает к несуществующему коду.
+**Three lines is not a style preference, it is a ceiling on what a comment may carry.** Reasoning,
+measurements, rejected alternatives and the history of a decision do not fit, and that is the point:
+they belong in the docs. Wanting a fourth line is the signal that the material is a document's, not a
+file's — open a paragraph in PRD or DESIGN beside its feature and leave the address in the code.
 
-- **Никаких следов ассистента в исходящем тексте.** Строка «🤖 Generated with Claude Code»
-  (и любые её варианты со ссылкой на claude.com) **не добавляется никуда**: ни в описание PR,
-  ни в комментарии, ни в сообщения коммитов, ни в доки, ни в код. То же про подписи вида
-  `Co-Authored-By: Claude`. Правило шире запрета на упоминание AI в коммитах — оно про **любой**
-  текст, который уезжает в репозиторий или на GitHub. Встретил такую строку в существующем
-  тексте — убери.
+**A `§`-reference REPLACES the retelling; it never accompanies it.** This is the main source of
+surplus text: next to `DESIGN §4.1` a six-line restatement of that same §4.1 grows, because volume
+reads as diligence. If the content is already in a document, the code keeps **only the address**.
 
-- **Итог ветки — в PR и сообщении коммита, не в доках.** Хронику работы больше
-  не ведём (`docs/journal.md` заморожен). Из ветки в доки едет только долгоживущее:
-  правило — в PRD/DESIGN рядом с решением; всерьёз испробованная и отвергнутая
-  альтернатива — там же строкой «рассмотрено и отклонено: X, потому что Y»;
-  подводный камень инструмента — в `docs/pitfalls.md`. Отдельного раздела «состояние»
-  в этом файле нет и заводить его заново не надо.
+**What earns its place** (within the three lines):
+- **Invariants and traps** — what will break and why: `// Scale by transform, not height: height
+  re-runs layout on every frame. DESIGN §7.5`. These are regression anchors; they save reading the
+  code, and they are short by nature.
+- **A rejected alternative in one line, with a reference:** `// Rejected: X. DESIGN §N`.
+- **What a type does not show:** a unit of measure (kopecks, metres, ms), the meaning of `null` or
+  zero, a precondition, or a rescue for a misleading name (`VelobikeAuthRequest(user, password)` —
+  actually a phone number and an SMS code).
+
+**A comment that restates a name is not written at all.** `var tariffName` does not need "the tariff's
+name", `fun latest()` does not need "the freshest record". That is not a short comment but an absent
+one: it spends tokens on every read of the file and answers no question. Nothing from the list above
+⇒ delete it rather than translate it.
+
+**Never write, and clear out on sight:**
+- **Session provenance** — "the owner asked", "agreed with the owner", quotes from a discussion. Who
+  asked for a number does not help change it; the reason is valuable, the authorship is not.
+- **Dead numbers and dead code** — "the former 600ms", "there used to be three rings". They describe
+  what is no longer in the file: a reader goes looking, finds nothing, and stops trusting the
+  neighbouring comments too. A stale comment is worse than a missing one.
+- **A retelling of the process** — "started at 0.22, tried 0.17, settled on 0.20". That is a commit
+  message that moved into a file; it belongs in the PR.
+
+**The past tense is a signal to check.** "It used to be X" almost always rewrites into the present:
+not "the axes used to be computed independently and the frame flattened", but "compute the axes
+independently and the frame flattens". The same meaning, but it does not go stale and does not point
+at code that no longer exists.
+
+**No trace of an assistant in outgoing text.** The line "🤖 Generated with Claude Code" (and any
+variant linking to claude.com) **goes nowhere**: not into a PR description, a comment, a commit
+message, a document or the code. The same applies to `Co-Authored-By: Claude` signatures. This is
+broader than the ban on mentioning AI in commits — it covers **any** text leaving for the repository
+or GitHub. Found such a line in existing text? Remove it.
+
+**A branch's outcome belongs in the PR and the commit message, not in the docs.** We no longer keep a
+chronicle of work (`docs/journal.md` is frozen). Only long-lived things travel from a branch into the
+docs: a rule goes into PRD or DESIGN beside its decision; a genuinely tried and rejected alternative
+goes there too, as a line "considered and rejected: X, because Y"; a tool pitfall goes into
+`docs/pitfalls.md`. There is no "current state" section in this file, and none should be started.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

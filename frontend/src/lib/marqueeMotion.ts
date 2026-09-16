@@ -1,45 +1,41 @@
 /**
- * Механика бегущей ленты, которую можно листать рукой (DESIGN §7.2).
- *
- * Лента едет сама и одновременно слушается указателя: мышью и пальцем её тянут вперёд и назад,
- * после броска она докатывается и возвращается к собственному ходу. Здесь — только счёт: чистые
- * функции без DOM и без времени. Кадры, слушатели и стили — в `useMarqueeDrag`.
+ * Mechanics of a marquee that can be paged by hand: it travels on its own while obeying the
+ * pointer, coasts after a fling and returns to its own motion. Only the arithmetic lives here —
+ * pure functions with no DOM and no time. Frames, listeners and styles are in `useMarqueeDrag`.
  */
 
-/** Дальше этого порога (px) жест считается протяжкой, а не тапом по предмету. */
+/** Past this threshold (px) a gesture counts as a drag rather than a tap on an item. */
 export const DRAG_SLOP = 6;
 
-/** Опорный кадр (мс) для затухания: коэффициент ниже задан «за кадр 60fps». */
+/** Reference frame (ms) for the decay: the coefficient below is given per 60fps frame. */
 const FRAME_MS = 1000 / 60;
 
-/** Сколько скорости броска остаётся за кадр. */
+/** How much of a throw's speed survives one frame. */
 const FLING_DECAY = 0.94;
 
-/** Тише этого (px/мс ≈ 24px/с) бросок гасим: иначе лента ещё секунды ползёт заметно медленнее
- *  собственного хода, и это читается как подтормаживание, а не как инерция. */
+/** Below this (px/ms ≈ 24px/s) a throw is killed: otherwise the rail crawls on for seconds, visibly
+ *  slower than its own travel, which reads as stalling rather than inertia. */
 export const FLING_MIN = 0.04;
 
-/** Сколько последних миллисекунд протяжки считаются броском. */
+/** How many of the drag's last milliseconds count as the throw. */
 const FLING_WINDOW_MS = 90;
 
-/** Потолок броска (px/мс = 3000px/с). Живой палец столько не выжимает; потолок стоит против
- *  ЧАСОВ: две точки, легшие в доли миллисекунды, дают честную производную в сотни px/мс, и
- *  лента улетала бы на десятки копий за кадр. */
+/** Ceiling on a throw (px/ms = 3000px/s). A real finger never reaches it; the ceiling guards against
+ *  the CLOCK — two points landing a fraction of a millisecond apart give an honest derivative in the
+ *  hundreds of px/ms, and the rail would fly dozens of copies in one frame. */
 export const FLING_MAX = 3;
 
 export interface DragSample {
-  /** Момент точки (мс). */
+  /** The sample's moment (ms). */
   t: number;
-  /** Координата указателя вдоль ленты (px). */
+  /** The pointer's coordinate along the rail (px). */
   pos: number;
 }
 
 /**
- * Смещение ленты в пределах одной копии контента: `span` — размер копии, а копий в треке две,
- * поэтому шаг на целую копию незаметен (петля бесшовна, как у прежних CSS `-50%`).
- *
- * Остаток именно ПОЛОЖИТЕЛЬНЫЙ: назад лента листается так же бесконечно, как вперёд, — уехав
- * за ноль, она заходит с конца копии, а не упирается в край своего единственного круга.
+ * The ribbon's offset within one copy of the content: the track holds two copies, so a step of a
+ * whole copy is invisible and the loop is seamless. The remainder is POSITIVE on purpose — paging
+ * backwards is as endless as forwards, entering from the copy's end rather than hitting an edge.
  */
 export function wrapOffset(offset: number, span: number): number {
   if (!Number.isFinite(span) || span <= 0 || !Number.isFinite(offset)) return 0;
@@ -48,17 +44,15 @@ export function wrapOffset(offset: number, span: number): number {
 }
 
 /**
- * Скорость броска (px/мс) по последним точкам протяжки.
- *
- * Считается по хвосту в `FLING_WINDOW_MS`, а не по всей протяжке: «довёл и придержал» — это
- * указание точки, а не бросок, и лента обязана остаться там, где её оставили. Средняя по всему
- * жесту как раз выкидывала бы её дальше вопреки руке.
+ * Fling velocity from the last points of a drag. Measured over the tail rather than the whole
+ * gesture: "dragged and held" is pointing at a spot, not throwing, and the ribbon must stay where
+ * it was left — an average over the whole gesture would throw it onward against the hand.
  */
 export function flingVelocity(samples: readonly DragSample[]): number {
   if (samples.length < 2) return 0;
   const last = samples[samples.length - 1];
-  // Шаг назад делается всегда, даже если предыдущая точка старше окна: две редкие точки —
-  // это всё, что известно о жесте, и отказ считать по ним означал бы «броска не было».
+  // The step back is always taken, even when the previous point is older than the window: two sparse
+  // points are all that is known about the gesture, and refusing them would mean "there was no throw".
   let first = samples[samples.length - 2];
   for (let i = samples.length - 3; i >= 0; i--) {
     if (last.t - samples[i].t > FLING_WINDOW_MS) break;
@@ -71,41 +65,39 @@ export function flingVelocity(samples: readonly DragSample[]): number {
 }
 
 /**
- * Затухание броска за прошедшее время. Привязано к миллисекундам, а не к числу кадров: на
- * 120-герцовом экране кадров вдвое больше, и покадровый множитель гасил бы бросок вдвое быстрее.
+ * Decay of a throw over elapsed time. Tied to milliseconds rather than to a frame count: a 120 Hz
+ * screen has twice the frames, and a per-frame multiplier would kill a throw twice as fast.
  */
 export function decayVelocity(v: number, dtMs: number): number {
   const decayed = v * FLING_DECAY ** (dtMs / FRAME_MS);
   return Math.abs(decayed) < FLING_MIN ? 0 : decayed;
 }
 
-/** Собственный ход ленты (px/мс) из времени полного прохода копии — прежний темп анимации. */
+/** The rail's own travel (px/ms) from the time of a full pass of a copy — the animation's old tempo. */
 export function driftSpeed(span: number, seconds: number): number {
   if (!Number.isFinite(span) || !Number.isFinite(seconds) || span <= 0 || seconds <= 0) return 0;
   return span / (seconds * 1000);
 }
 
-/** Строка колеса в пикселях (`deltaMode: 1`) — примерно строка текста борда. */
+/** A wheel line in pixels (`deltaMode: 1`), roughly a line of the board's text. */
 export const WHEEL_LINE_PX = 16;
 
-/** Страница колеса в пикселях (`deltaMode: 2`) — экран прокрутки; жест редкий, точность тут ни к чему. */
+/** A wheel page in pixels (`deltaMode: 2`), a screen of scrolling; the gesture is rare and precision
+ *  is beside the point. */
 export const WHEEL_PAGE_PX = 400;
 
-/** Событие колеса в том объёме, в каком его читает счёт: без DOM. */
+/** A wheel event in as much detail as the arithmetic reads, with no DOM. */
 export interface WheelLike {
   deltaX: number;
   deltaY: number;
-  /** 0 — пиксели, 1 — строки, 2 — страницы (`WheelEvent.deltaMode`). */
+  /** 0 is pixels, 1 lines, 2 pages (`WheelEvent.deltaMode`). */
   deltaMode: number;
 }
 
 /**
- * Насколько прокрутить ленту по одному событию колеса (px, положительное — вперёд, туда же,
- * куда идёт собственный ход).
- *
- * Берётся ГЛАВНАЯ ось жеста, а не ось ленты: у мыши поперечной оси нет вовсе, а на тачпаде
- * привычный жест вертикальный — отдай мы ленте только её собственную ось, «покрутить при
- * наведении» работало бы у единиц. Ничья (равные дельты) достаётся оси самой ленты.
+ * How far one wheel event moves the ribbon, positive meaning the direction it travels by itself.
+ * The gesture's MAIN axis is taken, not the ribbon's: a mouse has no cross axis at all and a
+ * trackpad's habitual gesture is vertical. A tie goes to the ribbon's own axis.
  */
 export function wheelDelta(e: WheelLike, vertical: boolean): number {
   const unit = e.deltaMode === 1 ? WHEEL_LINE_PX : e.deltaMode === 2 ? WHEEL_PAGE_PX : 1;

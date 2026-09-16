@@ -1,20 +1,17 @@
 /**
- * Выборка графиков активности (§7.4). В отличие от окна календаря она **следует за выбранным
- * днём**: борд — машина времени, и уехав в июнь, читатель ждёт июньских графиков, а не
- * последних тридцати дней (владелец: «активность не переключается по старым датам»).
- *
- * Окно переносится **лениво** — только когда выбранный день вышел за его края. Иначе клик по
- * соседнему дню гонял бы по запросу на каждый день; так на прыжок приходится один.
+ * The activity charts' window. Unlike the calendar's it FOLLOWS THE SELECTED DAY: the board is a
+ * time machine, and a reader who has gone to June expects June's charts. It moves LAZILY, only when
+ * the day leaves its edges, so a jump costs one request rather than one per day. DESIGN §7.4
  */
 
 import { addDays } from "./date";
 
-/** Глубина выборки. Графику видно 10 дней разом, остальное — его скролл-в-прошлое. */
+/** The sample's depth. The chart shows 10 days at once; the rest is its scroll into the past. */
 export const STATS_SPAN = 30;
 
 /**
- * Сколько дней остаётся ПОСЛЕ выбранного при переносе окна. Без запаса ход по дням вперёд
- * упирался бы в правый край на первом же шаге и требовал перезапроса на каждый день.
+ * How many days remain AFTER the selected one when the window moves. With no margin, stepping
+ * forward would hit the right edge immediately and refetch on every day.
  */
 const TRAIL = 9;
 
@@ -24,8 +21,8 @@ export interface StatsRange {
 }
 
 /**
- * Окно графиков для выбранного дня. Возвращает **тот же объект**, если двигать нечего, —
- * на этом держится ленивость: сравнение по ссылке гасит перезапрос на уровне эффекта.
+ * The charts' window for the selected day. It returns THE SAME object when there is nothing to
+ * move, and the laziness rests on that: comparison by reference silences the refetch.
  */
 export function statsWindow(
   selected: string,
@@ -34,8 +31,8 @@ export function statsWindow(
 ): StatsRange {
   if (current && selected >= current.from && selected <= current.to) return current;
 
-  // Вправо дальше сегодня не уходим: будущих данных не бывает, а окно должно кончаться там,
-  // где кончается история. Поэтому будущий день в календаре окно не двигает вовсе.
+  // We never run past today: future data does not exist, and the window must end where the
+  // history does. So a future day in the calendar does not move the window at all.
   const trailEnd = addDays(selected, TRAIL);
   const to = trailEnd > today ? today : trailEnd;
   const next = { from: addDays(to, -(STATS_SPAN - 1)), to };

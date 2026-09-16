@@ -4,8 +4,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * Чистая нормализация сна (без БД/сети): ночь в 0 минут — это не «реальный ноль», а «сна не было»
- * (шорткат иногда шлёт 0, когда в HealthKit нет записи сна). Схлопываем такую ночь в «нет данных».
+ * Pure sleep normalisation, no DB or network: a night of 0 minutes is not a real zero but "no
+ * sleep recorded" (the shortcut sends 0 when HealthKit has nothing), so it collapses to no data.
  */
 class SleepNormalizationTest {
 
@@ -41,7 +41,7 @@ class SleepNormalizationTest {
 
     @Test
     fun `ненулевая длительность с нулём в отдельной фазе — фаза остаётся реальным нулём`() {
-        // Сон был (>0), значит 0 в конкретной фазе — настоящий ноль этой фазы, не «нет данных».
+        // Sleep happened (>0), so a 0 in one phase is that phase's real zero, not missing data.
         val night = SleepInput(minutes = 300, rem = 0, deep = 40, light = 260, awake = 0)
         assertEquals(night, SleepNormalization.normalize(night))
     }

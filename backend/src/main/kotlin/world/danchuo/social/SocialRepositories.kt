@@ -4,15 +4,15 @@ import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
 import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
 
-/** Доступ к соцссылкам — в порядке [SocialLink.sortOrder]. */
+/** Access to social links, in [SocialLink.sortOrder]. */
 @ApplicationScoped
 class SocialLinkRepository : PanacheRepository<SocialLink> {
     fun listOrdered(): List<SocialLink> = listAll(Sort.by("sortOrder"))
 }
 
 /**
- * Доступ к артефактам marquee — хроникой: старое первым, по [Artifact.firstMentionedOn].
- * Одна дата у двух предметов — разводит `id`, иначе порядок ленты гулял бы между запросами.
+ * Access to marquee artifacts, as a chronicle: oldest first by [Artifact.firstMentionedOn]. Two
+ * items sharing a date are separated by `id`, or the marquee order would drift between requests.
  */
 @ApplicationScoped
 class ArtifactRepository : PanacheRepository<Artifact> {

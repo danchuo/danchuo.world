@@ -20,42 +20,23 @@ import {
 interface ArtifactMarkerProps {
   token: string;
   dropId: number;
-  /** Размечаемый кадр — приходит сверху, поэтому после сохранения рамки видны сразу. */
+  /** Parent-owned photo makes saved boxes visible immediately. */
   photo: AdminPhotoView;
-  /** Каталог предметов: размечать можно только то, что в нём заведено. */
+  /** Only catalog items can be annotated. */
   artifacts: AdminArtifactView[];
-  /** Свежие кадры дропа после сохранения/снятия рамки. */
+  /** Updated photos after saving or removing a box. */
   onSaved: (photos: AdminPhotoView[]) => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
 
-/** Точка в долях кадра. */
+/** Point in image fractions. */
 interface Point {
   x: number;
   y: number;
 }
 
-/**
- * Ручная разметка артефактов на кадре (PRD §5.12): **выбрал предмет → обвёл его мышью**.
- *
- * Зачем это рядом с прогоном модели: описание артефакта задаёт КЛАСС вещи, и на типовых
- * предметах модель ошибается в обе стороны — и лишнее находит, и своё пропускает. Снять лишнее
- * админка умела с самого начала (чипы под кадром), а поставить своё — нет: рамка бралась только
- * из прогона. Ручная рамка главнее находки модели (`source = manual`), поэтому перепрогон её не
- * трогает, а на отклонённой паре она снимает отклонение — то есть это ещё и способ вернуть
- * предмет, снятый по ошибке.
- *
- * Три решения, которые тут неочевидны.
- * **(1) Кадр открывается в web-варианте, а не в превью сетки**: доли считаются от нарисованного
- * размера, и на превью в 96px промах в один пиксель это процент кадра.
- * **(2) Протяжка ведётся по окну, а не по кадру**: курсор при обводке предмета у самого края
- * регулярно выезжает за картинку, и слушатель на кадре терял бы `pointerup` — рамка «залипала»
- * бы до следующего клика. Рамка кадра снимается один раз в начале жеста: во время протяжки она
- * не меняется, а лишние замеры на каждом движении заметны.
- * **(3) Мелкая протяжка дотягивается до минимума** (`boxFromDrag`) — вокруг очков на общем
- * плане рамку мышью не обвести, да и незачем: подсветка отвечает «куда смотреть».
- */
+/** Manual boxes override model detections and restore rejected items. PRD §5.12. */
 export function ArtifactMarker({
   token,
   dropId,
@@ -69,12 +50,12 @@ export function ArtifactMarker({
   const [drag, setDrag] = useState<{ from: Point; to: Point } | null>(null);
   const [saving, setSaving] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  // Рамка кадра на время жеста: замеряется на нажатии и дальше не пересчитывается.
+  // Measure once at pointer-down; keep the photo bounds stable throughout the gesture.
   const rectRef = useRef<DOMRect | null>(null);
 
   const marked = photo.artifacts ?? [];
 
-  // Системное «Назад» закрывает разметчик, а не уводит со страницы админки (DESIGN §9).
+  // Browser Back closes the marker while keeping the admin page. DESIGN §9.
   useBackToClose(true, onClose);
 
   useEffect(() => {
@@ -85,7 +66,7 @@ export function ArtifactMarker({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  /** Экранная точка → доли кадра (за края кадра не обрезаем — это делает `boxFromDrag`). */
+  /** Screen coordinates to image fractions; boxFromDrag handles clamping. */
   const toFraction = useCallback((clientX: number, clientY: number): Point | null => {
     const rect = rectRef.current;
     if (!rect || rect.width === 0 || rect.height === 0) return null;
@@ -106,8 +87,7 @@ export function ArtifactMarker({
     [dropId, onError, onSaved, photo.id, token],
   );
 
-  // Протяжка живёт на окне: у края кадра курсор выезжает за картинку, и `pointerup` мимо
-  // слушателя кадра оставил бы жест незакрытым.
+  // Listen on window so leaving the photo cannot lose pointerup and leave a stuck drag.
   useEffect(() => {
     if (!drag) return;
     const onMove = (e: PointerEvent) => {
@@ -133,7 +113,7 @@ export function ArtifactMarker({
     rectRef.current = frameRef.current?.getBoundingClientRect() ?? null;
     const p = toFraction(e.clientX, e.clientY);
     if (!p) return;
-    e.preventDefault(); // иначе браузер тащит саму картинку
+    e.preventDefault(); // otherwise the browser drags the picture itself
     setDrag({ from: p, to: p });
   }
 
@@ -169,7 +149,7 @@ export function ArtifactMarker({
       </header>
 
       <div className="flex flex-1 flex-col gap-4 md:flex-row">
-        {/* Кадр: рамки стоят долями, поэтому переживают любой размер картинки. */}
+        {/* The frame: boxes are placed in fractions, so they survive any picture size. */}
         <div
           ref={frameRef}
           className="marker-frame"
@@ -199,7 +179,7 @@ export function ArtifactMarker({
               style={{
                 ...markerBoxStyle,
                 ...rectOf({ x: b.x0, y: b.y0 }, { x: b.x1, y: b.y1 }),
-                // Рамка выбранного предмета выделена: её перерисовывает следующая протяжка.
+                // The next drag replaces the selected item's box.
                 borderColor: b.artifactId === artifactId ? "var(--accent)" : "var(--border)",
               }}
             >
@@ -218,12 +198,12 @@ export function ArtifactMarker({
             </div>
           ))}
 
-          {/* Рамка, которую тянут прямо сейчас: показывает сырой жест, без дотяжки до
-              минимума — иначе она прыгала бы под курсором на первых же пикселях. */}
+          {/* The box being dragged right now shows the raw gesture, with no stretching to the
+              minimum — otherwise it would jump under the cursor on the first few pixels. */}
           {preview && <div className="marker-preview" style={{ ...markerBoxStyle, ...preview, borderColor: "var(--accent)" }} />}
         </div>
 
-        {/* Каталог: размечать можно только заведённый предмет — имя рамки берётся из него. */}
+        {/* The catalogue: only a registered item can be marked — the box takes its name from it. */}
         <div role="radiogroup" aria-label="предмет" className="flex flex-col gap-1" style={{ minWidth: 180 }}>
           {artifacts.length === 0 && <p style={mono}>каталог пуст — заведи предмет в разделе «артефакты»</p>}
           {artifacts.map((a) => {
@@ -237,14 +217,14 @@ export function ArtifactMarker({
                 onClick={() => setArtifactId(a.id)}
                 style={a.id === artifactId ? markerSelectedArtifactBtnStyle : markerArtifactBtnStyle}
               >
-                {/* Картинка предмета из каталога: имена вроде «YONEX ASTROX» на кадре не
-                    опознаются, а вырезанный предмет опознаётся сразу. */}
+                {/* The item's picture from the catalogue: names are not recognisable on a frame,
+                    while the cut-out item is recognised at once. */}
                 {a.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={mediaUrl(a.imageUrl)} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
                 )}
                 <span>{a.name}</span>
-                {/* Уже размеченные помечены: следующая протяжка их перерисует, а не добавит вторую. */}
+                {/* Already marked ones are flagged: the next drag redraws them, not adds a second. */}
                 {isMarked && <span aria-hidden style={{ marginLeft: "auto", color: "var(--accent)" }}>●</span>}
               </button>
             );
@@ -255,7 +235,7 @@ export function ArtifactMarker({
   );
 }
 
-/** Две точки в долях → CSS-проценты: рамка кадра масштабируется вместе с картинкой. */
+/** Image fractions to CSS percentages so boxes scale with the photo. */
 function rectOf(a: Point, b: Point) {
   const x0 = Math.min(a.x, b.x);
   const y0 = Math.min(a.y, b.y);

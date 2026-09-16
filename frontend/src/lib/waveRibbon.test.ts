@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { DaySummary } from "./api/types";
 import { buildRibbon, ribbonDay } from "./waveRibbon";
 
-// Разряды в шагах разделяет НЕРАЗРЫВНЫЙ пробел: так их печатает `formatSteps`
-// (`toLocaleString("ru-RU")`), и лента обязана совпадать с цифрами на плитках.
+// Step digits are grouped with a NON-BREAKING space, the way `formatSteps` prints them, and the
+// ribbon must match the figures on the tiles.
 
-/** Полный день: всё, что лента умеет показать. */
+/** A full day: everything the ribbon can show. */
 function day(over: Partial<DaySummary> = {}): DaySummary {
   return {
     date: "2026-08-24",
@@ -53,7 +53,7 @@ describe("ribbonDay", () => {
   });
 });
 
-/** Опора «сегодня» для ленты: дни после неё ещё не прожиты. */
+/** The ribbon's "today" anchor: days after it have not been lived yet. */
 const TODAY = "2026-08-26";
 
 describe("buildRibbon", () => {
@@ -93,8 +93,8 @@ describe("buildRibbon", () => {
       title: null,
       steps: null,
       sleepMinutes: null,
-      // Вклады за будущий день приезжают нулём (день собрали, вкладов нет) — без опоры
-      // на «сегодня» такой день печатался бы как прожитый: «чт 27.08 · git +0».
+      // Contributions for a future day arrive as zero (the day was collected, none happened), and
+      // without the "today" anchor such a day would print as lived.
       contributions: 0,
     });
     expect(buildRibbon([day(), future], TODAY)).toBe(

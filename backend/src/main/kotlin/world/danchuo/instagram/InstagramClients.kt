@@ -18,9 +18,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
 
 /**
- * Обмен кода на токен (PRD §5.17). Живёт на `api.instagram.com` — ОТДЕЛЬНОМ хосте от самого
- * API: это не наша прихоть, а разделение у Instagram (как `accounts.spotify.com` против
- * `api.spotify.com`). Базовый URL — `quarkus.rest-client.instagram-auth.url`.
+ * Code-for-token exchange (PRD §5.17). It lives on `api.instagram.com`, a SEPARATE host from the
+ * API itself — not our whim but Instagram's split, like `accounts.spotify.com` against
+ * `api.spotify.com`. Base URL is `quarkus.rest-client.instagram-auth.url`.
  */
 @RegisterRestClient(configKey = "instagram-auth")
 interface InstagramAuthClient {
@@ -33,16 +33,14 @@ interface InstagramAuthClient {
 }
 
 /**
- * Чтение ленты и продление токена — `graph.instagram.com`
- * (`quarkus.rest-client.instagram-graph.url`).
- *
- * ⚠️ Токен здесь идёт ПАРАМЕТРОМ запроса, а не заголовком `Authorization`: так устроен
- * Instagram. Значит, он попадает в URL — не логировать запросы этого клиента целиком.
+ * Feed reads and token renewal against `graph.instagram.com`. The token travels as a QUERY
+ * PARAMETER rather than an `Authorization` header — that is how Instagram is built — so it ends
+ * up inside the URL: never log this client's requests whole.
  */
 @RegisterRestClient(configKey = "instagram-graph")
 interface InstagramGraphClient {
 
-    /** Короткий токен → долгоживущий (60 дней). */
+    /** Short token to a long-lived one (60 days). */
     @GET
     @Path("/access_token")
     @Produces(MediaType.APPLICATION_JSON)
@@ -52,7 +50,7 @@ interface InstagramGraphClient {
         @QueryParam("access_token") accessToken: String,
     ): InstagramLongTokenResponse
 
-    /** Продление живого долгоживущего токена — ещё 60 дней ([InstagramTokenPolicy]). */
+    /** Extends a live long-lived token by another 60 days ([InstagramTokenPolicy]). */
     @GET
     @Path("/refresh_access_token")
     @Produces(MediaType.APPLICATION_JSON)
@@ -61,7 +59,7 @@ interface InstagramGraphClient {
         @QueryParam("access_token") accessToken: String,
     ): InstagramLongTokenResponse
 
-    /** Профиль владельца: ник для шапки карточки. */
+    /** The owner's profile: the handle for the card header. */
     @GET
     @Path("/me")
     @Produces(MediaType.APPLICATION_JSON)
@@ -70,7 +68,7 @@ interface InstagramGraphClient {
         @QueryParam("access_token") accessToken: String,
     ): InstagramProfileResponse
 
-    /** Лента владельца, свежие сверху. */
+    /** The owner's feed, newest first. */
     @GET
     @Path("/me/media")
     @Produces(MediaType.APPLICATION_JSON)
@@ -82,11 +80,9 @@ interface InstagramGraphClient {
 }
 
 /**
- * Короткоживущий токен первого шага обмена.
- *
- * ⚠️ [permissions] приезжает МАССИВОМ, хотя в документации Instagram описан строкой.
- * Тип обязан принимать обе формы, иначе рассинхрон валит ВЕСЬ обмен кода — а код одноразовый,
- * и чинится это только новым заходом владельца в браузер.
+ * Short-lived token from the first exchange step. [permissions] arrives as an ARRAY although the
+ * docs describe a string, so the type must accept both forms — a mismatch fails the WHOLE code
+ * exchange, and the code is one-shot. PRD §5.17
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class InstagramShortTokenResponse(
@@ -117,14 +113,9 @@ data class InstagramMediaPage(
 )
 
 /**
- * Один пост ленты.
- *
- * ⚠️ [likeCount] и [commentsCount] — `Int?` намеренно: Instagram не присылает их, когда
- * владелец спрятал счётчики у поста. Отсутствие — законное состояние, а не сбой, и карточка
- * просто не рисует строку.
- *
- * ⚠️ [mediaUrl] у видео — сам файл, а не кадр; превью лежит в [thumbnailUrl]. Карточке нужна
- * картинка, поэтому забирать надо `thumbnailUrl ?: mediaUrl`.
+ * One feed post. [likeCount] and [commentsCount] are `Int?` deliberately: Instagram omits them
+ * when the owner hides counters, a legal state rather than a failure. On a video [mediaUrl] is the
+ * file itself and the still sits in [thumbnailUrl], so a card wants `thumbnailUrl ?: mediaUrl`.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class InstagramMediaItem(
@@ -140,9 +131,9 @@ data class InstagramMediaItem(
 )
 
 /**
- * Смещение БЕЗ двоеточия (`+0000`) — именно так Instagram пишет `timestamp` у медиа.
- * Штатные разборщики такую форму не берут: `ISO_OFFSET_DATE_TIME` ждёт `+00:00`, а
- * `Instant.parse` — `Z`.
+ * An offset with NO colon (`+0000`) is exactly how Instagram writes a media `timestamp`. The
+ * standard parsers refuse that form: `ISO_OFFSET_DATE_TIME` wants `+00:00` and `Instant.parse`
+ * wants `Z`.
  */
 private val BASIC_OFFSET: DateTimeFormatter = DateTimeFormatterBuilder()
     .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
@@ -150,12 +141,9 @@ private val BASIC_OFFSET: DateTimeFormatter = DateTimeFormatterBuilder()
     .toFormatter()
 
 /**
- * Время публикации поста.
- *
- * ⚠️ **Промах здесь не виден ни в логе, ни в ответе API.** Непрочитанное время оставляет посту
- * [Instant.EPOCH] по умолчанию, и наружу уезжает валидный ISO 1970 года — карточка на борде
- * пишет «20710 дн назад» и выглядит поломкой вёрстки, а не разбора. Поэтому берём все три
- * формы смещения, а не одну документированную.
+ * Publication time of a post. A MISS HERE IS INVISIBLE in the log and in the API response: an
+ * unread time leaves [Instant.EPOCH], valid ISO 1970 goes out, and the board says "20710 days ago"
+ * — a parsing miss that looks like broken layout. Hence all three offset forms. PRD §5.17
  */
 internal fun parseInstagramTimestamp(raw: String): Instant? =
     runCatching { OffsetDateTime.parse(raw, BASIC_OFFSET).toInstant() }.getOrNull()

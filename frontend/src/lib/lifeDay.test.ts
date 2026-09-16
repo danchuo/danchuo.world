@@ -11,7 +11,7 @@ describe("lifeDayNumber", () => {
   });
 
   it("считает через високосный год без сдвига", () => {
-    // 2004-й високосный: 2002-06-06 → 2004-06-06 = 365 + 366 дней.
+    // 2004 is a leap year: 2002-06-06 → 2004-06-06 = 365 + 366 days.
     expect(lifeDayNumber("2004-06-06")).toBe(732);
   });
 
@@ -26,7 +26,7 @@ describe("lifeDayLabel", () => {
   });
 
   it("склоняет порядковое числительное по последней цифре", () => {
-    // «8792-й», а не «8792-ой»: у мужского рода единственная форма окончания — «-й».
+    // The Russian masculine ordinal takes only its final letter after digits.
     expect(lifeDayLabel("2026-08-11")).toBe("8833-й день жизни");
   });
 

@@ -24,8 +24,8 @@ describe("wrapOffset — лента бесконечна в обе сторон�
   });
 
   it("уехали НАЗАД за ноль — заходим с конца копии, а не упираемся в край", () => {
-    // Ради этого и заведён положительный остаток: листать назад можно бесконечно,
-    // как и вперёд, — иначе лента стопорилась бы на старте своего единственного круга.
+    // This is what the positive remainder is for: paging back is endless, as forward is, or the
+    // ribbon would stall at the start of its single loop.
     expect(wrapOffset(-1, 500)).toBe(499);
     expect(wrapOffset(-620, 500)).toBe(380);
   });
@@ -51,8 +51,8 @@ describe("flingVelocity — бросок считается по концу пр
   });
 
   it("палец остановился перед отпусканием ⇒ броска нет", () => {
-    // Считать по всей протяжке нельзя: «довёл и придержал» — это указание точки,
-    // а не бросок, и лента после отпускания обязана остаться там, где её оставили.
+    // Measuring across the whole drag is wrong: "moved it there and held" points at a place rather
+    // than throwing, and on release the ribbon must stay where it was left.
     const v = flingVelocity([
       { t: 0, pos: 0 },
       { t: 400, pos: 300 },
@@ -63,14 +63,14 @@ describe("flingVelocity — бросок считается по концу пр
   });
 
   it("две точки в один миг (события пришли пачкой) не дают бесконечной скорости", () => {
-    // Замер на живом борде: события указателя, отправленные подряд, легли в доли миллисекунды,
-    // и честная производная выкидывала ленту на сотни копий вперёд одним кадром.
+    // Measured on the live board: pointer events sent back to back landed within fractions of a
+    // millisecond, and an honest derivative threw the ribbon hundreds of copies ahead in one frame.
     const v = flingVelocity([
       { t: 0, pos: 0 },
       { t: 0.2, pos: -50 },
     ]);
     expect(Math.abs(v)).toBeLessThanOrEqual(FLING_MAX);
-    expect(v).toBeLessThan(0); // направление броска при этом сохраняется
+    expect(v).toBeLessThan(0); // the throw's direction is preserved
   });
 
   it("одна точка или нулевой промежуток → ноль, без деления на ноль", () => {
@@ -100,7 +100,7 @@ describe("decayVelocity — бросок гаснет по времени, а н
 
 describe("driftSpeed — собственный ход ленты", () => {
   it("копия проезжает ровно за отведённое время", () => {
-    const speed = driftSpeed(600, 30); // px/мс
+    const speed = driftSpeed(600, 30); // px/ms
     expect(speed * 30_000).toBeCloseTo(600, 6);
   });
 
@@ -124,8 +124,8 @@ describe("wheelDelta — лента крутится колесом/тачпад
   });
 
   it("обычное колесо (только вниз/вверх) тоже листает горизонтальную ленту", () => {
-    // У мыши поперечной оси нет вовсе, и у тачпада привычный жест — вертикальный.
-    // Отдай мы ленте только свою ось — «покрутить при наведении» работало бы у единиц.
+    // A mouse has no cross axis at all, and a trackpad's habitual gesture is vertical. Give the
+    // ribbon only its own axis and "spin it on hover" would work for almost nobody.
     expect(wheelDelta({ deltaX: 0, deltaY: 50, deltaMode: 0 }, false)).toBe(50);
   });
 
@@ -135,15 +135,15 @@ describe("wheelDelta — лента крутится колесом/тачпад
   });
 
   it("вертикальная лента считает главной свою ось", () => {
-    // Равные дельты — ничья, и достаётся она оси самой ленты.
+    // Equal deltas are a tie, and the tie goes to the ribbon's own axis.
     expect(wheelDelta({ deltaX: 30, deltaY: 30, deltaMode: 0 }, true)).toBe(30);
     expect(wheelDelta({ deltaX: 30, deltaY: 30, deltaMode: 0 }, false)).toBe(30);
     expect(wheelDelta({ deltaX: 8, deltaY: 30, deltaMode: 0 }, true)).toBe(30);
   });
 
   it("дельта в строках и страницах переводится в пиксели", () => {
-    // Firefox шлёт колесо строками (deltaMode 1), а не пикселями: без перевода
-    // лента ползла бы по три пикселя за щелчок.
+    // Firefox sends wheel deltas in lines (deltaMode 1), not pixels: without converting, the
+    // ribbon would crawl three pixels per click.
     expect(wheelDelta({ deltaX: 0, deltaY: 3, deltaMode: 1 }, false)).toBe(3 * WHEEL_LINE_PX);
     expect(wheelDelta({ deltaX: 0, deltaY: 1, deltaMode: 2 }, false)).toBe(WHEEL_PAGE_PX);
   });

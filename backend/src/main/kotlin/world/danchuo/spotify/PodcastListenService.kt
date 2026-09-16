@@ -8,8 +8,8 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Один отсчёт плеера: эпизод и положение головки в момент опроса. Всё, что нужно, чтобы
- * продолжить или открыть сессию; метаданные едут вместе, потому что кладутся в строку сессии.
+ * One player sample: the episode and the playhead position at poll time. Everything needed to
+ * extend or open a session; the metadata rides along because it is written into the session row.
  */
 data class EpisodeSample(
     val episodeId: String,
@@ -24,11 +24,9 @@ data class EpisodeSample(
 )
 
 /**
- * Запись и чтение прослушанных подкастов (PRD §5.6) — состояние поллера и свёртки дня.
- *
- * Отдельный бин от [PodcastPoller] не для красоты: `@Transactional` — это CDI-перехватчик, а он
- * не срабатывает на вызове метода того же бина. Поллеру нужно писать в БД, значит вызов должен
- * уйти наружу, в соседний бин.
+ * Writing and reading of listened podcasts: poller state and the day rollup. A separate bean from
+ * [PodcastPoller] out of necessity — `@Transactional` is a CDI interceptor and does not fire on a
+ * call into the same bean, so the poller's write has to leave for a neighbour.
  */
 @ApplicationScoped
 class PodcastListenService(
@@ -38,13 +36,9 @@ class PodcastListenService(
 ) {
 
     /**
-     * Учесть отсчёт плеера за [date]: продолжить открытую сессию или начать новую. Возвращает
-     * зачтённые миллисекунды — ноль означает «ничего не изменилось» (пауза, повтор того же
-     * положения), и поллеру не за чем сбрасывать проекцию дня.
-     *
-     * Продолжаем сессию, только если совпал эпизод И молчание не превысило порог. Смена эпизода
-     * и возврат к прежнему дают РАЗНЫЕ сессии — так «туда и обратно» честно ложится двумя
-     * строками, а сумма за день от этого не меняется.
+     * Records a player sample for [date], continuing the open session or starting a new one, and
+     * returns credited milliseconds — zero means nothing changed. A session continues only if the
+     * episode matches AND the silence stayed under the gap, so "there and back" is two rows.
      */
     @Transactional
     fun record(sample: EpisodeSample, date: LocalDate, at: Instant): Long {
@@ -65,9 +59,9 @@ class PodcastListenService(
     }
 
     /**
-     * Заходы за сутки: строки сессий, склеенные по паузе `run-gap-minutes` (см. [PodcastRun]).
-     * Порог хранения рвёт сессию раньше, чем человек считает прослушивание прерванным, поэтому
-     * борду сессии отдаются не как есть, а собранными обратно в заходы.
+     * A day's sessions, glued by the `run-gap-minutes` pause (see [PodcastRun]). The storage
+     * threshold breaks a session sooner than a person considers listening interrupted, so the
+     * board gets them reassembled into sittings rather than as they are stored.
      */
     fun runsOn(date: LocalDate): List<PodcastRun> =
         PodcastDayRollup.runs(
@@ -75,26 +69,26 @@ class PodcastListenService(
             config.podcast().runGapMinutes(),
         )
 
-    /** Суммарно прослушанные минуты за сутки — подпись пункта дисциплины. */
+    /** Total minutes listened in a day — the discipline item's caption. */
     fun minutesOn(date: LocalDate): Int = PodcastDayRollup.listenedMinutes(totalMsOn(date))
 
-    /** Карточки дня: первые [max] заходов, закрывших остановки (см. [PodcastDayRollup.cards]). */
+    /** A day's cards: the first [max] sittings that closed stops (see [PodcastDayRollup.cards]). */
     fun cardsOn(date: LocalDate, max: Int): List<PodcastRun> =
         PodcastDayRollup.cards(runsOn(date), max)
 
-    /** Пересчитать отметку пункта по сумме минут; ручную отметку [PodcastMarker] не тронет. */
+    /** Recomputes the item's mark from the minutes total; a manual [PodcastMarker] is left alone. */
     private fun remark(date: LocalDate) {
         val target = marker.target() ?: return
         marker.mark(date, PodcastDayRollup.occurrences(totalMsOn(date), target))
     }
 
     /**
-     * Сумма зачтённого за сутки. Считается по сырым сессиям, без склейки в заходы: отметки
-     * зависят только от минут, а склейка их не меняет — незачем гонять её на каждый опрос.
+     * The day's credited total, computed off raw sessions without gluing them into sittings: the
+     * marks depend only on minutes, and gluing does not change those, so it need not run on every poll.
      */
     private fun totalMsOn(date: LocalDate): Long = sessions.listByDate(date).sumOf { it.listenedMs }
 
-    /** Строка сессии как одиночный заход — дальше соседние склеит [PodcastDayRollup.runs]. */
+    /** A session row as a single sitting — [PodcastDayRollup.runs] glues neighbours afterwards. */
     private fun runOf(session: PodcastSession) = PodcastRun(
         sessionId = session.id!!,
         episodeId = session.episodeId,
@@ -112,7 +106,7 @@ class PodcastListenService(
     )
 
     private fun open(sample: EpisodeSample, date: LocalDate, at: Instant, credited: Long) {
-        // IDENTITY-генерация вставляет строку немедленно ⇒ все not-null поля заполняем ДО persist.
+        // IDENTITY generation writes the row immediately, so every not-null field is set BEFORE persist.
         val session = PodcastSession().apply {
             this.date = date
             episodeId = sample.episodeId
@@ -127,19 +121,19 @@ class PodcastListenService(
             endedAt = at
             listenedMs = credited
             lastProgressMs = sample.progressMs
-            // Откуда пошёл зачёт, оттуда начинается и кусок эпизода: включил с начала —
-            // [PodcastListenMath.openingCredit] вернул всю фору, и кусок начинается с нуля;
-            // продолжил с середины — форы не было, и кусок начинается с текущего положения.
+            // The episode stretch starts where the crediting started: from the beginning means
+            // [PodcastListenMath.openingCredit] returned the whole allowance and the stretch
+            // starts at zero; resumed mid-way means no allowance, and it starts where we are.
             startProgressMs = sample.progressMs - credited
         }
         sessions.persist(session)
     }
 
-    /** Тянется ли эта сессия дальше отсчётом [sample]: тот же эпизод и молчание в пределах порога. */
+    /** Whether this session extends into [sample]: the same episode, and silence within the threshold. */
     private fun PodcastSession?.continues(sample: EpisodeSample, at: Instant): Boolean {
         if (this == null || episodeId != sample.episodeId) return false
         val silence = Duration.between(endedAt, at)
-        // Отрицательная пауза — сбитые часы; безопаснее начать новую сессию, чем считать дельту.
+        // A negative pause is a skewed clock; starting a new session beats computing the delta.
         return !silence.isNegative && silence <= Duration.ofMinutes(config.podcast().sessionGapMinutes())
     }
 }

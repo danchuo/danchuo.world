@@ -7,17 +7,17 @@ import org.jboss.logging.Logger
 import world.danchuo.llm.LlmClient
 import world.danchuo.llm.LlmImage
 
-/** Артефакт глазами детектора: [hint] — описание для модели, [name] — как он зовётся в каталоге. */
+/** An artifact as the detector sees it: [hint] describes it to the model, [name] is its catalogue name. */
 data class DetectableArtifact(
     val id: Long,
     val name: String,
     val hint: String?,
 ) {
-    /** Модели нужен вид, а не модельный номер: «YONEX ASTROX 10 4U» она искать не умеет. */
+    /** The model needs an appearance, not a model number: it cannot search for a part code. */
     val described: String get() = hint?.takeIf { it.isNotBlank() } ?: name
 }
 
-/** Рамка в долях кадра (0..1). Доли, а не пиксели: мозаика масштабирует кадры, thumb ≠ web. */
+/** A box in frame fractions (0..1). Fractions, not pixels: the mosaic scales frames, thumb != web. */
 data class DetectedBox(
     val artifactId: Long,
     val x0: Double,
@@ -27,9 +27,9 @@ data class DetectedBox(
 )
 
 /**
- * Итог проверки кадра. [Unavailable] — модель молчит или ответила невнятно; это **не** то же, что
- * [Found] с пустым списком. Смешать их — записать сбой провайдера в данные как «артефакта нет»
- * (та же беда, от которой защищён пустой прогон Health, см. PRD §5.4).
+ * Result of checking one frame. [Unavailable] means the model was silent or incoherent, which is
+ * NOT the same as [Found] with an empty list. Merging them would record a provider outage as "no
+ * artifact here" — the same trap an empty Health run is guarded against (PRD §5.4).
  */
 sealed interface DetectionOutcome {
     data class Found(val boxes: List<DetectedBox>) : DetectionOutcome
@@ -37,12 +37,9 @@ sealed interface DetectionOutcome {
 }
 
 /**
- * Ищет артефакты каталога на кадре фото-дропа одним обращением к модели: список предметов уезжает
- * в промт целиком, поэтому цена зависит от числа кадров, а не от числа артефактов.
- *
- * ⚠️ **Координаты.** Просим `[ymin, xmin, ymax, xmax]` в шкале 0..1000 — так их отдаёт Gemini
- * (y первым!). Разбор всё равно защитный: провайдер без структурного вывода может ответить
- * долями 0..1, выйти за пределы кадра или перепутать углы.
+ * Finds catalogue artifacts on one frame in a single model call: the item list goes into the
+ * prompt whole, so cost scales with the number of frames, not artifacts. Coordinates are asked as
+ * `[ymin, xmin, ymax, xmax]` on a 0..1000 scale (y FIRST) and parsed defensively. PRD §5.12
  */
 @ApplicationScoped
 class ArtifactDetector(
@@ -53,7 +50,7 @@ class ArtifactDetector(
     private val mapper = ObjectMapper()
 
     fun detect(imageBytes: ByteArray, artifacts: List<DetectableArtifact>): DetectionOutcome {
-        // Пустой каталог — не повод жечь вызов: ответ известен заранее.
+        // An empty catalogue is no reason to burn a call: the answer is known in advance.
         if (artifacts.isEmpty()) return DetectionOutcome.Found(emptyList())
 
         val reply = llm.completeVisionJson(
@@ -76,20 +73,20 @@ class ArtifactDetector(
     }
 
     private fun boxOf(node: JsonNode, byName: Map<String, DetectableArtifact>): DetectedBox? {
-        // Имена задаёт БД: выдуманное моделью имя пропускаем молча, как незнакомую фазу сна.
+        // Names come from the DB: a name the model invented is dropped silently.
         val artifact = byName[node.path("artifact").asText("").trim().lowercase()] ?: return null
         val raw = node.path("box_2d").takeIf { it.isArray && it.size() == 4 } ?: return null
         val values = (0..3).map { raw.get(it).asDouble(Double.NaN) }
         if (values.any { it.isNaN() }) return null
 
-        // Шкала не объявлена в ответе: значения заметно больше единицы — это 0..1000.
+        // The scale is not declared in the reply: values well above one mean it is 0..1000.
         val scaled = if (values.any { it > SCALE_THRESHOLD }) values.map { it / 1000.0 } else values
         val (ymin, xmin, ymax, xmax) = scaled
         val x0 = clamp(xmin)
         val y0 = clamp(ymin)
         val x1 = clamp(xmax)
         val y1 = clamp(ymax)
-        // Вырожденная или вывернутая рамка — мусор: подсветить ею нечего.
+        // A degenerate or inverted box is junk: there is nothing to highlight with it.
         if (x1 <= x0 || y1 <= y0) return null
         return DetectedBox(artifact.id, x0, y0, x1, y1)
     }
@@ -115,7 +112,7 @@ class ArtifactDetector(
             "You inspect scanned 35mm film photographs and locate specific personal belongings. " +
                 "Answer with the JSON object only."
 
-        /** Доли не бывают больше 1; всё заметно большее — шкала 0..1000. */
+        /** Fractions never exceed 1; anything well above that is the 0..1000 scale. */
         const val SCALE_THRESHOLD = 1.5
 
         val SCHEMA = """

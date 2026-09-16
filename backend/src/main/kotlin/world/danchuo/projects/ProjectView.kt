@@ -1,12 +1,12 @@
 package world.danchuo.projects
 
 /**
- * Публичная проекция проекта (`GET /api/projects`, PRD §5.7). Отдаём сырые числа диапазона —
- * человекочитаемую форму «Q3 2025 — наст.» собирает фронт (презентация — не на бэке).
+ * Public project projection (`GET /api/projects`, PRD §5.7). We send the raw range numbers — the
+ * readable "Q3 2025 - present" is assembled by the frontend, since presentation is not the backend's.
  */
 data class ProjectView(
     val iconUrl: String?,
-    /** Объёмная планета (`.glb`), если она у проекта есть; надеть её решает волна. */
+    /** The project's 3D planet (`.glb`) when it has one; whether to wear it is the wave's call. */
     val modelUrl: String?,
     val title: String,
     val description: String?,
@@ -15,7 +15,7 @@ data class ProjectView(
     val endYear: Int?,
     val endQuarter: Int?,
     val url: String?,
-    /** «Дом» проекта — куда ведёт название и картинка; `null` ⇒ туда же, куда [url]. */
+    /** The project's home — where the name and picture lead; `null` means the same as [url]. */
     val homeUrl: String?,
 ) {
     companion object {

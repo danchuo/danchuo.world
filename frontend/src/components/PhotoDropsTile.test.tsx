@@ -13,9 +13,9 @@ const TWO_DROPS = [
 ];
 
 /**
- * jsdom картинок не грузит: `complete` у него всегда false, а `naturalWidth` — ноль. Чтобы
- * проверить поведение с УЖЕ загруженной обложкой (кэш браузера, переиспользованный узел),
- * подменяем оба свойства на прототипе и возвращаем родные после теста.
+ * jsdom does not load pictures: `complete` is always false and `naturalWidth` zero. To check the
+ * behaviour with an ALREADY loaded cover (browser cache, a reused node) both properties are
+ * stubbed on the prototype and restored after the test.
  */
 const IMG_PROTO = window.HTMLImageElement.prototype;
 const NATIVE_IMG_PROPS = {
@@ -53,10 +53,9 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   /**
-   * Полоса прокрутки у обеих лент — БЕЗ визуала (замечание владельца: вертикальный ползунок
-   * в дропах на волне 02 читался лишним элементом интерфейса поверх карточек). Прокрутка
-   * колесом, тачпадом и с клавиатуры остаётся: `overflow` на месте, снят только ползунок.
-   * Класс общий (`scroll-invisible` в common.css) — inline-стилем это волна не переопределит.
+   * Neither ribbon draws a scrollbar: on a card stack the thumb read as a stray piece of interface
+   * over the cards. Scrolling by wheel, trackpad and keyboard stays — `overflow` is intact, only
+   * the thumb is gone, through a shared class a wave cannot override with an inline style.
    */
   it("ползунок прокрутки не рисуется ни в вертикальном списке, ни в горизонтальной полке", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
@@ -81,7 +80,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
 
     render(<PhotoDropsTile orientation="horizontal" />);
 
-    // Название читается целиком (двухстрочный клэмп, не однострочный обруб) + месяц под ним.
+    // The title reads in full (a two-line clamp, not a one-line cut) with the month below it.
     expect(await screen.findByText("Июльская плёнка")).toBeInTheDocument();
     expect(screen.getByText("июль 2026")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Открыть дроп «Июньская плёнка»" })).toBeInTheDocument();
@@ -92,13 +91,12 @@ describe("PhotoDropsTile (компактная лента)", () => {
     const { container } = render(<PhotoDropsTile orientation="horizontal" />);
     await screen.findByText("Июльская плёнка");
 
-    // Обработчик колеса навешивает эффект, а пассивные эффекты React доезжают своей задачей:
-    // `findByText` ловит текст по мутации DOM и вправе вернуться РАНЬШЕ, чем полка начнёт
-    // слушать колесо. Пустой `act` дожидается этого явно — иначе тест ловит гонку и падает
-    // под нагрузкой (полка «не листается», scrollLeft остаётся нулём).
+    // The wheel handler is attached by an effect, and React's passive effects arrive in their own
+    // task: `findByText` fires on a DOM mutation and may return BEFORE the shelf starts listening.
+    // The empty `act` waits for that explicitly, or the test races and fails under load.
     await act(async () => {});
     const shelf = container.querySelector("ul")!;
-    // jsdom не считает раскладку — подставляем переполнение, чтобы полке было куда листаться.
+    // jsdom does not lay out — we fake the overflow so the shelf has somewhere to scroll.
     Object.defineProperty(shelf, "scrollWidth", { configurable: true, value: 500 });
     Object.defineProperty(shelf, "clientWidth", { configurable: true, value: 100 });
 
@@ -108,9 +106,8 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   /**
-   * Редакция `spines` (DESIGN §7.5, §10.2 волны 03) — корешки архива: дропы стоят стопкой,
-   * как коробки с плёнкой на полке. Набор ПРЯМОЙ (никакого `writing-mode`, решение владельца
-   * по живому прототипу), название и месяц — в одной строке на каждом корешке.
+   * The `spines` edition (DESIGN §7.5, §10.2): drops stand in a stack like boxes of film on a
+   * shelf. The type is UPRIGHT (no `writing-mode`), with title and month on one line per spine.
    */
   it("редакция carousel — вертикальная лента кадров, у каждого название и месяц", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
@@ -122,7 +119,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(container.querySelectorAll(".drop-carousel__slot")).toHaveLength(2);
     expect(screen.getByText("июль 2026")).toBeInTheDocument();
     expect(screen.getByText("июнь 2026")).toBeInTheDocument();
-    // Лента листается тем же жестом и без ползунка, что и обе прежние ленты.
+    // The ribbon scrolls by the same gesture and without a thumb, like both earlier ribbons.
     expect(reel).toHaveClass("scroll-invisible");
   });
 
@@ -137,16 +134,16 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   /**
-   * Первый заход в дроп встречает ОБЛОЖКА — тот самый кадр, что стоит на карточке ленты,
-   * а не первый кадр плёнки: клик спрашивает про кадр, на который смотрят (DESIGN §7.5).
-   * Дальше её место занимает кадр, на котором галерею закрыли (`viewed`).
+   * The first visit to a drop meets its COVER — the frame shown on the ribbon card, not the roll's
+   * first frame: a click asks about the frame being looked at (DESIGN §7.5). After that its place
+   * is taken by the frame the gallery was closed on (`viewed`).
    */
   it("редакция carousel — плёнка открывается на обложке дропа, а не с первого кадра", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     getDropMock.mockResolvedValue([
       { imageUrl: "/api/film-media/1/9/web", thumbUrl: "/api/film-media/1/9/thumb", width: 1600, height: 1083, artifacts: [] },
       { imageUrl: "/api/film-media/1/5/web", thumbUrl: "/api/film-media/1/5/thumb", width: 1600, height: 1083, artifacts: [] },
-      // Обложка (`coverPhotoUrl` дропа 1) — третьим кадром в дропе: порядок кадров ей не указ.
+      // The cover is the drop's THIRD frame: frame order does not govern it.
       { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 1600, height: 1083, artifacts: [] },
     ]);
     render(<PhotoDropsTile edition="carousel" gallery="roll" />);
@@ -158,8 +155,8 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   /**
-   * Главный кадр объявлен разметкой, а не только видом: `aria-current` — единственное, чем
-   * «этот кадр сейчас в середине окна» доезжает до тех, кто ленту не видит.
+   * The main frame is declared in the markup, not only by looks: `aria-current` is the only way
+   * "this frame is centred right now" reaches anyone who cannot see the ribbon.
    */
   it("редакция carousel — центральный кадр помечен aria-current", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
@@ -170,29 +167,26 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   /**
-   * Лента погашена до первой доехавшей обложки (`is-ready`), и на смене волны это чуть не
-   * стало исчезновением виджета: карусель и прежняя лента стоят на ОДНОМ месте дерева с
-   * одним ключом, поэтому React переиспользует те же `<img>` — `src` не меняется, второго
-   * события `load` не будет никогда. Приехав на волну с каруселью после волны, где обложки
-   * уже загрузились, зритель видел пустое место до перезагрузки страницы (замечание
-   * владельца: «возвращаюсь на третью волну, а виджет дропов просто пропадает»).
+   * The ribbon is hidden until the first cover arrives (`is-ready`), and on a wave change that
+   * nearly became the widget vanishing: both editions sit at the SAME place in the tree with the
+   * same key, React reuses the `<img>`, `src` never changes and a second `load` never comes.
    */
   it("возврат на карусель с уже загруженными обложками — лента видна без второго load", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
-    // Приезжаем на волну с прежней лентой и дожидаемся обложек.
+    // Arrive on a wave with the earlier ribbon and wait for the covers.
     const { container, rerender } = render(<PhotoDropsTile orientation="horizontal" />);
     await screen.findByText("Июльская плёнка");
     pretendCoversLoaded();
 
-    // Переключение волны: та же плитка, другая редакция — узлы картинок переиспользуются.
+    // Switching wave: the same tile, another edition — the picture nodes are reused.
     rerender(<PhotoDropsTile edition="carousel" />);
 
     expect(container.querySelector(".drop-carousel")).toHaveClass("is-ready");
   });
 
   /**
-   * Незнакомое имя редакции тайл трактует как дефолт (то же правило, что у `latestDrop`):
-   * реестр раскладки о наборе редакций не знает, и волна вправе приехать с чем угодно.
+   * An unknown edition name falls back to the default (the same rule as `latestDrop`): the layout
+   * registry knows nothing of the set of editions, and a wave may arrive with anything.
    */
   it("незнакомая редакция → прежний вертикальный список, а не карусель", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
@@ -204,8 +198,8 @@ describe("PhotoDropsTile (компактная лента)", () => {
   });
 
   it("клик по дропу открывает его на весь экран (drag-перехвата больше нет)", async () => {
-    // Регрессионный якорь: перетаскивание мышью раньше глотало клик и ломало открытие дропа.
-    // Драга нет — клик по карточке полки обязан открывать модалку (грузит кадры).
+    // A regression anchor: mouse dragging used to swallow the click and break opening a drop.
+    // With no drag, a click on a shelf card must open the modal.
     getDropsMock.mockResolvedValue(TWO_DROPS);
     getDropMock.mockResolvedValue([]);
     render(<PhotoDropsTile orientation="horizontal" />);

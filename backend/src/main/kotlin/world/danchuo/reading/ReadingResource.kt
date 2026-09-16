@@ -11,17 +11,9 @@ import java.nio.file.Files
 import kotlin.io.path.extension
 
 /**
- * Публичное чтение слайса `reading` (PRD §5.16). Сессии сами по себе наружу не ходят — они
- * приезжают внутри проекции дня (`GET /api/days/…`, поле `books` у пункта «Чтение»); отдельного
- * эндпоинта им пока не нужно. Здесь живёт только то, что проекцией не передать: обложки.
- *
- * Пересказ прочитанного отсюда ушёл: строка у него общая на все источники, и отдаёт её общая же
- * точка `GET /api/summary/{kind}/{id}` ([world.danchuo.summary.SummaryResource]).
- *
- * Обложка отдаётся по **id сессии**, а не по пути внутри полки. Путь пришёл из чужой базы,
- * которую пишет телефон, и делать его частью публичного URL значило бы пускать её содержимое
- * в маршрутизацию; id сессии — наш собственный ключ, а разрешение пути остаётся внутри
- * [AnxShelf] (там же и проверка выхода за каталог).
+ * Public reads of the `reading` slice. Sessions do not travel on their own — they ride inside the
+ * day projection — so only covers live here. A cover is addressed BY SESSION ID, never by a path
+ * from the phone's database: that path must not reach routing. PRD §5.16
  */
 @Path("/api/reading")
 class ReadingResource(
@@ -41,16 +33,16 @@ class ReadingResource(
         val bytes = runCatching { Files.readAllBytes(file) }.getOrNull()
             ?: return Response.status(Response.Status.NOT_FOUND).build()
 
-        // Обложка книги при жизни сессии не меняется (сменил обложку — читалка кладёт НОВЫЙ файл
-        // с новым именем, см. book_detail в исходниках Anx), так что кэшируем надолго.
+        // A book cover never changes within a session's life (change it and the reader writes a
+        // NEW file under a new name, see book_detail in the Anx sources), so cache it long.
         val cache = CacheControl().apply {
-            maxAge = 60 * 60 * 24 * 30 // 30 дней
+            maxAge = 60 * 60 * 24 * 30 // 30 days
             isPrivate = false
         }
         return Response.ok(bytes, mediaTypeOf(file.extension)).cacheControl(cache).build()
     }
 
-    /** Anx кладёт обложки png/jpeg; по расширению этого достаточно, магию файла не читаем. */
+    /** Anx writes png/jpeg covers; the extension is enough, we do not read the file magic. */
     private fun mediaTypeOf(extension: String): String = when (extension.lowercase()) {
         "png" -> "image/png"
         "webp" -> "image/webp"

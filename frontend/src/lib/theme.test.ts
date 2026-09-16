@@ -17,7 +17,7 @@ describe("fetchBackendJson", () => {
     vi.unstubAllGlobals();
   });
 
-  /** Ловит один вызов fetch и отдаёт его аргументы. */
+  /** Catches one fetch call and returns its arguments. */
   function stubFetch(response: Partial<Response>) {
     const spy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}), ...response });
     vi.stubGlobal("fetch", spy);

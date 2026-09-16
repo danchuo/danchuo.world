@@ -4,9 +4,9 @@ import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
 
 /**
- * Доступ к singleton-строке [IngestStatus]. Адресуется фиксированным ключом
- * [IngestStatus.SINGLETON_ID] — строка сидится миграцией `0130`, так что обычно уже есть;
- * [IngestStatusService] всё равно делает find-or-create (устойчивость к чистой БД в тестах).
+ * Access to the singleton [IngestStatus] row, addressed by the fixed [IngestStatus.SINGLETON_ID].
+ * Migration `0130` seeds it, so it normally exists; [IngestStatusService] still does find-or-create
+ * to survive a clean database in tests.
  */
 @ApplicationScoped
 class IngestStatusRepository : PanacheRepositoryBase<IngestStatus, Short> {

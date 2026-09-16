@@ -29,7 +29,7 @@ describe("episodeForStop", () => {
   });
 
   it("оставляет вторую остановку без карточки, когда заход был один", () => {
-    // Марафон в один присест закрывает обе остановки, но карточка у него одна — это норма.
+    // A marathon in one sitting closes both stops but has a single card, and that is correct.
     const list = [episode("A", 120)];
     expect(episodeForStop(list, 1)?.episodeName).toBe("A");
     expect(episodeForStop(list, 2)).toBeNull();
@@ -47,15 +47,15 @@ describe("подвал карточки подкаста", () => {
   });
 
   it("продолжение эпизода показывает СВОЙ кусок, а не начало выпуска", () => {
-    // Ради этого строка куска и появилась: «50 мин» у второго захода не говорит, откуда
-    // докуда слушали, и заход неотличим от повторного прослушивания начала.
+    // This is why the chunk line exists: bare minutes on a second sitting do not say from where to
+    // where it ran, and it is indistinguishable from re-listening to the start.
     expect(stretchLabel(episode("A", 50, 199, { startMinute: 45, endMinute: 95 }))).toBe("45 → 95 мин");
     expect(stretchLabel(episode("A", 47, 48))).toBe("0 → 47 мин");
   });
 
   it("без известных границ окна куска нет", () => {
-    // Заход записан до того, как мы стали смотреть окно: «→ 95» без начала не отвечает
-    // ни на один вопрос — молчим, а не подставляем ноль.
+    // The sitting was recorded before we watched the window: an arrow with no start answers
+    // nothing — stay silent rather than substitute a zero.
     expect(stretchLabel(episode("A", 40, 48, { startMinute: null, endMinute: null }))).toBeNull();
   });
 

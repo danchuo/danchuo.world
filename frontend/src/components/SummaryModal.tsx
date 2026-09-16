@@ -13,26 +13,9 @@ interface SummaryModalProps {
 }
 
 /**
- * Окно «что было в этом куске» (PRD §5.16.1) — раскрывается кнопкой на карточке прочитанного
- * или прослушанного.
- *
- * **Окно одно на оба предмета.** Вопрос («что там было») и ответ (пункты плюс строка-итог) от
- * того, читали или слушали, не зависят; различается ровно шапка, и она приезжает сюда готовым
- * предметом ([SummarySubject]). Два похожих окна разошлись бы по мелочам при первой же правке
- * одного из них — а борд обязан отвечать на один вопрос одинаково.
- *
- * Контур общий с модалками поездок и фото-дропов (DESIGN §7.6): затемнённый фон, закрытие по
- * `×`/`Esc`/клику мимо панели, фокус-трап. Порядок внутри повторяет вопрос владельца: сверху
- * предмет (обложка, название, подпись), посередине — пройденный кусок крупно, снизу — пункты.
- *
- * **Текст тянется лениво.** В карточке дня едет только флаг «есть что рассказать»: пересказ —
- * это несколько строк на заход, а дней в окне календаря десятки. Пока он едет, окно уже
- * показывает шапку и кусок — то есть ровно то, что и так известно борду (DESIGN §7: лоадер
- * уместен только там, где показать нечего).
- *
- * Пересказ собран по тексту самого источника, а не по памяти модели, — поэтому в окне нет
- * никаких оговорок про достоверность: их нечем было бы подкрепить, а без источника кнопки
- * просто нет.
+ * The "what was in this passage" window, opened from a reading or listening card. ONE WINDOW FOR
+ * BOTH: the question and the answer do not depend on which it was, only the header differs and it
+ * arrives ready-made. The text loads lazily, since the day card carries only a flag. PRD §5.16.1
  */
 export function SummaryModal({ subject, onClose }: SummaryModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,10 +30,9 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
     const ctrl = new AbortController();
     getSummary(kind, sessionId, { signal: ctrl.signal })
       .then((data) => {
-        // Ответу НЕ доверяем на слово. Прилетевший `{}` (так native-образ отдавал ответ без
-        // `@RegisterForReflection`) раньше валил `bullets.map` — и падал не пересказ, а весь
-        // борд: клиентское исключение уносит страницу целиком в error-экран Next. Пустой
-        // пересказ и сломанный ответ для окна одно и то же — строка «не собрался».
+        // The answer is NOT taken on trust. An incoming `{}` — what a native image returns without
+        // `@RegisterForReflection` — used to throw on `bullets.map`, and that took down the whole
+        // board, not just the summary. An empty summary and a broken answer are one thing here.
         const lines = Array.isArray(data?.bullets)
           ? data.bullets.filter((line): line is string => typeof line === "string" && line.trim() !== "")
           : [];
@@ -62,13 +44,13 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
         setTakeaway(typeof data.takeaway === "string" && data.takeaway.trim() !== "" ? data.takeaway : null);
       })
       .catch(() => {
-        // Прервали загрузку закрытием окна — не ошибка; всё остальное честно говорим строкой.
+        // A load aborted by closing the window is not an error; everything else is stated plainly.
         if (!ctrl.signal.aborted) setFailed(true);
       });
     return () => ctrl.abort();
   }, [kind, sessionId]);
 
-  // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9).
+  // The system Back closes the window rather than leaving the site (DESIGN §9).
   useBackToClose(true, onClose);
 
   useEffect(() => {
@@ -116,10 +98,9 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
         <span className="pixel-slab" aria-hidden />
         <span className="pixel-lid" aria-hidden />
 
-        {/* Шапка — тот же предмет, что на карточке: обложка, название, подпись. Колонкой по
-            центру: в модалке речь об ОДНОЙ вещи, и её обложка — предмет
-            разговора, а не иконка строки списка. Прижатая к левому краю, она читалась как
-            аватарка. Крестик при этом уходит в угол абсолютом, иначе он растянул бы центр вбок. */}
+        {/* The header is the same subject as on the card: cover, title, caption, in a centred
+            column. The modal is about ONE thing, and its cover is the subject of the conversation
+            rather than a list row's icon. The close cross goes into the corner absolutely. */}
         <div className="relative mb-3 flex shrink-0 flex-col items-center text-center">
           <button
             ref={closeRef}
@@ -131,10 +112,9 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
           >
             <Icon name="close" size={18} />
           </button>
-          {/* Та же обложка тем же компонентом, что в карточке и в плитке плеера. У книги она
-              портретная (корешок), у выпуска квадратная (конверт) — отсюда разная высота при
-              одной ширине. Крупнее карточной: здесь она несёт шапку одна, а не подпирает
-              строку текста сбоку. */}
+          {/* The same cover by the same component as the card's and the player tile's. A book's is
+              portrait (a spine), an episode's square (a sleeve) — hence different heights at one
+              width. Larger than the card's: here it carries the header alone. */}
           <Cover
             url={subject.coverUrl}
             alt=""
@@ -149,7 +129,7 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
           </div>
         </div>
 
-        {/* Пройденный кусок — крупно и по центру: это и есть заголовок разговора. */}
+        {/* The covered chunk, large and centred: it IS the conversation's heading. */}
         {subject.progressValue && (
           <div className="shrink-0 text-center" style={progressBlock} data-testid="summary-progress">
             <div style={progressCaption}>{subject.progressCaption}</div>
@@ -185,7 +165,7 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
   );
 }
 
-/** Обложка шапки: ширина одна на оба предмета, высота — по пропорции своего. */
+/** The header cover: one width for both subjects, the height by each one's proportion. */
 const COVER_W = 60;
 const COVER_H_PORTRAIT = 90;
 
@@ -202,8 +182,8 @@ const body = {
   lineHeight: 1.45,
 } satisfies CSSProperties;
 
-/* Кусок стоит отдельным блоком между шапкой и пунктами, отбитый линиями: он отвечает на
-   «сколько», а пункты — на «что», и смешивать эти два ответа в один поток не стоит. */
+/* The chunk stands as its own block between the header and the bullets, set off by rules: it
+   answers "how much" while the bullets answer "what", and the two should not run together. */
 const progressBlock = {
   padding: "10px 0 12px",
   marginBottom: 12,
@@ -227,7 +207,7 @@ const progressValue = {
   color: "var(--accent)",
 } satisfies CSSProperties;
 
-/* Итог — не шестой пункт, а фраза про весь кусок: отбит сверху и набран приглушённее. */
+/* The takeaway is not a sixth bullet but a phrase about the whole chunk: set off above and quieter. */
 const takeawayStyle = {
   marginTop: 12,
   paddingTop: 10,

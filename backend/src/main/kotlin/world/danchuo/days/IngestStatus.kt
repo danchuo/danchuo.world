@@ -7,14 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Свежесть данных (PRD §8, эра M5) — singleton-строка «когда телефон последний раз
- * достучался до ingest». Пишется из единой точки записи дня ([DayRecordService.upsert]),
- * поэтому отражает момент *приёма* (оба канала: health 12/18/24 и интерактивная дисциплина),
- * а не последнее изменение дня. Читается публичным `GET /api/freshness` для тихого
- * индикатора в UI; алерт об отвале шортката — бэклог (B5).
- *
- * Ровно одна строка (id = [SINGLETON_ID]) — сидится миграцией `0130`, [lastIngestAt]
- * `null` = «приёмов ещё не было».
+ * Data freshness: a singleton row (id [SINGLETON_ID], seeded by migration `0130`) holding when the
+ * phone last reached ingest. Written from the single day write point, so it reflects the moment of
+ * INTAKE rather than the last change to a day; [lastIngestAt] `null` = no intake yet. PRD §8
  */
 @Entity
 @Table(name = "ingest_status")
@@ -28,7 +23,7 @@ class IngestStatus {
     var lastIngestAt: Instant? = null
 
     companion object {
-        /** Единственная строка таблицы — адресуется фиксированным ключом. */
+        /** The table's only row, addressed by a fixed key. */
         const val SINGLETON_ID: Short = 1
     }
 }

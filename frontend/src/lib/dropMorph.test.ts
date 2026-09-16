@@ -3,8 +3,8 @@ import { cssDurationMs, morphClip, morphRadius, morphTransform } from "./dropMor
 
 describe("morphClip", () => {
   it("режет кадр по короткой оси — ровно то, что не влезло в плитку", () => {
-    // Плитка 100×100, герой 400×200: масштаб 0.5, в плитку помещается кусок 200×200,
-    // значит по ширине надо срезать (400 − 200) / 2 = 100 с каждой стороны.
+    // A 100×100 tile and a 400×200 hero: scale 0.5, so a 200×200 piece fits the tile and
+    // (400 − 200) / 2 = 100 must be trimmed from each side by width.
     const from = { left: 0, top: 0, width: 100, height: 100 };
     const to = { left: 0, top: 0, width: 400, height: 200 };
     expect(morphClip(from, to, 0)).toBe("inset(0px 100px)");
@@ -13,7 +13,7 @@ describe("morphClip", () => {
   it("вдоль оси, по которой масштаб и выбран, не режет ничего", () => {
     const from = { left: 0, top: 0, width: 200, height: 100 };
     const to = { left: 0, top: 0, width: 400, height: 200 };
-    // Пропорции совпадают ⇒ кадр садится в плитку ровно, срезать нечего.
+    // The proportions match ⇒ the frame sits in the tile exactly, with nothing to trim.
     expect(morphClip(from, to, 0)).toBe("inset(0px 0px)");
   });
 
@@ -30,18 +30,18 @@ describe("morphClip", () => {
 
 describe("morphTransform", () => {
   it("ставит героя ровно в границы плитки: центр в центр, размер в размер", () => {
-    // Плитка 300×200 в левой половине экрана, герой 900×600 по центру.
+    // A 300×200 tile in the screen's left half, a 900×600 hero in the centre.
     const from = { left: 100, top: 200, width: 300, height: 200 };
     const to = { left: 500, top: 100, width: 900, height: 600 };
-    // Центры: плитка (250, 300), герой (950, 400) ⇒ сдвиг (−700, −100), масштаб 1/3.
+    // Centres: the tile (250, 300), the hero (950, 400) ⇒ a shift of (−700, −100), scale 1/3.
     expect(morphTransform(from, to)).toBe("translate(-700px, -100px) scale(0.3333)");
   });
 
   it("масштаб РАВНОМЕРНЫЙ — кадр по дороге не сплющивается", () => {
     const from = { left: 0, top: 0, width: 100, height: 100 };
     const to = { left: 0, top: 0, width: 400, height: 200 };
-    // Центры: (50, 50) и (200, 100) ⇒ сдвиг (−150, −50). По осям вышло бы 0.25 и 0.5;
-    // берём больший, чтобы кадр закрыл плитку без полей, а лишнее срежет morphClip.
+    // Centres (50, 50) and (200, 100) ⇒ a shift of (−150, −50). The axes would give 0.25 and 0.5;
+    // the larger wins so the frame covers the tile without margins, and morphClip trims the rest.
     expect(morphTransform(from, to)).toBe("translate(-150px, -50px) scale(0.5)");
   });
 
@@ -52,10 +52,10 @@ describe("morphTransform", () => {
 
   it("отдаёт null, если любой из боксов вырожден", () => {
     const ok = { left: 0, top: 0, width: 100, height: 100 };
-    // Плитка ещё не отрисована (скрыта, нулевой размер) — морфить не из чего.
+    // The tile is not rendered yet (hidden, zero size) — there is nothing to morph from.
     expect(morphTransform({ left: 0, top: 0, width: 0, height: 100 }, ok)).toBeNull();
     expect(morphTransform({ left: 0, top: 0, width: 100, height: 0 }, ok)).toBeNull();
-    // Герой ещё не получил размеров — делить на ноль нельзя.
+    // The hero has no dimensions yet — division by zero is not allowed.
     expect(morphTransform(ok, { left: 0, top: 0, width: 0, height: 100 })).toBeNull();
     expect(morphTransform(ok, { left: 0, top: 0, width: 100, height: 0 })).toBeNull();
   });
@@ -69,8 +69,8 @@ describe("morphTransform", () => {
 
 describe("morphRadius", () => {
   it("возвращает радиус, который ПОСЛЕ сжатия даст радиус плитки", () => {
-    // Кадр 800×540 садится в плитку 400×270 — масштаб 0.5, значит скругление на кадре надо
-    // взять вдвое крупнее: transform сжимает и его.
+    // An 800×540 frame sits into a 400×270 tile at scale 0.5, so the frame's radius must be taken
+    // twice as large: the transform shrinks that too.
     const from = { left: 0, top: 0, width: 400, height: 270 };
     const to = { left: 0, top: 0, width: 800, height: 540 };
     expect(morphRadius(from, to, 19)).toBe("38px");
@@ -102,9 +102,9 @@ describe("cssDurationMs", () => {
   });
 
   it("читает секунды — в том числе без нуля перед точкой", () => {
-    // Ровно то, во что минификатор сборки переписывает `320ms`: `.32s`. `parseInt` на таком
-    // молча даёт NaN, и число подменяется дефолтом — анимация в CSS играет одну длительность,
-    // а таймеры в JS считают другую (поймано на живом борде: мигание плитки на посадке).
+    // Exactly what the build minifier rewrites `320ms` into. `parseInt` silently gives NaN there
+    // and the value falls back to a default, so CSS animates one duration while JS timers count
+    // another (caught on the live board: the tile flickered on landing).
     expect(cssDurationMs(".32s")).toBe(320);
     expect(cssDurationMs("0.44s")).toBe(440);
     expect(cssDurationMs("1s")).toBe(1000);
@@ -115,7 +115,8 @@ describe("cssDurationMs", () => {
     expect(cssDurationMs("   ")).toBeNull();
     expect(cssDurationMs("0ms")).toBeNull();
     expect(cssDurationMs("-120ms")).toBeNull();
-    // Без единицы — не длительность: голое число в CSS невалидно, и угадывать за скин нечего.
+    // With no unit it is not a duration: a bare number is invalid CSS, and guessing for a skin is
+    // not our business.
     expect(cssDurationMs("320")).toBeNull();
     expect(cssDurationMs("fast")).toBeNull();
   });

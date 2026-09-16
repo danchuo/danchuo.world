@@ -1,21 +1,16 @@
 /**
- * Листание окна календаря по неделям (PRD §5.3). Окно борда считается от **якоря**, а не от
- * «сегодня»: сдвиг якоря — единственный способ увидеть недели, не попавшие в четырёхнедельное
- * окно. Логика вынесена сюда чистыми функциями, потому что обе её развилки — клампинг вперёд
- * и упор в генезис — про даты и данные, а не про рендер.
+ * Calendar window paging, as pure functions: the window is built from an anchor, not from
+ * today — moving the anchor is the only way to reach weeks outside it. PRD §5.3
  */
 
 import { addDays, monthOf } from "./date";
 
-/** Шаг листания — одна неделя: за клик в окно въезжает ровно одна новая строка сетки. */
+/** Paging step: one click brings exactly one new grid row into the window. */
 const DAYS_IN_WEEK = 7;
 
 /**
- * Новый якорь окна после сдвига на [weeks] недель (отрицательное — в прошлое).
- *
- * Вперёд якорь не уезжает дальше [today]: будущее окно смысла не имеет (данных там не будет
- * никогда), а домашнее положение обязано совпадать с «сегодня» **точно** — иначе кнопка
- * возврата и лестница шагов разошлись бы на несколько дней.
+ * New anchor after shifting by [weeks] weeks (negative goes back). Never moves past [today]:
+ * home must equal today exactly, or the back button and the step ladder drift apart.
  */
 export function shiftAnchor(anchor: string, today: string, weeks: number): string {
   const next = addDays(anchor, weeks * DAYS_IN_WEEK);
@@ -23,62 +18,39 @@ export function shiftAnchor(anchor: string, today: string, weeks: number): strin
 }
 
 /**
- * Опора, поставленная НА день: окно собирается вокруг его недели.
- *
- * Так день гарантированно попадает в сетку, сколько бы строк ни съел перенос месяца (§5.2):
- * голова окна кончается неделей опоры, а лишние строки срезаются сверху. Шаг «на неделю
- * назад» такой гарантии не даёт — на стыке месяцев перенос забирает ряд, и день, ради
- * которого шагнули, остаётся за краем сетки.
- *
- * Дальше «сегодня» опора не уезжает — то же правило, что у [shiftAnchor]: данных там не
- * будет никогда, а дом обязан совпадать с «сегодня» точно.
+ * Anchor placed ON a day: the window is built around that day's week, so the day lands in the
+ * grid however many rows a month break eats. Stepping back one week gives no such guarantee.
+ * Clamped to [today] like [shiftAnchor]. PRD §5.2
  */
 export function anchorOnDay(date: string, today: string): string {
   return date > today ? today : date;
 }
 
 /**
- * Есть ли что листать назад. Признак — не конфиг, а **ответ бэка**: `DaysResource.range`
- * клампит `from` к генезису, поэтому первый пришедший день позже запрошенного означает, что
- * генезис лежит внутри окна и раньше него данных нет вовсе. Пустой ответ — окно целиком до
- * генезиса. Так фронту не нужно знать дату генезиса и держать её в согласии с бэком.
+ * Whether anything is left to page back to. The signal is the backend answer, not config:
+ * `DaysResource.range` clamps `from` to genesis, so a first day later than requested means
+ * genesis sits inside the window — the frontend never needs the genesis date itself.
  */
 export function hasEarlierWeeks(days: readonly { date: string }[], from: string): boolean {
   return days.length > 0 && days[0].date <= from;
 }
 
-/** Горизонтальный отрезок границы: ряд и полуинтервал колонок `[from, to)`, всё в 0-базе. */
+/** Horizontal boundary run: a row plus the half-open column range `[from, to)`, 0-based. */
 export interface MonthEdgeRow {
   row: number;
   from: number;
   to: number;
 }
 
-/** Вертикальный отрезок границы: клетка, вдоль левого края которой он идёт. */
+/** Vertical boundary mark: the cell along whose left edge it runs. */
 export interface MonthEdgeCol {
   row: number;
   col: number;
 }
 
 /**
- * Ступенька границы месяцев в сетке окна (§5.3) — **отрезками, а не поклеточно**.
- *
- * Поклеточная разметка выглядит проще, но линию из неё не собрать: у каждой клетки свой
- * отрезок, они лезут в жёлоб внахлёст (в местах перекрытия два полупрозрачных пикселя дают
- * лишнюю плотность — линия читается толще и ярче), рисунок пунктира перезапускается на каждой
- * клетке, а отсчёт идёт от `padding box`, который у клетки с толстой рамкой сдвинут внутрь.
- * Отрезок на весь прогон снимает все три беды разом: он один, он рисуется в своём слое и не
- * зависит ни от рамок клеток, ни от порядка их отрисовки.
- *
- * Геометрия: горизонталь проходит над клеткой, если над ней лежит клетка ДРУГОГО месяца;
- * вертикаль — слева от клетки, если слева лежит другой месяц. Соседние горизонтали одного
- * ряда склеиваются в прогон. За верхним краем окна соседа нет — там обрез выборки, а не стык.
- *
- * **Метится не всякий стык.** Метка принадлежит месяцу, который на стыке НАЧИНАЕТСЯ, и
- * рисуется, только если этот месяц строго раньше [currentMonth] (`YYYY-MM` от «сегодня»).
- * В домашнем окне граница молчит: текущий месяц назван плиткой «Сегодня», и линия там была бы
- * постоянным шумом — смысл она набирает в истории, где месяцы сливаются. Стык с БУДУЩИМ
- * месяцем молчит по тому же правилу и тем более: он не «предыдущий месяц» ни в каком смысле.
+ * Month boundary steps for the window grid, emitted as segments rather than per-cell marks.
+ * Both the segment form and which joins get marked at all: DESIGN §5.
  */
 export function monthEdges(
   days: readonly { date: string }[],
@@ -94,7 +66,7 @@ export function monthEdges(
     const col = (pad + i) % 7;
     const month = monthOf(days[i].date);
 
-    // Начавшийся месяц не прошлый — стык не метим вовсе; прогон при этом рвётся.
+    // Only a month starting BEFORE the current one is marked; the run breaks here. DESIGN §5
     if (month >= currentMonth) {
       run = null;
       continue;
@@ -102,7 +74,7 @@ export function monthEdges(
 
     const above = i >= 7 ? days[i - 7] : undefined;
     if (above && monthOf(above.date) !== month) {
-      // Продолжаем прогон, только если он идёт по этому же ряду вплотную к текущей колонке.
+      // Extend the run only while it stays on this row and is flush with this column.
       if (run && run.row === row && run.to === col) run.to = col + 1;
       else {
         run = { row, from: col, to: col + 1 };

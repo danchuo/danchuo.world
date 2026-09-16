@@ -9,7 +9,7 @@ const getFreshnessMock = vi.mocked(getFreshness);
 
 afterEach(() => vi.clearAllMocks());
 
-/** ISO момента «N часов назад» от реального now — чтобы «N назад» не зависело от часов прогона. */
+/** The ISO instant "N hours ago" from the real now, so "N ago" does not depend on the run's clock. */
 function hoursAgo(h: number): string {
   return new Date(Date.now() - h * 3_600_000).toISOString();
 }
@@ -26,7 +26,7 @@ describe("FreshnessTile", () => {
     render(<FreshnessTile />);
     expect(await screen.findByRole("img", { name: "свежесть" })).toBeInTheDocument();
     expect(screen.queryByText("свежесть")).not.toBeInTheDocument();
-    // Подсказка объясняет саму метрику, а не повторяет слово-ярлык.
+    // The tooltip explains the metric rather than repeating the label word.
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "время, когда последний раз обновлялись данные",
     );

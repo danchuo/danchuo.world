@@ -4,88 +4,50 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { createPortal } from "react-dom";
 
 interface HoverTipProps {
-  /** Текст подсказки. `null` ⇒ подсказки нет: якорь рендерится голым, без обёртки. */
+  /** The tooltip's text. `null` means no tooltip: the anchor renders bare, with no wrapper. */
   text?: string | null;
   /**
-   * Подсказка-КАРТОЧКА вместо строки текста (превью поста соцсети, DESIGN §7.9). Размещается
-   * тем же кодом, что и текстовая: задача «всплыть у якоря и не попасть под клип плитки» у них
-   * одна, и решать её дважды значило бы держать две копии выбора направления.
-   *
-   * ⚠️ Карточка уходит из дерева доступности (`aria-hidden`), в отличие от текстовой подсказки:
-   * та ОПИСЫВАЕТ якорь и потому подцеплена `aria-describedby`, а карточка — картинка рядом со
-   * ссылкой, и зачитывать её содержимое как описание ссылки на профиль незачем.
+   * A CARD tooltip instead of a line of text, placed by the same code as the textual one — the
+   * task of popping up near an anchor without falling under the tile's clip is identical. Unlike
+   * the text tip it leaves the accessibility tree: it illustrates the anchor, it does not describe
    */
   content?: ReactNode;
   /**
-   * Подсказка-ФРАЗА, а не короткая строчка: переносится по словам и капается по ширине.
-   * По умолчанию подсказка в одну строку (`nowrap`) — так её задумывал SVG-собрат у огонька,
-   * где текст короткий (номер дня жизни, длина стрика).
+   * A PHRASE tooltip rather than a short line: it wraps by words and is capped by width. By default
+   * a tooltip is one line (`nowrap`), as its SVG sibling at the streak flame intended, where the
+   * text is short — a day-of-life number, a streak length.
    */
   phrase?: boolean;
   /**
-   * Якорь занимает ячейку целиком вместо `inline-block` по содержимому.
-   *
-   * ⚠️ Нужен везде, где обёрнутое само тянется на всю ячейку (`w-full`/`h-full`). Обёртка
-   * появляется ВМЕСТЕ с подсказкой, то есть по данным: у одной плитки из ряда она есть, у
-   * соседних нет, и `inline-block` схлопывал бы растянутого ребёнка в ноль — предмет уезжал
-   * бы из своей ячейки ровно в тот момент, когда доехали данные. Обёртка обязана быть
-   * безразличной к раскладке; `display: contents` для этого не годится — у якоря не осталось
-   * бы коробки, а по ней считается место подсказки.
+   * Makes the anchor fill its cell instead of sizing to content. Needed wherever the wrapped child
+   * stretches, because the wrapper appears WITH the tooltip, that is, with the data — and
+   * `inline-block` would collapse a stretched child exactly when the data arrived.
    */
   fill?: boolean;
   children: ReactNode;
 }
 
-/** Зазор между якорем и подсказкой, он же отступ от края экрана. */
+/** The gap between anchor and tooltip, and its inset from the screen edge. */
 const GAP = 4;
 const EDGE = 8;
 /**
- * Отсрочка скрытия карточки. Ровно про [GAP]: между якорем и карточкой есть пустая полоса,
- * и указатель, едущий на карточку, успевает побывать вне обоих. Мгновенное скрытие делало
- * ссылки карточки недостижимыми — до них было физически не доехать.
+ * Delay before hiding the card. It is precisely about [GAP]: an empty strip lies between anchor and
+ * card, and a pointer travelling onto the card passes outside both. Hiding at once made the card's
+ * links unreachable — there was physically no way to get to them.
  */
 const LEAVE_MS = 220;
 
 /**
- * Закрыть открытую карточку — на весь борд она одна.
- *
- * ⚠️ **Без этого отсрочка [LEAVE_MS] становится видимой поломкой.** Марки стоят вплотную, и
- * переезд с одной на соседнюю — это уход с первой и приход на вторую в один и тот же момент:
- * новая карточка раскрывается сразу, а прежняя ещё досиживает свои двести миллисекунд, и на
- * мгновение видно две наложенные друг на друга. Отсрочка задумана про переезд указателя НА
- * карточку через пустую полосу; приход на другой якорь — однозначный сигнал, что ехали не
- * туда, и ждать больше нечего.
- *
- * Модульная переменная, а не контекст: карточек на борде не бывает двух, состояние у них
- * общее по своей природе, и провайдер вокруг всего дерева ради одной ссылки был бы
- * церемонией. Устаревшая запись (компонент размонтировали) безвредна — её вызов закрывает
- * уже закрытое.
+ * Closes the open card — there is only ever one on the board. WITHOUT THIS the leave delay becomes
+ * a visible fault: moving between adjacent marks opens the new card while the old one sits out its
+ * delay, and both are briefly stacked. A module variable, since the state is shared by nature.
  */
 let closeOpenCard: (() => void) | null = null;
 
 /**
- * Подсказка-мини-плитка в стиле активной волны — HTML-близнец SVG-тултипа карты-тропы
- * (`.quest-tip` у огонька-стрика): та же поверхность, тот же глиняный кант, тот же моно.
- *
- * Нативный `title` для этого не годится: его рисует ОС, а не волна — серо-жёлтый прямоугольник
- * системным шрифтом поверх пиксельного борда, с секундной задержкой и своим курсором `help`,
- * который на неинтерактивной дате обещал больше, чем там есть. Один язык подсказок на борде
- * важнее того, что системный тултип достаётся даром.
- *
- * ⚠️ **Подсказка живёт в ПОРТАЛЕ, а не внутри плитки, и это несущее условие.** Плитка режет
- * содержимое (`overflow: hidden`) и снять клип нельзя — он держит выхлоп `filter: blur` кадров
- * (docs/pitfalls.md). Пока подсказка была ребёнком плитки, длинный текст обрезался её краем, и
- * лечить это подгонкой ширины/направления бессмысленно: любой из четырёх краёв рано или поздно
- * оказывается ближе, чем нужно. В портале подсказка меряется только ЭКРАНОМ. `position: fixed`
- * тут обязателен вместе с порталом: `.pixel-tile` несёт `filter`, а он делает плитку containing
- * block для `fixed` — оставь мы подсказку внутри, она прибилась бы к плитке и снова клипалась.
- *
- * Направление выбирается САМО: вниз, если под якорем есть место, иначе вверх; по горизонтали
- * подсказка прижимается к экрану, а не к якорю. Жёсткий выбор направления не годится:
- * «всегда вниз» ломается на якорях внизу борда, «всегда вверх» — на якорях в шапке.
- *
- * Скринридеру подсказка достаётся через `aria-describedby` — как описание, а не как имя:
- * дата обязана остаться датой, номер дня жизни лишь дополняет её (DESIGN §4).
+ * A tooltip styled as a mini tile, the HTML twin of the quest map's SVG tip. It LIVES IN A PORTAL
+ * with `position: fixed`, and that is load-bearing: a tile clips its content and cannot stop, and
+ * `.pixel-tile` carries a `filter`, which would make it the containing block. DESIGN §12
  */
 export function HoverTip({ text, content, phrase = false, fill = false, children }: HoverTipProps) {
   const id = useId();
@@ -93,8 +55,8 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
   const tipRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  // Портал существует только на клиенте: на сервере `document` нет, а несовпадение разметки
-  // при гидрации дороже, чем подсказка, появляющаяся кадром позже.
+  // The portal exists only on the client: there is no `document` on the server, and a hydration
+  // mismatch costs more than a tooltip appearing one frame later.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -104,11 +66,11 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
     if (!a || !t) return;
     const ar = a.getBoundingClientRect();
     const tr = t.getBoundingClientRect();
-    // Вниз, если под якорем помещается; иначе вверх. Решает ЭКРАН, а не плитка: из портала
-    // подсказку больше ничто не режет.
+    // Below the anchor when it fits, otherwise above. The SCREEN decides, not the tile: out of the
+    // portal nothing clips the hint any more.
     const below = ar.bottom + GAP + tr.height <= window.innerHeight - EDGE;
     const top = below ? ar.bottom + GAP : ar.top - GAP - tr.height;
-    // По горизонтали идём от левого края якоря, но не даём уехать за экран.
+    // Horizontally it starts from the anchor's left edge but is not allowed off the screen.
     const maxLeft = window.innerWidth - EDGE - tr.width;
     const left = Math.max(EDGE, Math.min(ar.left, maxLeft));
     setPos({ top, left });
@@ -128,27 +90,27 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
     stopLeaving();
     place();
     setOpen(true);
-    // Карточка на борде одна: раскрывая свою, гасим чужую немедленно, не дожидаясь её
-    // отсрочки (см. [closeOpenCard]). Текстовые подсказки в реестре не участвуют — они
-    // мгновенные и накладываться друг на друга не успевают.
+    // There is one card on the board: opening yours closes the other immediately, without waiting for
+    // its delay (see [closeOpenCard]). Text hints take no part in the registry — they are instant and
+    // never manage to overlap each other.
     if (content) {
       if (closeOpenCard && closeOpenCard !== hide) closeOpenCard();
       closeOpenCard = hide;
     }
   }, [content, hide, place, stopLeaving]);
-  /** Уход с якоря у карточки — не приказ гаснуть, а начало отсрочки: см. [LEAVE_MS]. */
+  /** Leaving a card's anchor is not an order to hide but the start of a delay: see [LEAVE_MS]. */
   const hideSoon = useCallback(() => {
     stopLeaving();
     leaving.current = setTimeout(() => setOpen(false), LEAVE_MS);
   }, [stopLeaving]);
 
   useEffect(() => stopLeaving, [stopLeaving]);
-  // Уходя, снимаем себя с учёта: держать ссылку на закрывалку размонтированной карточки незачем.
+  // On the way out we deregister: holding a closer for an unmounted card serves nothing.
   useEffect(() => () => {
     if (closeOpenCard === hide) closeOpenCard = null;
   }, [hide]);
 
-  // Экран уехал или изменился — подсказка прячется, а не висит оторванной от якоря.
+  // The screen has scrolled or changed, so the hint hides rather than hanging detached from its anchor.
   useEffect(() => {
     if (!open) return;
     window.addEventListener("scroll", hide, true);

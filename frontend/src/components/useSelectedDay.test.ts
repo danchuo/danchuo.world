@@ -12,7 +12,7 @@ function dayOf(date: string): DayView {
   return { date, title: null, items: [], workouts: [] } as unknown as DayView;
 }
 
-/** Отложенный ответ: тест сам решает, когда день «приедет». */
+/** A deferred answer: the test decides when the day "arrives". */
 function deferred() {
   let resolve!: (d: DayView) => void;
   let reject!: (e: unknown) => void;
@@ -46,9 +46,9 @@ describe("useSelectedDay", () => {
   });
 
   /**
-   * Главный контракт ветки: на телефоне у плитки «Сегодня» нет высоты от родителя, поэтому
-   * состояние loading (оно рисует шиммер ВМЕСТО содержимого) схлопывало её в ноль — экран
-   * дёргался на каждом переключении дня. Пока едет новый день, показываем предыдущий.
+   * The branch's main contract: on a phone the "Today" tile gets no height from its parent, so the
+   * loading state (which draws a shimmer INSTEAD of the content) collapsed it to zero and the
+   * screen jumped on every day change. While a new day travels, the previous one stays.
    */
   it("переключение дня не гасит уже показанный", async () => {
     const first = deferred();
@@ -84,7 +84,7 @@ describe("useSelectedDay", () => {
     expect(result.current.day?.date).toBe("2026-08-02");
   });
 
-  /** Стало́й день на экране не должен молча выдавать себя за выбранный, если сеть отказала. */
+  /** A stale day on screen must not silently pass for the selected one when the network fails. */
   it("отказ на новом дне — ошибка, а не тихий чужой день", async () => {
     const first = deferred();
     const second = deferred();

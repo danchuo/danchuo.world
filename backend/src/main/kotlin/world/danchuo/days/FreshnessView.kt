@@ -3,7 +3,7 @@ package world.danchuo.days
 import java.time.Instant
 
 /**
- * Проекция свежести данных (PRD §8) для тихого индикатора в UI.
- * [lastIngestAt] `null` = приёмов ещё не было ⇒ фронт показывает пусто.
+ * Data freshness projection (PRD §8) for the quiet indicator in the UI. [lastIngestAt] `null`
+ * means no ingest has happened yet, and the board shows nothing.
  */
 data class FreshnessView(val lastIngestAt: Instant?)

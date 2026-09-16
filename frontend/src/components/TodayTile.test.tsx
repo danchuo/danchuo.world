@@ -14,7 +14,7 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
       { key: "reading", label: "чтение", icon: null, count: 2, target: 2 },
       { key: "stretch", label: "растяжка", icon: null, count: 0, target: 1 },
     ],
-    // Монстра за день отмечали и пил — `null` тут означал бы «не отмечали», а не «не пил».
+    // The monster was marked and drunk — `null` here would mean "not marked", not "not drunk".
     monsterDrunk: true,
     ...over,
   };
@@ -26,30 +26,30 @@ describe("TodayTile", () => {
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
     expect(screen.getByTestId("today-title")).toHaveTextContent("первый забег");
-    // Шаги, сон и тренировка переехали из «Сегодня» на свои виджеты — здесь их строк больше нет.
+    // Steps, sleep and workouts moved out of "Today" into their own widgets.
     expect(screen.queryByText(/шаги/)).not.toBeInTheDocument();
     expect(screen.queryByText(/сон/)).not.toBeInTheDocument();
     expect(screen.queryByText(/8.421/)).not.toBeInTheDocument();
     expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
 
-    // дисциплина — карта-тропа (QuestMap): чтение закрыто на обеих остановках, растяжка нет
+    // discipline is the quest map: reading closed at both stops, stretching not
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.getByTestId("quest-stop-reading-1")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-reading-2")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-stretch-1")).toHaveAttribute("data-done", "false");
-    // выбран вкус ⇒ детур монстра закрыт; отдельного блока монстра внизу плитки нет
+    // a flavour was chosen ⇒ the monster detour is closed; there is no separate monster block
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "true");
     expect(screen.queryByText("Mango Loco")).not.toBeInTheDocument();
-    // Итоговой дроби «N/7» в плитке нет — прогресс виден остановками тропы.
+    // There is no "N/7" total in the tile — the route's stops show the progress.
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
   it("дата подсказывает номер дня жизни своим тултипом, а не системным", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
-    // 2002-06-06 (день №1) → 2026-06-18.
+    // 2002-06-06 (day №1) → 2026-06-18.
     expect(screen.getByRole("tooltip")).toHaveTextContent("8779-й день жизни");
-    // Системного тултипа на дате нет — вместе с ним ушёл и курсор-подсказка.
+    // There is no native tooltip on the date, and the help cursor went with it.
     const date = screen.getByTestId("today-date");
     expect(date).not.toHaveAttribute("title");
     expect(date.className).not.toContain("cursor-help");
@@ -75,37 +75,37 @@ describe("TodayTile", () => {
     render(<TodayTile day={empty} today="2026-06-18" state="loaded" />);
 
     expect(screen.queryByTestId("today-title")).not.toBeInTheDocument();
-    // Без тренировки и без статов — только шапка + карта; строки статов в плитке нет.
+    // With no workout and no stats: the header plus the map, and no stats line in the tile.
     expect(screen.queryByText(/шаги/)).not.toBeInTheDocument();
     expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "false");
-    // Ни «не пил», ни «пил» — за пустой день монстра никто не отмечал.
+    // Neither "not drunk" nor "drunk" — nobody marked the monster on an empty day.
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-tone", "unknown");
     expect(screen.queryByTestId("quest-monster-verb")).toBeNull();
     expect(screen.queryByTestId("monster-none")).not.toBeInTheDocument();
   });
 
   it("длинное имя дня переносится на вторую строку, а не ужимается в одну", () => {
-    const long = "очень длинное имя дня про всё на свете"; // 38 символов
+    const long = "очень длинное имя дня про всё на свете"; // 38 characters
     render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
 
     const title = screen.getByTestId("today-title");
-    // Перенос разрешён — именно он и даёт крупный кегль вместо ужимания в одну строку.
+    // Wrapping is allowed, and that is what gives the large size instead of squeezing to one line.
     expect(title.className).not.toContain("whitespace-nowrap");
-    expect(title.className).toContain("w-3/5"); // имя дня получает 3/5 строки
-    // Ёмкость считается на ДВЕ строки: 192/38 ≈ 5.05cqw, потолок 4cqw побеждает.
+    expect(title.className).toContain("w-3/5"); // the day's name gets 3/5 of the line
+    // Capacity is computed over TWO lines: 192/38 ≈ 5.05cqw, and the 4cqw ceiling wins.
     expect(title.style.fontSize).toBe("clamp(max(2.2cqw, 11px), 5.05cqw, min(4cqw, 40px))");
   });
 
   it("очень длинное имя дня остаётся читаемым: вдвое крупнее прежнего и не ниже пола", () => {
-    // Реальное имя дня с прода (2026-09-01), 74 символа — на нём владелец и заметил «слишком мелко».
+    // A real day name from production (2026-09-01), 74 characters — the one the owner called too small.
     const long =
       "тройной пресс на работе еще и люстру не починили а она и не ломалась кстати";
     expect(long).toHaveLength(75);
     render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
 
-    // Было 96/75 ≈ 1.28cqw одной строкой; стало 192/75 = 2.56cqw двумя — ровно вдвое крупнее.
+    // It was 96/75 ≈ 1.28cqw on one line; now 192/75 = 2.56cqw on two — exactly twice as large.
     expect(screen.getByTestId("today-title").style.fontSize).toBe(
       "clamp(max(2.2cqw, 11px), 2.56cqw, min(4cqw, 40px))",
     );
@@ -115,7 +115,7 @@ describe("TodayTile", () => {
     const huge = "и".repeat(200);
     render(<TodayTile day={dayFixture({ title: huge })} today="2026-06-18" state="loaded" />);
 
-    // 192/200 = 0.96cqw — ниже пола: clamp отдаёт max(2.2cqw, 11px), имя занимает больше строк.
+    // 192/200 = 0.96cqw, below the floor: clamp returns max(2.2cqw, 11px) and the name takes more lines.
     expect(screen.getByTestId("today-title").style.fontSize).toBe(
       "clamp(max(2.2cqw, 11px), 0.96cqw, min(4cqw, 40px))",
     );
@@ -123,14 +123,14 @@ describe("TodayTile", () => {
 
   it("короткое имя дня держит общий кегль со строкой даты (пол/потолок не мешают)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
-    // «первый забег» — 12 символов: 192/12 = 16cqw > 4cqw, размер остаётся 4cqw и одной строкой
+    // a 12-character name: 192/12 = 16cqw > 4cqw, so the size stays 4cqw on one line
     expect(screen.getByTestId("today-title").style.fontSize).toBe(
       "clamp(max(2.2cqw, 11px), 16.00cqw, min(4cqw, 40px))",
     );
   });
 
   it("подпись плитки относительна выбранной дате (а не всегда «сегодня»)", () => {
-    // Выбран 17-е при сегодня 18-м → «вчера».
+    // The 17th selected while today is the 18th → "yesterday".
     render(<TodayTile day={dayFixture({ date: "2026-06-17" })} today="2026-06-18" state="loaded" />);
     expect(screen.getByText("вчера")).toBeInTheDocument();
     expect(screen.queryByText("сегодня")).not.toBeInTheDocument();
@@ -142,10 +142,10 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("today-date")).not.toBeInTheDocument();
   });
 
-  // --- Выходной: сцена отдыха вместо карты-тропы (§5.6) ---------------------------------------
+  // --- Weekend: the rest scene instead of the quest map (§5.6) ---------------------------------
 
   it("выходной с волной-сценой: карта уступает место сцене отдыха, чеклист монстра ✓ (не пил)", () => {
-    // 2026-06-21 — воскресенье; монстр не пит ⇒ чеклист-галочка, без стриков.
+    // 2026-06-21 is a Sunday; the monster is not drunk ⇒ a checklist tick, with no streaks.
     render(
       <TodayTile
         day={dayFixture({ date: "2026-06-21", monsterDrunk: false })}
@@ -161,7 +161,7 @@ describe("TodayTile", () => {
   });
 
   it("выходной, монстр пил: чеклист монстра словами", () => {
-    // dayFixture по умолчанию ставит вкус mango-loco ⇒ монстр пил.
+    // dayFixture sets a flavour by default ⇒ the monster was drunk.
     render(
       <TodayTile day={dayFixture({ date: "2026-06-21" })} today="2026-06-21" state="loaded" wave="wave-01" />,
     );
@@ -170,9 +170,8 @@ describe("TodayTile", () => {
   });
 
   it("«пил» и «не пил» красятся РАЗНЫМИ токенами, а не оттенками тревоги", () => {
-    // Регрессионный якорь: раньше «не пил» шёл --accent, а на волне 01 это #e2604c —
-    // почти тот же тон, что --danger #d2553f. Состояния различались одним словом,
-    // а цвет в обоих случаях говорил «плохо».
+    // A regression anchor: "not drunk" used to take --accent, which on wave 01 is nearly the same
+    // tone as --danger. The states differed by one word while the colour said "bad" either way.
     const mark = (drunk: boolean) => {
       const { unmount } = render(
         <TodayTile
@@ -189,12 +188,12 @@ describe("TodayTile", () => {
 
     expect(mark(false)).toContain("--accent-clean");
     expect(mark(true)).toContain("--danger");
-    // И зелёный не одолжен у чужой роли: --accent-code это канал вкладов GitHub.
+    // Nor is the green borrowed from another role: --accent-code is the GitHub contributions channel.
     expect(mark(false)).not.toContain("--accent-code");
   });
 
   it("день без записи: монстр серый и молчит — отсутствие данных не выдаём за чистый день", () => {
-    // Будущий день / дырка в истории: за него никто не отмечал, и вердикта нет.
+    // A future day or a hole in the history: nobody marked it, so there is no verdict.
     render(
       <TodayTile
         day={dayFixture({ date: "2026-06-18", hasData: false, monsterDrunk: null })}

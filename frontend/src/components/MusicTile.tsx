@@ -25,81 +25,69 @@ import { Icon } from "./Icon";
 interface MusicTileProps {
   style?: CSSProperties;
   className?: string;
-  /** Сколько недавних треков подтянуть (показываем их только когда ничего не играет). */
+  /** How many recent tracks to fetch; they are shown only when nothing is playing. */
   recentLimit?: number;
-  /** Период опроса now-playing, мс (по умолчанию ~25с — под TTL кэша бэка). */
+  /** Poll period for now-playing, in ms (default ~25s, matching the backend cache TTL). */
   pollMs?: number;
 }
 
-/** Сколько недавних показывать в простое (когда нет играющего трека). */
+/** How many recents to show while idle, i.e. with no track playing. */
 const RECENT_WHEN_IDLE = 5;
 
 /**
- * Профиль владельца в Spotify — цель ссылки на слове «Spotify» (PRD §5.5).
- *
- * Константа, а не поле из API: это атрибуция сервиса, а не контент борда. Соцссылки живут в
- * своём слайсе, потому что их состав меняется; здесь же ссылка одна и она часть требования
- * Spotify — метаданные обязаны идти с упоминанием сервиса И ссылкой обратно в него.
- * Параметр `si` из адреса поделиться убран: он метка приглашения, а не часть профиля.
+ * The owner's Spotify profile, the target of the word "Spotify". A constant rather than an API
+ * field, because this is service attribution and not board content: Spotify requires metadata to
+ * carry a mention AND a link back. The share `si` parameter is stripped — it marks an invite.
  */
 const SPOTIFY_PROFILE_URL = "https://open.spotify.com/user/q7lxpi1rk0dipyt65pj5z2mc0";
 
 /**
- * Запас (px) у нижнего края списка недавних: строка обязана кончиться выше него, иначе гасим
- * её целиком — лучше на одну песню меньше, чем нижняя обрезанная (§7.1).
- *
- * 4px хватало ровно до тех пор, пока метрики строки совпадали с расчётом высоты списка. На
- * устройстве строка оказывается чуть выше расчётной, и нижняя вылезала на пару пикселей —
- * из-под края виджета торчала половина букв.
+ * Slack (px) at the bottom of the recents list: a row must end above it or be hidden entirely —
+ * better one song fewer than a clipped last one. 4px sufficed only while row metrics matched the
+ * computed list height; on a device the row is slightly taller and half-letters showed. §7.1
  */
 const FIT_MARGIN = 6;
 
-/* Геометрия сжатия-к-контенту (см. [useIsomorphicLayoutEffect] в компоненте). */
-const COVER = 44; // сторона обложки now-playing
-const COVER_GAP = 12; // gap-3 между обложкой и текстом
-const CARD_PAD_X = 32; // горизонтальные поля TileShell (p-4 с обеих сторон)
-/* Сторона обложки в ряду недавнего. Волна вправе переопределить её своим правилом (как и
-   размер обложки now-playing), но разметке нужно КАКОЕ-ТО число: без атрибутов картинка
-   прыгала бы по высоте, пока грузится. */
+/* Geometry of shrink-to-content (see [useIsomorphicLayoutEffect] in the component). */
+const COVER = 44; // side of the now-playing cover
+const COVER_GAP = 12; // gap-3 between the cover and the text
+const CARD_PAD_X = 32; // TileShell horizontal padding (p-4 on both sides)
+/* Cover side in a recents row. A wave may override it with its own rule, as it may the now-playing
+   cover size, but the markup needs SOME number: without the attributes the picture would jump in
+   height while loading. */
 const RECENT_COVER = 30;
-/* Не сжимаем уже этого: строке-шапке («сейчас играет» + «Spotify») нужен воздух. */
+/* No narrower than this: the header line ("now playing" plus "Spotify") needs air. */
 const MIN_CARD_W = 190;
-/* Ширина карточки, пока контент не измерен (загрузка/пусто). Компактная и центрированная, а не
-   во всю ячейку — иначе на быстром F5 SSR-плитка мигает широкой персиковой полосой до появления
-   виджета. `min(100%, …)` держится и в пре-гидрационном SSR-кадре (без замера). */
+/* Card width until the content is measured (loading or empty). Compact and centred rather than
+   full-cell, or a fast reload flashes the SSR tile as a wide peach strip before the widget appears.
+   `min(100%, …)` also holds in the pre-hydration SSR frame, where nothing is measured. */
 const LOADING_W = 340;
 
-/* useLayoutEffect ругается при SSR клиентских компонентов — на сервере падаем на useEffect. */
+/* useLayoutEffect warns during SSR of client components, so on the server we fall back to useEffect. */
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-/** Снимок музыки для кэш-копии (stale-while-revalidate, как у тайлов на [useTileData]). */
+/** Music snapshot for the cache copy (stale-while-revalidate, as the tiles on [useTileData] do). */
 interface MusicSnapshot {
   now: NowPlayingView | null;
   recent: RecentTrackView[];
   /**
-   * Когда снимок записан. Кэш свою метку хранит, но наружу не отдаёт (см. `api/cache.ts`), а
-   * шкале головки она нужна как ОПОРА: без неё копия, прочитанная после F5, встала бы в
-   * позицию двадцатисекундной давности и догоняла рывком.
+   * When the snapshot was written. The cache keeps its own timestamp but does not hand it out (see
+   * `api/cache.ts`), and the playhead scale needs it as an ANCHOR: without it a copy read after a
+   * reload would start twenty seconds behind and catch up in a jump.
    */
   at: number;
 }
 const MUSIC_CACHE_KEY = "music";
 
 /**
- * Прячет недавние треки, которые не влезают в контейнер по высоте (§7.1): лучше 4 целых,
- * чем 5 внахлёст. Меньше пятёрки = видимый сигнал владельцу, что плитке стало тесно.
- * Подгонка чисто визуальная (без React-state) — меряем раскладку и гасим лишние `<li>`
- * императивно (`visibility:hidden` сохраняет место, замер не осциллирует). [signature]
- * перезапускает подгонку при смене состава списка; ResizeObserver — при ресайзе плитки.
- * В jsdom (тесты) геометрия нулевая ⇒ ничего не прячем. Спан считаем по
- * `getBoundingClientRect` относительно контейнера — независимо от offsetParent.
+ * Hides recent tracks that do not fit the container's height — four whole rows beat five
+ * overlapping. The fitting is purely visual, with no React state: layout is measured and extra
+ * `<li>` hidden imperatively, keeping their space so the measurement cannot oscillate. §7.1
  */
 function useFitOverflow(signature: string): (el: HTMLUListElement | null) => void {
-  // Элемент — в state, а не в ref: список живёт только пока ничего не играет и монтируется
-  // ЗАНОВО, когда трек доиграл. Эффект на одном составе списка при этом не перезапускался,
-  // и свежий `<ul>` выходил без подгонки — пять строк, четвёртую резал край плитки (владелец
-  // ловил это, вернувшись во вкладку после долгого отсутствия). Callback-ref делает сам узел
-  // зависимостью эффекта: новый узел — новый замер.
+  // The element lives in state, not a ref: the list exists only while nothing plays and remounts
+  // once a track ends. An effect keyed on the list's contents did not re-run then, so a fresh
+  // `<ul>` came out unfitted. A callback ref makes the node itself the effect's dependency.
   const [el, setEl] = useState<HTMLUListElement | null>(null);
 
   useEffect(() => {
@@ -107,12 +95,9 @@ function useFitOverflow(signature: string): (el: HTMLUListElement | null) => voi
     const apply = () => {
       const kids = Array.from(el.children) as HTMLElement[];
       if (kids.length === 0) return;
-      // Требуем, чтобы строка влезала ЦЕЛИКОМ с небольшим запасом: строка, чей низ лишь на
-      // пару пикселей заходит за край, визуально «подрезается» по тексту — лучше показать на
-      // одну меньше, чем нижнюю обрезанную (§7.1). Край берём из `getBoundingClientRect`, а не
-      // из `clientHeight`: тот целый, и на дробной высоте (кегль считается в `cqw`) округление
-      // играло в пользу «влезает». В jsdom всё по нулям ⇒ запас не применяем (clientHeight==0),
-      // иначе бы прятали всё; там ничего не гасим.
+      // A row must fit WHOLLY, with slack: one whose bottom crosses the edge by a couple of pixels
+      // reads as clipped text. The edge comes from `getBoundingClientRect`, not `clientHeight` —
+      // that is an integer, and at fractional heights rounding voted "it fits".
       const box = el.getBoundingClientRect();
       const limit = el.clientHeight > 0 ? visibleBottom(el) - FIT_MARGIN : box.top + 1;
       let overflow = false;
@@ -126,21 +111,21 @@ function useFitOverflow(signature: string): (el: HTMLUListElement | null) => voi
       }
     };
     apply();
-    // Пересчитываем не только на ресайзе списка, но и когда меняются САМИ строки: список
-    // абсолютный (inset-0), его размер от содержимого не зависит, поэтому подросшая строка
-    // наблюдателю на контейнере не видна вовсе — а именно она и вылезает за край.
+    // Recomputed not only when the list resizes but when the ROWS THEMSELVES change: the list is
+    // absolute (inset-0) and its size does not follow its content, so an observer on the container
+    // never sees a row that has grown — which is exactly the row that overflows.
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
     ro?.observe(el);
     Array.from(el.children).forEach((kid) => ro?.observe(kid));
-    // Первый замер идёт по метрикам того шрифта, что нарисован сейчас: пока веб-шрифт не
-    // приехал, строки меряются фолбэком и «влезают». Приехал — строки подросли, и без этого
-    // пересчёта нижняя остаётся наполовину за краем (видно на телефоне, не видно в тестах).
+    // The first measurement uses the metrics of whatever font is painted now: until the web font
+    // arrives the rows are measured in the fallback and "fit". Once it arrives the rows grow, and
+    // without this recount the bottom one stays half past the edge (visible on a phone, not in tests).
     let alive = true;
     document.fonts?.ready.then(() => {
       if (alive) apply();
     });
-    // Возврат во вкладку — контрольный замер: в фоне браузер может отложить и ResizeObserver,
-    // и раскладку, а показать полстроки при первом же взгляде нельзя.
+    // Returning to the tab triggers a check measurement: in the background the browser may defer both
+    // ResizeObserver and layout, and half a row must not be the first thing seen.
     const onVisibility = () => {
       if (document.visibilityState !== "hidden") requestAnimationFrame(apply);
     };
@@ -156,17 +141,9 @@ function useFitOverflow(signature: string): (el: HTMLUListElement | null) => voi
 }
 
 /**
- * До какой линии содержимое [el] вообще **видно**: его собственный низ либо низ ближайшего
- * предка, который его срезает, — что выше.
- *
- * Своего низа мало. Замер на живом борде: колонка плитки кончалась на 119.6px, а список висел
- * до 150.3 — его `min-height` (заведённый ради мобильного стека, где высоты не даёт никто) в
- * бенто перебивал `min-h-0` и не давал flex-элементу сжаться. Подгонка мерила свой низ, решала
- * «всё влезло», и нижнюю строку срезала сама плитка. Считаем по клипу — и тогда неважно, кто
- * именно и почему оказался короче: строку либо видно целиком, либо её нет.
- *
- * Скроллящиеся предки (`auto`/`scroll`) не считаются: их содержимое не потеряно, до него
- * доскроллят.
+ * The line down to which [el]'s content is actually VISIBLE: its own bottom, or that of the
+ * nearest ancestor clipping it, whichever is higher. Its own bottom is not enough — a `min-height`
+ * meant for the mobile stack outlived `min-h-0` in the bento and the tile clipped the last row.
  */
 function visibleBottom(el: HTMLElement): number {
   let bottom = el.getBoundingClientRect().bottom;
@@ -180,16 +157,13 @@ function visibleBottom(el: HTMLElement): number {
 }
 
 /**
- * Живая головка воспроизведения: опора — снимок сервера, ход — часы клиента (арифметика
- * целиком в `@/lib/musicProgress`). Тикаем раз в секунду и **только пока играет**: на паузе
- * головка стоит, и будить рендер незачем.
- *
- * Тикер перезапускается на каждом ответе опроса (`now` приходит новым объектом), поэтому
- * дрейф клиентских часов не копится — раз в ~20с его обнуляет свежий снимок.
+ * The live playhead: the server snapshot is the anchor and the client clock provides motion. It
+ * ticks once a second and ONLY while playing. The ticker restarts on every poll answer, so client
+ * clock drift never accumulates — a fresh snapshot zeroes it roughly every 20 seconds.
  */
 function useHeadPosition(
   now: NowPlayingView | null,
-  /** Момент, которым датирован [now]: `Date.now()` живого ответа или метка копии из кэша. */
+  /** The moment [now] is dated by: `Date.now()` of a live reply, or the timestamp of a cached copy. */
   nowAt: number,
 ): { elapsed: number | null; ratio: number | null } {
   const [clockMs, setClockMs] = useState(() => Date.now());
@@ -213,13 +187,9 @@ function useHeadPosition(
 }
 
 /**
- * Медленные часы для меток давности в списке недавних (§5.5).
- *
- * Список грузится один раз: опрос на интервале трогает только now-playing (недавние от него
- * не меняются — трек, доигравший час назад, час назад и доиграл). Но метка «14 мин» —
- * величина ОТНОСИТЕЛЬНАЯ, и без собственного тика на открытой вкладке она осталась бы
- * четырнадцатью минутами и через час. Шаг в полминуты вдвое мельче единицы, которую метка
- * показывает; тикаем только когда список на экране.
+ * A slow clock for the relative stamps in the recents list. The list itself loads once — a track
+ * that finished an hour ago finished an hour ago — but "14 min" is a RELATIVE value and would sit
+ * at fourteen forever on an open tab. The step is half the unit shown. PRD §5.5
  */
 function useRecentClock(active: boolean): number {
   const [ms, setMs] = useState(() => Date.now());
@@ -233,27 +203,15 @@ function useRecentClock(active: boolean): number {
 }
 
 /**
- * Натуральная высота КАРТОЧКИ по её содержимому — вертикальный близнец сжатия-к-контенту
- * (§7.1). Считает столбец `.music-body` и добавляет обвязку плитки (поля, кант).
- *
- * Два места, где наивная сумма высот врёт:
- * - **список недавних растянут** `flex: 1`, и его собственная высота говорит не о контенте,
- *   а о том, сколько ему налили. `scrollHeight` внутреннего `ul` тут не помощник: он не
- *   бывает меньше `clientHeight`, то есть у списка, чьи ряды влезли, повторяет ровно ту же
- *   налитую высоту. Считаем по рядам — от верха списка до низа последнего ВИДИМОГО ряда
- *   (погашенные подгонкой держат место, но карточку под себя растить не должны).
- * - к списку добавляется [FIT_MARGIN]: подгонка требует, чтобы строка кончалась ВЫШЕ края
- *   на этот запас. Сожми карточку ровно по контенту — и подгонка тут же погасит последнюю
- *   строку, ради которой карточку и растили.
- *
- * Обвязка берётся замером (высота плитки минус высота столбца), а не константой: поля
- * задаёт скин волны, и у PRIME они свои.
+ * The card's natural height from its content, the vertical twin of shrink-to-content. Two places
+ * where naively summing heights lies: the recents list is stretched by `flex: 1`, so it is
+ * measured by ROWS down to the last VISIBLE one, and [FIT_MARGIN] must be added back. §7.1
  */
+
 /**
- * Высота содержимого списка: от его верха до низа последнего ВИДИМОГО ряда.
- *
- * Погашенные подгонкой ряды (`visibility: hidden`) место держат — так и задумано, замер от
- * этого не осциллирует, — но растить под них карточку незачем: их всё равно не видно.
+ * The list's content height: from its top to the bottom of the last VISIBLE row. Rows hidden by
+ * the fitting keep their space, which is what stops the measurement oscillating, but the card must
+ * not grow to cover them — they cannot be seen anyway.
  */
 function listContentHeight(list: Element): number {
   const top = list.getBoundingClientRect().top;
@@ -284,21 +242,21 @@ function naturalCardHeight(body: HTMLElement): number {
   return sum + gap * (shown - 1) + chrome;
 }
 
-/** Mono-стиль — статичен, держим вне компонента. */
+/** The mono style is static, so it is kept outside the component. */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
-/** Статичные стили — вне рендера, чтобы не пересобирать на каждый кадр. */
-// Альбом прижат к исполнителям (меньше воздуха), источник отодвинут от альбома (больше).
+/** Static styles live outside the render, so they are not rebuilt on every frame. */
+// The album sits close to the artists (less air), the source further from the album (more).
 const sourceStyle = { color: "var(--text-tertiary)", fontSize: "var(--fs-music-meta)", marginTop: 7 } satisfies CSSProperties;
 /**
- * Тело блока now-playing. Высоту НЕ фиксируем (Spotify ушёл в угол шапки, снизу его
- * больше нет) — блок растёт по контенту в освободившуюся вертикаль. Обложка прижата к
- * верху (`items-start` на строке), поэтому при смене трека не «ездит».
+ * Body of the now-playing block. The height is NOT fixed — Spotify moved into the header corner and
+ * is no longer below — so the block grows into the freed vertical. The cover is pinned to the top
+ * (`items-start` on the row), so it does not shift when the track changes.
  */
 
-/** Исполнители — чуть отодвинуты от названия (между альбомом и ними отступ не нужен). */
+/** Artists sit slightly away from the title; between the album and them no gap is needed. */
 
-/** Человекочитаемая метка источника по типу контекста Spotify. */
+/** Human-readable source label by Spotify context type. */
 const SOURCE_LABEL: Record<string, string> = {
   playlist: "плейлист",
   artist: "артист",
@@ -308,13 +266,13 @@ const SOURCE_LABEL: Record<string, string> = {
 
 
 
-/** Маленькая обложка-квадрат (пиксельный рендер в духе волны 01). */
+/** A small square cover, rendered pixelated in the spirit of wave 01. */
 
-/** Альбом строкой-ссылкой (если есть и не сингл/одноимённый — бэкенд уже отфильтровал). */
+/** The album as a link line, when present and neither a single nor same-named — the backend filters. */
 
 /**
- * Источник воспроизведения строкой-ссылкой: «{тип}: {название}» (бегущей строкой, если
- * длинно). Без имени — просто «{тип} ↗».
+ * The playback source as a link line: "{type}: {name}", in a marquee when long. With no name it is
+ * simply "{type} ↗".
  */
 function Source({ source }: { source: SourceRef }) {
   const label = SOURCE_LABEL[source.type] ?? "источник";
@@ -333,7 +291,7 @@ function Source({ source }: { source: SourceRef }) {
   );
 }
 
-/** Блок «сейчас играет»: обложка + трек/исполнители/альбом + источник (всё со ссылками). */
+/** The "now playing" block: cover plus track, artists, album and source, all of them links. */
 function NowPlaying({
   track,
   source,
@@ -343,11 +301,11 @@ function NowPlaying({
 }: {
   track: TrackView;
   source: SourceRef | null;
-  /** Ref на плашку источника (плейлист) — им меряем, обрезается ли она нижним краем плитки. */
+  /** Ref to the source plate (playlist), used to measure whether the tile's bottom edge clips it. */
   sourceRef: RefObject<HTMLDivElement | null>;
-  /** Плашка обрезается ⇒ прячем её визуально (данные грузятся, место держим): §5.5. */
+  /** The plate is clipped ⇒ hide it visually while the data still loads and the space is held. */
   sourceClipped: boolean;
-  /** Обложка не приехала с CDN — плитка перестраивается под это (§7.1). */
+  /** The cover did not arrive from the CDN, and the tile rearranges itself for that (DESIGN §7.1). */
   onCoverError: () => void;
 }) {
   return (
@@ -357,9 +315,9 @@ function NowPlaying({
       coverFallback={<CoverPlate seed={track.url ?? track.title} size={COVER} />}
       onCoverError={onCoverError}
     >
-      {/* Плашка источника (плейлист — рисуется, когда трек-сингл без своего альбома). Она всегда
-          в DOM (данные грузятся: задел под расширение виджета), но если нижний край плитки её
-          обрезает — прячем через visibility (место сохраняется, замер не осциллирует). */}
+      {/* The source plate (a playlist; drawn when a single has no album of its own). It is always
+          in the DOM, but if the tile's bottom edge would cut it we hide it with visibility, so the
+          space is kept and the measurement does not oscillate. */}
       {source && (
         <div
           ref={sourceRef}
@@ -374,20 +332,17 @@ function NowPlaying({
 }
 
 /**
- * Плитка музыки (M) — живой слой Spotify (PRD §M3, DESIGN §7). Тянет данные сама
- * (независимо от выбранного дня) с собственными per-tile состояниями: now-playing
- * опрашивается на интервале (под TTL кэша бэка); в скрытой вкладке опрос стоит,
- * при возврате на вкладку — немедленное обновление. Если трек играет — показываем его;
- * иначе — список недавних. Пусто («ничего не играет» / интеграция не подключена) —
- * тихое empty, без спец-ветки.
+ * The music tile, Spotify's live layer. It fetches on its own, independently of the selected day:
+ * now-playing is polled on an interval, the poll stops in a hidden tab and refreshes immediately
+ * on return. Playing shows the track, otherwise the recents list, otherwise a quiet empty.
  */
 export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, pollMs = 20_000 }: MusicTileProps) {
   const [state, setState] = useState<TileState>("loading");
   const [now, setNow] = useState<NowPlayingView | null>(null);
-  // Дата снимка едет рядом с ним: живой ответ датируется приёмом, копия — своей записью.
+  // A snapshot's date travels with it: a live reply is dated by receipt, a copy by its own write.
   const [nowAt, setNowAt] = useState(() => Date.now());
   const [recent, setRecent] = useState<RecentTrackView[]>([]);
-  // Первичная загрузка отмечена в ref: опрос now-playing не должен дёргать общий state.
+  // The initial load is flagged in a ref: polling now-playing must not disturb shared state.
   const loaded = useRef(false);
 
   const pollNow = useCallback((signal?: AbortSignal) => {
@@ -396,24 +351,24 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
         const at = Date.now();
         setNow(data);
         setNowAt(at);
-        // Держим now-playing в кэш-копии свежим (recent опрос не трогает — берём из копии).
+        // Keep now-playing fresh in the cache copy; the poll leaves recents alone, taken from the copy.
         const prev = readCache<MusicSnapshot>(MUSIC_CACHE_KEY);
         writeCache<MusicSnapshot>(MUSIC_CACHE_KEY, { now: data, recent: prev?.recent ?? [], at });
       })
       .catch(() => {
-        /* опрос тих: разовый сбой не роняет уже показанную плитку */
+        /* the poll stays quiet: one failure must not drop an already rendered tile */
       });
   }, []);
 
   const loadAll = useCallback((signal?: AbortSignal) => {
-    // Сидируем из последней удачной копии (переживает F5/рейтлимит) — без вспышки лоадера;
-    // живой опрос now-playing сверху быстро её актуализирует.
+    // Seeded from the last good copy, which survives a reload or a rate limit, so no loader flashes;
+    // the live now-playing poll above refreshes it quickly.
     if (!loaded.current) {
       const cached = readCache<MusicSnapshot>(MUSIC_CACHE_KEY);
       if (cached) {
         setNow(cached.now);
-        // Копия датируется СВОЕЙ записью, а не чтением — иначе шкала стартовала бы с позиции
-        // двадцатисекундной давности и догоняла рывком (см. [headSample]).
+        // A copy is dated by ITS OWN write rather than by the read, or the scale would start twenty
+        // seconds behind and catch up in a jump (see [headSample]).
         setNowAt(cached.at ?? Date.now());
         setRecent(cached.recent);
         loaded.current = true;
@@ -434,7 +389,7 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
       })
       .catch((err) => {
         if (signal?.aborted) return;
-        // Есть копия на экране — оставляем её, а не обнуляем в ошибку.
+        // With a copy already on screen, keep it rather than blanking the tile into an error.
         if (!loaded.current) setState("error");
         throw err;
       });
@@ -479,32 +434,30 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   }, [loadAll]);
 
   const playing = now?.track ?? null;
-  // Головка воспроизведения — живая, между опросами досчитывается по часам (§5.5).
+  // The playhead is live: between polls it is advanced from the clock (PRD §5.5).
   const { elapsed, ratio } = useHeadPosition(now, nowAt);
-  // Подряд идущие одинаковые недавние треки схлопываем в один ряд (§5.5).
+  // Consecutive identical recents collapse into a single row (PRD §5.5).
   const collapsedRecent = useMemo(() => collapseConsecutiveRecent(recent), [recent]);
-  // Играет трек ⇒ недавние не показываем (плитка маленькая, чтобы ничего не наезжало).
+  // A track playing ⇒ recents are hidden: the tile is small and nothing may overlap.
   const showRecent = !playing && collapsedRecent.length > 0;
   const isEmpty = !playing && !showRecent;
-  // Часы для меток давности: тикают, только пока список на экране.
+  // Clock for the "time ago" labels: it ticks only while the list is on screen.
   const recentNow = useRecentClock(showRecent);
-  /* Какой АДРЕС обложки не загрузился (а не голый флаг «сломано»): смена трека приносит новый
-     url, сравнение перестаёт совпадать, и плитка сама возвращается в нормальный вид. */
+  /* Which cover ADDRESS failed to load, rather than a bare "broken" flag: a track change brings a new
+     url, the comparison stops matching, and the tile returns to its normal look by itself. */
   const [brokenArt, setBrokenArt] = useState<string | null>(null);
 
-  // Прячем недавние, что не влезают по высоте (§7.1). Сигнатура состава — чтобы подгонка
-  // перезапускалась при смене треков, а не только их числа.
+  // Hide recents that do not fit by height (DESIGN §7.1). The signature of the set restarts the
+  // fitting when the tracks change, not only when their number does.
   const recentSig = collapsedRecent.map((r) => r.track.url ?? r.track.title).join("|");
   const recentRef = useFitOverflow(recentSig);
 
-  // Сжатие-к-контенту по горизонтали (как «последний дроп»): узкое описание трека ⇒ карточка
-  // жмётся к тексту и центрируется в ячейке; широкое — держит полную ширину. Натуральную ширину
-  // берём по строкам текста (`.marquee-inner`/`.fit-measure` — шринк-врап, их `scrollWidth`
-  // равен ширине текста независимо от текущей ширины карточки) плюс обложка now-playing. Внешнюю
-  // ширину ячейки меряем на обёртке (не на самой карточке — иначе замер зациклит наблюдатель).
+  // Horizontal shrink-to-content: a narrow track description hugs the text and centres in the
+  // cell, a wide one keeps full width. Natural width comes from the shrink-wrapped text rows, whose
+  // `scrollWidth` is independent of the card. The cell is measured on the WRAPPER, or it loops.
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  // Плашка источника (плейлист) прячется, если её обрезает нижний край плитки (§5.5).
+  // The source plate (playlist) hides itself if the tile's bottom edge clips it (PRD §5.5).
   const sourceRef = useRef<HTMLDivElement>(null);
   const [frameW, setFrameW] = useState(0);
   const [frameH, setFrameH] = useState(0);
@@ -532,30 +485,29 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
     });
     setNaturalW(max > 0 ? max + (playing ? COVER + COVER_GAP : 0) : 0);
     setNaturalH(naturalCardHeight(c));
-    // Обрезается ли плашка источника нижним краем контента (клип плитки)? Меряем её низ против
-    // низа overflow-hidden-колонки; в jsdom всё по нулям ⇒ не обрезано (плашка видима в тестах).
+    // Is the source plate clipped by the bottom of the content (the tile's clip)? Its bottom is
+    // measured against the bottom of the overflow-hidden column; in jsdom everything is zero, which
+    // reads as not clipped, so the plate stays visible in tests.
     const src = sourceRef.current;
     setSourceClipped(
       src != null && src.getBoundingClientRect().bottom > c.getBoundingClientRect().bottom + 1,
     );
   }, [playing]);
 
-  // Синхронный замер до отрисовки: сжатая ширина считается в том же кадре, когда коммитится
-  // загруженный контент, поэтому кэш-загрузка красится уже сжатой (без скачка ширины). Сигнатура
-  // состава перезапускает замер при смене трека/списка. В jsdom геометрия нулевая ⇒ cardW=null.
+  // A synchronous measurement before paint: the shrunk width is computed in the same frame that
+  // commits the loaded content, so a cache load paints already shrunk with no width jump. The content
+  // signature restarts the measurement on a track or list change; in jsdom geometry is zero.
   const contentSig = playing ? `np:${playing.url ?? playing.title}` : `re:${recentSig}`;
   useIsomorphicLayoutEffect(() => {
     measure();
   }, [measure, state, isEmpty, contentSig]);
 
-  // ⚠️ Шрифт доезжает ПОЗЖЕ первого замера, и это ломает сжатие молча. Ширина карточки считается
-  // от `scrollWidth` строк; замерь их запасным шрифтом — карточка выйдет у́же, чем нужно
-  // настоящему, и длинная строка (обычно альбом, он усечён многоточием) обрежется, хотя в ячейке
-  // ещё оставалось место. ResizeObserver сюда не помогает: подмена шрифта не меняет ни ячейку,
-  // ни состав контента, то есть ни один из живых поводов пересчитать не срабатывает.
+  // The font arrives AFTER the first measurement and breaks shrinking silently: measured in the
+  // fallback, the card comes out narrower than the real font needs and a long row is clipped with
+  // room to spare. ResizeObserver cannot help — a font swap changes neither cell nor content.
   useEffect(() => {
     const fonts = typeof document !== "undefined" ? document.fonts : undefined;
-    if (!fonts?.ready) return; // jsdom и старые движки — живём первым замером
+    if (!fonts?.ready) return; // jsdom and old engines — live with the first measurement
     let alive = true;
     fonts.ready.then(() => {
       if (alive) measure();
@@ -565,20 +517,20 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
     };
   }, [measure, state, isEmpty, contentSig]);
 
-  // ResizeObserver держит замер живым: внешняя ширина ячейки (ресайз окна, смена волны) И размер
-  // контента — так карточка **пере**сжимается сама, когда трек обновился в фоне (поллинг) и стал
-  // шире/уже. Петли нет: натуральная ширина берётся с `max-content`-строк и не зависит от ширины
-  // карточки, поэтому вызванный сжатием ресайз контента даёт то же значение (React гасит no-op).
+  // ResizeObserver keeps the measurement alive for both the cell's outer width and the content's
+  // size, so the card re-shrinks when a track changes in the background. No loop: natural width
+  // comes from `max-content` rows and does not depend on the card, so the answer repeats.
   useEffect(() => {
-    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
     const ro = new ResizeObserver(() => measure());
     if (frameRef.current) ro.observe(frameRef.current);
     if (contentRef.current) ro.observe(contentRef.current);
     return () => ro.disconnect();
   }, [measure, state, isEmpty]);
 
-  // Жмёмся к контенту, но не уже MIN_CARD_W и не шире ячейки; центрируемся в остатке. Пока контент
-  // не измерен — компактная дефолт-ширина (не во всю ячейку), чтобы не мигала персиковая полоса.
+  // Shrink to the content but never below MIN_CARD_W nor wider than the cell, centring in what is
+  // left. Until the content is measured a compact default width is used rather than the full cell,
+  // so no peach strip flashes.
   const shrinkW =
     naturalW > 0 && frameW > 0
       ? Math.min(frameW, Math.max(Math.ceil(naturalW) + CARD_PAD_X, MIN_CARD_W))
@@ -586,38 +538,36 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   const cardWidth: CSSProperties["width"] =
     shrinkW ?? (frameW > 0 ? Math.min(frameW, LOADING_W) : `min(100%, ${LOADING_W}px)`);
 
-  /* Вертикальный близнец сжатия: значение считаем всегда, но по умолчанию его никто не читает
-     (`.music-card` остаётся `height: 100%`). Волна, которой нужна карточка ростом с контент,
-     подхватывает переменную у себя — так же, как PRIME отменяет горизонтальное сжатие. */
+  /* Vertical twin of the shrink: the value is always computed but by default nobody reads it
+     (`.music-card` stays `height: 100%`). A wave that wants a content-height card picks the variable
+     up in its own skin, just as PRIME cancels the horizontal shrink. */
   const shrinkH = naturalH > 0 && frameH > 0 ? Math.min(frameH, Math.ceil(naturalH)) : null;
 
-  // Режим плитки — зацепка для скина (§10.2): чёрная плашка PRIME и обложка-фон Obscura
-  // существуют только под играющий (или поставленный на паузу) трек, а список недавних
-  // остаётся тем, чем был. Атрибут ставится на обёртке, чтобы скин доставал и саму плитку,
-  // и всё внутри неё одним селектором.
+  // The tile's mode is a hook for the skin (§10.2): PRIME's black plate and Obscura's cover
+  // backdrop exist only under a playing or paused track, while the recents list stays as it was.
+  // The attribute sits on the wrapper so one selector reaches both the tile and its insides.
   const mode = playing ? (now?.isPlaying ? "playing" : "paused") : showRecent ? "recent" : "quiet";
   const coverUrl = playing?.albumImageUrl ?? null;
-  /* Есть ли ЧТО показать обложкой. Отдельная зацепка от режима: «играет» и «есть картинка» —
-     разные вопросы, и волна, у которой обложка несёт всю композицию (Obscura), обязана
-     перестроиться, когда CDN её не отдал. Список недавних сюда попадает тем же путём:
-     играющего трека нет ⇒ и обложки во всю плитку нет. */
+  /* Whether there is ANYTHING to show as a cover. A separate hook from the mode: "playing" and "has a
+     picture" are different questions, and a wave whose cover carries the whole composition (Obscura)
+     has to rearrange when the CDN does not serve one. The recents list arrives here the same way. */
   const artMissing = coverUrl == null || brokenArt === coverUrl;
 
   return (
-    // Обёртка держит полный след ячейки; карточка внутри может быть у́же и центрируется.
+    // The wrapper keeps the cell's full footprint; the card inside may be narrower and is centred.
     <div
       ref={frameRef}
       data-music-mode={mode}
       data-music-art={artMissing ? "missing" : "ok"}
       style={{
         ...style,
-        // Ширина карточки — ПЕРЕМЕННОЙ, а не inline-стилем на плитке: скин волны вправе
-        // отменить сжатие-к-контенту (`width: 100%`), а inline он не перебьёт ничем, кроме
-        // `!important`. Значение то же самое, меняется только способ доставки.
+        // The card's width arrives as a VARIABLE rather than an inline style on the tile: a wave's
+        // skin may cancel shrink-to-content (`width: 100%`), which it could not do against inline
+        // without `!important`. The value is the same, only the delivery changes.
         "--music-card-w": typeof cardWidth === "number" ? `${cardWidth}px` : cardWidth,
         "--music-card-h": shrinkH != null ? `${shrinkH}px` : "100%",
-        // Обложка играющего трека — материал для скина (§10.2): Obscura стелет её фоном
-        // виджета. Волне, которой она не нужна, переменная не стоит ничего.
+        // The playing track's cover is material for the skin (DESIGN §10.2): Obscura lays it as the
+        // widget's ground. A wave that does not want it pays nothing for the variable.
         ...(artMissing ? null : { "--music-cover": `url("${coverUrl}")` }),
       } as CSSProperties}
       className={`tile-frame t-music-vars ${className ?? ""}`}
@@ -628,18 +578,17 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
         onRetry={retry}
         ariaLabel="Музыка"
         className="music-card"
-        // Подложка во всю карточку: по умолчанию выключена (common.css), волна включает
-        // её у себя и решает, что на ней нарисовано.
+        // Full-card ground: off by default (common.css); a wave switches it on in its own skin and
+        // decides what is drawn on it.
         backdrop={
           <>
-            {/* Заливка кадра: та же обложка, растянутая и размытая. Нужна волне, которая
-                показывает обложку ЦЕЛИКОМ (`contain`): квадрат в прямоугольной плитке
-                оставляет поля, и размытая копия закрывает их своим же цветом. */}
+            {/* The frame fill: the same cover, stretched and blurred. A wave showing the cover
+                WHOLE (`contain`) leaves margins around a square in a rectangular tile, and the
+                blurred copy closes them with the cover's own colour. */}
             <span className="music-art-fill" aria-hidden />
             <span className="music-art" aria-hidden />
-            {/* Та же ссылка, что на обложке-марке, но по самому кадру: волне, у которой
-                обложка растянута на всю плитку, кликать не во что — марки там нет. По
-                умолчанию слой выключен, как и обе подложки. */}
+            {/* The same link as on the cover mark, but over the frame itself: a wave with the cover
+                stretched across the tile has no mark to click. The layer is off by default. */}
             {playing?.url && (
               <a
                 className="music-art-link"
@@ -651,29 +600,22 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
             )}
           </>
         }
-        // Ширина задана ВСЕГДА (нет скачка auto→px), но БЕЗ `transition` — карточка несёт
-        // `filter: drop-shadow`, а WebKit не подчищает область, освобождённую сжимающимся
-        // композитным слоем: каждый кадр перегона оставлял полосу своей тени, и под плиткой
-        // вырастала гребёнка (docs/pitfalls.md). Здесь это било чаще всего — ширина едет на
-        // КАЖДОЙ смене трека, а не однажды при загрузке.
-        //
-        // ⚠️ Высоты здесь НЕТ, хотя раньше стояла инлайном (`height: 100%`): её задаёт класс
-        // `.music-card`, потому что волна вправе высоту переопределить (сжатие по вертикали,
-        // §7.1) — а inline-стиль скин не перебивает ничем, кроме `!important`. Ровно та же
-        // причина, по которой переменной приезжает и ширина.
+        // Width is ALWAYS set, so there is no auto-to-px jump, but WITHOUT a transition: the card
+        // carries `filter: drop-shadow`, and WebKit does not clean up after a shrinking composited
+        // layer — every frame left a band of its shadow (docs/pitfalls.md). No height here either:
       >
       {state === "loaded" && !isEmpty && (
         <div ref={contentRef} className="music-body flex h-full flex-col gap-1 overflow-hidden">
-          {/* Статус слева, атрибуция Spotify справа в той же строке — освобождает
-              вертикаль под список недавних (плитка низкая). */}
-          {/* Набор и цвет строки — В КЛАССЕ, а не инлайном: инлайн-стиль скин волны не
-              перебивает ничем, кроме `!important`, а PRIME меняет здесь и шрифт, и цвет
-              (плашка Spotify говорит не голосом борда). Значения те же, что стояли инлайном. */}
+          {/* The status left, Spotify's attribution right, in one row: it frees vertical space for
+              the recent list. */}
+
+          {/* The row's type and colour live IN THE CLASS, not inline: a skin cannot override an
+              inline style without `!important`, and a wave changes both here. */}
           <div className="music-status-row">
             <span>{playing ? (now?.isPlaying ? "сейчас играет" : "на паузе") : "недавно"}</span>
-            {/* Атрибуция сервиса: слово плюс знак. Знак по умолчанию скрыт — его включает
-                волна (см. [SpotifyMark]); слово остаётся при любой волне, потому что
-                метаданные Spotify обязаны идти со ссылкой и упоминанием сервиса. */}
+            {/* The service attribution: a word plus a mark. The mark is hidden by default and a
+                wave turns it on (see [SpotifyMark]); the word stays under any wave, because
+                Spotify metadata must travel with a link and a mention of the service. */}
             <a
               className="spotify-credit"
               href={SPOTIFY_PROFILE_URL}
@@ -696,8 +638,8 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
             />
           )}
 
-          {/* Шкала головки. Как и знак сервиса, по умолчанию выключена: волна 01 её не
-              заводила. Доля едет переменной, поэтому скину достаточно покрасить полосу. */}
+          {/* The playhead scale. Like the service mark, it is off by default. The fraction travels
+              in a variable, so a skin need only colour the bar. */}
           {playing && (
             <div
               className="music-progress"
@@ -712,11 +654,9 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
           )}
 
           {showRecent && (
-            // Обёртка с жёсткой высотой (flex-1 + relative), список — absolute inset-0:
-            // так его clientHeight всегда равен доступному месту, а не контенту — замер
-            // в useFitOverflow корректен и лишние треки реально прячутся (не наезжают).
-            // Оборотная сторона: своей высоты у обёртки нет, поэтому в стеке (§8) её задаёт
-            // min-height класса .music-recent — иначе список нулевой и треков не видно.
+            // A wrapper with a firm height and the list absolutely filling it, so the list's
+            // clientHeight is always the available space rather than its content and the fitting
+            // measures correctly. In the stack the wrapper's own height comes from its class.
             <div className="music-recent relative min-h-0 flex-1">
               <ul ref={recentRef} className="absolute inset-0 flex flex-col gap-0.5 overflow-hidden">
                 {collapsedRecent.map((r, i) => {
@@ -727,9 +667,8 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                   data-testid="recent-track"
                   className="recent-row"
                 >
-                  {/* Обложка ряда — слой волны, по умолчанию выключен (common.css). Помечена
-                      aria-hidden: название трека стоит в том же ряду, второй раз называть
-                      его картинке нечем. */}
+                  {/* A row's cover is a wave layer, off by default. It is aria-hidden: the track's
+                      name is in the same row, and the picture has nothing to add to it. */}
                   <span className="recent-cover" aria-hidden>
                     <Cover
                       url={r.track.albumImageUrl}
@@ -738,8 +677,8 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                       fallback={<CoverPlate seed={r.track.url ?? r.track.title} size={RECENT_COVER} />}
                     />
                   </span>
-                  {/* Как и в now-playing: едет бегущей строкой, только если не влезло по
-                      ширине (Marquee меряет overflow сам). Влезло — обычная строка. */}
+                  {/* As in now-playing: it scrolls only if it did not fit by width (Marquee
+                      measures the overflow itself). If it fits, it is an ordinary line. */}
                   <Marquee style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-music-artists)" }}>
                     <span className="recent-title">
                       {r.track.url ? (
@@ -752,9 +691,9 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                     </span>
                     {r.track.artists.length > 0 && (
                       <>
-                        {/* Разделитель — отдельный элемент, а не текст внутри строки
-                            исполнителей: волна, которая ставит исполнителя ОТДЕЛЬНОЙ строкой,
-                            гасит именно его и не переписывает разметку ряда. */}
+                        {/* The separator is its own element rather than text inside the artists
+                            line: a wave that puts the artist on a SEPARATE line hides just this
+                            and does not rewrite the row's markup. */}
                         <span className="recent-sep" style={{ color: "var(--text-tertiary)" }}>
                           {" · "}
                         </span>
@@ -764,9 +703,9 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
                       </>
                     )}
                   </Marquee>
-                  {/* Альбом и давность — тоже слои волны. Альбома нет у синглов и одноимённых
-                      релизов: бэкенд их уже отфильтровал (SpotifyViews), так что пустой
-                      колонки здесь не бывает — бывает ряд без неё. */}
+                  {/* The album and the age are wave layers too. Singles and self-titled releases
+                      have no album: the backend already filters those out, so there is never an
+                      empty column here — only a row without one. */}
                   {r.track.album && <span className="recent-album">{r.track.album.name}</span>}
                   {ago && <span className="recent-ago">{ago}</span>}
                   </li>

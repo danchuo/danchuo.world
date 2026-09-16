@@ -1,16 +1,17 @@
 # danchuo.world — PRODUCTION stack (PRD §8, M0): caddy + frontend + backend + postgres.
 # Standalone file (NOT an override of the test docker-compose.yml): images come prebuilt
 # from ghcr.io — the VPS never compiles anything (native-image needs 6-8 GB, CI has them).
-#
+
 #   docker compose -f docker-compose.prod.yml up -d
-#
-# Lives in /opt/danchuoworld on the VPS (synced there by the deploy workflow) next to a
-# hand-managed .env holding every secret — see docs/deploy.md. TAG is set by the workflow
-# to the git sha being deployed; unset (manual runs) it falls back to latest.
+
+# Lives in /opt/danchuoworld on the VPS (synced there by the deploy workflow) next to a hand-managed
+# .env holding every secret — see docs/deploy.md. TAG is set by the workflow to the git sha being
+# deployed; unset, as on manual runs, it falls back to latest.
+
 # Rollback = TAG=<old sha> docker compose -f docker-compose.prod.yml up -d
-#
-# Coexistence with the proxemics stack on the same VPS: separate compose project (its own
-# network/volumes/names), and the only host ports we take are 80/443 (caddy) plus loopback
+
+# Coexistence with the proxemics stack on the same VPS: a separate compose project with its own
+# network, volumes and names. The only host ports taken here are 80/443 for caddy plus loopback
 # 8081/5433 — proxemics already holds loopback 8080/5432.
 
 name: danchuoworld
@@ -73,6 +74,7 @@ services:
       # Instagram (PRD 5.17): optional — absent creds mean the slice reports "not configured".
       # The redirect URI must be https and match the app dashboard exactly: Instagram refuses
       # a loopback address, so the one-time OAuth can only be done against the live domain.
+
       # Snapshot images live under the film volume, so no extra mount is needed.
       DANCHUO_INSTAGRAM_CLIENT_ID: ${DANCHUO_INSTAGRAM_CLIENT_ID:-}
       DANCHUO_INSTAGRAM_CLIENT_SECRET: ${DANCHUO_INSTAGRAM_CLIENT_SECRET:-}
@@ -87,11 +89,10 @@ services:
 
       # LLM: optional — without a key the llm slice is a silent no-op and every check
       # marks frames as skipped (never as "nothing found", see PRD 5.12).
-      #
-      # Two providers live side by side. Groq is the cheap one and drives orientation
-      # checks (B9) and the artifact-hint suggestion. Gemini is the only one whose box
-      # coordinates land on target, so artifact detection needs it — and needs the
-      # provider switch flipped, otherwise every frame goes to Groq and 429s.
+
+      # Two providers live side by side: Groq is the cheap one, driving orientation checks and the
+      # artifact-hint suggestion, while Gemini is the only one whose box coordinates land on target.
+      # Artifact detection needs Gemini AND the provider switch flipped, or every frame 429s.
       DANCHUO_LLM_API_KEY: ${DANCHUO_LLM_API_KEY:-}
       DANCHUO_LLM_PROVIDER: ${DANCHUO_LLM_PROVIDER:-groq}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

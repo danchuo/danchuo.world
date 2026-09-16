@@ -14,17 +14,9 @@ import org.jboss.resteasy.reactive.RestForm
 import org.jboss.resteasy.reactive.multipart.FileUpload
 
 /**
- * Заведение артефактов через `/admin` (PRD §5.8, §9 п.8). Под `/api/ingest` ⇒ закрыто bearer'ом.
- *
- * До этого каждый новый предмет означал миграцию Liquibase — то есть правку кода и раскатку;
- * теперь это форма.
- *
- * - `GET    /api/ingest/artifacts` — список для управления.
- * - `POST   /api/ingest/artifacts` — завести предмет.
- * - `PUT    /api/ingest/artifacts/{id}` — изменить поля.
- * - `DELETE /api/ingest/artifacts/{id}` — удалить (вместе с картинкой).
- * - `POST   /api/ingest/artifacts/{id}/image` (multipart) — загрузить картинку.
- * - `POST   /api/ingest/artifacts/{id}/hint` — предложить описание для поиска по картинке.
+ * Creating artifacts from `/admin`: list, create, edit, delete, upload an image and ask for a
+ * detection hint. Under the ingest paths, so the bearer filter closes it. Before this, every new
+ * item meant a Liquibase migration — that is, a code change and a deploy. PRD §5.8, §9
  */
 @Path("/api/ingest/artifacts")
 class ArtifactAdminResource(
@@ -67,8 +59,8 @@ class ArtifactAdminResource(
     }
 
     /**
-     * Описание предмета по его картинке — дешёвой моделью. Пустой ответ (`hint: null`) штатен:
-     * модель не настроена или промолчала, поле дозаполняется руками.
+     * Describes an item from its picture with a cheap model. An empty reply (`hint: null`) is
+     * normal: the model is unconfigured or stayed silent, and the field is filled by hand.
      */
     @POST
     @Path("/{id}/hint")

@@ -8,19 +8,9 @@ import world.danchuo.days.DayRecordService
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Очередь пересказов (PRD §5.16): по ОДНОМУ заходу за такт — на все источники разом.
- *
- * По одному — не осторожность, а форма лимита. Бесплатная полоса меряется в токенах в минуту
- * (у gpt-oss-120b это 8 тысяч), а выдержка по потолку в 12 тысяч знаков стоит около 3.4 тысячи
- * промпт-токенов — то есть третий заход в ту же минуту упёрся бы в 429 и потратил бы попытку
- * впустую. **Именно поэтому поллер один на все
- * источники, а не по одному на слайс**: два независимых такта делили бы этот лимит вслепую и
- * мешали бы друг другу ровно тогда, когда обоим есть что рассказать.
- *
- * Спешить при этом некуда: заходов набегает единицы в сутки, а такт — минуты.
- *
- * Промах засчитывается попыткой и не повторяется бесконечно ([ContentSummary]); нечего
- * пересказывать — такт просто молчит.
+ * The summary queue: ONE sitting per tick, across all sources at once. One is not caution but the
+ * shape of the limit — the free lane is measured in tokens per minute, and a third sitting in the
+ * same minute would hit 429 and waste an attempt. Hence one poller, not one per slice. PRD §5.16
  */
 @ApplicationScoped
 class SummaryPoller(
@@ -33,9 +23,9 @@ class SummaryPoller(
     private val log: Logger = Logger.getLogger(SummaryPoller::class.java)
 
     /**
-     * С какого источника начинать обход. Двигается каждый такт, чтобы длинная очередь одного
-     * источника не заморозила соседний: книг может накопиться на неделю вперёд, и всё это время
-     * подкасты не должны молчать.
+     * Which source the walk starts from. It moves every tick so one source's long queue cannot
+     * freeze its neighbour: books can pile up for a week, and podcasts must not go silent
+     * throughout.
      */
     private val cursor = AtomicInteger(0)
 
@@ -50,7 +40,7 @@ class SummaryPoller(
             .onFailure { log.warn("summary: пересказ не собрался: ${it.message}") }
     }
 
-    /** Один такт. `true` — на борде появился новый пересказ. */
+    /** One tick. `true` when a new summary appeared on the board. */
     fun pollOnce(): Boolean {
         val sources = summaries.sources()
         if (sources.isEmpty()) return false
@@ -69,13 +59,13 @@ class SummaryPoller(
                     target.sessionId,
                     target.title,
                 )
-                // Карточка дня несёт флаг «есть что рассказать» — без сброса кнопка не появилась бы.
+                // The day card carries the "has something to tell" flag — without dropping the
+                // cache the button would never appear.
                 days.invalidateProjection()
             } else {
-                // Промах пишем ЗДЕСЬ, а не только в источнике: обрыв на модели (её выбытие у
-                // провайдера, рейтлимит) до источника не доходит, и на уровне очереди не
-                // оставлял ни строки. Выбытие llama-3.3 так и пряталось: в логах лежал 404 от
-                // клиента, но какому заходу он стоил кнопки — приходилось выяснять по БД.
+                // A miss is logged HERE, not only in the source: a break at the model (retirement
+                // by the provider, a rate limit) never reaches the source and left no trace at the
+                // queue level. Which sitting a 404 cost a button for had to be dug out of the DB.
                 log.infof(
                     "summary: пересказ не вышел (%s #%d, «%s») — попытка засчитана",
                     target.kind.code(),

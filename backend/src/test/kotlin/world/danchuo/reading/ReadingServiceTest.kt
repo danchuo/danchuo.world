@@ -14,13 +14,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Разбор снимка полки на сессии и производная отметка пункта «Чтение» (PRD §5.16).
- *
- * Чистая арифметика проверена отдельно ([ReadingSessionMathTest], [ReadingDayRollupTest]) —
- * здесь ровно то, что без БД не проверить: как прирост чужого счётчика превращается в сессии,
- * откуда берутся начальный и конечный процент, и кто выигрывает спор за отметку с шорткатом.
- *
- * Тесты делят одну БД с соседями, поэтому даты свои и всё записанное убирается в [cleanup].
+ * Splitting a shelf snapshot into sessions and deriving the "reading" mark (PRD §5.16). The pure
+ * arithmetic lives in [ReadingSessionMathTest] and [ReadingDayRollupTest]; here is what needs a
+ * DB. Dates are this class's own and everything written is removed in [cleanup].
  */
 @QuarkusTest
 class ReadingServiceTest {
@@ -40,7 +36,7 @@ class ReadingServiceTest {
     @Inject
     lateinit var checklistEntries: ChecklistEntryRepository
 
-    /** Свои даты: соседние тесты сеют дни фикстурами и не должны видеть чужие сессии. */
+    /** Our own dates: neighbours seed days from fixtures and must not see these sessions. */
     private val today: LocalDate = LocalDate.of(2026, 4, 7)
     private val yesterday: LocalDate = today.minusDays(1)
     private val evening: Instant = Instant.parse("2026-04-07T16:00:00Z")
@@ -73,7 +69,7 @@ class ReadingServiceTest {
     @Test
     fun `the next increment extends the same session and carries the percentage forward`() {
         service.absorb(shelf(seconds = 1_800, percent = 0.35), today, evening)
-        // Счётчик читалки накопительный: 1800 + ещё 600 приезжают как 2400.
+        // The reader's counter accumulates: 1800 plus another 600 arrive as 2400.
         service.absorb(shelf(seconds = 2_400, percent = 0.42), today, evening.plusSeconds(600))
 
         val session = sessions.listByDate(today).single()
@@ -93,20 +89,20 @@ class ReadingServiceTest {
     @Test
     fun `a second session after a long pause starts where the first one stopped`() {
         service.absorb(shelf(seconds = 1_800, percent = 0.35), today, evening)
-        // Три часа спустя — по владельческому сценарию это второй заход за вечер.
+        // Three hours later — by the owner's usage that is a second sitting the same evening.
         service.absorb(shelf(seconds = 3_600, percent = 0.42), today, evening.plusSeconds(3 * 3_600))
 
         val rows = service.sessionsOn(today)
         assertEquals(2, rows.size)
         assertEquals(listOf(1_800, 1_800), rows.map { it.readSeconds })
-        // «С 35% до 42%»: начало второго захода — там, где кончился первый.
+        // "From 35% to 42%": the second sitting starts where the first ended.
         assertEquals(0.35, rows[1].startPercent!!, 1e-9)
         assertEquals(0.42, rows[1].endPercent!!, 1e-9)
     }
 
     @Test
     fun `a book opened for the first time ever starts at zero, not at nothing`() {
-        // Книги раньше на полке не было вовсе ⇒ читать её начали сейчас, и старт честно нулевой.
+        // The book was not on the shelf before ⇒ reading started now, and the start is honestly zero.
         service.absorb(shelf(seconds = 1_800, percent = 0.10), today, evening)
 
         val session = sessions.listByDate(today).single()
@@ -116,11 +112,9 @@ class ReadingServiceTest {
 
     @Test
     fun `a position carried over from another reader is not counted as read today`() {
-        // Владелец читал книгу в другом приложении и перенёс позицию руками — читалка увидела
-        // её сразу на 47%. Счётчиков за прошлые дни у Anx неоткуда взяться (те дни прошли не в
-        // ней), поэтому по одному только их отсутствию заход выглядит начатым с нуля. Но три
-        // минуты не могут дать полкниги: столько процентов за сегодня НЕ прочитано, и старт
-        // остаётся неизвестным — карточка покажет только достигнутое.
+        // The owner read elsewhere and moved the position by hand, so the reader sees 47% at once
+        // with no past counters. Three minutes cannot be half a book: the start stays unknown
+        // rather than zero, and the card shows only what was reached.
         service.absorb(shelf(seconds = 170, percent = 0.4765), today, evening)
 
         val session = sessions.listByDate(today).single()
@@ -130,8 +124,8 @@ class ReadingServiceTest {
 
     @Test
     fun `a book seen lying on the shelf earlier starts where we last saw it`() {
-        // Главный сценарий владельца: книга весь день лежит на 35% и поллер её видит (чтения нет,
-        // сессий нет), а вечером за неё садятся. «Откуда» знаем именно из этих наблюдений.
+        // The owner's main scenario: the book sits at 35% all day with the poller seeing it and
+        // no reading, then the evening happens. "Where from" comes from those observations.
         service.absorb(
             ShelfSnapshot(books = mapOf(1L to book(percent = 0.35)), dayTotals = emptyList()),
             today,
@@ -147,7 +141,8 @@ class ReadingServiceTest {
 
     @Test
     fun `the observation is taken before the increment, not after`() {
-        // Обнови наблюдение до разбора — и старт совпал бы с финишем, дав пустую «42% → 42%».
+        // Update the observation before splitting and the start would equal the finish, giving
+        // an empty "42% → 42%".
         service.absorb(shelf(seconds = 1_800, percent = 0.42), today, evening)
 
         val session = sessions.listByDate(today).single()
@@ -156,8 +151,8 @@ class ReadingServiceTest {
 
     @Test
     fun `a book we only inherited history for keeps an unknown start`() {
-        // Дни чтения были ДО того, как мы начали смотреть: откуда владелец стартовал сегодня,
-        // знать неоткуда — подставлять ноль значило бы приписать ему чужие проценты.
+        // Reading days happened BEFORE we started watching: there is no way to know today's
+        // start, and substituting zero would credit the owner with someone else's percent.
         service.absorb(
             ShelfSnapshot(
                 books = mapOf(1L to book(percent = 0.42)),
@@ -193,10 +188,10 @@ class ReadingServiceTest {
         val rows = service.sessionsOn(today).sortedBy { it.bookId }
         assertEquals(2, rows.size)
         assertEquals(listOf("Хребты безумия", "Дюна"), rows.map { it.bookTitle })
-        // Дочитанная книга кончилась на 100%, начатая — с нуля: обе честно со своим путём.
+        // A finished book ends at 100%, a started one begins at zero: each with its own path.
         assertEquals(1.0, rows[0].endPercent!!, 1e-9)
         assertEquals(0.0, rows[1].startPercent!!, 1e-9)
-        // Минуты складываются в общий зачёт дня: 20 + 15 закрывают одну остановку.
+        // Minutes add into the day's shared tally: 20 + 15 close one stop.
         assertEquals(1, markCount())
     }
 
@@ -213,7 +208,7 @@ class ReadingServiceTest {
         service.absorb(shelf(seconds = 12, percent = 0.01), today, evening)
         service.absorb(shelf(seconds = 1_800, percent = 0.10), today, evening.plusSeconds(300))
 
-        // Те самые 12 секунд доехали вместе с остальными: зачёт считается от счётчика читалки.
+        // Those 12 seconds arrive with the rest: the tally follows the reader's counter.
         assertEquals(1_800, sessions.listByDate(today).single().readSeconds)
     }
 
@@ -231,7 +226,7 @@ class ReadingServiceTest {
         val session = sessions.listByDate(yesterday).single()
         assertEquals(2_400, session.readSeconds)
         assertEquals(ReadingSource.IMPORTED.code(), session.source)
-        // Ни времени, ни процентов у прошедшего дня взяться неоткуда.
+        // A past day has neither times nor percentages to take.
         assertNull(session.startPercent)
         assertNull(session.startedAt)
     }
@@ -273,26 +268,26 @@ class ReadingServiceTest {
 
         service.absorb(shelf(seconds = 3_600, percent = 0.42), today, evening)
 
-        // Шорткат зафиксировал ноль — производная отметка его не перебивает.
+        // The shortcut recorded a zero — the derived mark does not override it.
         assertEquals(0, markCount())
     }
 
     @Test
     fun `the book file is filled in even for sittings that gained no minutes`() {
-        // Заход записан ДО того, как мы стали забирать с полки файл книги.
+        // The sitting was recorded BEFORE we started taking the book file off the shelf.
         service.absorb(shelf(seconds = 1_800, percent = 0.42), today, evening)
         QuarkusTransaction.requiringNew().run {
             sessions.listByDate(today).forEach { it.bookFilePath = null }
         }
 
-        // Тот же снимок: минут не прибавилось, метаданные освежать нечему — и всё же путь к
-        // файлу обязан доехать, иначе вся прошлая история осталась бы без пересказа навсегда.
+        // Same snapshot, no new minutes, nothing to refresh — and still the file path must land,
+        // or all past history would stay without a retelling forever.
         service.absorb(shelf(seconds = 1_800, percent = 0.42), today, evening)
 
         assertEquals("file/hp.epub", sessions.listByDate(today).single().bookFilePath)
     }
 
-    // ── фикстуры ──
+    // ── fixtures ──
 
     private fun book(percent: Double) = ShelfBook(
         id = 1,

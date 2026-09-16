@@ -5,15 +5,15 @@ import jakarta.enterprise.context.ApplicationScoped
 import java.time.LocalDate
 
 /**
- * Доступ к отметкам дисциплины. [upsert] держит идемпотентность по (date, item):
- * повтор за дату правит ту же строку, прогресс зажимается в `0..target`.
+ * Access to discipline marks. [upsert] keeps idempotency per (date, item): a repeat for the date
+ * edits the same row, and progress is clamped into `0..target`.
  */
 @ApplicationScoped
 class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
 
     fun listByDate(date: LocalDate): List<ChecklistEntry> = list("date", date)
 
-    /** Отметки в диапазоне дат `[from, to]` включительно — для агрегатора календаря (M2). */
+    /** Marks over the inclusive date range `[from, to]`, for the calendar aggregator. */
     fun listByDateRange(from: LocalDate, to: LocalDate): List<ChecklistEntry> =
         list("date >= ?1 and date <= ?2", from, to)
 
@@ -21,11 +21,9 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
         find("date = ?1 and itemId = ?2", date, itemId).firstResult()
 
     /**
-     * Записать прогресс, только если отметки за (date, item) ещё нет; `true` — записали.
-     *
-     * Шов для **производных** отметок (пункт «дневник» ставится минутами «осознанности»,
-     * см. [JournalMarker]): существующая строка означает «за этот день уже решено», и
-     * ручной ввод её перекрывает — обычный [upsert] пишет поверх всегда.
+     * Writes progress only when (date, item) has no mark yet; `true` if it wrote. An existing row
+     * means "already decided for that day", which is how manual input outranks a derived channel
+     * such as [JournalMarker]. PRD §5.6
      */
     fun upsertIfAbsent(date: LocalDate, item: ChecklistItem, count: Int): Boolean {
         if (findByDateAndItem(date, item.id!!) != null) return false
@@ -34,13 +32,9 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
     }
 
     /**
-     * Записать прогресс из производного канала, который правит свою отметку ПОВТОРНО, — поллер
-     * подкастов дописывает минуты весь день (см. `PodcastMarker`). От [upsertIfAbsent] отличается
-     * тем, что своя же строка не блокирует запись: пустой слот занимаем, свою строку правим,
-     * ручную — не трогаем никогда. `true` — записали.
-     *
-     * Отдельный метод, а не флаг у [upsert]: у ручного ввода приоритет безусловный, и смешивать
-     * эти две записи в одну ветку значит однажды перепутать, кто кого перекрывает.
+     * Like [upsertIfAbsent] but for a channel that revises its own mark repeatedly (the podcast
+     * poller tops up minutes all day): an empty slot or its own row is writable, a MANUAL row
+     * never. Kept separate from [upsert] so manual priority cannot be lost in a flag. PRD §5.6
      */
     fun upsertDerived(date: LocalDate, item: ChecklistItem, count: Int): Boolean {
         val existing = findByDateAndItem(date, item.id!!)
@@ -49,7 +43,7 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
         return true
     }
 
-    /** Записать прогресс пункта за дату; [count] зажимается в `0..target`. Ручной ввод. */
+    /** Writes an item's progress for a date; [count] is clamped into `0..target`. Manual input. */
     fun upsert(date: LocalDate, item: ChecklistItem, count: Int) =
         write(date, item, count, ChecklistEntry.MANUAL)
 
@@ -58,7 +52,7 @@ class ChecklistEntryRepository : PanacheRepository<ChecklistEntry> {
         val entry = findByDateAndItem(date, item.id!!) ?: ChecklistEntry().apply {
             this.date = date
             itemId = item.id!!
-            // IDENTITY-генерация вставляет строку немедленно — not-null поля заполнены выше.
+            // IDENTITY generation inserts immediately — the not-null fields are set above.
             persist(this)
         }
         entry.count = clamped

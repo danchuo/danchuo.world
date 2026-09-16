@@ -10,14 +10,9 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичный сбор кликов для хитмапы (PRD §5.11, B2) — `POST /api/analytics/interactions`.
- * Симметричен биконy [AnalyticsBeaconResource]: **вне** `api/ingest`, без токена (это телеметрия
- * посетителя, не мутация владельца), cookieless. Фронт копит клики и шлёт **батчем** на уходе
- * (`navigator.sendBeacon`), чтобы не спамить по событию.
- *
- * Анти-абуз эшелонирован (PRD §11): IP-рейтлимит (`RateLimitFilter` лимитит и этот POST) +
- * валидация/cap в [InteractionService]. Любой брак отбрасывается там поэлементно — здесь только
- * приём: пустой/без `path` ⇒ 400, иначе 204 (телеметрия не должна светить детали отбраковки).
+ * Public click collection, symmetric to [AnalyticsBeaconResource]: outside `api/ingest` and
+ * token-free. Junk is dropped per item in [InteractionService], so this endpoint only accepts —
+ * empty or missing `path` is a 400, anything else a 204. PRD §5.11
  */
 @Path("/api/analytics/interactions")
 class InteractionResource(
@@ -54,7 +49,7 @@ class InteractionResource(
         return Response.noContent().build()
     }
 
-    /** IP клиента: первый из `X-Forwarded-For` (за прокси Caddy) → иначе адрес соединения. */
+    /** Client IP: first of `X-Forwarded-For` (behind the Caddy proxy), else the connection address. */
     private fun clientIp(headers: HttpHeaders, request: HttpServerRequest): String {
         val forwarded = headers.getHeaderString("X-Forwarded-For")
             ?.split(",")?.firstOrNull()?.trim()

@@ -7,8 +7,8 @@ describe("repoLabel", () => {
   });
 
   /**
-   * `danchuo/proxemics` — собственное имя репозитория, которым его зовёт и сам GitHub, и `gh`.
-   * Хост в нём — шум: строка перестаёт читаться адресом сайта и становится именем кода.
+   * `owner/repo` is a repository's own name, the one GitHub and `gh` call it by. The host in it is
+   * noise: the string stops reading as a website address and becomes the name of some code.
    */
   it("репозиторий на GitHub теряет хост: остаётся владелец/имя", () => {
     expect(repoLabel("https://github.com/danchuo/proxemics")).toBe("danchuo/proxemics");
@@ -16,14 +16,14 @@ describe("repoLabel", () => {
   });
 
   /**
-   * У профиля без репозитория срезать хост нечем: `dontyouo` в одиночку не говорит ни о
-   * гитхабе, ни о коде. Имя владельца осмысленно только в паре `владелец/репо`.
+   * A profile with no repository has nothing to trim: the owner's name alone says nothing about
+   * GitHub or code. It is meaningful only in the `owner/repo` pair.
    */
   it("профиль без репозитория остаётся с хостом", () => {
     expect(repoLabel("https://github.com/dontyouo")).toBe("github.com/dontyouo");
   });
 
-  /** Хост режется только гитхабовский: у прочих он часть имени проекта. */
+  /** Only GitHub's host is trimmed: elsewhere it is part of the project's name. */
   it("чужой хост остаётся", () => {
     expect(repoLabel("https://gitlab.com/danchuo/proxemics")).toBe("gitlab.com/danchuo/proxemics");
   });
@@ -32,7 +32,7 @@ describe("repoLabel", () => {
     expect(repoLabel("https://www.gitlab.com/a/b/")).toBe("gitlab.com/a/b");
   });
 
-  /** Ссылки нет — строке взяться неоткуда: подпись просто не рисуется (не «—» и не пустая). */
+  /** With no link there is nothing to build the line from: the caption is simply not drawn. */
   it("нет ссылки → null", () => {
     expect(repoLabel(null)).toBeNull();
     expect(repoLabel("")).toBeNull();
@@ -40,8 +40,8 @@ describe("repoLabel", () => {
   });
 
   /**
-   * Данные заводит владелец руками, и на не-URL строке форматтер не имеет права падать или
-   * прятать её: показываем что есть — это виднее, чем тихо исчезнувшая подпись.
+   * The owner enters this data by hand, and on a non-URL string the formatter may neither fail nor
+   * hide it: showing what is there is more visible than a caption that quietly vanished.
    */
   it("не-ссылка показывается как есть", () => {
     expect(repoLabel("локальный эксперимент")).toBe("локальный эксперимент");

@@ -9,9 +9,8 @@ import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 
 /**
- * `GET /api/theme/active` и `/api/themes` (PRD §5.9, §12 M4; DESIGN §10, §10.1): публичное
- * чтение, активная волна 01 отдаёт токены (JSONB); список выпущенных содержит её и демо-волну 02
- * с layout-дельтой (layout-per-wave).
+ * `GET /api/theme/active` and `/api/themes` (PRD §5.9; DESIGN §10, §10.1): public reads, the
+ * active wave serving tokens as JSONB, and the released list carrying a wave with a layout delta.
  */
 @QuarkusTest
 class ThemeResourceTest {
@@ -22,14 +21,14 @@ class ThemeResourceTest {
             .then().statusCode(200)
             .body("key", equalTo("wave-01"))
             .body("active", equalTo(true))
-            // токены инжектятся в :root — ключевые роли волны 01 на месте
+            // tokens are injected into :root — wave 01's key roles are in place
             .body("tokens.'bg-page'", equalTo("#fdefe7"))
             .body("tokens.accent", notNullValue())
     }
 
     @Test
     fun `active wave01 has no layout - frontend falls back to default`() {
-        // Волна 01 не несёт layout (null) ⇒ фронт берёт дефолтную bento-раскладку (layout.ts).
+        // Wave 01 carries no layout (null) ⇒ the frontend takes the default bento (layout.ts).
         given().get("/api/theme/active")
             .then().statusCode(200)
             .body("layout", nullValue())
@@ -44,40 +43,39 @@ class ThemeResourceTest {
 
     @Test
     fun `wave02 is the obscura restyle - cloud-paper palette and pixel display font`() {
-        // Волна 02 «Obscura» (миграция 0200): 8-бит аркада на «облачной бумаге». Полный токен-набор
-        // перекрывает :root целиком; сердце стиля — пиксельный дисплей-шрифт на бренд-блоке.
+        // Wave 02 "Obscura" (migration 0200): its full token set overrides :root completely, and
+        // the heart of the style is the pixel display font on the brand block.
         given().get("/api/themes")
             .then().statusCode(200)
             .body("key", hasItem("wave-02"))
-            // небесно-голубой холст вместо персика волны 01
+            // a sky-blue canvas instead of wave 01's peach
             .body("find { it.key == 'wave-02' }.tokens.'bg-page'", equalTo("#e3f1fe"))
-            // единственный Signal Orange
+            // the single Signal Orange
             .body("find { it.key == 'wave-02' }.tokens.accent", equalTo("#ff5e24"))
-            // токен дисплей-шрифта присутствует (Jersey 10 через --font-jersey)
+            // the display-font token is present (Jersey 10 through --font-jersey)
             .body("find { it.key == 'wave-02' }.tokens.'font-display'", notNullValue())
     }
 
     @Test
     fun `wave02 carries its own arcade-cabinet layout, distinct from wave01`() {
-        // Волна 02 несёт уникальную раскладку «аркадный автомат в небе» (миграция 0170 поверх
-        // сида 0080): marquee — ВЕРТИКАЛЬНАЯ лента артефактов у левого края на всю высоту (col 1,
-        // orientation=vertical), «Сегодня» — экран-доминанта центральной колонны (col 16).
-        // Фронт мержит спаны поверх layout.ts.
+        // Wave 02 carries its own layout (migration 0170 over seed 0080): the marquee is a
+        // VERTICAL artifact ribbon down the left edge, "Today" the dominant screen of the centre
+        // column. The frontend merges these spans over layout.ts.
         given().get("/api/themes")
             .then().statusCode(200)
             .body("key", hasItem("wave-02"))
-            // marquee — вертикальный левый край: col 1, во всю высоту, развёрнута вертикально
+            // marquee on the left edge: col 1, full height, turned vertical
             .body("find { it.key == 'wave-02' }.layout.tiles.marquee.col", equalTo(1))
             .body("find { it.key == 'wave-02' }.layout.tiles.marquee.rowSpan", equalTo(28))
             .body("find { it.key == 'wave-02' }.layout.tiles.marquee.orientation", equalTo("vertical"))
-            // «Сегодня» — экран-доминанта центральной колонны корпуса автомата
+            // "Today" as the dominant screen of the cabinet's centre column
             .body("find { it.key == 'wave-02' }.layout.tiles.today.col", equalTo(16))
-            // тайл без ориентации отдаёт null (дефолт тайла на фронте)
+            // a tile with no orientation serves null (the frontend tile's own default)
             .body("find { it.key == 'wave-02' }.layout.tiles.today.orientation", nullValue())
-            // sleep появился в реестре после сида — 0170 даёт ему свою полосу (не перекрывает social)
+            // sleep joined the registry after the seed — 0170 gives it its own band, clear of social
             .body("find { it.key == 'wave-02' }.layout.tiles.sleep.col", equalTo(30))
             .body("find { it.key == 'wave-02' }.layout.tiles.sleep.rowSpan", equalTo(5))
-            // identity в дефолте волны 01 скрыта — вывеска Obscura возвращается явным hidden: false
+            // identity is hidden in wave 01's default — Obscura brings its sign back explicitly
             .body("find { it.key == 'wave-02' }.layout.tiles.identity.hidden", equalTo(false))
     }
 }

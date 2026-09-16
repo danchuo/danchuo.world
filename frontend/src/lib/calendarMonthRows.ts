@@ -1,22 +1,12 @@
 import { dayOfMonth, weekdayMondayIndex } from "./date";
 
-/**
- * Разметка месяцев **переносом строки** — правило редакции «поле» (DESIGN §5.2).
- *
- * Стык месяцев здесь не рисуется линией: месяц начинает новую строку сетки, а место, где
- * прошлый оборвался, остаётся пустым. Разделителем работает сама пустота, и она же даёт
- * имени месяца куда встать — отдельного ряда и отдельного слоя линий больше не нужно.
- *
- * Чистая функция и свой модуль по той же причине, что у [monthEdges] и [splitEdgeWeeks]:
- * это арифметика по позициям в сетке, ошибиться в ней тихо — значит уронить раскладку
- * недели, чего в разметке не видно.
- */
+/** Month starts create row breaks; gaps carry month labels. DESIGN §5.2. */
 
 const DAYS_IN_WEEK = 7;
 
-/** Имя месяца в пустом куске: ряд и полуинтервал колонок `[from, to)`, всё в 0-базе. */
+/** Month label gap: zero-based row and half-open columns [from, to). */
 export interface MonthGap {
-  /** Первое число НАЧАВШЕГОСЯ месяца: подпись всегда называет то, что идёт дальше. */
+  /** First day of the incoming month; the label names what follows. */
   date: string;
   row: number;
   from: number;
@@ -24,24 +14,16 @@ export interface MonthGap {
 }
 
 export interface MonthRowsLayout {
-  /** Сколько строк занимает окно с учётом переносов. */
+  /** Row count including month breaks. */
   rows: number;
-  /** Слот каждого дня по порядку в окне: `row * 7 + col`. */
+  /** Slot for each day: row * 7 + col. */
   slots: number[];
   marks: MonthGap[];
-  /** Первые числа, которым пустого куска не досталось, — их называет сама клетка. */
+  /** Month starts without a gap are labeled in their own cell. */
   inline: string[];
 }
 
-/**
- * Разложить окно по строкам так, чтобы каждый месяц начинался со своей.
- *
- * ⚠️ **Перенос стоит ровно неделю слотов.** Голова новой строки (клетки до первого числа) и
- * хвост прошлой (клетки после последнего дня прошлого месяца) в сумме всегда дают семь:
- * дни идут подряд, значит колонка первого числа ровно на единицу больше колонки предыдущего
- * дня. Отсюда же следует, что больший из кусков никогда не у́же четырёх клеток, — на этом
- * держится выбор места для имени месяца, и проверять ширину на месте не нужно.
- */
+/** Start each month on a new row; its two gaps total seven slots, so the larger gap always has at least four. */
 export function monthRowsLayout(days: readonly { date: string }[]): MonthRowsLayout {
   const slots: number[] = [];
   const marks: MonthGap[] = [];
@@ -54,11 +36,11 @@ export function monthRowsLayout(days: readonly { date: string }[]): MonthRowsLay
     const first = dayOfMonth(date) === 1;
 
     if (i === 0) {
-      // Первый день окна ничего не разрывает: перед ним не обрез месяца, а обрез выборки.
+      // The first sampled day is a window boundary, not a month break.
       if (first) inline.push(date);
     } else if (col === 0) {
       row += 1;
-      // Месяц, начавшийся с понедельника, встал на новую строку сам — пустых клеток нет.
+      // Monday month starts need no inserted gap.
       if (first) inline.push(date);
     } else if (first) {
       row += 1;
@@ -71,14 +53,7 @@ export function monthRowsLayout(days: readonly { date: string }[]): MonthRowsLay
   return { rows: days.length === 0 ? 0 : row + 1, slots, marks, inline };
 }
 
-/**
- * Куда встаёт имя месяца: в больший из двух пустых кусков.
- *
- * Оба куска идут в порядке чтения ПЕРЕД первым числом (хвост прошлой строки — сразу за ним
- * голова новой), поэтому имя в любом из них читается как заголовок того, что дальше, а не
- * как подпись к соседним дням. Выбор по ширине, а не по близости: голова бывает и в одну
- * клетку, где слово не поместится.
- */
+/** Place the label in the wider gap; both gaps precede the new month in reading order. */
 function gap(date: string, row: number, col: number): MonthGap {
   const head = col;
   const tail = DAYS_IN_WEEK - col;

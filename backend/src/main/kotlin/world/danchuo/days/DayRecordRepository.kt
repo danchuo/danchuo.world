@@ -5,15 +5,15 @@ import jakarta.enterprise.context.ApplicationScoped
 import java.time.LocalDate
 
 /**
- * Доступ к [DayRecord] по ключу-дате (LocalDate, MSK). Слайсы пишут не сюда напрямую,
- * а через [DayRecordService] — он держит инварианты (генезис-гард, `created/updatedAt`).
+ * Access to [DayRecord] by its date key (LocalDate, MSK). Slices do not write here directly but
+ * through [DayRecordService], which holds the invariants (genesis guard, `created/updatedAt`).
  */
 @ApplicationScoped
 class DayRecordRepository : PanacheRepositoryBase<DayRecord, LocalDate> {
 
     fun findByDate(date: LocalDate): DayRecord? = findById(date)
 
-    /** Записи в диапазоне дат `[from, to]` включительно — для агрегатора календаря (M2). */
+    /** Records over the inclusive date range `[from, to]`, for the calendar aggregator. */
     fun listByDateRange(from: LocalDate, to: LocalDate): List<DayRecord> =
         list("date >= ?1 and date <= ?2", from, to)
 }

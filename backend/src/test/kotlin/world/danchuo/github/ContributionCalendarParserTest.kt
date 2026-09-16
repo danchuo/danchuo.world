@@ -7,22 +7,15 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 /**
- * Разбор публичного фрагмента календаря вкладов GitHub (PRD §5.4, реестр I-01).
- *
- * Канал — **HTML, а не API**: у GitHub нет открытого эндпоинта под эти клетки (GraphQL,
- * где живёт `contributionsCollection`, отвечает 403 без токена). Поэтому парсер обязан
- * быть подозрительным: разметка уже менялась (числа переехали из `data-count` ячейки в
- * текст всплывающей подписи), и следующая правка не должна ронять приём.
- *
- * Контракт деградации простой: **не понял — не отдал**. Пустая карта наверх означает
- * «данных нет», и вызывающий по ней ничего не пишет (та же доктрина, что «пустой прогон
- * Health не стирает ночь») — вместо того чтобы записать всем дням честный на вид ноль.
+ * Parsing the public GitHub contribution-calendar fragment (PRD §5.4, registry I-01). The channel
+ * is HTML, not an API, and the markup has already moved once, so the parser is suspicious by
+ * design: what it does not understand it does not return, and an empty map means "no data".
  */
 class ContributionCalendarParserTest {
 
     private fun day(d: String) = LocalDate.parse(d)
 
-    /** Ячейка календаря в форме живого фрагмента (порядок атрибутов — как отдаёт GitHub). */
+    /** A calendar cell as a live fragment (attribute order as GitHub serves it). */
     private fun cell(id: String, date: String, level: Int) =
         """<td tabindex="0" data-ix="0" aria-selected="false" style="width: 11px" data-date="$date" """ +
             """id="$id" data-level="$level" role="gridcell" data-view-component="true" """ +
@@ -46,9 +39,8 @@ class ContributionCalendarParserTest {
     }
 
     /**
-     * «No contributions» — это измеренный **ноль**, а не «нет данных»: день прожит, вкладов
-     * не было. Пропустить его нельзя — иначе пустой день навсегда останется `null`, и чип
-     * не сможет отличить «не собирали» от «не коммитил».
+     * Skipping it would leave an empty day `null` forever, and the chip could not tell
+     * "not collected" from "did not commit".
      */
     @Test
     fun `no contributions is a measured zero`() {
@@ -82,9 +74,8 @@ class ContributionCalendarParserTest {
     }
 
     /**
-     * Ячейка без подписи (разметка поехала / подпись не отрисовалась) не превращается в ноль:
-     * уровень заливки 0..4 в счёт не переводится, а «примерно 3» борду не нужно. День молчит,
-     * соседи по фрагменту при этом доезжают — одна битая клетка не рушит весь прогон.
+     * The 0..4 fill level is not a count, and "about 3" is no use to the board — so a cell with
+     * no tooltip stays silent rather than becoming a zero.
      */
     @Test
     fun `cell without a tooltip is skipped, neighbours survive`() {
@@ -97,7 +88,6 @@ class ContributionCalendarParserTest {
         assertEquals(2, parsed[day("2026-07-21")])
     }
 
-    /** Подпись не в той форме (локаль/переписанный текст) — тоже пропуск, а не догадка. */
     @Test
     fun `unparseable tooltip wording is skipped`() {
         val html = cell("c-x", "2026-07-19", 2) + tip("c-x", "вклады: много")
@@ -112,9 +102,8 @@ class ContributionCalendarParserTest {
     }
 
     /**
-     * Якорь против живой разметки: срез настоящего фрагмента профиля, снятый 31.07.2026
-     * (две недели ячеек с их подписями, как есть). Синтетические кейсы выше проверяют логику,
-     * этот — что мы всё ещё узнаём то, что GitHub реально отдаёт. Поедет разметка — упадёт он.
+     * A real slice of the profile fragment taken on 2026-07-31. The synthetic cases above check
+     * the logic; this is the test that fails when GitHub's markup moves.
      */
     @Test
     fun `parses a live slice of the real fragment`() {
@@ -128,12 +117,12 @@ class ContributionCalendarParserTest {
         assertEquals(7, parsed[day("2026-07-18")])
         assertEquals(15, parsed[day("2026-07-28")])
         assertEquals(3, parsed[day("2026-07-31")])
-        // Дни без вкладов — именно нули, а не пропуски.
+        // Days with no contributions are zeros, not gaps.
         assertEquals(0, parsed[day("2026-07-25")])
         assertEquals(0, parsed[day("2026-07-30")])
     }
 
-    /** Подпись привязана к ячейке по `for` — чужая цифра не должна протечь в соседний день. */
+    /** The binding is by `for`: a foreign number must not leak into a neighbouring day. */
     @Test
     fun `tooltip binds to its own cell by id`() {
         val html = cell("c-1", "2026-07-10", 1) + cell("c-2", "2026-07-11", 3) +

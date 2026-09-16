@@ -16,9 +16,9 @@ import { SleepIcon, StepsIcon } from "./StatsIcons";
 import { TileShell, type TileState } from "./TileShell";
 
 interface StatsTileProps {
-  /** История дней (старые→новые, «сегодня» последний) — источник графиков (§7.4). */
+  /** History of days (old → new, "today" last), the source of the charts (DESIGN §7.4). */
   history: DaySummary[];
-  /** Выбранный в календаре день — на нём стоит вертикальный маркер, его значение — слева. */
+  /** The day selected in the calendar: the vertical marker stands on it, its value on the left. */
   selected: string;
   state: TileState;
   onRetry?: () => void;
@@ -26,22 +26,22 @@ interface StatsTileProps {
   className?: string;
 }
 
-/** Сколько дней помещаем во всю ширину; остальное прячется под скролл-в-прошлое (§7.4). */
+/** How many days fit the full width; the rest hides behind scroll-into-the-past (DESIGN §7.4). */
 const WINDOW = 10;
 const PAD_X = 8;
-const RIGHT_AXIS = 28; // поле справа под метки оси Y
-const AXIS_H = 14; // ось дат снизу
-const BAND_PAD = 8; // отступ графика внутри полосы (сверху и снизу)
+const RIGHT_AXIS = 28; // right margin for the Y-axis labels
+const AXIS_H = 14; // the date axis at the bottom
+const BAND_PAD = 8; // the chart's inset within the band (top and bottom)
 const DOT_R = 2.3;
 const LABEL_EVERY = 3;
-/** Порог дельты колеса на один день прокрутки (больше = медленнее; гасит рывки тачпада). */
+/** Wheel delta threshold for one day of scrolling (larger is slower; it damps trackpad jerks). */
 const SCROLL_STEP_PX = 120;
 /**
- * Минимальный размах оси Y (§7.4): ось автомасштабируется по видимому окну, но не сжимается
- * ниже этого размаха — чтобы стабильные дни давали спокойную волну, а не раздутый шум.
+ * Minimum span of the Y axis (DESIGN §7.4): the axis autoscales to the visible window but never
+ * compresses below this, so steady days give a calm wave rather than inflated noise.
  */
 const STEPS_MIN_SPAN = 3000;
-const SLEEP_MIN_SPAN = 90; // 1.5 ч
+const SLEEP_MIN_SPAN = 90; // 1.5 h
 
 /** `2026-07-16` → `16.07`. */
 function shortDate(iso: string): string {
@@ -61,14 +61,14 @@ interface Metric {
   valueLabel: (v: number | null) => string;
 }
 
-/** Замер контейнера графиков (px) — SVG рисуем в реальных пикселях, чтобы точки не искажались. */
+/** Measurement of the chart container (px): the SVG is drawn in real pixels so points stay undistorted. */
 function useSize(): [React.RefObject<HTMLDivElement | null>, { w: number; h: number }] {
   const ref = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
     const ro = new ResizeObserver(([e]) => {
       const { width, height } = e.contentRect;
       setSize({ w: width, h: height });
@@ -79,7 +79,7 @@ function useSize(): [React.RefObject<HTMLDivElement | null>, { w: number; h: num
   return [ref, size];
 }
 
-/** Читаут метрики: иконка+подпись (в цвет), значение выбранного дня, среднее по окну. */
+/** Metric readout: icon and label (in colour), the selected day's value, and the window's average. */
 function MetricReadout({ m, value, avg }: { m: Metric; value: number | null; avg: number | null }) {
   return (
     <div className="min-w-0">
@@ -101,17 +101,9 @@ function MetricReadout({ m, value, avg }: { m: Metric; value: number | null; avg
 }
 
 /**
- * Чип вкладов GitHub выбранного дня (§7.4, реестр I-01) — «активность другого рода» рядом с
- * шагами и сном. Живёт в подвале колонки читаутов, ровно в поясе оси дат: слот той же высоты
- * ([AXIS_H]) уже был пустым, поэтому полосы графиков остаются отцентрованными как были.
- *
- * **Молчит на нуле и на «не собирали».** Чип отвечает на один вопрос — «гит сегодня был?»;
- * нулевых дней много подряд, и ежедневный «+0» стал бы шумом. Различие `0` / `null` при этом
- * в данных живо (§5.4) — его ждёт линза календаря, а не эта строка.
- *
- * **Цвет — токеном `--accent-code`, а не зелёным литералом.** Зелёный тут смысловой (это цвет
- * гита), но чужой палитре: волна 01 персиковая, Obscura графитовая — ровно за такой спор с
- * борда сняли цвета вкусов монстра. Оттенок выбирает волна, компонент цвет не знает.
+ * The selected day's GitHub contributions chip, "activity of another kind" beside steps and sleep.
+ * IT STAYS SILENT ON ZERO and on "not collected": it answers one question, and a daily "+0" across
+ * many empty days would be noise. The colour is a token — green is meaningful but not ours. §7.4
  */
 function ContributionChip({ count }: { count: number | null }) {
   if (count === null || count === 0) return null;
@@ -122,7 +114,8 @@ function ContributionChip({ count }: { count: number | null }) {
       style={{ color: "var(--accent-code)", fontFamily: "var(--font-mono)" }}
       title={`${count} вкладов на GitHub`}
     >
-      {/* Значок канала — decorative: цифру уже объясняет `title`, дубль сбивал бы скринридер. */}
+      {/* The channel's glyph is decorative: `title` already explains the number, and a duplicate
+          would confuse a screen reader. */}
       <span className="git-chip-icon" aria-hidden />
       <span className="truncate">+{count}</span>
     </div>
@@ -130,12 +123,9 @@ function ContributionChip({ count }: { count: number | null }) {
 }
 
 /**
- * Статы (§7.4): два линейных графика с общим окном/скроллом — шаги (сверху) и сон (снизу).
- * Слева — иконка+значение выбранного дня и среднее по видимому окну (динамически), по центру
- * своей полосы (совпадает со средней линией). Справа рамка оси Y (низ 0 / середина / верх; шаги в
- * K, сон в ч; дефолт 15K/10ч, выше — если в окне есть такой день; пересчёт по окну). Вертикальный
- * маркер — на выбранном дне (клик по календарю переносит окно к нему). Колесо/тачпад листают окно
- * (инвертировано, ~120px/день), на краях отдаётся странице; наведение — тултип. Пропуски — разрывы.
+ * The stats charts: steps above, sleep below, sharing one window and scroll. The left column shows
+ * the selected day's value and the visible window's average; the right frames the Y axis, rescaled
+ * per window. The wheel pages the window and yields at the edges; gaps stay breaks. DESIGN §7.4
  */
 function StatsCharts({ history, selected }: { history: DaySummary[]; selected: string }) {
   const [boxRef, { w, h }] = useSize();
@@ -153,8 +143,8 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
     setOff(clampOffset(offsetRef.current, history.length, WINDOW));
   }, [history.length]);
 
-  // Клик по календарю: если выбранный день вне окна — подвинуть окно, чтобы он стал виден
-  // (историчность сохраняется: вокруг него те же 10 дней). Уже видимый день окно не дёргает.
+  // A click in the calendar: if the selected day falls outside the window, the window moves so it
+  // becomes visible, keeping the same ten days around it. A day already visible does not jolt it.
   useEffect(() => {
     const idx = history.findIndex((d) => d.date === selected);
     if (idx < 0) return;
@@ -238,7 +228,7 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
   const x = (i: number) => PAD_X + (i / denom) * innerW;
 
   const selectedValue = (points: SparkPoint[]) => (selHistoryIdx >= 0 ? points[selHistoryIdx]?.value ?? null : null);
-  // Вклады выбранного дня — чип следует за выбором, как и оба читаута.
+  // Contributions of the selected day — the chip follows the selection, as both readouts do.
   const selectedContributions = selHistoryIdx >= 0 ? history[selHistoryIdx]?.contributions ?? null : null;
 
   const bands = metrics.map((m, row) => {
@@ -265,7 +255,7 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
 
   return (
     <div className="tile-frame flex h-full min-w-0 gap-2">
-      {/* Левая колонка — читауты по центру своих полос (совпадает со средней линией). */}
+      {/* The left column: readouts centred on their bands (matching the middle line). */}
       <div className="t-stats-col shrink-0 flex flex-col">
         <div className="flex flex-1 flex-col">
           {metrics.map((m) => (
@@ -274,30 +264,30 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
             </div>
           ))}
         </div>
-        {/* Поясок под ось дат: держит центровку читаутов по полосам графиков — и заодно даёт
-            чипу вкладов место, не двигая ни одну из них. Пусто, когда гита в этот день не было. */}
+        {/* A belt under the date axis: it keeps the readouts centred on their bands and gives the
+            contributions chip a place without moving either. Empty on a day with no git. */}
         <div className="flex items-center" style={{ height: AXIS_H }}>
           <ContributionChip count={selectedContributions} />
         </div>
       </div>
 
-      {/* Графики. */}
+      {/* The charts. */}
       <div ref={boxRef} className="relative min-w-0 flex-1">
         {w > 0 && h > 0 && (
           <svg width={w} height={h} className="block" aria-hidden>
-            {/* Вертикальная сетка — одна линия на день, во всю высоту графиков. */}
+            {/* The vertical grid: one line per day, the full height of the charts. */}
             {dates.map((d, i) => (
               <line key={`g-${d}`} x1={x(i)} x2={x(i)} y1={0} y2={plotH} stroke="var(--text-tertiary)" strokeWidth={1} opacity={0.13} />
             ))}
 
-            {/* Маркер выбранного дня — пунктирная вертикаль. */}
+            {/* The selected day's marker — a dashed vertical. */}
             {selIdx >= 0 && (
               <line x1={x(selIdx)} x2={x(selIdx)} y1={0} y2={plotH} stroke="var(--accent)" strokeWidth={1} strokeDasharray="3 3" opacity={0.65} />
             )}
 
             {bands.map(({ m, row, wPts, min, max, top, innerH, y, segments }) => (
               <g key={m.key}>
-                {/* Рамка + средняя линия оси Y с метками справа (верх / середина / низ). */}
+                {/* The frame plus the Y axis's middle line, with labels on the right. */}
                 {[
                   { v: max, yy: top },
                   { v: (min + max) / 2, yy: top + innerH / 2 },
@@ -338,10 +328,9 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
               </g>
             ))}
 
-            {/* Ось дат снизу — реже, чтобы `16.07` не наезжали; крайняя слева якорится по началу.
-                Выходной **занимает слот даты**, а не встаёт рядом: слот один, поэтому наложиться
-                нечему по построению. Два разобранных и отклонённых варианта разметки недели —
-                DESIGN §7.4. Выходной подписан всегда, дата — по своему разрежённому ритму. */}
+            {/* The date axis below, sparser so the dates do not collide; the leftmost anchors to
+                the start. A weekend TAKES THE DATE'S SLOT rather than standing beside it, so
+                nothing can overlap. Two rejected week-marking variants are in DESIGN §7.4. */}
             {dates.map((d, i) => {
               const weekend = weekdayMondayIndex(d) >= 5;
               if (!weekend && i % LABEL_EVERY !== 0 && i !== selIdx) return null;
@@ -363,7 +352,7 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
           </svg>
         )}
 
-        {/* Тултип наведённой точки — дата + значение метрики. */}
+        {/* The hovered point's tooltip — the date plus the metric's value. */}
         {hover !== null && bands[hover.row]?.wPts[hover.i]?.value != null && (
           <div
             className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded px-1.5 py-0.5 text-xs"
@@ -386,8 +375,8 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
 }
 
 /**
- * Статы (S) — активность (шаги) и сон за период (§7.4). Детали ночи и фазы — в отдельной плитке
- * «сон» (§7.7). Пустая история (нет ни шагов, ни сна) — тихое «нет данных».
+ * Stats — activity (steps) and sleep over a period (DESIGN §7.4). Night detail and phases live in
+ * the separate sleep tile (§7.7). An empty history, with neither steps nor sleep, says "no data".
  */
 export function StatsTile({ history, selected, state, onRetry, style, className }: StatsTileProps) {
   const hasData = history.some((d) => d.steps !== null || d.sleepMinutes !== null);

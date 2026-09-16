@@ -1,35 +1,17 @@
-/**
- * Геометрия предмета в ленте артефактов (DESIGN §7.2) — чистый расчёт, отдельно от
- * компонента: `ArtifactMarquee.tsx` должен экспортировать только компоненты, иначе
- * Fast Refresh не сохраняет состояние при правке файла.
- */
+/** Keep pure geometry outside the component module to preserve Fast Refresh state. DESIGN §7.2. */
 
-/** Поперечный габарит предмета в ленте (px). */
+/** Cross-axis item limit in pixels. */
 export const ARTIFACT_SIZE = 40;
-/** Габарит предмета ВДОЛЬ ленты (px) — страховка от предмета-полосы на всю плитку. */
+/** Along-axis limit prevents a strip-shaped item from filling the tile. */
 const ARTIFACT_LONG = 120;
-/**
- * Оптический вес предмета — сторона квадрата той же площади. Предметы равняются ИМ,
- * а не высотой: при равной высоте широкие очки занимают вдвое больше места, чем почти
- * квадратная мыльница, и читаются крупнее её. Взято так, чтобы ни один из предметов
- * набора не упирался в поперечный потолок ленты.
- */
+/** Equal-area optical weight; equal height would make wide items dominate. DESIGN §7.2. */
 const ARTIFACT_PRESENCE = 48;
-/** Со скольких раз «длинная сторона / короткая» предмет считается вытянутым. */
+/** Minimum long-to-short ratio considered elongated. */
 const ELONGATED = 2;
 
-/**
- * Класть ли предмет набок в слоте, вытянутом вдоль [vertical] (`false` — слот лежачий).
- *
- * **Флаг только разрешает — решает геометрия картинки.** Отсюда следствие, которое легко
- * принять за неработающий флаг: если у картинки широкие прозрачные поля, пропорция считается
- * от холста, предмет не признаётся вытянутым и набок не ложится (см. обрезку полей, PRD §5.8).
- *
- * Живёт отдельно от [artifactBox], потому что нужен не только ленте: карточка предмета у рамки
- * находки (DESIGN §7.5) держит тот же лежачий слот, а габариты ленты ей ни к чему.
- */
+/** Rotation requires permission and an elongated image ratio; transparent canvas margins can hide elongation. PRD §5.8. */
 export function laysOnSide(ratio: number, rotatable: boolean, vertical: boolean): boolean {
-  // Картинка ещё не измерилась / битая — считаем предмет квадратным (значит не вытянутым).
+  // Unmeasured or invalid images use a square ratio.
   const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
   const elongated = r >= ELONGATED || r <= 1 / ELONGATED;
   const longIsWidth = r >= 1;
@@ -39,22 +21,11 @@ export function laysOnSide(ratio: number, rotatable: boolean, vertical: boolean)
 export interface ArtifactBox {
   width: number;
   height: number;
-  /** Повернуть на 90°: длинная сторона предмета смотрит поперёк ленты. */
+  /** Rotate 90 degrees, placing the long side across the strip. */
   rotate: boolean;
 }
 
-/**
- * Габарит предмета в ленте (DESIGN §7.2). Два правила.
- *
- * **Набок — только с разрешения.** Вытянутый предмет, лежащий поперёк ленты, вырождается
- * в нитку (ракетка ~1:3.8 при поперечном габарите 40px даёт 11px), но класть набок можно
- * не всякий: у очков и мыльницы есть «правильная сторона», у ракетки её нет. Пропорцией
- * это не выводится, поэтому [rotatable] — свойство самого предмета (поле артефакта), по
- * умолчанию `false`: новый предмет показывается ровно так, как нарисован. Куда и насколько
- * поворачивать, по-прежнему решает геометрия картинки, а не запись в БД.
- *
- * **Предметы весят одинаково** — равная площадь, потом обрезка потолками ленты.
- */
+/** Size by equal area, constrained by strip limits; rotation requires explicit permission. DESIGN §7.2. */
 export function artifactBox(
   ratio: number,
   vertical: boolean,
@@ -62,16 +33,16 @@ export function artifactBox(
   cross: number = ARTIFACT_SIZE,
   long: number = ARTIFACT_LONG,
 ): ArtifactBox {
-  // Картинка ещё не измерилась / битая — считаем предмет квадратным (упрётся в потолок).
+  // Unmeasured or invalid images use a square ratio.
   const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
   const rotate = laysOnSide(ratio, rotatable, vertical);
-  // Экранная пропорция (после поворота стороны меняются местами).
+  // Rotation swaps the displayed aspect ratio.
   const eff = rotate ? 1 / r : r;
 
-  // Равный оптический вес: w·h = presence², w/h = eff.
+  // Equal area: w*h = presence squared, w/h = eff.
   let width = ARTIFACT_PRESENCE * Math.sqrt(eff);
   let height = ARTIFACT_PRESENCE / Math.sqrt(eff);
-  // Обрезка потолками ленты — пропорционально, поэтому предмет не плющится.
+  // Scale both axes together to preserve proportions under the limits.
   const k = Math.min(
     1,
     (vertical ? cross : long) / width,

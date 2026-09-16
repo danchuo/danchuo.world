@@ -8,12 +8,9 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичное чтение фото-дропов (PRD §5.12, DESIGN §7.5). Всё на чтение, без токена (§3).
- *
- * - `GET /api/drops` — список дропов (тайл показывает только последний, страница /drops — все).
- * - `GET /api/drops/{id}` — кадры дропа (модалка-галерея); неизвестный id — 404.
- *
- * До первой загрузки через /admin (B1) данных нет — штатное пустое состояние, не ошибка.
+ * Public reads of photo drops: `/api/drops` lists them (the tile shows only the latest, the drops
+ * page all of them), `/api/drops/{id}` returns a drop's frames for the gallery modal and 404s on
+ * an unknown id. Token-free like every read (§3); before the first upload, empty is normal.
  */
 @Path("/api/drops")
 @Produces(MediaType.APPLICATION_JSON)

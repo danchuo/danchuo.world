@@ -9,10 +9,9 @@ import { useDayRange } from "./useDayRange";
 type Status = "loading" | "error" | "loaded";
 
 /**
- * Оконный слой календаря: четыре недели вокруг опоры [anchor] + их состояние (PRD §5.3).
- * Собственно загрузка — общий шов [useDayRange] (он же держит выборку графиков): там правила
- * «не гасить показанное» и «отбрасывать ответ на брошенный диапазон». Здесь остаётся то, что
- * есть только у календаря: перевод опоры в границы недель и упор в генезис.
+ * The calendar's window layer: four weeks around an anchor plus their state. Loading itself is the
+ * shared [useDayRange] seam, which holds the "never blank what is shown" rule. What stays here is
+ * calendar-only: turning an anchor into week bounds, and stopping at genesis. PRD §5.3
  */
 export function useCalendarWindow(
   anchor: string,
@@ -21,9 +20,9 @@ export function useCalendarWindow(
 ): {
   days: DaySummary[];
   status: Status;
-  /** Опора ПОКАЗАННОГО окна: пока едет новое, отстаёт от запрошенной — и это её смысл. */
+  /** The SHOWN window's reference: while a new one travels it lags the requested one, by design. */
   shownAnchor: string;
-  /** Есть ли что листать назад — по ответу бэка, а не по копии генезиса на фронте. */
+  /** Whether there is anything to page back to — by the backend's answer, not a copy of genesis. */
   canGoBack: boolean;
   retry: () => void;
 } {
@@ -34,8 +33,8 @@ export function useCalendarWindow(
 
   const { days, status, shownTag, shownFrom, retry } = useDayRange(from, to, anchor);
 
-  // Пока окно едет, стрелку не гасим (оптимистично): «назад нечего» — это ответ бэка на
-  // загруженное окно, а на промежуточном состоянии он относился бы к прошлой выборке.
+  // While a window travels the arrow stays lit (optimistically): "nothing earlier" is the
+  // backend's answer about a loaded window, and mid-flight it would describe the previous one.
   const canGoBack = status === "loaded" ? hasEarlierWeeks(days, shownFrom) : true;
 
   return { days, status, shownAnchor: shownTag, canGoBack, retry };

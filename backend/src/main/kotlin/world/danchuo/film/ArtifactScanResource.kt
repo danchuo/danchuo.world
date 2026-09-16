@@ -10,21 +10,16 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Прогон поиска артефактов **по всему архиву** — путь «завели новый предмет, ищем его в старых
- * кадрах» (PRD §5.12). Живёт отдельным путём, а не под `/drops/{id}`, чтобы не спорить с
- * шаблоном идентификатора дропа.
- *
- * За bearer, как всё под `/api/ingest`. Запускается только руками: это обращение к платной модели
- * на каждый кадр всех дропов, поэтому ни автозапуска, ни расписания тут нет и не будет. По той же
- * причине рядом есть чем его посмотреть (`GET`) и остановить (`DELETE`) — длинный прогон без
- * видимого статуса и стоп-крана владелец остановить мог только рестартом бэкенда.
+ * Archive-wide artifact scan — the "a new item was added, find it in old frames" path. A separate
+ * path rather than under the drop id, which it would clash with. Manual only, with a status `GET`
+ * and a stop `DELETE` beside it: a long paid run needs a brake. PRD §5.12
  */
 @Path("/api/ingest/artifact-scan")
 class ArtifactScanResource(
     private val artifactScan: ArtifactDetectionService,
 ) {
 
-    /** [artifactId] — искать только этот предмет, не трогая находки остальных. */
+    /** [artifactId] searches for this item only, leaving the other items' findings alone. */
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     fun scanEverything(@QueryParam("artifactId") artifactId: Long?): Response = try {

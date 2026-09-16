@@ -1,8 +1,4 @@
-/**
- * Контракт чтения дней — зеркало бэкенд-DTO (`world.danchuo.days.DayView` / `DaySummary`).
- * Держим синхронно с Kotlin-проекциями: соглашение **null ≠ 0** (PRD §5.4) выражено
- * через `number | null` — `null` = «нет данных», `0` = реальный ноль.
- */
+/** Mirrors Kotlin DayView / DaySummary; keep nullable metrics distinct from zero. PRD §5.4. */
 
 import type { WaveLayout } from "@/lib/layout";
 
@@ -19,11 +15,7 @@ export interface HealthView {
   sleepStages: SleepStagesView | null;
 }
 
-/**
- * Деталь ночи (`GET /api/sleep/night/{date}`, зеркало `world.danchuo.health.SleepNightView`) —
- * ночь как она была вместо одной суммы. Минуты во всех полях считаются от `axisStartHour`
- * кануна: ночь лежит по обе стороны полуночи, и на оси-сутках она бы рвалась пополам.
- */
+/** Night offsets start at axisStartHour on the preceding day, so midnight does not split the band. */
 export interface SleepBandPartView {
   stage: "light" | "deep" | "rem" | "awake";
   fromMinute: number;
@@ -31,12 +23,12 @@ export interface SleepBandPartView {
 }
 
 export interface SleepBandView {
-  /** Лёг (первый кусок ночи, возможно ещё не сон). */
+  /** First night segment, which may precede sleep. */
   onsetMinute: number;
   wakeMinute: number;
-  /** Сон без пробуждений — то же число, что в `sleepMinutes` дня. */
+  /** Excludes awakenings; equals the day's sleepMinutes. */
   asleepMinutes: number;
-  /** Уснул (первый кусок настоящего сна). */
+  /** First actual sleep segment. */
   asleepFromMinute: number;
   parts: SleepBandPartView[];
 }
@@ -44,7 +36,7 @@ export interface SleepBandView {
 export interface SleepNightView {
   date: string;
   axisStartHour: number;
-  /** `null` = кусков за эту ночь нет. */
+  /** null when no segments are available for this night. */
   band: SleepBandView | null;
 }
 
@@ -61,115 +53,63 @@ export interface DisciplineItemView {
   icon: string | null;
   count: number;
   target: number;
-  /**
-   * Стрик по каждой остановке пункта (§5.6): индекс `k` = серия дней подряд с `count ≥ k+1`.
-   * Длина = `target`. Опционально: старые кэш-ответы/фикстуры без поля читаются как «нет серии».
-   */
+  /** Index k counts consecutive days with count >= k+1; length = target. Missing cached values mean no streak. */
   occurrenceStreaks?: number[];
-  /**
-   * Измеренное время по пункту в минутах; `null`/нет — «не мерили», строка не рисуется.
-   * Приходит у `journal` (минуты в приложении «Журнал», §5.6) и у `podcasts` (минуты,
-   * насчитанные поллером плеера) — карта не знает ключей: показывает цифру там, где
-   * измерение есть.
-   */
+  /** Measured minutes; null or absent means unmeasured. Render by presence, independently of item key. */
   measuredMinutes?: number | null;
-  /**
-   * Что слушали за день (§5.6) — карточки для ховера по остановкам пункта. Приходит только
-   * у `podcasts`, и только для заходов, закрывших остановку.
-   *
-   * Карточка — на ЗАХОД, а не на эпизод: тот же эпизод, взятый по дороге туда и обратно,
-   * приезжает двумя карточками. Длина всё равно НЕ обязана совпадать с `count`: марафон в один
-   * присест закрывает обе остановки одним заходом и даёт одну карточку — карта раздаёт карточки
-   * по порядку, лишняя остановка остаётся без ховера.
-   */
+  /** One card per qualifying listening visit, not per episode or completed stop. PRD §5.6. */
   episodes?: PodcastEpisodeView[];
-  /**
-   * Что читали за день (§5.16) — карточки для ховера по остановкам пункта `reading`. Пусто у
-   * остальных пунктов и у самого чтения, пока ни одна сессия не закрыла остановку.
-   */
+  /** Qualifying reading sessions; empty for other items or when no stop is completed. PRD §5.16. */
   books?: ReadingBookView[];
 }
 
-/**
- * Карточка сессии чтения (§5.16): обложка, книга и автор, когда и сколько читали, и пройденный
- * кусок книги.
- *
- * Проценты приезжают долей 0..1, как их хранит читалка, и оба конца необязательны — пустота у
- * них РАЗНАЯ по смыслу. Пустой `startPercent` — книга приехала к нам уже начатой (истории до
- * себя мы не придумываем); пустые оба вместе с `startedAt` — импортированный прошлый день, где
- * известны одни минуты.
- */
+/** Percentages are fractions in [0,1]. Missing start means an already-started book; missing both and startedAt means a daily import. */
 export interface ReadingBookView {
   title: string;
   author: string | null;
-  /** Ссылка на обложку с нашего же бэкенда; `null` — у книги её нет. */
+  /** Backend-hosted cover; null when unavailable. */
   coverUrl: string | null;
-  /** ISO-момент начала захода; `null` у импортированного дня. В подпись идёт временем MSK. */
+  /** ISO visit start, displayed in MSK; null for imported daily totals. */
   startedAt: string | null;
-  /** Сколько читали В ЭТОТ ЗАХОД, минут; эта же цифра стоит под своей остановкой. */
+  /** Minutes read during this visit. */
   readMinutes: number;
   startPercent: number | null;
   endPercent: number | null;
-  /** Id захода — ключ к его пересказу (`GET /api/summary/reading/{id}`). */
+  /** Summary key: GET /api/summary/reading/{id}. */
   sessionId?: number | null;
-  /**
-   * Есть ли что рассказать про пройденный кусок (§5.16). Сам текст сюда не едет — он нужен
-   * только раскрытому окну, а проекция дня возится на каждый день календаря.
-   */
+  /** Summary availability only; fetch its text when opening the modal. PRD §5.16. */
   hasSummary?: boolean;
 }
 
-/**
- * Пересказ пройденного за заход куска (§5.16.1): пункты и строка-итог. Один и тот же для книги
- * и для выпуска — вопрос «что там было» от предмета не зависит.
- *
- * Собран **по тексту самого источника** — для книги это epub, который читалка синкает вместе со
- * статистикой, и бэкенд вырезает из него ровно тот кусок, что стоит на карточке («48% → 53%»).
- * Пересказа «по памяти модели» здесь не бывает: нет источника — нет и кнопки.
- */
+/** Source-grounded visit summary, shared by reading and podcasts. PRD §5.16.1. */
 export interface SummaryView {
   bullets: string[];
-  /** Одна фраза про весь кусок; `null` — модель её не дала, и это не повод терять пункты. */
+  /** Optional overall conclusion; missing it must not discard the bullets. */
   takeaway: string | null;
 }
 
-/** Карточка прослушанного захода (§5.6): обложка, эпизод и шоу со ссылками, когда и сколько. */
+/** Listening visit card. PRD §5.6. */
 export interface PodcastEpisodeView {
   episodeName: string;
   episodeUrl: string | null;
-  /** Название шоу — «автор» карточки: издателя Spotify в плеере не отдаёт. */
+  /** Spotify exposes the show name, not its publisher, in the player response. */
   showName: string;
   showUrl: string | null;
   imageUrl: string | null;
-  /**
-   * Времени начала захода тут НЕТ: «во сколько включил» — не тот вопрос,
-   * который задаёт карточка. На бэкенде оно продолжает храниться (по нему заходы упорядочены
-   * и склеены), просто наружу не едет.
-   */
-  /** Сколько слушали В ЭТОТ ЗАХОД, минут; эта же цифра стоит под своей остановкой. */
+  /** Minutes listened during this visit. */
   listenedMinutes: number;
-  /**
-   * Какой КУСОК выпуска пройден за этот заход, в минутах от его начала: «45 → 95». Отвечает не
-   * «сколько», а «что именно», и потому же, что проценты у книги, стоит и на карточке, и в окне
-   * пересказа. Пусто — начала окна у захода нет; тогда куска не показываем вовсе.
-   */
+  /** Visited interval in minutes from the episode start; omit the range when unknown. */
   startMinute?: number | null;
   endMinute?: number | null;
-  /** Полная длительность эпизода, минут; `null` — не приехала. */
+  /** Full episode duration in minutes; null when unavailable. */
   durationMinutes?: number | null;
-  /**
-   * Id захода — ключ к его пересказу (`GET /api/summary/podcast/{id}`, §5.16.1). Это id первой
-   * из склеенных сессий: собственного ключа у захода нет, он собирается на чтении.
-   */
+  /** Summary key is the first merged session's id; visits are assembled on read. PRD §5.16.1. */
   sessionId?: number | null;
-  /**
-   * Есть ли что рассказать про прослушанный кусок (§5.16.1). Сам текст сюда не едет — он нужен
-   * только раскрытому окну, а проекция дня возится на каждый день календаря.
-   */
+  /** Summary availability only; fetch its text when opening the modal. */
   hasSummary?: boolean;
 }
 
-/** Полная проекция дня (`GET /api/days/{date}`) — плитка «Сегодня» / перефокус. */
+/** Full day projection: GET /api/days/{date}. */
 export interface DayView {
   date: string;
   title: string | null;
@@ -177,58 +117,47 @@ export interface DayView {
   health: HealthView;
   workouts: WorkoutView[];
   discipline: DisciplineItemView[];
-  /**
-   * Пил ли монстра в этот день (§5.6). Три состояния: `null` = за день монстра не отмечали,
-   * `true` = пил, `false` = не пил. Без третьего «не отмечали» выдавалось бы за честное «не
-   * пил»: по `hasData` их не различить — запись дня создаёт health-ingest (авто 12/18/24 MSK),
-   * а монстра пишет другой, интерактивный шорткат.
-   *
-   * Опционально: ответы старого кэша поля не несут. Отсутствие читаем как «не отмечали» —
-   * молчать безопаснее, чем утверждать чистый день, которого могло не быть.
-   */
+  /** null or absent = unreported; true = consumed; false = explicitly abstained. hasData cannot distinguish these. PRD §5.6. */
   monsterDrunk?: boolean | null;
-  /**
-   * Стрик «чистоты» монстра (§5.6): дней подряд без монстра, отсчёт «по вчера».
-   * Опционально: старые кэш-ответы/фикстуры без поля читаются как «нет серии».
-   */
+  /** Consecutive Monster-free days through yesterday; missing cached values mean no streak. */
   monsterCleanStreak?: number;
 }
 
-// ── Spotify (PRD §M3) — зеркало `world.danchuo.spotify.SpotifyViews`. ──
+// Spotify DTOs mirror world.danchuo.spotify.SpotifyViews. PRD §5.5.
 
-/** Исполнитель со ссылкой-атрибуцией на его страницу в Spotify. */
+/** Artist with a Spotify attribution link. */
 export interface ArtistRef {
   name: string;
   url: string | null;
 }
 
-/** Альбом со ссылкой-атрибуцией на его страницу в Spotify. */
+/** Album with a Spotify attribution link. */
 export interface AlbumRef {
   name: string;
   url: string | null;
 }
 
-/** Один трек в человекочитаемом виде; `url` — ссылка-атрибуция на Spotify. */
+/** Display track; url provides Spotify attribution. */
 export interface TrackView {
   title: string;
   artists: ArtistRef[];
-  /** `null` для синглов/одноимённых релизов — альбом не показываем. */
+  /** null for singles or same-named releases; hide the album. */
   album: AlbumRef | null;
   albumImageUrl: string | null;
   url: string | null;
   durationMs: number | null;
 }
 
-/** Источник воспроизведения: плейлист/артист/подкаст/«любимое». `null` для альбома и «вне контекста». */
+/** Playback source; null for albums or context-free playback. */
 export interface SourceRef {
-  /** Тип контекста Spotify: `playlist` | `artist` | `collection` | `show`. */
+  /** Spotify context type: playlist, artist, collection, or show. */
   type: string;
   url: string;
-  /** Имя источника (плейлиста/артиста); `null`, если не добралось — показываем тип. */
+  /** Fallback to the source type when its name is unavailable. */
   name: string | null;
 }
 
-/** «Сейчас играет»: `track === null` ⇒ ничего не играет / не подключено. */
+/** track === null means no playback or no connected account. */
 export interface NowPlayingView {
   isPlaying: boolean;
   progressMs: number | null;
@@ -236,18 +165,18 @@ export interface NowPlayingView {
   source: SourceRef | null;
 }
 
-/** Недавно сыгранный трек с ISO-меткой времени проигрывания. */
+/** Recent track with an ISO playback timestamp. */
 export interface RecentTrackView {
   track: TrackView;
   playedAt: string | null;
 }
 
-// ── Контент M4 (PRD §5.7/§5.8/§5.9/§5.12) — зеркало Kotlin-DTO соответствующих слайсов. ──
+// Content DTOs mirror their Kotlin slices. PRD §5.7, §5.8, §5.9, §5.12.
 
-/** Проект (`GET /api/projects`); диапазон («Q3 2025 — наст.») форматирует фронт из сырых полей. */
+/** GET /api/projects; the frontend formats the date range from raw fields. */
 export interface ProjectView {
   iconUrl: string | null;
-  /** Объёмная планета (`.glb`), если она у проекта есть; надеть её решает волна (DESIGN §12.5). */
+  /** Optional .glb planet; the active wave decides whether to display it. DESIGN §12.5. */
   modelUrl: string | null;
   title: string;
   description: string | null;
@@ -255,13 +184,13 @@ export interface ProjectView {
   startQuarter: number | null;
   endYear: number | null;
   endQuarter: number | null;
-  /** Ссылка, которую блок показывает строкой (путь репозитория/сайта). */
+  /** Visible repository or website link. */
   url: string | null;
-  /** «Дом» проекта — куда ведут название и картинка; `null` ⇒ туда же, куда [url]. */
+  /** Title and image destination; falls back to url when null. */
   homeUrl: string | null;
 }
 
-/** Соцссылка (`GET /api/social-links`): иконка + подпись + гиперссылка. */
+/** GET /api/social-links. */
 export interface SocialLinkView {
   platform: string;
   name: string;
@@ -269,36 +198,22 @@ export interface SocialLinkView {
   icon: string | null;
 }
 
-/**
- * Последний пост Instagram (`GET /api/instagram/latest`, PRD §5.17). Бэкенд отвечает 204,
- * пока аккаунт не подключён, — клиент превращает это в `null`.
- *
- * ⚠️ `imageUrl` и `avatarUrl` ведут на НАШ бэкенд, а не на CDN Instagram: подписанные ссылки
- * источника живут часами, поэтому байты сняты себе. `likes`/`comments` — `null`, когда
- * владелец спрятал счётчики у поста: это законное состояние, строку просто не рисуем.
- */
+/** GET /api/instagram/latest; 204 becomes null. Images are backend-hosted; hidden counters are null. PRD §5.17. */
 export interface InstagramPostView {
   username: string;
   permalink: string;
   caption: string | null;
-  /** `IMAGE` · `VIDEO` · `CAROUSEL_ALBUM` — как их называет Instagram. */
+  /** Instagram media type: IMAGE, VIDEO, or CAROUSEL_ALBUM. */
   mediaType: string;
   imageUrl: string | null;
   avatarUrl: string | null;
   likes: number | null;
   comments: number | null;
-  /** ISO-8601 UTC; «2 дня назад» считает фронт, как у остальных плиток. */
+  /** ISO-8601 UTC; relative age is calculated by the frontend. */
   postedAt: string;
 }
 
-/**
- * Визитка Telegram (`GET /api/telegram/profile`, PRD §5.18). Бэкенд отвечает 204, пока визитка
- * не забрана, — клиент превращает это в `null`.
- *
- * ⚠️ `avatarUrl` ведёт на НАШ бэкенд, а не на CDN Telegram: зритель борда не должен ходить за
- * картинкой к мессенджеру. Ссылки на профиль здесь нет намеренно — она уже лежит в соцссылке,
- * под которой всплывает карточка. `bio` — статус владельца; `null`, когда он пуст.
- */
+/** GET /api/telegram/profile; 204 becomes null. Avatar is backend-hosted; profile link comes from social links. PRD §5.18. */
 export interface TelegramProfileView {
   name: string;
   username: string;
@@ -306,28 +221,28 @@ export interface TelegramProfileView {
   avatarUrl: string | null;
 }
 
-/** Артефакт marquee (`GET /api/artifacts`); `firstMentionedOn` — только в ховер-поповере (§5.8). */
+/** GET /api/artifacts; firstMentionedOn appears only in the hover card. PRD §5.8. */
 export interface ArtifactView {
   name: string;
-  /** PNG/GIF артефакта; `null` — артефакт без картинки (рисуем пиксель-плейсхолдер). */
+  /** PNG/GIF; null uses the pixel placeholder. */
   imageUrl: string | null;
   firstMentionedOn: string;
-  /** Можно ли класть предмет набок в ленте, идущей поперёк него (DESIGN §7.2). */
+  /** Whether the item may rotate sideways in a perpendicular marquee. DESIGN §7.2. */
   rotatable?: boolean;
 }
 
-/** Волна (`GET /api/theme/active`, `/api/themes`): `tokens` инжектятся в `:root` как `--<ключ>`. */
+/** GET /api/theme/active or /api/themes; tokens become :root CSS properties named --<key>. */
 export interface ThemeView {
   key: string;
   name: string;
   tokens: Record<string, string>;
-  /** Layout-блок волны (переопределяет дефолт bento); `null` ⇒ дефолт `layout.ts` (§3, §10). */
+  /** Wave layout overrides; null uses layout.ts defaults. DESIGN §10.1. */
   layout: WaveLayout | null;
   active: boolean;
   releasedAt: string;
 }
 
-/** Дроп для тизер-тайла (`GET /api/drops`). */
+/** Drop teaser: GET /api/drops. */
 export interface FilmDropView {
   id: number;
   title: string;
@@ -337,29 +252,25 @@ export interface FilmDropView {
   coverPhotoUrl: string | null;
 }
 
-/** Кадр дропа (`GET /api/drops/{id}`); `width/height` — для justified-композиции модалки. */
+/** GET /api/drops/{id}; dimensions drive the modal's justified layout. */
 export interface FilmPhotoView {
-  /** web-вариант (для модалки/борда). */
+  /** Web image for the board and modal. */
   imageUrl: string;
-  /** thumb-вариант (для сетки/превью-тайла). */
+  /** Thumbnail for grids and previews. */
   thumbUrl: string;
   width: number | null;
   height: number | null;
-  /** Найденные на кадре артефакты — подсветка в модалке (§5.12). Пусто/нет — рамок нет. */
+  /** Detected artifact highlights; absent or empty means no boxes. PRD §5.12. */
   artifacts?: ArtifactBoxView[];
 }
 
-/**
- * Рамка подсветки артефакта на кадре. Координаты — **доли кадра** (0..1), а не пиксели:
- * один и тот же кадр рендерится в разных размерах (мозаика, thumb, модалка), и множитель
- * задаёт уже вёрстка.
- */
+/** Box coordinates are image fractions [0,1]; each layout scales them to its rendered size. */
 export interface ArtifactBoxView {
   artifactId: number;
   name: string;
-  /** Картинка предмета из каталога для подсказки у рамки; `null` — предмет без картинки. */
+  /** Catalog image for the box tooltip; null when unavailable. */
   imageUrl?: string | null;
-  /** Можно ли класть предмет набок — карточка у рамки уважает флаг так же, как лента (§7.2). */
+  /** Honor the marquee's sideways-rotation policy in box tooltips too. DESIGN §7.2. */
   rotatable?: boolean;
   x0: number;
   y0: number;
@@ -367,9 +278,9 @@ export interface ArtifactBoxView {
   y1: number;
 }
 
-// ── Админ фото-дропов (`/api/ingest/drops*`, за bearer; зеркало Kotlin-DTO film) ──
+// Bearer-protected drop administration: /api/ingest/drops*; mirrors Kotlin film DTOs.
 
-/** Дроп в админке — управление + текущая обложка. */
+/** Drop management projection with its current cover. */
 export interface AdminDropView {
   id: number;
   title: string;
@@ -379,45 +290,45 @@ export interface AdminDropView {
   coverPhotoId: number | null;
 }
 
-/** Кадр в админ-сетке выбора обложки. */
+/** Photo in the admin cover picker. */
 export interface AdminPhotoView {
   id: number;
   thumbUrl: string;
-  /** web-вариант — крупный кадр для ручной разметки артефактов (§5.12); в сетке не нужен. */
+  /** Full web image for manual artifact annotation. PRD §5.12. */
   imageUrl: string;
   isCover: boolean;
-  /** Что нашлось на кадре (§5.12) — админка даёт снять лишнее. */
+  /** Detected artifacts, removable in admin. PRD §5.12. */
   artifacts?: ArtifactBoxView[];
-  /** Итог проверки поворота (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`; `null` — не проверялся. */
+  /** none / cw90 / ccw90 / r180 / ambiguous / manual; null means unchecked. */
   orientation: string | null;
 }
 
-/** Статус LLM-проверки поворота кадров дропа (B9) — поллится, пока `state === "running"`. */
+/** Poll orientation status while state === running. */
 export interface OrientationStatusView {
-  /** `idle` (не запускалась) / `running` / `done` / `failed`. */
+  /** idle / running / done / failed. */
   state: string;
   total: number;
   checked: number;
   rotated: number;
-  /** Пропущено (LLM молчала) — останутся непроверенными до следующего прогона. */
+  /** No model response; remains unchecked until a later run. */
   skipped: number;
 }
 
-/** Итог загрузки zip: дроп + сколько кадров обработано/пропущено. */
+/** ZIP upload result with processed and skipped photo counts. */
 export interface UploadResultView {
   drop: AdminDropView;
   processed: number;
   skipped: number;
 }
 
-/** Свежесть данных (`GET /api/freshness`, PRD §8); `lastIngestAt` `null` = приёмов ещё не было. */
+/** GET /api/freshness; null lastIngestAt means no ingestion yet. PRD §8. */
 export interface FreshnessView {
   lastIngestAt: string | null;
 }
 
-// ── Велобайк (PRD §9 B4) — зеркало Kotlin-DTO слайса bike. Всё публичное чтение. ──
+// Public bike DTOs mirror the Kotlin bike slice. PRD §5.13.
 
-/** Поездка (`GET /api/rides`). Гео — только старт и финиш (трека маршрута нет). */
+/** GET /api/rides; coordinates describe endpoints, not the route. */
 export interface RideView {
   id: number;
   rideDate: string;
@@ -426,25 +337,13 @@ export interface RideView {
   distanceMeters: number;
   durationSeconds: number;
   calories: number | null;
-  /**
-   * Что натикало **сверх** доступа (копейки): минуты поминутного тарифа либо превышение пакета.
-   * Это не полная цена поездки — вход в тариф оплачен отдельно (`accessKopecks`). null — нет данных.
-   * Формат — `formatRideCost`.
-   */
+  /** Usage charge in kopecks, excluding separately paid access; null means unknown. */
   costKopecks: number | null;
-  /**
-   * Цена (копейки) «Доступа», купленного **ради этой поездки**: платный старт поминутного тарифа
-   * или пакет минут. Вместе с `costKopecks` даёт `totalKopecks`. null — доступ оплатила другая
-   * поездка либо покупки в истории нет.
-   */
+  /** Access purchased for this ride, in kopecks; null when paid by another ride or absent from history. */
   accessKopecks: number | null;
-  /**
-   * Цена (копейки) пакета, под которым едет поездка, **не купившая доступ сама**: показываем
-   * «в рамках тарифа за N ₽» / «сверх тарифа». Деньги за пакет уже посчитаны у поездки, которая
-   * его купила, — в `totalKopecks` они не входят. null — доступ куплен ею же либо покупки нет.
-   */
+  /** Covering package price, excluded from this ride's total to avoid double counting; null if bought by this ride or unknown. */
   coveredByTariffKopecks: number | null;
-  /** Сколько поездка стоила на самом деле: `accessKopecks` + `costKopecks`. null — данных нет. */
+  /** accessKopecks + costKopecks; null when unknown. */
   totalKopecks: number | null;
   vehicleType: string | null;
   tariffName: string | null;
@@ -456,27 +355,22 @@ export interface RideView {
   finishAddress: string | null;
 }
 
-/** Итог ручного импорта поездок (`POST /api/ingest/bike/rides`): сколько создано/обновлено. */
+/** POST /api/ingest/bike/rides import counts. */
 export interface BikeImportResultView {
   created: number;
   updated: number;
 }
 
-/**
- * Сводка за текущий календарный месяц (`GET /api/rides/month-summary`) — шапка модалки поездок.
- * `spentKopecks` — реально уплаченные за месяц деньги (платные поездки + покупки тарифов-пакетов
- * этого месяца, каждая один раз), поэтому бесплатные поездки «в рамках тарифа» не задваивают сумму.
- * `rides === 0` — в этом месяце поездок нет (строку не рисуем).
- */
+/** Current-month totals count each tariff purchase once; hide when rides === 0. PRD §5.13. */
 export interface RideMonthSummaryView {
-  /** Месяц сводки `YYYY-MM` (MSK). */
+  /** YYYY-MM in MSK. */
   month: string;
   rides: number;
   durationSeconds: number;
   spentKopecks: number;
 }
 
-/** Агрегат истории поездок (`GET /api/rides/stats`). Нулевой — пока поездок нет. */
+/** GET /api/rides/stats; zero totals until rides exist. */
 export interface RideStatsView {
   totalRides: number;
   totalDistanceMeters: number;
@@ -487,16 +381,16 @@ export interface RideStatsView {
   lastRideDate: string | null;
 }
 
-// ── Хитмапа (`GET /api/ingest/analytics/heatmap`, за bearer; PRD §5.11 B2) ──
+// Bearer-protected heatmap: GET /api/ingest/analytics/heatmap. PRD §5.11.
 
-/** Потайловый агрегат кликов; `tileId` null — клики мимо плиток. `clicks` уже с cap-вклада. */
+/** null tileId means outside tiles; clicks already apply the contribution cap. */
 export interface HeatmapTileView {
   tileId: string | null;
   clicks: number;
   uniques: number;
 }
 
-/** Хитмапа одной страницы за период — клики по тайлам борда. */
+/** Page heatmap over a date range. */
 export interface HeatmapView {
   path: string;
   from: string;
@@ -505,48 +399,33 @@ export interface HeatmapView {
   tiles: HeatmapTileView[];
 }
 
-/** Лёгкая сводка дня (`GET /api/days?from=&to=`) — ячейка календаря / мини-график. */
+/** Lightweight calendar and sparkline projection: GET /api/days?from=&to=. */
 export interface DaySummary {
   date: string;
   title: string | null;
   hasData: boolean;
   steps: number | null;
   sleepMinutes: number | null;
-  /**
-   * Вклады GitHub за день (§5.4): `null` = день не собирали, `0` = собрали, вкладов не было.
-   * Чип в статах молчит в обоих случаях, но различие живо в данных — его ждёт линза календаря.
-   */
+  /** null = not collected; zero = collected with no contributions. Preserve this for calendar lenses. */
   contributions: number | null;
-  /**
-   * Счётчик по каждому активному пункту (`ключ` → `count`), включая нули — линза календаря
-   * (§5.3): остановка карты закрывается порогом `count ≥ occurrence`, поэтому свёртка
-   * «N из M закрыто» линзе не годится, и сводка её больше не несёт вовсе.
-   * Опционально: ответы старого кэша поля не несут (читается как «нет ответа»).
-   */
+  /** Per-item counts including zeros; lenses need occurrence thresholds. Missing cached values mean unknown. PRD §5.3. */
   disciplineCounts?: Record<string, number>;
-  /**
-   * Пил ли монстра за день — те же три состояния, что в [DayView]: `null`/нет = не отмечали,
-   * `true` = пил, `false` = не пил. Третье нужно линзе календаря, чтобы день без запуска
-   * шортката не попадал в «не пил» наравне с честно чистым.
-   */
+  /** Same tri-state as DayView: absent/null = unreported, true = consumed, false = abstained. */
   monsterDrunk?: boolean | null;
 }
 
-/** Артефакт в админке (`/api/ingest/artifacts`) — все поля формы (PRD §5.8). */
+/** Admin artifact form: /api/ingest/artifacts. PRD §5.8. */
 export interface AdminArtifactView {
   id: number;
   name: string;
   imageUrl: string | null;
   firstMentionedOn: string;
   rotatable: boolean;
-  /** Как предмет выглядит — описание для поиска на кадрах дропов (§5.12). */
+  /** Visual description used to detect the item in photos. PRD §5.12. */
   detectionHint: string | null;
 }
 
-/**
- * Тело формы заведения/правки артефакта. Места в ленте тут нет: порядок — хроника,
- * его задаёт `firstMentionedOn` (старое первым).
- */
+/** Ordering derives from firstMentionedOn, oldest first; there is no independent position field. */
 export interface ArtifactInput {
   name: string;
   firstMentionedOn: string;
@@ -554,7 +433,7 @@ export interface ArtifactInput {
   detectionHint: string | null;
 }
 
-/** Статус поиска артефактов по дропу (§5.12) — поллится, пока `state === "running"`. */
+/** Poll the drop's artifact scan while state === running. PRD §5.12. */
 export interface ArtifactScanStatusView {
   state: "idle" | "queued" | "running" | "done" | "failed" | "cancelled";
   total: number;
@@ -563,16 +442,16 @@ export interface ArtifactScanStatusView {
   skipped: number;
 }
 
-/** Сводка по прогону, запущенному разом по всем дропам (§5.12). */
+/** Aggregate scan status across all drops. PRD §5.12. */
 export interface ArtifactScanRunView {
   state: "idle" | "running" | "done" | "failed" | "cancelled";
   total: number;
   checked: number;
   found: number;
-  /** Устойчиво большой при нулевых находках — обычно молчит провайдер, а не пусты кадры. */
+  /** Many skips with no detections usually indicate a silent provider. */
   skipped: number;
   drops: number;
   dropsDone: number;
-  /** Имя предмета, если прогон заведён ради одного; `null` — искали весь каталог. */
+  /** Target item name; null when scanning the whole catalog. */
   artifactName: string | null;
 }

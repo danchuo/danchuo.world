@@ -18,30 +18,18 @@ import { SummaryModal } from "./SummaryModal";
 import { bookSubject, episodeSubject, type SummarySubject } from "@/lib/summarySubject";
 
 /**
- * Карта-тропа дисциплины (PRD §5.6; DESIGN §4.1): чеклист дня как извилистый маршрут
- * «утро → ночь» из 7 остановок. Пункты с target=2 (чтение/подкасты) дают ДВЕ остановки
- * в разных местах дня; «монстр» стоит РЯДОМ с маршрутом и ни с чем не соединён — он не этап
- * дня, а факт про день, и говорит о себе сам: вердикт словами («не пил» / «пил») в своём
- * цвете под фигурой.
- *
- * Состояния выводятся из счётчиков (времени в модели нет; данные вносятся раз в день, PRD §5.6):
- * - остановка done — count пункта ≥ её порядкового номера (occurrence);
- * - иначе pending (не сделано). «Пропущено» отдельно НЕ выделяем: ввод раз в день = к концу дня
- *   этап либо сделан, либо нет — «ещё не дошёл» смысла не несёт;
- * - стрелка после остановки: зелёная (done) / нейтральная серая (не сделано);
- * - все 7 сделаны — маршрут подсвечивается целиком (perfect).
- *
- * Геометрия статична (viewBox 400×210, бустрофедон 4+3 + детур) и живёт в этом файле:
- * новый пункт дисциплины = новая остановка = осознанный дизайн-проход по маршруту.
- * Вся палитра — токены волны: скин другой волны перекрашивает карту без правок разметки.
+ * The discipline quest map: the day's checklist as a winding morning-to-night route of stops.
+ * States are derived from counters, since the model has no time in it. The monster stands BESIDE
+ * the route, joined to nothing — it is a fact about the day, not a stage of it. DESIGN §4.1
  */
 
 interface QuestMapProps {
   items: DisciplineItemView[];
-  /** Был ли монстр выпит; `null` — за день записи нет вовсе, и вердикта у нас тоже нет.
-   *  Третье состояние обязательно: без него отсутствие записи выдавалось за чистый день
-   *  (будущие дни и дырки в записи молча читались как «не пил», DESIGN §4.1).
-   *  Карта — единственное место монстра на плитке; арт вкуса (банка, название) — бэклог. */
+  /**
+   * Whether the monster was drunk; `null` means there is no record for the day, so we have no
+   * verdict either. The THIRD STATE is mandatory: without it a missing record passed for a clean
+   * day, and future days and gaps read silently as "did not drink". DESIGN §4.1
+   */
   monsterDrunk: boolean | null;
   /** Inverse "clean" streak: consecutive days the monster was NOT drunk (§5.6). Shield badge ≥2. */
   monsterCleanStreak?: number;
@@ -49,17 +37,17 @@ interface QuestMapProps {
    *  pixel glyphs for generated raster sprites (DESIGN §12); other waves and tests (no wave)
    *  keep the currentColor cells and render unchanged. */
   wave?: string | null;
-  /** Остановка, через которую сейчас смотрит календарь (§5.3) — приподнята и обведена. */
+  /** The stop the calendar is currently looking through (PRD §5.3) — raised and outlined. */
   lens?: DisciplineLens | null;
-  /** Обработчик выбора линзы. Без него остановки НЕ интерактивны — карта рендерится как раньше
-   *  (важно для скинов/тестов/будущих мест, где карта показывается только как картинка). */
+  /** Lens selection handler. Without it the stops are NOT interactive and the map renders as a
+   *  picture, which is what skins, tests and picture-only placements need. */
   onLensChange?: (lens: DisciplineLens | null) => void;
 }
 
 /** Waves shipping a generated quest sprite set (/assets/waves/<wave>/quest/*.png, DESIGN §12). */
 const QUEST_SPRITE_WAVES = new Set(["wave-01"]);
 
-/** Маршрут дня: пункт + какое по счёту выполнение закрывает эту остановку. */
+/** The day's route: an item plus which completion in order closes that stop. */
 const ROUTE = [
   { key: "stretch", occurrence: 1, label: "растяжка" },
   { key: "podcasts", occurrence: 1, label: "подкаст" },
@@ -70,7 +58,7 @@ const ROUTE = [
   { key: "journal", occurrence: 1, label: "дневник" },
 ] as const;
 
-/** Центры остановок (S1..S7) в координатах viewBox. */
+/** Stop centres (S1..S7) in viewBox coordinates. */
 const STOPS_XY: ReadonlyArray<readonly [number, number]> = [
   [45, 45],
   [140, 45],
@@ -81,9 +69,9 @@ const STOPS_XY: ReadonlyArray<readonly [number, number]> = [
   [75, 160],
 ];
 
-/** Сегменты тропы между остановками + позиция/поворот стрелки-шеврона на середине. */
-// Стрелки сидят на ТОЧНОЙ середине сегмента (t=0.5 квадратичной Безье), угол — по касательной
-// (P2−P0): прикинутые на глаз ax/ay/deg съезжают с кривой, заметнее всего в нижнем ряду.
+/** Trail segments between stops, plus the position and rotation of the chevron at the midpoint.
+ *  Arrows sit on the EXACT midpoint (t=0.5 of the quadratic Bézier) with the angle taken from the
+ *  tangent (P2−P0): eyeballed ax/ay/deg drift off the curve, worst in the bottom row. */
 const SEGMENTS = [
   { d: "M60 45 Q92 37 125 45", ax: 92, ay: 41, deg: 0 },
   { d: "M155 45 Q187 53 220 45", ax: 187, ay: 49, deg: 0 },
@@ -93,18 +81,18 @@ const SEGMENTS = [
   { d: "M175 160 Q132 152 90 160", ax: 132, ay: 156, deg: 180 },
 ] as const;
 
-/** Линза монстра: на маршруте он одна остановка-тупик, поэтому occurrence всегда 1.
- *  Полярность отметки в календаре обратная (подсвечиваются ЧИСТЫЕ дни) — см. `lensMatch`. */
+/** Monster lens: on the route it is a single dead-end stop, so `occurrence` is always 1. Its mark
+ *  in the calendar has inverted polarity — CLEAN days are highlighted; see `lensMatch`. */
 const MONSTER_LENS: DisciplineLens = { key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" };
 
-/** Формулировка «чисто» — подпись огонька-стрика монстра (он считает дни БЕЗ него всегда). */
+/** The "clean" wording, used as the caption of the monster's streak flame (it always counts days
+ *  WITHOUT the monster). */
 const CLEAN_PHRASE = monsterVerdict(false).phrase;
 
 /**
- * Класс фигуры монстра по тону вердикта. «Нет данных» намеренно берёт `--pending` — тот же
- * серый пунктир, что у любой незакрытой остановки маршрута: день, за который ничего
- * не приходило, обязан выглядеть НЕзаполненным, а не чистым. Своего вида у
- * этого состояния нет и не нужно — «как все остальные картинки» здесь и есть ответ.
+ * The monster figure's class by verdict tone. "No data" deliberately takes `--pending`, the same
+ * grey dash as any unclosed stop: a day nothing arrived for must look UNFILLED rather than clean.
+ * It needs no look of its own — "like every other picture" is the answer here.
  */
 const MONSTER_STOP_CLASS: Record<MonsterTone, string> = {
   clean: "quest-stop--clean",
@@ -113,32 +101,19 @@ const MONSTER_STOP_CLASS: Record<MonsterTone, string> = {
 };
 
 /**
- * Монстр стоит ОТДЕЛЬНО от маршрута — в пустой полосе между рядами тропы, без связи с ней
- * (тропа-детур рассмотрена и отклонена, DESIGN §4.1).
- *
- * Сдвинут левее середины полосы намеренно: справа-сверху от нижней остановки чтения выглядывает
- * обложка книги (§5.16), и ближе к середине подпись-вердикт монстра достаёт до неё краем. Полоса
- * слева при этом пустая — двигаться туда монстру ничего не мешает.
- *
- * Ещё левее и выше (120,110 → 104,100) — по той же причине, доведённой до конца: воздуха между
- * вердиктом и нижним рядом тропы всё равно не хватало, а слева от монстра полоса так и осталась
- * пустой.
- *
- * 104 → 86 — уже из-за верхнего ряда: наверх от монстра торчит его огонёк-стрик (`+16, -15`),
- * а под остановкой «подкаст» с той же стороны стоит строка минут захода. На 104 число огонька
- * (правый край ≈131) залезало на её первый знак (левый край ≈124 у «41 мин», ≈121 у трёхзначных
- * минут). Замер: на 86 огонёк кончается на 113, а подпись-вердикт с глаголом («не пил монстр»,
- * 13 знаков моно-десяткой ⇒ левый край ≈47) не достаёт до месяца-декора (правый край ≈35).
+ * The monster sits APART from the route, in the empty band between its rows (a detour path was
+ * considered and rejected, DESIGN §4.1). It is left of centre because the book cover peeks out
+ * right of the lower reading stop, and its streak flame must clear the podcast minutes above.
  */
 const MONSTER_XY = [86, 100] as const;
 
-/** Значок стрика показываем от 2: серия в 1 день (или 0) на карте — шум, не достижение. */
+/** The streak badge shows from 2: a run of one day, or zero, is noise on the map, not achievement. */
 const STREAK_MIN = 2;
-/** Огонёк стрика — компактный вектор ~12px. Один и тот же и у пунктов, и у монстра (DESIGN §4.1). */
+/** Streak flame — a compact ~12px vector, the same for items and for the monster (DESIGN §4.1). */
 const FLAME_D = "M0 -6 C3 -2 3 0 2 2 C1 4 -1 4 -2 2 C-3 0 -2 -2 -1 -3 C-1 -1 1 -2 0 -6 Z";
 
-// Камни-декор вдоль тропы (только волны со спрайт-набором) — «оживляж» пустот, как в референсе.
-// Позиции — в пустых участках viewBox, подальше от остановок/подписей; лёгкий разнобой размера.
+// Decorative rocks along the trail (sprite-set waves only). Positions sit in empty parts of the
+// viewBox, away from stops and captions, with a slight variation in size.
 const ROCKS: ReadonlyArray<{ x: number; y: number; s: number }> = [
   { x: 60, y: 118, s: 13 },
   { x: 258, y: 104, s: 9 },
@@ -158,7 +133,7 @@ function rect(x1: number, x2: number, y1: number, y2: number, skip: Cell[] = [])
   return out;
 }
 
-/** Пиксель-иконки остановок: клетки сетки 8×8, рендерятся rect-ами (DESIGN §2.4 — декор). */
+/** Pixel icons for the stops: cells of an 8×8 grid, rendered as rects (DESIGN §2.4 — decor). */
 const ICONS: Record<string, Cell[]> = {
   stretch: [
     [3, 0], [4, 0], [1, 1], [6, 1], [2, 2], [3, 2], [4, 2], [5, 2],
@@ -186,10 +161,10 @@ const ICONS: Record<string, Cell[]> = {
     [3, 0], [4, 0], [5, 0], [2, 1], [3, 1], [1, 2], [2, 2], [1, 3], [2, 3],
     [1, 4], [2, 4], [2, 5], [3, 5], [3, 6], [4, 6], [5, 6],
   ],
-  star: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], // сетка 3×3
+  star: [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]], // a 3×3 grid
 };
 
-/** Облако-подставка остановки (декор скина волны 02): тело + нижняя грань-тень, сетка 14×6. */
+/** Stop cloud stand (wave-02 skin decor): a body plus a lower shadow face, on a 14×6 grid. */
 const CLOUD_BODY: Cell[] = [
   ...rect(5, 8, 0, 0), ...rect(3, 10, 1, 1), ...rect(2, 11, 2, 2),
   ...rect(1, 12, 3, 3), ...rect(1, 12, 4, 4),
@@ -199,7 +174,7 @@ const CLOUD_SHADE: Cell[] = rect(2, 11, 5, 5);
 function PixelIcon({
   cells, cell, cx, cy, gridW = 8, gridH = 8,
 }: { cells: Cell[]; cell: number; cx: number; cy: number; gridW?: number; gridH?: number }) {
-  // сетка gridW×gridH центрируется вокруг (cx, cy)
+  // the gridW×gridH grid is centred on (cx, cy)
   const offX = (gridW / 2) * cell;
   const offY = (gridH / 2) * cell;
   return (
@@ -218,7 +193,7 @@ function PixelIcon({
   );
 }
 
-/** Декор-слои, включаемые скином волны (по умолчанию скрыты CSS-ом, см. common.css). */
+/** Decor layers switched on by a wave's skin; hidden by default in CSS (see common.css). */
 function Cloud({ cx, cy, cell }: { cx: number; cy: number; cell: number }) {
   return (
     <g className="quest-cloud" aria-hidden>
@@ -232,9 +207,9 @@ function Cloud({ cx, cy, cell }: { cx: number; cy: number; cell: number }) {
   );
 }
 
-/** Стрелка-шеврон на сегменте (маркеры с context-stroke не везде живы — рисуем сами).
- *  В sprite-режиме — жирный ЗАЛИТЫЙ наконечник (под пиксельный стиль набора), иначе тонкий
- *  штриховой `>`. Вектор ⇒ чисто вращается на любой угол сегмента. */
+/** Chevron on a segment, drawn by hand because markers with context-stroke are not alive
+ *  everywhere. In sprite mode it is a heavy FILLED head to match the set's pixel style, otherwise
+ *  a thin stroked `>`. Being a vector, it rotates cleanly to any segment angle. */
 function Chevron({ ax, ay, deg, sprite }: { ax: number; ay: number; deg: number; sprite?: boolean }) {
   const tf = `translate(${ax} ${ay}) rotate(${deg})`;
   return sprite ? (
@@ -244,9 +219,9 @@ function Chevron({ ax, ay, deg, sprite }: { ax: number; ay: number; deg: number;
   );
 }
 
-/** Растровый спрайт остановки (волна со своим набором): сгенерированная пиксель-иконка,
- *  центрированная в (cx,cy). Спрайт ПОСТОЯНЕН — состояние (done/missed/pending) несут кольцо
- *  и стрелки, а не сама иконка (DESIGN §12.1). preserveAspectRatio хранит пропорции спрайта. */
+/** Raster stop sprite for a wave with its own set: a generated pixel icon centred on (cx, cy). The
+ *  sprite is CONSTANT — state (done/missed/pending) is carried by the ring and the arrows, not by
+ *  the icon itself (DESIGN §12.1). `preserveAspectRatio` keeps the sprite's proportions. */
 function Sprite({
   wave, name, cx, cy, size,
 }: { wave: string; name: string; cx: number; cy: number; size: number }) {
@@ -262,7 +237,7 @@ function Sprite({
   );
 }
 
-/** Русская форма слова «день» для числа (1 день / 2 дня / 5 дней; 11–14 — «дней»). */
+/** Russian plural form for a day count: one, few (2-4) or many (5+), with 11-14 taking many. */
 function pluralDays(n: number): string {
   const mod100 = n % 100;
   const mod10 = n % 10;
@@ -273,29 +248,23 @@ function pluralDays(n: number): string {
 }
 
 /**
- * Значок стрика над остановкой (§5.6): огонёк = сколько дней подряд пункт ВЫПОЛНЯЕТСЯ; у монстра —
- * тот же огонёк, но считает дни, когда монстр НЕ пьётся (полярность в [title]). Отсчёт «по вчера»
- * (сегодня не входит, пока не заполнено) — считает бэк. Рисуем только при value ≥ [STREAK_MIN];
- * цвет — токен волны (см. common.css).
- *
- * [title] — пояснение (accessible-имя значка + текст тултипа). Тултип рисуем **сами** мини-плиткой
- * в стиле активной волны (тёплая заливка + глиняный кант — токены), а не системным `<title>`:
- * показывается по ховеру значка (CSS). Ширина подложки считается по длине строки — SVG не умеет
- * авто-размер; и клампится в границы viewBox, чтобы не выпасть за карту у крайних остановок.
+ * The streak badge above a stop: a flame counting consecutive days the item is DONE, or for the
+ * monster, days it is NOT drunk. The tooltip is drawn by US as a mini tile in the wave's style,
+ * not a system `<title>`; its width is computed from the string, as SVG cannot auto-size. §5.6
  */
 function StreakBadge({
   cx, cy, value, testId, title, tone = "fire",
 }: {
   cx: number; cy: number; value: number; testId: string; title: string;
-  /** Цвет огонька: `fire` — акцент волны (пункты маршрута), `clean` — зелёный «чисто»
-   *  (монстр). Огонёк монстра считает ОБРАТНОЕ — дни без него, — и горит тем же цветом,
-   *  что вердикт под остановкой, иначе акцент читался бы как «сделал это N дней подряд». */
+  /** Flame colour: `fire` is the wave's accent (route items), `clean` the green "clean" (monster).
+   *  The monster's flame counts the INVERSE — days without it — and burns in the same colour as the
+   *  verdict under its stop, since the accent would read as "did this N days running". */
   tone?: "fire" | "clean";
 }) {
   if (value < STREAK_MIN) return null;
   const tipW = title.length * 4.2 + 12;
   const tipH = 14;
-  // Горизонтальный сдвиг тултипа, чтобы подложка целиком осталась в пределах viewBox [0,400].
+  // Horizontal shift keeping the tooltip's ground entirely inside the viewBox [0,400].
   const half = tipW / 2;
   let tipDX = 0;
   if (cx + half > 396) tipDX = 396 - (cx + half);
@@ -308,13 +277,13 @@ function StreakBadge({
       role="img"
       aria-label={title}
     >
-      {/* невидимая площадка расширяет зону наведения (иконки мелкие) */}
+      {/* an invisible pad widens the hover area (the icons are small) */}
       <rect className="quest-streak__hit" x={-6} y={-8} width={20} height={16} fill="transparent" />
       <path className="quest-streak__glyph" d={FLAME_D} aria-hidden />
       <text className="quest-streak__num" x={6} y={0} aria-hidden>
         {value}
       </text>
-      {/* Тултип-мини-плитка волны (появляется по ховеру, см. common.css) */}
+      {/* the wave's mini-tile tooltip (appears on hover, see common.css) */}
       <g className="quest-tip" transform={`translate(${tipDX} -9)`} aria-hidden>
         <rect className="quest-tip__box" x={-half} y={-tipH} width={tipW} height={tipH} rx={1.5} />
         <text className="quest-tip__text" x={0} y={-tipH / 2 - 0.5}>
@@ -325,141 +294,114 @@ function StreakBadge({
   );
 }
 
-/** Ключ пункта, у остановок которого всплывают карточки прослушанного (§5.6). */
+/** Key of the item whose stops raise cards of what was listened to (PRD §5.6). */
 const PODCAST_KEY = "podcasts";
 
-// Геометрия карточки в единицах viewBox (400×210), как и вся остальная карта.
+// Card geometry in viewBox units (400×210), like the rest of the map.
 const CARD_W = 214;
 const CARD_H = 54;
 /**
- * Высота карточки, у которой две строки времени (заход + итог эпизода за день): ровно на строку
- * `--fs-music-meta` с её отступом больше. Фиксировать высоту приходится потому, что карточка
- * живёт в `foreignObject` — SVG отводит окно заранее и по содержимому не растёт, а лишнее
- * подрезает (`overflow: hidden` на боксе).
+ * Height of a card carrying two time lines, exactly one `--fs-music-meta` line taller. The height
+ * MUST be fixed because the card lives in a `foreignObject`: SVG reserves the window in advance,
+ * never grows to content, and clips the excess.
  */
 const CARD_H_SPLIT = 68;
-/*
- * Здесь была прибавка [CARD_H_RETELL] на отдельную строку под кнопку пересказа: рядом с
- * «09:12 · 47 из 48 мин» она не помещалась. Часы с карточки ушли, строка стала короткой
- * («45 мин»), и кнопка встала в неё — как у книги, где она стоит в строке процентов.
- */
 const CARD_COVER = 40;
-/** Насколько край карточки заходит под площадку нажатия (r=22) — чтобы ховер не срывался. */
+/** How far the card's edge runs under the hit pad (r=22), so hover does not break off. */
 const CARD_LIFT = 20;
-/** Запас до края viewBox: ближе — считаем, что карточка не помещается. */
+/** Margin to the viewBox edge: closer than this counts as the card not fitting. */
 const VIEWBOX_MARGIN = 2;
-/** Зазор между карточкой и превью, над которым она встаёт. */
+/** Gap between the card and the preview it stands above. */
 const CARD_GAP = 3;
 
-/** Сторона превью обложки эпизода (единицы viewBox): ~26 CSS-пикселей на мобильной ширине. */
+/** Side of the episode cover preview, in viewBox units: ~26 CSS pixels at mobile width. */
 const PREVIEW_SIZE = 30;
-/** Насколько близко к ЦЕНТРУ диска (r=17) подходит нижний-правый угол превью: чем меньше,
- *  тем глубже картинка уходит под иконку остановки. 6 — угол скрыт больше чем наполовину
- *  радиуса, картинка явно лежит ПОД остановкой, а не рядом с ней. */
+/** How close the preview's bottom-right corner comes to the disc's CENTRE (r=17): the smaller, the
+ *  deeper the picture runs under the stop icon. At 6 the corner is hidden by more than half the
+ *  radius, so the picture clearly lies UNDER the stop rather than beside it. */
 const PREVIEW_TUCK = 6;
 
 /**
- * Отсрочка закрытия карточки. Указатель, переезжающий с превью на карточку, сперва покидает
- * одно (pointerleave) и лишь потом входит в другое (mouseenter) — а между ними бывает и голый
- * зазор карты. Без паузы карточка гасла бы на полпути к своим ссылкам.
+ * Delay before the card closes. A pointer moving from the preview to the card leaves one
+ * (pointerleave) before entering the other (mouseenter), sometimes crossing bare map between them.
+ * Without the pause the card would go out halfway to its own links.
  */
 const CLOSE_DELAY_MS = 140;
 
-/** Левый-верхний угол превью у остановки в (cx, cy). */
+/** Top-left corner of the preview at the stop in (cx, cy). */
 function previewXY(cx: number, cy: number): [number, number] {
   return [cx - PREVIEW_TUCK - PREVIEW_SIZE, cy - PREVIEW_TUCK - PREVIEW_SIZE];
 }
 
-/** Ключ пункта чтения: его остановки несут обложки книг (§5.16). */
+/** Key of the reading item: its stops carry book covers (PRD §5.16). */
 const READING_KEY = "reading";
 
 /**
- * Превью книги портретное: обложка книги — не квадрат подкаста, и приводить её к квадрату
- * значило бы либо смять корешок, либо срезать половину названия.
+ * A book preview is portrait: a book cover is not a podcast square, and forcing it into one would
+ * either crush the spine or cut half the title away.
  */
 const BOOK_PREVIEW_W = 22;
 const BOOK_PREVIEW_H = 33;
 
-/** Обложка внутри карточки книги — та же пропорция, крупнее. */
+/** The cover inside a book card — the same proportion, larger. */
 const BOOK_CARD_COVER_W = 30;
 const BOOK_CARD_COVER_H = 45;
 /**
- * Высота карточки книги. Строк у неё **три** (название, автор, проценты); часов у чтения нет
- * (см. `readingCard.ts`), и высоту теперь держит не текст, а обложка: 45 + поля 6×2 = 57.
- *
- * ⚠️ Число обязано покрывать содержимое целиком: карточка живёт в `foreignObject`, а он отводит
- * окно ЗАРАНЕЕ и по содержимому не растёт — не хватило, и `overflow: hidden` молча срежет нижнюю
- * строку (ловилось владельцем: пропадало время захода). Считать надо и рамку: окно отводится
- * снаружи, а `overflow` режет ВНУТРИ неё, поэтому 57 содержимого просят 59 окна. Замер на борде
- * (`scrollHeight` против `clientHeight`): при 58 карточка переполнялась ровно на пиксель.
+ * Height of the book card, held by the cover rather than the text. The number MUST cover the
+ * content whole — a `foreignObject` reserves its window in advance and silently clips the bottom
+ * line. The border counts too: 57 of content needs 59 of window (measured at 58 it overflowed).
  */
 const BOOK_CARD_H = 60;
 
 /**
- * Левый-верхний угол превью обложки книги. Стороны у двух остановок РАЗНЫЕ:
- * у верхней книга выглядывает слева, у нижней — справа. Дело не в симметрии ради симметрии:
- * остановки чтения стоят в разных рядах тропы, и две картинки с одной стороны читались бы как
- * одна колонка, оторванная от своих кружков.
+ * Top-left corner of the book cover preview. The two reading stops use OPPOSITE sides: they sit in
+ * different rows of the route, and two pictures on the same side would read as one column
+ * detached from its circles.
  */
 function bookPreviewXY(cx: number, cy: number, side: "left" | "right"): [number, number] {
   const x = side === "left" ? cx - PREVIEW_TUCK - BOOK_PREVIEW_W : cx + PREVIEW_TUCK;
   return [x, cy - PREVIEW_TUCK - BOOK_PREVIEW_H];
 }
 
-/** Сторона превью по номеру остановки: первая — слева, вторая и дальше — справа. */
+/** Preview side by stop number: the first goes left, the second and later go right. */
 const bookSide = (occurrence: number): "left" | "right" => (occurrence === 1 ? "left" : "right");
 
-/** Поля и зазор карточки книги — те же, что в её CSS; ширина считается по ним. */
+/** Padding and gap of a book card, the same as in its CSS; the width is estimated from them. */
 const BOOK_CARD_PAD = 6;
 const BOOK_CARD_GAP = 6;
-/** Запас к оценке ширины: дешевле пары лишних единиц, чем строка, ушедшая в многоточие. */
+/** Slack added to the width estimate: a couple of spare units is cheaper than a truncated line. */
 const BOOK_CARD_SLACK = 4;
-/** Уже этого карточка не жмётся: у совсем короткого названия она перестала бы читаться карточкой. */
+/** The card shrinks no further: below this a short title stops reading as a card at all. */
 const BOOK_CARD_MIN_W = 104;
 /**
- * Надпись на кнопке пересказа — она же множитель ширины строки прогресса (§5.16). Скобки
- * несущие: рядом с процентами голое слово читается как продолжение данных, а скобки сразу
- * говорят «это подпись к действию, а не ещё одна цифра захода».
+ * Label of the retell button, and also a multiplier for the progress line's width (PRD §5.16). The
+ * brackets are load-bearing: beside the percentages a bare word reads as a continuation of the
+ * data, while brackets say at once that this is a caption to an action.
  */
 const RETELL_LABEL = "(пересказ)";
 
 /**
- * Отступ значка стрика от центра остановки. Вправо он равен зазору у диска, влево — больше:
- * значок рисуется ОТ своей точки вправо (огонёк в нуле, число за ним), поэтому зеркальная
- * позиция должна отодвинуться на его собственную ширину, иначе число легло бы на диск.
+ * Offset of the streak badge from the stop's centre. To the right it equals the gap at the disc; to
+ * the left it is larger, because the badge draws FROM its point rightwards (flame at zero, number
+ * after it), so a mirrored position must back off by its own width or the number lands on the disc.
  */
 const STREAK_DX = 18;
 const STREAK_DX_LEFT = 32;
 
 /**
- * Ширина карточки книги — **по содержимому**, а не фиксированная.
- *
- * У подкаста карточка одной ширины на всё, и это оправдано: название эпизода почти всегда
- * длинное. У книги наоборот — «Дюна» оставляла бы две трети карточки пустыми (замечено
- * владельцем), а полоса пустоты справа читается как недогрузившийся виджет.
- *
- * Ширина строк **оценивается**, а не измеряется: карточка живёт в `foreignObject`, который
- * отводит окно ЗАРАНЕЕ, — к моменту, когда что-то можно померить, окно уже назначено. Оценка
- * идёт по числу знаков и кеглю; коэффициенты подобраны с запасом (кириллица шире латиницы),
- * а ошибиться она может только в одну сторону: не хватило — название поедет бегущей строкой,
- * ровно как у подкаста. Потолок — та же [CARD_W], чтобы карточки двух пунктов не расходились
- * в разные габариты.
+ * Width of the book card, BY CONTENT rather than fixed: a podcast title is nearly always long, but
+ * "Dune" would leave two thirds empty, and a band of blank reads as a half-loaded widget. Width is
+ * ESTIMATED, not measured — a `foreignObject` reserves its window before anything can be measured.
  */
 function bookCardWidth(book: ReadingBookView): number {
-  // Доля кегля на знак — ЗАМЕРЕНА на борде, а не прикинута: моноширинный шрифт дал
-  // 0.60–0.71 em/знак. Берём верх диапазона плюс запас ниже: ошибка в меньшую сторону стоит
-  // многоточия, в большую — только лишней пустоты, от которой мы и уходим.
-  //
-  // Доля одна на все три строки, потому что и гарнитура одна: карточка целиком набрана
-  // моноширинным, как карточка подкаста (DESIGN §2.2). Пока название и автор были
-  // пропорциональными, тут стояла вторая доля (0.65) — вернётся она только вместе с
-  // пропорциональным шрифтом в карточке, не раньше: оценка обязана считать ТУ ЖЕ гарнитуру,
-  // какой строка будет набрана, иначе название едет бегущей строкой там, где оно влезает.
+  // Fraction of the font size per character, MEASURED on the board rather than guessed: the mono
+  // face gave 0.60-0.71 em. We take the top of that range, since underestimating costs an ellipsis
+  // while overestimating costs only the blank space we are trying to avoid. One face, one figure.
   const mono = 0.7;
   const titleW = book.title.length * 11 * mono;
   const authorW = (book.author?.length ?? 0) * 8.5 * mono;
-  // Строка прогресса — это подпись «прочитано», сами проценты и (когда есть что рассказать)
-  // кнопка пересказа: считаем её целиком, иначе строка уедет в многоточие.
+  // The progress line is the caption, the percentages and, when there is something to tell, the
+  // retell button: all of it is counted, or the line drifts into an ellipsis.
   const progressChars = progressLabel(book) === null
     ? 0
     : PROGRESS_CAPTION.length + 1 + progressLabel(book)!.length +
@@ -472,23 +414,16 @@ function bookCardWidth(book: ReadingBookView): number {
 }
 
 /**
- * Мышиный ли это указатель. Тач и перо честно называют себя в `pointerType`; отсутствие типа
- * (jsdom его не знает — PointerEvent там не реализован) считаем мышью.
- *
- * Разделение обязано быть именно на pointer-событиях: тач-тап досылает следом ЭМУЛИРОВАННЫЕ
- * мышиные события (mouseenter/click), и на них ховер-ветка сработала бы вторым заходом, гася
- * только что открытую тапом карточку.
+ * Whether this is a mouse pointer; touch and pen name themselves honestly, and a missing type
+ * counts as mouse. The split MUST be on pointer events: a tap then sends EMULATED mouse events,
+ * and the hover branch would fire on those and close the card the tap had just opened.
  */
 const isMouse = (e: { pointerType?: string }) => e.pointerType !== "touch" && e.pointerType !== "pen";
 
 /**
- * Кегли карточки в единицах viewBox. Штатные `--fs-music-*` заданы в `cqw` и настроены на
- * плитку в CSS-пикселях; внутри `foreignObject` единица другая, и без переопределения текст
- * приехал бы вместе с двойным масштабом.
- *
- * Подобраны так, чтобы три строки плюс поля выбирали высоту карточки целиком: при мелких кеглях
- * снизу оставалась пустая полоса в треть высоты, и карточка читалась незаполненной. На экране
- * это выходит около 14/12/11 CSS-пикселей — в размер самой плитки «сейчас играет».
+ * Card type sizes in viewBox units. The usual `--fs-music-*` are set in `cqw` and tuned for a tile
+ * in CSS pixels; inside a `foreignObject` the unit differs and text would arrive double-scaled.
+ * They are picked so three lines plus padding fill the card's height rather than leaving a band.
  */
 const CARD_TYPE_SCALE = {
   "--fs-music-title": "11px",
@@ -497,20 +432,9 @@ const CARD_TYPE_SCALE = {
 } as CSSProperties;
 
 /**
- * Превью обложки эпизода у остановки подкаста (§5.6). Стоит СВЕРХУ-СЛЕВА от диска, и его
- * нижний-правый угол уходит ПОД диск: перекрытие связывает картинку с остановкой (это её
- * эпизод, а не отдельный кадр на карте) и даёт плоской тропе слой глубины. Отсюда же порядок
- * разметки — превью рисуется ДО остановки, иначе в SVG (где нет z-index) угол лёг бы поверх.
- *
- * Оно же — единственная ручка карточки: раскрывает её наведение НА ПРЕВЬЮ, а не на всю
- * остановку. Остановка — переключатель линзы календаря, и пока карточку звала она, любой проход
- * указателя по маршруту вываливал тултип поверх карты.
- *
- * Обложку рисует [Cover] из карточки плеера, а не свой `<image>`: это одна и та же обложка
- * одного и того же эпизода — и `null` (обложки нет) оба должны показывать одинаково. Отсюда
- * `foreignObject`, как и у самой карточки. Рамки у превью НЕТ: кант в единицах viewBox
- * приезжает на экран дробным пикселем и ложится неровно, а держать картинку и без него есть
- * чему — её край и так очерчен диском остановки.
+ * The episode cover peeking out at a podcast stop, top-left of the disc with its corner tucked
+ * UNDER it: the overlap ties picture to stop and gives the flat route depth — hence it is drawn
+ * BEFORE the stop, as SVG has no z-index. It is also the card's only handle. DESIGN §4.1
  */
 function EpisodePreview({
   cx,
@@ -551,22 +475,9 @@ function EpisodePreview({
 }
 
 /**
- * Карточка прослушанного эпизода у остановки подкастов (§5.6): обложка, эпизод и шоу со
- * ссылками, сколько слушали. Тот же язык, что у [StreakBadge] — поверхность и кант волны,
- * всплывает по наведению.
- *
- * Два отличия от `.quest-tip`, и оба вынужденные. Во-первых, карточка ЛОВИТ события: в ней живые
- * ссылки, и указатель должен доехать до них, не погасив её, — поэтому нижний край заходит под
- * площадку нажатия остановки, чтобы между ними не было щели, на которой ховер срывается.
- * Во-вторых, она рендерится СОСЕДОМ кнопки-остановки, а не внутри: ссылка внутри `role="button"`
- * — вложенная интерактивность, которую скринридер разобрать не может.
- *
- * Внутри — ТОТ ЖЕ [NowPlayingCard], что рисует музыкальная плитка, а не похожая на неё вёрстка:
- * вопрос один и тот же («что это было»), и ответ обязан выглядеть одинаково. Отсюда
- * `foreignObject`: карта — SVG, а виджет живёт в HTML, где есть и перенос строк, и бегущая
- * строка, и `text-overflow`. Ручная резка подписей по ширине после этого не нужна.
- * Снизу добавлены строки, которых у плитки нет и быть не может: сколько из скольких минут, а у
- * эпизода, разложенного на несколько заходов, — ещё и когда был ИМЕННО ЭТОТ заход (§5.6).
+ * The listened-episode card at a podcast stop. It CATCHES events, since it holds live links the
+ * pointer must reach, and renders as a SIBLING of the stop button, because a link inside a
+ * `role="button"` is nested interactivity. Inside is the very same [NowPlayingCard]. §5.6
  */
 function PodcastCard({
   cx,
@@ -588,27 +499,24 @@ function PodcastCard({
   onRetell: () => void;
 }) {
   const half = CARD_W / 2;
-  // Сдвиг, чтобы карточка целиком осталась в пределах viewBox [0,400] — как у тултипа стрика.
+  // Shift keeping the card entirely inside the viewBox [0,400] — as with the streak tooltip.
   let dx = 0;
   if (cx + half > 396) dx = 396 - (cx + half);
   if (cx - half < 4) dx = 4 - (cx - half);
 
-  // Подвал: пройденный кусок выпуска — всегда, сумма минут над ним — только когда кусок
-  // известен. Не известен (старый заход) — в строке куска стоят те же минуты, и подвал
-  // схлопывается в одну строку. От этого зависит окно foreignObject и точка, от которой
-  // карточка встаёт над превью.
+  // Footer: the covered slice of the episode always, the minute total above it only when that
+  // slice is known. Unknown, and the footer collapses to one line. The `foreignObject` window and
+  // the point the card rises from both depend on this.
   const stretch = stretchLabel(episode);
   const listened = listenedLabel(episode);
-  // Кнопка есть, только когда пересказ УЖЕ собран (§5.16.1). Своей строки ей больше не нужно:
-  // она встаёт в строку куска — как у книги, где стоит в строке процентов.
+  // The button exists only once the retelling is ALREADY built (PRD §5.16.1). It needs no line of
+  // its own: it stands in the chunk line, as it does in a book's percentage line.
   const canRetell = episode.hasSummary === true && episode.sessionId != null;
   const height = stretch === null ? CARD_H : CARD_H_SPLIT;
 
-  // Над ПРЕВЬЮ (а не просто над остановкой), иначе карточка накрывала бы собственную ручку:
-  // превью висит сверху-слева от диска, и «над остановкой» приходилось ровно на него.
-  // Не помещается сверху — падает под остановку: у верхнего ряда тропы места сверху нет вовсе,
-  // карточка вылезала за viewBox и её срезало краем карты, а следом датой в шапке плитки.
-  // Тот же ход, что у подсказки дня жизни (HoverTip), и по той же причине.
+  // Above the PREVIEW, not merely above the stop, or the card would cover its own handle. If it
+  // does not fit above it drops below: the route's top row has no room, and the card spilled past
+  // the viewBox to be clipped by the map's edge. Same move as the day tooltip, same reason.
   const above = cy - PREVIEW_TUCK - PREVIEW_SIZE - CARD_GAP - height;
   const top = above >= VIEWBOX_MARGIN ? above : cy + CARD_LIFT;
 
@@ -624,27 +532,22 @@ function PodcastCard({
           <NowPlayingCard
             track={trackOf(episode)}
             coverSize={CARD_COVER}
-            /* Обложки нет или она не приехала — на её месте плашка Spotify, та же, что в
-               музыкальной плитке: эпизод приехал оттуда же, и отказ у него общий с треком.
-               Тот же `fallback` стоит у превью обложки (`EpisodePreview`) — картинка одна,
-               и показывать её отсутствие двумя разными способами нечем оправдать. */
+            /* No cover, or it has not arrived: the Spotify plate stands in its place, the same one
+               as in the music tile — the episode came from there and shares its fallback. The cover
+               preview carries the same `fallback`, the picture being one and the same. */
             coverFallback={<CoverPlate seed={episode.episodeUrl ?? episode.episodeName} size={CARD_COVER} />}
           >
-            {/* Сумма минут захода — тише куска: она отвечает «сколько всего», чтобы не
-                вычитать одно из другого в уме. Подпись стоит здесь, а не в строке ниже, по
-                прозаической причине: карточка подкаста фиксированной ширины (в отличие от
-                книжной, которая подбирает её под содержимое), и «прослушано 45 → 95 мин
-                (пересказ)» в неё не влезало — замер: нужно 176 единиц, есть 148. Пара
-                «цифры + кнопка» при этом набрана книжными классами, как и просили. */}
+            {/* The sitting's total minutes, quieter than the chunk: it answers "how much in all"
+                so nothing has to be subtracted in the head. It stands here rather than a line
+                below because the podcast card has a fixed width and the pair would not fit. */}
             {stretch !== null && (
               <div className="quest-card__sum">
                 <span className="quest-card__progress-caption">{LISTENED_CAPTION} </span>
                 {listened}
               </div>
             )}
-            {/* Пройденный кусок выпуска — ТЕМИ ЖЕ классами, что проценты книги: вопрос один,
-                и набор у него обязан быть один (замечено владельцем). Кнопка здесь же,
-                справа, — тоже как у книги. */}
+            {/* The covered chunk of an episode uses THE SAME classes as a book's percentages: one
+                question must be set in one way. The button sits here too, on the right. */}
             <div className="quest-card__progress">
               {stretch === null && <span className="quest-card__progress-caption">{LISTENED_CAPTION} </span>}
               <span className="quest-card__progress-value">{stretch ?? listened}</span>
@@ -654,8 +557,8 @@ function PodcastCard({
                   className="quest-card__retell"
                   data-testid={`quest-episode-retell-${occurrence}`}
                   onClick={(e) => {
-                    // Карточка живёт внутри остановки-переключателя линзы: без остановки
-                    // всплытия клик по кнопке заодно перекинул бы календарь на другой пункт.
+                    // The card lives inside the stop that switches the lens, so without stopping
+                    // propagation a click on the button would also move the calendar to another item.
                     e.stopPropagation();
                     onRetell();
                   }}
@@ -672,11 +575,9 @@ function PodcastCard({
 }
 
 /**
- * Превью обложки книги, выглядывающее из-под остановки чтения (§5.16) — тот же приём, что у
- * подкастов, и по той же причине: остановка отвечает «что именно ты читал», не дожидаясь ховера.
- *
- * Отличий от подкастового два, и оба от предмета. Пропорция портретная (обложка книги — не
- * конверт), и сторона зависит от номера остановки ([bookPreviewXY]).
+ * The book cover peeking out from under a reading stop — the same device as the podcasts', and for
+ * the same reason: the stop answers "what were you reading" without waiting for hover. Two
+ * differences come from the object: a portrait ratio, and a side that depends on the stop. §5.16
  */
 function BookPreview({
   cx,
@@ -712,16 +613,9 @@ function BookPreview({
 }
 
 /**
- * Карточка прочитанного у остановки чтения (§5.16): обложка, книга и автор, пройденный кусок и
- * когда/сколько читали. Тот же язык и та же механика всплытия, что у [PodcastCard].
- *
- * Ссылок внутри нет — книга лежит на полке владельца, вести с неё некуда. Поэтому карточка не
- * обязана ловить указатель ради своих ссылок, но события всё равно слушает: иначе она гасла бы,
- * стоило указателю с превью заехать на неё саму.
- *
- * Строк текста три, и порядок в них по убыванию вопроса: что читал → сколько прошёл → когда и
- * сколько. Пройденный кусок стоит выше времени, потому что именно он отвечает «а был ли толк»;
- * его может не быть вовсе (импортированный день), и тогда строка просто не рисуется.
+ * The reading card at a reading stop: cover, book and author, the passage covered and when. It
+ * holds no links — the book sits on the owner's shelf — yet it still listens for events, or it
+ * would die the moment the pointer moved off the preview onto the card itself. PRD §5.16
  */
 function BookCard({
   cx,
@@ -740,7 +634,7 @@ function BookCard({
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
-  /** Раскрыть окно с пересказом куска (§5.16). */
+  /** Open the window with the chunk's retelling (PRD §5.16). */
   onRetell: () => void;
 }) {
   const width = bookCardWidth(book);
@@ -749,7 +643,7 @@ function BookCard({
   if (cx + half > 396) dx = 396 - (cx + half);
   if (cx - half < 4) dx = 4 - (cx - half);
 
-  // Над своим превью, а не над остановкой: иначе карточка накрыла бы собственную ручку.
+  // Above its own preview rather than above the stop: otherwise the card would cover its own handle.
   const above = cy - PREVIEW_TUCK - BOOK_PREVIEW_H - CARD_GAP - BOOK_CARD_H;
   const top = above >= VIEWBOX_MARGIN ? above : cy + CARD_LIFT;
   const progress = progressLabel(book);
@@ -770,9 +664,9 @@ function BookCard({
             height={BOOK_CARD_COVER_H}
           />
           <div className="quest-book__text">
-            {/* Название — единственная строка, которой оценка ширины может не хватить (длинные
-                заголовки с подзаголовком). Не влезло — едет бегущей строкой, тем же механизмом,
-                что у подкаста, а не обрывается многоточием. */}
+            {/* The title is the only line the width estimate may fall short on (long headings with
+                a subtitle). If it does not fit it scrolls, by the same mechanism as the podcast's,
+                rather than being cut with an ellipsis. */}
             <Marquee>
               <div className="quest-book__title" data-testid={`quest-book-title-${occurrence}`}>
                 {book.title}
@@ -783,16 +677,17 @@ function BookCard({
               <div className="quest-card__progress">
                 <span className="quest-card__progress-caption">{PROGRESS_CAPTION} </span>
                 <span className="quest-card__progress-value">{progress}</span>
-                {/* Кнопка есть, только когда пересказ УЖЕ собран: он считается фоном по тексту
-                    книги с полки, и обещать окно, которому нечего показать, незачем (§5.16). */}
+                {/* The button exists only once the retelling is ALREADY built: it is computed in
+                    the background from the book's text, and promising a window with nothing to
+                    show is pointless (§5.16). */}
                 {book.hasSummary && book.sessionId != null && (
                   <button
                     type="button"
                     className="quest-card__retell"
                     data-testid={`quest-book-retell-${occurrence}`}
                     onClick={(e) => {
-                      // Карточка живёт внутри остановки-переключателя линзы: без остановки
-                      // всплытия клик по кнопке заодно перекинул бы календарь на другой пункт.
+                      // The card lives inside the stop that switches the lens, so without stopping
+                      // propagation a click would also move the calendar to another item.
                       e.stopPropagation();
                       onRetell();
                     }}
@@ -810,10 +705,9 @@ function BookCard({
 }
 
 /**
- * Эпизод в форму карточки плеера: «исполнитель» — это шоу со своей ссылкой, обложка эпизода
- * встаёт на место обложки альбома, альбома нет (виджет эту строку просто не рисует). Ровно то
- * же приведение делает бэкенд для плитки «сейчас играет» — здесь оно повторено на готовых
- * данных дня, без похода в Spotify.
+ * An episode shaped into the player card's form: the "artist" is the show with its own link, the
+ * episode cover takes the album cover's place, and there is no album, so the widget omits that
+ * line. The backend does the same coercion for the now-playing tile, on live data.
  */
 function trackOf(episode: PodcastEpisodeView): TrackView {
   return {
@@ -834,20 +728,16 @@ export function QuestMap({
   lens = null,
   onLensChange,
 }: QuestMapProps) {
-  // Волна со своим спрайт-набором ⇒ рисуем растровые иконки; иначе — ручные пиксель-клетки.
+  // A wave with its own sprite set gets raster icons; otherwise hand-drawn pixel cells.
   const spriteWave = wave && QUEST_SPRITE_WAVES.has(wave) ? wave : null;
   const interactive = onLensChange != null;
-  // Вердикт монстра — один на всю карту: подпись, цвет глагола, класс состояния и озвучка.
+  // The monster's verdict is one for the whole map: caption, verb colour, state class and wording.
   const monster = monsterVerdict(monsterDrunk);
 
   /**
-   * Пропсы остановки-кнопки. Клик по уже выбранной снимает линзу (тоггл) — это единственный
-   * способ выключить её прямо на карте; второй (крестик в ярлыке календаря) живёт там, потому
-   * что в выходной карты на экране нет вовсе.
-   *
-   * [ariaName] подменяет подпись остановки в озвучке. Нужен монстру: `aria-label` кнопки
-   * ПЕРЕКРЫВАЕТ текст внутри группы, поэтому «пил/не пил» из подписи до скринридера иначе
-   * не доходит — он слышит только слово «монстр», ровно ту двусмысленность, что чиним.
+   * Props of a stop button. Clicking the selected one clears the lens, which is the only way to
+   * switch it off on the map itself. [ariaName] replaces the spoken label for the monster: a
+   * button's `aria-label` OVERRIDES the text inside, so the verdict would never be read out.
    */
   const stopProps = (candidate: DisciplineLens, ariaName: string = candidate.label) => {
     if (!interactive) return {};
@@ -861,27 +751,26 @@ export function QuestMap({
       onClick: toggle,
       onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
         if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault(); // пробел иначе прокручивает страницу
+        e.preventDefault(); // space would otherwise scroll the page
         toggle();
       },
     };
   };
   /**
-   * Какая карточка подкаста раскрыта. Через состояние, а не через CSS `:hover` у предка:
-   * карточки рисуются ОТДЕЛЬНЫМ слоем в самом конце SVG (см. ниже), то есть живут вне
-   * поддерева своей остановки, и descendant-селектор до них не дотягивается.
+   * Which podcast card is open. Held in state rather than through an ancestor's CSS `:hover`: the
+   * cards are drawn in a SEPARATE layer at the very end of the SVG (see below), so they live outside
+   * their stop's subtree and a descendant selector cannot reach them.
    */
   const [openCard, setOpenCard] = useState<string | null>(null);
   /**
-   * Заход, чей пересказ раскрыт окном (§5.16). Держим саму карточку, а не её ключ: окно
-   * показывает книгу, автора и проценты сразу, ещё до того как приедет текст, — а всё это у
-   * карточки уже есть.
+   * The sitting whose summary is open in the window — a book or an episode, as they share one
+   * window. The card itself is held rather than its key: the window shows title, author and
+   * percentages before any text arrives, and the card already has all of it. PRD §5.16.1
    */
-  // Предмет раскрытого окна пересказа — книга или выпуск: окно у них одно (§5.16.1).
   const [retold, setRetold] = useState<SummarySubject | null>(null);
   const closeTimer = useRef<number | null>(null);
-  /** Зеркало [openCard] для обработчиков: тап-переключатель и слушатель документа читают
-   *  состояние из замыканий, созданных один раз. */
+  /** Mirror of [openCard] for the handlers: the tap toggle and the document listener read state
+   *  from closures created once. */
   const openRef = useRef<string | null>(null);
 
   const cancelClose = useCallback(() => {
@@ -902,22 +791,22 @@ export function QuestMap({
     setOpenCard(null);
   }, [cancelClose]);
 
-  /** Закрытие с отсрочкой [CLOSE_DELAY_MS] — см. комментарий у константы. */
+  /** Closing delayed by [CLOSE_DELAY_MS] — see the note at the constant. */
   const close = useCallback(() => {
     cancelClose();
     closeTimer.current = window.setTimeout(closeNow, CLOSE_DELAY_MS);
   }, [cancelClose, closeNow]);
 
-  /** Тач: тап по превью показывает карточку, повторный — прячет (ховера на пальце нет). */
+  /** Touch: a tap on the preview shows the card, a second tap hides it (a finger has no hover). */
   const toggle = useCallback((key: string) => {
     if (openRef.current === key) closeNow();
     else open(key);
   }, [closeNow, open]);
 
   /**
-   * Тап мимо — закрыть. На тач-устройстве «увести указатель» нечем, и без этого раскрытая
-   * карточка осталась бы висеть поверх карты навсегда. Слушаем на фазе перехвата и пропускаем
-   * тапы по самой карточке (в ней живые ссылки) и по превью (у него свой переключатель).
+   * Tap outside to close. On a touch device there is no pointer to lead away, and without this an
+   * open card would hang over the map for good. The listener runs on the capture phase and skips
+   * taps on the card itself (it holds live links) and on the preview (it has its own toggle).
    */
   useEffect(() => {
     if (openCard === null) return;
@@ -937,7 +826,7 @@ export function QuestMap({
 
   const byKey = new Map(items.map((i) => [i.key, i]));
   const done = ROUTE.map((s) => (byKey.get(s.key)?.count ?? 0) >= s.occurrence);
-  // Карточки собираем заранее — рисуются они последним слоем, отдельно от своих остановок.
+  // Cards are gathered in advance: they are drawn as the last layer, apart from their stops.
   const podcastCards = ROUTE.flatMap((s, i) => {
     if (s.key !== PODCAST_KEY) return [];
     const episode = episodeForStop(byKey.get(s.key)?.episodes, s.occurrence);
@@ -955,16 +844,16 @@ export function QuestMap({
 
   const doneCount = done.filter(Boolean).length;
   const perfect = doneCount === ROUTE.length;
-  // «Пропущено» = не сделано, а день уже ушёл дальше (более поздняя остановка закрыта).
-  // Два состояния: сделано (сплошное коралловое кольцо) / не сделано (серый пунктир). «Пропущено»
-  // (красный) убрано — при вводе раз в день оно не отличимо от «ещё не дошёл» (см. доккоммент).
+  // "Missed" = not done while the day has already moved past it (a later stop is closed). Two states
+  // remain, done (solid coral ring) and not done (grey dash); red "missed" was dropped, because with
+  // one entry a day it is indistinguishable from "not reached yet".
   const stopClass = (i: number) =>
     done[i] ? "quest-stop--done" : "quest-stop--pending";
   const segClass = (i: number) =>
     done[i] ? "quest-seg--done" : "quest-seg--pending";
 
-  // Дробь прогресса пункта (для скинов, показывающих счётчики под подписями):
-  // target из данных, фолбэк — сколько остановок пункт занимает на маршруте.
+  // Progress fraction of an item, for skins that show counters under the captions: `target` from the
+  // data, falling back to how many stops the item occupies on the route.
   const fracOf = (key: string) => {
     const it = byKey.get(key);
     const target = it?.target ?? ROUTE.filter((r) => r.key === key).length;
@@ -972,23 +861,21 @@ export function QuestMap({
   };
 
   /**
-   * Измеренные минуты пункта — занимают ТУ ЖЕ строку под подписью, что и дробь, и вытесняют её
-   * (§5.6). Третьей строки нет намеренно: подписи и так ужимаются первыми на мелких плитках,
-   * а у бинарного пункта дробь `1/1` не сообщает ничего сверх состояния кольца. Показывается
-   * на ВСЕХ волнах — это данные, а не декор скина (дробь скин вправе гасить, минуты нет).
-   * Только у первой остановки пункта: измерение принадлежит дню, а не конкретному вхождению.
+   * An item's measured minutes take THE SAME line as the fraction and displace it; there is
+   * deliberately no third line. They show on EVERY wave, being data rather than skin decoration,
+   * and only at an item's first stop, because the measurement belongs to the day. PRD §5.6
    */
   const minutesOf = (key: string, occurrence: number) => {
-    // Есть карточка ⇒ измерение принадлежит ЭПИЗОДУ, и под остановкой стоят ЕЁ минуты.
-    // Иначе подпись спорила бы с тултипом прямо над ней: в карточке «30 из 128 мин»,
-    // а под кружком — сумма за сутки «62 мин». Заодно вторая остановка перестаёт молчать.
+    // With a card present, the measurement belongs to the EPISODE and its minutes stand under the
+    // stop. Otherwise the caption would argue with the tooltip right above it — "30 of 128 min" in
+    // the card against a daily total of "62 min" below the circle.
     const episode = episodeForStop(byKey.get(key)?.episodes, occurrence);
     if (episode) return `${episode.listenedMinutes} мин`;
-    // У чтения ровно так же: под кружком стоят минуты СВОЕЙ сессии, а не сумма за сутки.
+    // Reading works the same way: under the circle stand the minutes of ITS session, not a daily sum.
     const book = bookForStop(byKey.get(key)?.books, occurrence);
     if (book) return `${book.readMinutes} мин`;
-    // Дневник (и подкасты, не набравшие ни одной карточки) — измерение дня, только у первой
-    // остановки: «6 мин» под незакрытым кружком отвечает «почему не засчиталось».
+    // The journal (and podcasts that gathered no card) is a measurement of the day, shown only at the
+    // first stop: "6 min" under an unclosed circle answers "why did it not count".
     if (occurrence !== 1) return null;
     const measured = byKey.get(key)?.measuredMinutes;
     return typeof measured === "number" ? `${measured} мин` : null;
@@ -1000,12 +887,12 @@ export function QuestMap({
       viewBox="0 0 400 210"
       className={`quest-map${perfect ? " quest-map--perfect" : ""}${spriteWave ? " quest-map--sprites" : ""}`}
       role="img"
-      // Монстр назван ВСЕГДА, в т.ч. чистым днём: молчание про чистый день было неотличимо
-      // от «данных нет» — то же самое, чем плоха была немая подпись «монстр» на картинке.
+      // The monster is ALWAYS named, clean days included: silence about a clean day was
+      // indistinguishable from "no data", the same fault as the mute "monster" caption in the picture.
       aria-label={`Дисциплина: ${doneCount} из ${ROUTE.length}, ${monster.phrase}`}
       data-testid="quest-map"
     >
-      {/* старт/финиш маршрута: растровые спрайты (волна со своим набором) или пиксель-флажки скина */}
+      {/* route start and finish: raster sprites (a wave with its own set) or the skin's pixel flags */}
       {spriteWave ? (
         <>
           <Sprite wave={spriteWave} name="start" cx={20} cy={26} size={34} />
@@ -1018,8 +905,8 @@ export function QuestMap({
         </g>
       )}
 
-      {/* небо маршрута «утро → ночь»: солнце у старта, луна со звёздами у финиша
-          (декор скина волны 02; в базовом скине скрыт) */}
+      {/* the route's "morning → night" sky: a sun at the start, a moon and stars at the finish
+          (a wave skin's decor; hidden in the base skin) */}
       <g className="quest-sky" aria-hidden>
         <g className="quest-sun">
           <PixelIcon cells={ICONS.sun} cell={2.4} cx={18} cy={22} />
@@ -1035,7 +922,7 @@ export function QuestMap({
         </g>
       </g>
 
-      {/* камни-декор вдоль тропы (волна со спрайт-набором) */}
+      {/* decorative stones along the trail (a wave with a sprite set) */}
       {spriteWave && (
         <g className="quest-rocks" aria-hidden>
           {ROCKS.map((r) => (
@@ -1052,45 +939,42 @@ export function QuestMap({
         </g>
       )}
 
-      {/* тропа */}
+      {/* the trail */}
       {SEGMENTS.map((s, i) => (
         <g key={s.d} className={`quest-seg ${segClass(i)}`}>
           <path d={s.d} />
           <Chevron ax={s.ax} ay={s.ay} deg={s.deg} sprite={!!spriteWave} />
         </g>
       ))}
-      {/* Тропы к монстру НЕТ (рассмотрено и отклонено, DESIGN §4.1): ответвление описывает
-          монстра как этап дня, а покрасить его нечем — пройденная тропа хвалит за выпитое,
-          непройденная ругает за чистый день. Монстр не этап маршрута, а факт рядом с ним,
-          поэтому и стоит отдельной фигурой в пустой полосе
-          между рядами тропы. */}
-      {/* остановки */}
+      {/* There is NO trail to the monster (considered and rejected, DESIGN §4.1): a branch would
+          describe it as a stage of the day, and there is no way to colour it. The monster is a
+          fact beside the route, so it stands as a separate figure in the empty band. */}
+
+      {/* stops */}
       {ROUTE.map((s, i) => {
         const [cx, cy] = STOPS_XY[i];
-        // Стрик именно этой остановки (occurrence): у второго вхождения (count≥2) он ≤ первого.
+        // The streak of this exact stop (occurrence): at a second occurrence (count≥2) it is ≤ the first.
         const streak = byKey.get(s.key)?.occurrenceStreaks?.[s.occurrence - 1] ?? 0;
         const candidate: DisciplineLens = { key: s.key, occurrence: s.occurrence, label: s.label };
         const focused = sameLens(lens, candidate);
-        // Карточка есть только у подкастов и только пока эпизодов хватает на эту остановку.
+        // A card exists only for podcasts, and only while there are enough episodes for this stop.
         const episode = s.key === PODCAST_KEY
           ? episodeForStop(byKey.get(s.key)?.episodes, s.occurrence)
           : null;
-        // То же у чтения: карточка есть, пока сессий хватает на эту остановку (§5.16).
+        // The same for reading: a card exists while there are enough sessions for this stop (PRD §5.16).
         const book = s.key === READING_KEY
           ? bookForStop(byKey.get(s.key)?.books, s.occurrence)
           : null;
-        // Ховер-механика общая: слот гасит карточку, превью её раскрывает.
+        // Shared hover mechanics: the slot hides the card, the preview opens it.
         const hasCard = !!episode || !!book;
         const cardKey = `${s.key}-${s.occurrence}`;
         return (
           <g
             key={cardKey}
             className="quest-slot"
-            // Закрытие висит на ВСЁМ слоте, а раскрытие — только на превью: пока указатель
-            // ходит внутри остановки (диск, площадка нажатия, подписи), карточка не гаснет,
-            // и до её ссылок можно доехать через диск. Клавиатуре превью не досталось (оно
-            // aria-hidden — обложку уже несёт сама карточка), поэтому фокус остановки
-            // раскрывает карточку сам: иначе с клавиатуры до неё было бы не добраться.
+            // Closing hangs on the WHOLE slot while opening hangs only on the preview: the card
+            // survives the pointer crossing the disc on its way to the links. The preview is
+            // aria-hidden, so focusing the stop opens the card — otherwise a keyboard could not.
             onPointerLeave={hasCard ? (e) => isMouse(e) && close() : undefined}
             onFocus={hasCard ? () => open(cardKey) : undefined}
             onBlur={hasCard ? close : undefined}
@@ -1123,7 +1007,7 @@ export function QuestMap({
             {...stopProps(candidate)}
           >
             <Cloud cx={cx} cy={cy + 11} cell={2.6} />
-            {/* Площадка нажатия шире рисунка (тач-таргет) и служит кольцом выбора/фокуса. */}
+            {/* The hit pad is wider than the drawing (a tap target) and doubles as the focus ring. */}
             {interactive && <circle className="quest-stop__hit" cx={cx} cy={cy} r={22} />}
             <circle cx={cx} cy={cy} r={17} />
             {spriteWave ? (
@@ -1154,10 +1038,9 @@ export function QuestMap({
               </text>
             )}
             <StreakBadge
-              // Огонёк стоит справа сверху от остановки — там же, где встаёт превью обложки
-              // ВТОРОЙ сессии чтения (первая уходит влево), и обложка его накрывала. У такой
-              // остановки значок уезжает налево, зеркально: превью нельзя двинуть в свою
-              // очередь — стороны у двух остановок разные намеренно (§5.16).
+              // The flame sits top-right of the stop, exactly where the SECOND reading session's
+              // cover appears, and the cover hid it. At such a stop the badge mirrors to the left:
+              // the preview cannot move instead, as the two stops use opposite sides. §5.16
               cx={cx + (book && bookSide(s.occurrence) === "right" ? -STREAK_DX_LEFT : STREAK_DX)}
               cy={cy - 17}
               value={streak}
@@ -1169,11 +1052,9 @@ export function QuestMap({
         );
       })}
 
-      {/* Монстр — отдельная фигура рядом с маршрутом. У него СВОЯ пара состояний
-          (clean/drunk), а не done/pending маршрута: монстр — событие, а не пункт дисциплины,
-          и «сделано» не подходит ни в одну сторону («выпил» — не достижение, «не выпил» — не
-          пропуск). Пока он делил состояния с маршрутом, выпитый монстр закрывал остановку
-          кольцом достижения. */}
+      {/* The monster is a separate figure beside the route with its OWN pair of states
+          (clean/drunk) rather than the route's done/pending: "done" fits neither way. While it
+          shared states, a drunk monster closed the stop with an achievement ring. */}
       <g
         className={`quest-stop quest-stop--monster ${MONSTER_STOP_CLASS[monster.tone]}${interactive ? " quest-stop--interactive" : ""}${sameLens(lens, MONSTER_LENS) ? " quest-stop--focused" : ""}`}
         data-testid="quest-stop-monster"
@@ -1192,12 +1073,9 @@ export function QuestMap({
         ) : (
           <PixelIcon cells={ICONS.monster} cell={2.1} cx={MONSTER_XY[0]} cy={MONSTER_XY[1]} />
         )}
-        {/* Подпись-вердикт вместо голого слова «монстр»: глагол ПЕРЕД именем и в своём
-            цвете — та же формулировка и та же пара цветов, что в сцене выходного (§4.2).
-            Слово «монстр» одно отвечало на вопрос «что это», но не на «пил или нет», а
-            единственным ответом был ховер по огоньку-стрику — и то у серии от 2 дней.
-            Дроби `1/1` под подписью больше нет: она читалась как закрытый пункт.
-            Неразрывный пробел — SVG схлопывает пробельные узлы между tspan-ами. */}
+        {/* A verdict caption instead of the bare noun: the verb comes BEFORE the name and in its
+            own colour — the same wording and pair of colours as the weekend scene (§4.2). The
+            non-breaking space is needed because SVG collapses whitespace nodes between tspans. */}
         <text
           className="quest-label"
           x={MONSTER_XY[0]}
@@ -1213,8 +1091,8 @@ export function QuestMap({
               {monster.verb}
             </tspan>
           )}
-          {/* Без вердикта подпись — просто «монстр»: ведущий пробел тогда не нужен,
-              иначе строка съехала бы влево от центра на его ширину. */}
+          {/* With no verdict the caption is just the noun, and the leading space would shift the
+              line left of centre by its width. */}
           <tspan>{monster.verb ? " монстр" : "монстр"}</tspan>
         </text>
         <StreakBadge
@@ -1223,21 +1101,19 @@ export function QuestMap({
           value={monsterCleanStreak}
           testId="quest-streak-monster"
           tone="clean"
-          // Огонёк считает ЧИСТЫЕ дни всегда — его подпись не зависит от сегодняшнего
-          // вердикта, поэтому берётся «чистая» формулировка, а не `monster.phrase`.
+          // The flame always counts CLEAN days, so its caption does not depend on today's verdict —
+          // hence the "clean" wording rather than `monster.phrase`.
           title={`${CLEAN_PHRASE}: ${monsterCleanStreak} ${pluralDays(monsterCleanStreak)} подряд`}
         />
       </g>
 
-      {/* Итога дня «N/7» в углу НЕТ: счёт остановок виден самой тропой — закрытые кружки
-          против пустых, — а цифра поверх картинки читается как оценка за день. Число остаётся
-          в `aria-label` карты: скринридеру тропу не видно, и для него это единственный способ
-          узнать прогресс. */}
-      {/* Карточки подкастов — ПОСЛЕДНИЙ слой карты. В SVG нет z-index: кто нарисован позже,
-          тот и сверху, а внутри своей остановки карточку перекрывал монстр (он идёт ниже по
-          разметке). Отдельный слой в конце держит их поверх всего и не сломается, когда после
-          остановок добавят ещё один декор. Ценой этого раскрытие переехало в состояние: из
-          чужого поддерева CSS-ховер до карточки не достаёт. */}
+      {/* There is no "N/7" total in the corner: the trail shows the count, and a number over the
+          picture reads as a mark for the day. It stays in the map's `aria-label`, the only way a
+          screen reader learns the progress. */}
+
+      {/* Podcast cards are the map's LAST layer. SVG has no z-index, so whatever is drawn later
+          is on top, and the monster used to cover a card inside its own stop. The cost is that
+          opening moved into state: a CSS hover cannot reach across subtrees. */}
       {podcastCards.length > 0 && (
         <g className="quest-cards">
           {podcastCards.map((c) => (
@@ -1255,7 +1131,7 @@ export function QuestMap({
           ))}
         </g>
       )}
-      {/* Карточки книг — тем же последним слоем и по той же причине (§5.16). */}
+      {/* Book cards are the same last layer, for the same reason (§5.16). */}
       {readingCards.length > 0 && (
         <g className="quest-cards">
           {readingCards.map((c) => (
@@ -1274,9 +1150,9 @@ export function QuestMap({
         </g>
       )}
       </svg>
-      {/* Окно пересказа живёт ВНЕ карты: внутри `svg` ему было бы тесно и по вёрстке (модалка
-          на весь экран), и по слоям (в SVG нет z-index). Портал в body — тот же приём, что у
-          лайтбокса артефактов. */}
+      {/* The retelling window lives OUTSIDE the map: inside `svg` it would be cramped both by
+          layout (a fullscreen modal) and by layers (SVG has no z-index). A portal into body is
+          the same trick as the artifact lightbox's. */}
       {retold && typeof document !== "undefined" &&
         createPortal(
           <SummaryModal subject={retold} onClose={() => setRetold(null)} />,

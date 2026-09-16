@@ -15,23 +15,23 @@ describe("statsWindow — выборка графиков следует за в
   });
 
   it("выбор дня ВНУТРИ окна не двигает его и не плодит запрос", () => {
-    // Возвращается тот же объект: сравнение по ссылке гасит перезапрос на уровне эффекта.
+    // The same object comes back: comparison by reference silences the refetch at effect level.
     const current = statsWindow(TODAY, TODAY, null);
     expect(statsWindow("2026-07-20", TODAY, current)).toBe(current);
   });
 
   it("выбор дня за окном переносит окно и оставляет запас вперёд", () => {
-    // Запас нужен, чтобы ход по дням ВПЕРЁД не требовал перезапроса на каждом шаге.
+    // The margin is what keeps moving FORWARD through days from refetching on every step.
     const current = statsWindow(TODAY, TODAY, null);
     const next = statsWindow("2026-06-24", TODAY, current);
-    expect(next.to).toBe("2026-07-03"); // выбранный + запас
+    expect(next.to).toBe("2026-07-03"); // the selected day plus the margin
     expect(next.from).toBe("2026-06-04");
     expect(next).not.toBe(current);
   });
 
   it("окно не уезжает в будущее: правый край упирается в сегодня", () => {
     const current = statsWindow(TODAY, TODAY, null);
-    // Будущий день в календаре выбрать можно — данных за него нет и быть не может.
+    // A future day can be selected in the calendar — there is no data for it and never will be.
     expect(statsWindow("2026-08-20", TODAY, current)).toBe(current);
   });
 

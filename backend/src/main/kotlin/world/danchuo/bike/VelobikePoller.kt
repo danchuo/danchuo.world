@@ -6,13 +6,9 @@ import org.jboss.logging.Logger
 import org.eclipse.microprofile.rest.client.inject.RestClient
 
 /**
- * Фоновый поллинг истории поездок Велобайка (PRD §9 B4). Тянет страницы `rents/client`,
- * идемпотентно пишет через [BikeRideService]. Инкрементально: как только страница не приносит
- * новых поездок — значит догнали, дальше не листаем (с потолком [MAX_PAGES] на всякий случай).
- *
- * По умолчанию **выключен** ([VelobikeConfig.pollEnabled]) — серверный контур упирается в Qrator
- * (§13), поедет только через резидентный прокси. До этого живёт ручной push-ingest. Ошибки сети/
- * Qrator/авторизации не валят планировщик — логируем и ждём следующего тика.
+ * Background poll of Velobike ride history: pages `rents/client` and stops as soon as a page
+ * brings no new ride, capped by [MAX_PAGES]. Off by default and useless without a residential
+ * proxy (PRD §13); network and auth failures are logged, never thrown at the scheduler.
  */
 @ApplicationScoped
 class VelobikePoller(
@@ -35,7 +31,7 @@ class VelobikePoller(
             .onFailure { log.warn("velobike poll не удался (Qrator/сеть/авторизация?): ${it.message}") }
     }
 
-    /** Один проход поллинга; вынесен для ручного триггера из [BikeIngestResource]. */
+    /** One polling pass; extracted so [BikeIngestResource] can trigger it by hand. */
     fun pollOnce(): UpsertResult {
         val bearer = tokenService.bearer()
         var page = 0
@@ -50,7 +46,7 @@ class VelobikePoller(
             val res = service.upsert(pageData.content)
             totalCreated += res.created
             totalUpdated += res.updated
-            // Догнали (страница без новых) или дошли до конца — дальше не листаем.
+            // Caught up (a page with nothing new) or reached the end — stop paging.
             if (res.created == 0 || pageData.last) break
             page++
         }

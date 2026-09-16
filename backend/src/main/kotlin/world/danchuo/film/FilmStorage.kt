@@ -7,9 +7,9 @@ import java.nio.file.Path
 import kotlin.io.path.exists
 
 /**
- * Вариант кадра фото-дропа (B1, PRD §5.12). На загрузке оригинал даунскейлится в два размера:
- * [WEB] — для модалки-галереи и тайла, [THUMB] — для сетки-архива и превью-обложки. Оригинал
- * не храним (он у владельца на телефоне) — экономим место.
+ * A photo-drop frame variant (B1, PRD §5.12). On upload the original is downscaled to two sizes:
+ * [WEB] for the gallery modal and the tile, [THUMB] for the archive grid and the cover preview.
+ * The original is not kept — it lives on the owner's phone, and this saves space.
  */
 enum class PhotoVariant(val filename: String) {
     WEB("web.jpg"),
@@ -17,33 +17,29 @@ enum class PhotoVariant(val filename: String) {
 }
 
 /**
- * Шов хранилища кадров (PRD §5.12, §8). Слайс film не знает, где лежат байты: сейчас —
- * локальный диск ([LocalDiskPhotoStorage]), позже подменяется на объектный сторадж (S3/R2)
- * новой реализацией бина — без правок сервиса/ресурсов. `key` — стабильный ключ кадра
- * `"{dropId}/{seq}"`; `seq` = `FilmPhoto.sortOrder`.
+ * The frame-storage seam: the `film` slice does not know where the bytes live. Today it is local
+ * disk, later an object store swaps in as another bean with no change to services or resources.
+ * `key` is the stable `"{dropId}/{seq}"`, where `seq` is `FilmPhoto.sortOrder`. PRD §5.12, §8
  */
 interface PhotoStorage {
-    /** Положить вариант кадра. */
     fun put(key: String, variant: PhotoVariant, bytes: ByteArray)
 
-    /** Прочитать вариант (для локальной раздачи через media-роут); `null` — нет файла. */
     fun get(key: String, variant: PhotoVariant): ByteArray?
 
-    /** Публичный URL варианта: локально — наш media-роут `/api/film-media/...`, в S3 — CDN-URL. */
+    /** Public URL of a variant: our `/api/film-media/...` route locally, a CDN URL on S3. */
     fun url(key: String, variant: PhotoVariant): String
 
-    /** Удалить все кадры дропа целиком (рекурсивно по префиксу `{dropId}/`). */
+    /** Deletes all of a drop's frames (recursively by the `{dropId}/` prefix). */
     fun deleteDrop(dropId: Long)
 
-    /** Удалить один кадр (оба варианта) по его ключу `"{dropId}/{seq}"`. */
+    /** Deletes one frame (both variants) by its `"{dropId}/{seq}"` key. */
     fun delete(key: String)
 }
 
 /**
- * Локальная реализация [PhotoStorage] (B1): файлы в каталоге `danchuo.film.storage-dir`,
- * раскладка `{root}/{dropId}/{seq}/{variant}.jpg`. Раздаются бэкендом через
- * [FilmMediaResource] (`/api/film-media/{dropId}/{seq}/{variant}`). В проде каталог —
- * смонтированный том. Ключ имеет вид `"{dropId}/{seq}"` (только цифры и `/`) — обхода путей нет.
+ * Local [PhotoStorage]: files under `danchuo.film.storage-dir`, laid out as
+ * `{root}/{dropId}/{seq}/{variant}.jpg` and a mounted volume in prod. Served by
+ * [FilmMediaResource]. The key is digits and slashes only, so there is no path traversal.
  */
 @ApplicationScoped
 class LocalDiskPhotoStorage(
@@ -74,7 +70,7 @@ class LocalDiskPhotoStorage(
         deleteTree(resolve(key))
     }
 
-    /** Рекурсивное удаление каталога снизу вверх (файлы → каталоги); нет каталога — no-op. */
+    /** Recursive bottom-up directory removal (files, then directories); a no-op when absent. */
     private fun deleteTree(dir: Path) {
         if (!dir.exists()) return
         Files.walk(dir).use { stream ->
@@ -82,7 +78,7 @@ class LocalDiskPhotoStorage(
         }
     }
 
-    /** Резолв ключа внутрь [root] с защитой от выхода за каталог (path traversal). */
+    /** Resolves a key inside [root], guarded against escaping the directory (path traversal). */
     private fun resolve(key: String): Path {
         val target = root.resolve(key).normalize()
         require(target.startsWith(root)) { "ключ хранилища вне каталога: $key" }

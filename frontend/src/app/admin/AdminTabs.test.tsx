@@ -12,7 +12,7 @@ describe("AdminTabs — ряд разделов админки (§5.14, I-64)", 
   });
 
   it("выбранный раздел помечен для скринридера, остальные — нет", () => {
-    // Единственный признак «где я» на этом ряду: подсветка кнопки цветом скринридеру не видна.
+    // The only "where am I" signal on this row: the highlight colour is invisible to a screen reader.
     render(<AdminTabs active="artifacts" onSelect={() => {}} />);
     expect(screen.getByRole("tab", { name: "артефакты" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "дропы" })).toHaveAttribute("aria-selected", "false");
@@ -26,7 +26,7 @@ describe("AdminTabs — ряд разделов админки (§5.14, I-64)", 
   });
 
   it("ряд объявлен списком вкладок", () => {
-    // Роль tablist связывает кнопки в одну группу — иначе это просто четыре кнопки подряд.
+    // The tablist role binds the buttons into one group — otherwise they are four buttons in a row.
     render(<AdminTabs active="drops" onSelect={() => {}} />);
     expect(screen.getByRole("tablist")).toBeInTheDocument();
   });

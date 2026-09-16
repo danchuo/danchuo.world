@@ -9,12 +9,9 @@ import jakarta.persistence.Table
 import java.time.LocalDate
 
 /**
- * Артефакт бегущей строки (PRD §5.8, §7; DESIGN §7.2) — предмет с картинкой/GIF и подписью.
- *
- * [firstMentionedOn] **хранится всегда**, но в UI выводится только в ховер-поповере (не в
- * самой marquee). [model3dUrl] — задел бэклога (3D-артефакты, §9), M4 не заполняет.
- * Data-driven: новый артефакт = запись; порядок ленты — **хроника**, то есть сам
- * [firstMentionedOn] по возрастанию (старое слева), а не отдельное поле.
+ * A marquee artifact: an item with a picture and a caption. Data-driven, so a new one is a row,
+ * and the ribbon's order is CHRONICLE — [firstMentionedOn] ascending, not a separate field.
+ * [model3dUrl] is backlog groundwork and stays empty for now. PRD §5.8, §7; DESIGN §7.2
  */
 @Entity
 @Table(name = "artifact")
@@ -26,31 +23,30 @@ class Artifact {
     @Column(nullable = false)
     lateinit var name: String
 
-    /** Картинка/GIF (PNG/GIF) — статика фронта/сторадж; `null` ⇒ артефакт без картинки. */
+    /** Picture or GIF (PNG/GIF) — frontend static or storage; `null` means no picture. */
     @Column(name = "image_url")
     var imageUrl: String? = null
 
-    /** Дата первого упоминания (§5.8): в UI — только в поповере. */
+    /** Date of first mention (§5.8): shown in the popover only. */
     @Column(name = "first_mentioned_on", nullable = false)
     lateinit var firstMentionedOn: LocalDate
 
-    /** Задел бэклога (§9): 3D-модель артефакта; M4 не заполняет. */
+    /** A backlog placeholder (§9): the artifact's 3D model; M4 does not fill it. */
     @Column(name = "model_3d_url")
     var model3dUrl: String? = null
 
     /**
-     * Можно ли класть предмет набок, когда лента идёт поперёк его длинной стороны
-     * (DESIGN §7.2). Свойство самого предмета, а не его пропорции: у очков и мыльницы
-     * есть «правильная сторона», у ракетки её нет. По умолчанию — нельзя: новый артефакт
-     * показывается ровно так, как нарисован.
+     * Whether the item may be laid on its side when the ribbon runs across its long edge. This is
+     * a property of the OBJECT, not of its proportions: glasses and a soap dish have a right way
+     * up, a racket does not. False by default — a new artifact shows exactly as drawn. DESIGN §7.2
      */
     @Column(name = "rotatable", nullable = false)
     var rotatable: Boolean = false
 
     /**
-     * Как предмет выглядит — описание для поиска артефактов на кадрах фото-дропов (PRD §5.12).
-     * Каталожное [name] для этого не годится: «YONEX ASTROX 10 WHITE PINK 4U» модель не ищет,
-     * ей нужна «бело-розовая бадминтонная ракетка». `null` ⇒ в ход идёт [name].
+     * What the item looks like, for finding artifacts on photo-drop frames (PRD §5.12). The
+     * catalogue [name] will not do: a model cannot search for a part code, it needs a description
+     * like "a white and pink badminton racket". `null` falls back to [name].
      */
     @Column(name = "detection_hint")
     var detectionHint: String? = null

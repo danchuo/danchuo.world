@@ -1,9 +1,6 @@
 /**
- * Feature-слайс **checklist** (PRD §3.1, §5.6).
- *
- * M1 (готово): `ChecklistItem` (пункты дисциплины, data-driven: новый = строка в БД)
- * + `ChecklistEntry` (прогресс `0..target`) + `POST /api/ingest/daily` — имя дня,
- * прогресс пунктов и монстр в один тап. Пункт `monster` ведётся своим полем приёма, а не
- * счётчиком в `items` (§5.6). Имя дня пишется на `DayRecord` через `days`.
+ * The **checklist** slice: discipline items as data (a new one is a DB row, not a release),
+ * progress `0..target` per date and item, all written by `POST /api/ingest/daily`. Monster rides
+ * its own ingest field rather than a counter in `items`. PRD §3.1, §5.6
  */
 package world.danchuo.checklist

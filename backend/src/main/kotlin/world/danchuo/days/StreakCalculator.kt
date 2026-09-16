@@ -3,31 +3,16 @@ package world.danchuo.days
 import java.time.LocalDate
 
 /**
- * Чистая логика стрика дисциплины (PRD §5.6): текущая непрерывная серия «выполненных» дней,
- * отсчёт назад от якорного дня. Единая функция считает и прямой стрик пункта (выполнял N дней
- * подряд), и инверсный монстра (не пил N дней подряд) — разница только в предикате [qualifies].
- *
- * Правила:
- * - **«по вчера, тикает вечером»**: когда якорь = сегодня, сегодня входит в серию, ТОЛЬКО если
- *   уже выполнено (заполнил вечером); иначе отсчёт стартует со вчера — незаполненное/невыполненное
- *   сегодня серию не роняет (обнулится лишь назавтра, если так и останется). Прошлый день считается
- *   «как есть»: если сам не выполнен — серия 0.
- * - **разрыв строгий**: первый день без выполнения (нет записи ИЛИ пункт не сделан) обрывает серию.
- *   Так как значения читаются живьём из БД, правка задним числом пересчитывает стрик сама.
- * - **граница генезиса**: раньше генезиса данных нет — серия там упирается.
- * - **нейтральные дни ([isNeutral])**: день, помеченный нейтральным, «прозрачен» — не входит в
- *   серию (не учитывается) и не обрывает её (не сбивает): обход просто перешагивает через него к
- *   предыдущему дню. Так дисциплина не считает выходные (будничные дела, дефолт `{ false }` их не
- *   трогает — стрик монстра считается КАЖДЫЙ день).
+ * Pure discipline streak logic: the current unbroken run of "done" days, counted back from an
+ * anchor day. One function serves both an item's direct streak and the monster's inverse one —
+ * only [qualifies] differs. All five rules, and the rejected alternative: PRD §5.6.
  */
 object StreakCalculator {
 
     /**
-     * @param anchor просматриваемый день (для плитки «Сегодня» — обычно сам «сегодня»).
-     * @param today фактическое «сегодня» MSK — от него зависит правило «сегодня не роняет».
-     * @param genesis нижняя граница оси данных.
-     * @param isNeutral день «прозрачен» для серии (не считается и не рвёт). Дефолт — никаких.
-     * @param qualifies выполнен ли пункт в конкретный день (есть запись И условие). Дыра/невыполнение → false.
+     * [anchor] is the day being viewed and [today] the real MSK today — they differ whenever a
+     * past day is open, and the "today does not drop the run" rule keys off [today]. [isNeutral]
+     * makes a day transparent to the run: neither counted nor breaking it. PRD §5.6
      */
     fun streak(
         anchor: LocalDate,
@@ -36,18 +21,18 @@ object StreakCalculator {
         isNeutral: (LocalDate) -> Boolean = { false },
         qualifies: (LocalDate) -> Boolean,
     ): Int {
-        // Будущее серии не даёт.
+        // The future contributes no run.
         if (anchor.isAfter(today)) return 0
 
         var day = anchor
         var count = 0
         while (!day.isBefore(genesis)) {
             when {
-                // Нейтральный (напр. выходной) — перешагиваем: не считаем и не рвём.
+                // A neutral day (a weekend) is stepped over: neither counted nor breaking.
                 isNeutral(day) -> {}
-                // Незаполненное сегодня серию не роняет: перешагиваем к вчера, не считая сегодня.
+                // An unfilled today does not drop the run: step to yesterday without counting it.
                 day == today && !qualifies(day) -> {}
-                // Первый невыполненный (не сегодня-незаполненный) день обрывает серию.
+                // The first unfulfilled day (other than an unfilled today) ends the run.
                 !qualifies(day) -> return count
                 else -> count++
             }

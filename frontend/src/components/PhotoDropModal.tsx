@@ -36,58 +36,41 @@ interface PhotoDropModalProps {
   title: string;
   monthLabel: string | null;
   /**
-   * Редакция галереи из раскладки волны (`layout.gallery`, DESIGN §10.1): `roll` — плёнка,
-   * всё остальное (и отсутствие) — мозаика. Строка как есть; проверяется здесь, как редакция
-   * плитки: набор редакций — знание галереи, реестр раскладки о нём не знает.
+   * Gallery edition from the wave's layout (`layout.gallery`, DESIGN §10.1): `roll` is the reel and
+   * anything else, including absence, is the mosaic. Taken as a string and validated here like a
+   * tile's edition — the set of editions is the gallery's knowledge, unknown to the layout registry.
    */
   gallery?: string;
   /**
-   * Адрес кадра, с которого открывать галерею: плитка в редакции кадра показывает ОДИН снимок,
-   * и открывать дроп с начала значило бы потерять тот кадр, по которому кликнули. Мозаика поле
-   * игнорирует — там на экране сразу весь дроп, «открыть на кадре» не про что.
+   * Address of the frame to open the gallery on: a tile in the frame edition shows ONE photo, and
+   * opening the drop from the start would lose the frame that was clicked. The mosaic ignores the
+   * field — there the whole drop is on screen at once and "open on a frame" means nothing.
    */
   startAt?: string | null;
   /**
-   * Кадры дропа, уже загруженные плиткой. Плитка тянет `getDrop(id)` ради своей мозаики/кадра
-   * ещё до клика, и открывать галерею лоадером поверх тех же самых данных значило бы показать
-   * пустую панель на ровном месте. С проявкой (§7.5) это ещё и обязательное условие: кадру не
-   * из чего расти, пока сцены нет на экране.
+   * Frames the tile already loaded. It fetches the drop for its own mosaic before any click, so
+   * opening the gallery with a loader over the very same data would show an empty panel for
+   * nothing. With the develop transition it is required: a frame cannot grow from no scene. §7.5
    */
   initialPhotos?: FilmPhotoView[];
   /**
-   * Кадр на борде, из которого растёт галерея (проявка, DESIGN §7.5). Приходит только оттуда,
-   * где «тот самый кадр» определён — из редакции `frame`; без него галерея открывается как
-   * прежде. Ссылка, а не прямоугольник: снимать его надо и на открытии, и на закрытии.
+   * The board frame the gallery grows from (develop transition, DESIGN §7.5). It arrives only from
+   * where "that exact frame" is defined, the `frame` edition; without it the gallery opens as before.
+   * A ref rather than a rectangle: it has to be measured both on opening and on closing.
    */
   origin?: RefObject<HTMLElement | null>;
   /**
-   * Кадр, который сейчас смотрят. Плитка борда переходит на него, чтобы проявка возвращалась
-   * в кадр, из которого выходишь, а не в тот, с которого входил (DESIGN §7.5).
+   * The frame currently being viewed. The board tile switches to it, so the transition returns into
+   * the frame being left rather than the one entered on (DESIGN §7.5).
    */
   onFrameShown?: (photo: FilmPhotoView) => void;
   onClose: () => void;
 }
 
 /**
- * Модалка-галерея фото-дропа (PRD §5.12, DESIGN §7.5) — большое всплывающее окно (НЕ новая
- * вкладка). Затемнённый фон, закрытие по `×`/`Esc`/клику по фону, фокус-трап, вертикальный
- * скролл (≈36 кадров длиннее экрана). Композиция по умолчанию — квантованная мозаика: кадр
- * занимает целое число клеток сетки (лежачий 3×2, стоячий 2×3 — по шесть клеток у обоих), кадры
- * идут по полосам сверху вниз (`dropMosaic.ts`). Кадров нет — пустое состояние.
- *
- * **Редакцию галереи выбирает волна** (`layout.gallery`, DESIGN §10.1), как и редакцию плитки:
- * `roll` — плёнка ([DropRoll]), где дроп читается одной катушкой; всё остальное — мозаика.
- * Модалка о волнах не знает, ей приходит имя редакции строкой.
- *
- * Загрузка кадров — **blur-up**: сразу виден крошечный `thumbUrl` (размытый, он лёгкий и обычно
- * уже в кэше борда), полноразмерный `imageUrl` грузится `loading="lazy"` (только видимое) и по
- * `onLoad` резко «наводится на резкость» поверх размытого. Размытый thumb остаётся непрозрачной
- * подложкой (не гаснет) — так во время проявления полного кадра сквозь него не мелькает фон
- * тайла. Никакой «доливки по чуть-чуть»: кадр не появляется из пустоты (см. [BlurUpPhoto]).
- *
- * Каждый кадр — **кнопка**: клик открывает его во весь экран слоем поверх галереи
- * ([PhotoLightbox]). Слой именно поверх, а не вместо: закрыл кадр — набор дропа на месте, и
- * закрытие кадра не закрывает галерею (Esc гасит верхний слой, следующий Esc — саму галерею).
+ * The photo-drop gallery modal: a large overlay, not a new tab, with a focus trap and vertical
+ * scroll. Frames load blur-up — the thumb stays an opaque backing so the tile never shows through
+ * — and each frame is a BUTTON opening a full-screen layer ABOVE the gallery. DESIGN §7.5
  */
 export function PhotoDropModal({
   dropId,
@@ -105,31 +88,31 @@ export function PhotoDropModal({
     useCallback((signal) => getDrop(dropId, { signal }), [dropId]),
   );
   const photos = data ?? initialPhotos ?? [];
-  // Кадры с плитки — полноценное содержимое, а не «копия на секунду»: это ответ того же
-  // `getDrop(id)`. Пока едет свой запрос, галерея уже открыта и работает; ответ её обновит.
+  // Frames from the tile are full content rather than a copy for a second: they are the answer of the
+  // same `getDrop(id)`. While its own request travels the gallery is already open and working.
   const shown = photos.length > 0 ? "loaded" : phase;
   const sceneRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const lightboxRef = useRef<HTMLDivElement>(null);
-  // Кадр, открытый во весь экран, и плитка, с которой его открыли (ей вернём фокус).
+  // The frame opened full-screen, and the tile it was opened from, which will get the focus back.
   const [zoomed, setZoomed] = useState<number | null>(null);
   const zoomTriggerRef = useRef<HTMLElement | null>(null);
 
-  // Клеток по ширине — не медиазапросом: раскладку считает JS, и число полос ему нужно тем же
-  // числом, каким сетка объявлена, иначе кадры уехали бы за её край.
+  // Cells across, not by media query: the layout is computed in JS, which needs the same number the
+  // grid is declared with, or the frames would run past its edge.
   const units = useMosaicUnits();
   const cells = useMemo(
     () => columnMajorMosaic(photos.map(isPortrait), units),
     [photos, units],
   );
 
-  // Проявка: кадр растёт из плитки и наводится на резкость (DESIGN §7.5). Шов общий, включает
-  // его волна (`--drop-morph`), поэтому здесь нет ни ключа волны, ни единого числа анимации.
+  // Develop transition: the frame grows out of the tile and pulls into focus (DESIGN §7.5). The seam
+  // is shared and switched on by the wave (`--drop-morph`), so no wave key or animation number is here.
   const { playIn, requestClose } = useDropMorph({ origin, sceneRef, onClose });
-  // Играем, когда сцена кадра уже разложена: до появления кадров мерить нечего. Layout-эффект,
-  // а не обычный, — трансформация обязана лечь ДО первой отрисовки галереи, иначе кадр успеет
-  // мигнуть на своём месте. SSR тут не страшен: галерея существует только после клика.
+  // Played once the frame's scene is laid out: before the frames exist there is nothing to measure. A
+  // layout effect rather than a plain one — the transform must land BEFORE the gallery's first paint,
+  // or the frame flashes in place. SSR is no danger: the gallery exists only after a click.
   useLayoutEffect(() => {
     if (shown === "loaded" && photos.length > 0) playIn();
   }, [shown, photos.length, playIn]);
@@ -139,17 +122,17 @@ export function PhotoDropModal({
     zoomTriggerRef.current?.focus();
   }, []);
 
-  // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9). Слоёв два, и порядок
-  // объявления есть порядок закрытия: сперва кадр во весь экран, потом сама галерея.
+  // The system Back closes the window rather than leaving the site (DESIGN §9). There are two layers,
+  // and the order of declaration is the order of closing: the full-screen frame first, the gallery next.
   useBackToClose(true, requestClose);
   useBackToClose(zoomed !== null, closeZoom);
 
-  // Первичный фокус — один раз на маунте: переоткрытие кадра не должно уводить фокус в шапку.
+  // Initial focus once, at mount: reopening a frame must not pull focus back into the header.
   useEffect(() => {
     closeRef.current?.focus();
   }, []);
 
-  // Esc закрывает верхний слой; Tab держим в его пределах (минимальный фокус-трап, §9).
+  // Esc closes the top layer; Tab is kept inside it (a minimal focus trap, DESIGN §9).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -189,15 +172,14 @@ export function PhotoDropModal({
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          // При четырёх кадрах в ряду ширина панели И ЕСТЬ размер кадра, поэтому она широкая:
-          // на узкой панели горизонтальный кадр уходит за 250px — мелко для просмотра плёнки.
-          // `--roll`: плёнка вписывается в экран целиком (см. common.css). Мозаика этого не
-          // получает — её тридцать шесть кадров длиннее экрана по построению, и скролл там смысл.
+          // With four frames per row the panel's width IS the frame size, hence how wide it is: on
+          // a narrow panel a horizontal frame drops under 250px, too small to read a reel. The
+          // mosaic gets no such fitting — its thirty-six frames outrun the screen by design.
           className={`drop-modal__panel pixel-tile my-auto w-full max-w-[64rem] p-4 ${roll ? "drop-modal__panel--roll" : ""}`}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
-              панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
+          {/* The box backing plus the white inner frame (§2.4), as in TileShell: the modal panel
+              carries .pixel-tile itself, so the layer elements are added here. */}
           <span className="pixel-slab" aria-hidden />
           <span className="pixel-lid" aria-hidden />
           <div className="drop-modal__head mb-3 flex items-center justify-between">
@@ -225,8 +207,8 @@ export function PhotoDropModal({
             <p style={monoTertiary}>в этом дропе пока нет кадров</p>
           )}
           {shown === "loaded" && photos.length > 0 && roll && (
-            // Плёнка: одна лента вместо сетки (DESIGN §7.5). Кадр во весь экран открывает
-            // только кнопка лупы — по самому снимку водят мышью, разглядывая находки.
+            // The reel: one rail instead of a grid (DESIGN §7.5). Full screen is opened only by the
+            // loupe button — the photo itself is moved over with the mouse, examining finds.
             <DropRoll
               photos={photos}
               startAt={startAt}
@@ -238,11 +220,9 @@ export function PhotoDropModal({
             />
           )}
           {shown === "loaded" && photos.length > 0 && !roll && (
-            // Квантованная мозаика: кадр занимает целое число клеток базовой сетки — горизонтальный
-            // 3×2, вертикальный 2×3. Площади равны по построению (6 клеток у обоих), поэтому
-            // вертикальный кадр не выходит вдвое мельче соседа, как это было бы у justified
-            // (тот равняет высоту ряда, а при равной высоте площадь идёт за пропорцией).
-            // Пропорция округляется до 3:2 — на живых дропах это 0.3% обрезки, глазом не видно.
+            // Quantised mosaic: a frame takes a whole number of grid cells, 3x2 or 2x3, so both
+            // cover six cells and areas are equal by construction. A justified layout equalises row
+            // height instead, which makes a vertical frame half the area of its neighbour.
             <div
               className="drop-gallery"
               style={{ gridTemplateColumns: `repeat(${units}, 1fr)` }}
@@ -269,8 +249,8 @@ export function PhotoDropModal({
           photo={photos[zoomed]}
           index={zoomed}
           total={photos.length}
-          // Из плёнки кадр открывается ЧИСТЫМ: находки разглядывают на
-          // самой плёнке, а полный экран существует ради снимка — рамки поверх него мешают.
+          // From the reel a frame opens CLEAN: finds are examined on the reel itself, and full screen
+          // exists for the photograph, where boxes over it only get in the way.
           artifacts={!roll}
           onClose={closeZoom}
         />
@@ -280,10 +260,9 @@ export function PhotoDropModal({
 }
 
 /**
- * Кадр во весь экран — слой ПОВЕРХ галереи (не замена): под ним остаётся набор дропа, и
- * закрытие возвращает ровно то, что было. Картинка вписывается целиком (`object-fit: contain`) —
- * плёночный кадр смотрят целиком, обрезать его на просмотре бессмысленно. Закрытие: фон, `×`,
- * `Esc`; клик по самой картинке НЕ закрывает — промах мимо фона не должен стоить просмотра.
+ * A frame full-screen, a layer ABOVE the gallery rather than a replacement, so closing it returns
+ * exactly what was there. The picture is contained whole — a film frame is looked at whole.
+ * Clicking the PICTURE does not close: missing the backdrop must not cost the viewing.
  */
 const PhotoLightbox = forwardRef<
   HTMLDivElement,
@@ -291,7 +270,7 @@ const PhotoLightbox = forwardRef<
     photo: FilmPhotoView;
     index: number;
     total: number;
-    /** Показывать ли находки поверх кадра; `false` — чистый снимок (плёнка, см. [DropRoll]). */
+    /** Whether to show finds over the frame; `false` gives a clean photo (the reel, see [DropRoll]). */
     artifacts?: boolean;
     onClose: () => void;
   }
@@ -312,10 +291,9 @@ const PhotoLightbox = forwardRef<
       style={{ background: "rgba(20, 15, 12, 0.92)" }}
       onClick={onClose}
     >
-      {/* Сцена повторяет пропорцию кадра, поэтому картинка заполняет её без полей, а рамки
-          находок можно ставить процентами прямо от неё. Без известных `width/height` пропорции
-          нет — тогда сцена просто обнимает картинку, а рамки не рисуются (ставить их было бы
-          некуда: `contain` оставил бы поля, и проценты поехали бы). */}
+      {/* The scene repeats the frame's proportion, so the picture fills it without margins and
+          finding boxes can be placed in percentages straight from it. With no known `width/height`
+          there is no proportion — the scene hugs the picture and boxes are not drawn. */}
       <span
         className="lightbox-stage"
         style={ratio ? { aspectRatio: ratio } : undefined}
@@ -323,11 +301,9 @@ const PhotoLightbox = forwardRef<
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="lightbox-photo" src={mediaUrl(photo.imageUrl)} alt="" />
-        {/* Тач-флоу (DESIGN §7.5): на телефоне ховера нет, а тап по кадру занят открытием на
-            весь экран — поэтому находки объясняет сам полноэкранный кадр, показывая карточки
-            сразу. «Постоянные подписи — шум» тут не применимо: кадр ровно один, а не 36.
-            На мыши полный экран не несёт находок вовсе: там их показывает
-            наведение в самой галерее, а поверх открытого снимка объяснять уже нечего. */}
+        {/* The touch flow (DESIGN §7.5): there is no hover on a phone and a tap is taken by opening
+            fullscreen, so the fullscreen frame explains the findings itself. With a mouse the
+            fullscreen carries no findings: hovering in the gallery already shows them. */}
         {artifacts && ratio && coarse && (
           <ArtifactBoxes boxes={boxes} shown={boxes.map((a) => a.artifactId)} />
         )}
@@ -352,10 +328,9 @@ const monoTertiary = {
 } satisfies CSSProperties;
 
 /**
- * Один кадр с blur-up-загрузкой: размытый `thumbUrl` виден сразу, полноразмерный `imageUrl`
- * грузится лениво и по готовности проступает поверх (кросс-фейд, thumb гаснет). Место кадра
- * держит его клетка мозаики ([cell]) — до загрузки сетка уже стоит и не «прыгает». Уважает
- * `prefers-reduced-motion` (без анимации переходов — кадр появляется сразу по готовности).
+ * One frame with blur-up loading: the thumb shows at once and the full image fades in over it once
+ * ready. Its place is held by its mosaic cell, so the grid never jumps while loading. Reduced
+ * motion drops the transition and the frame simply appears when ready.
  */
 function BlurUpPhoto({
   photo,
@@ -365,15 +340,15 @@ function BlurUpPhoto({
 }: {
   photo: FilmPhotoView;
   index: number;
-  /** Клетка мозаики; `undefined` — раскладка ещё не посчитана, кадр идёт автопотоком. */
+  /** Mosaic cell; `undefined` means the layout is not computed yet and the frame flows automatically. */
   cell?: MosaicCell;
   onOpen: (trigger: HTMLElement) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const portrait = isPortrait(photo);
   const boxes = photo.artifacts ?? [];
-  // Какие находки сейчас под курсором. Считаем по точке, а не по :hover самой рамки: рамки
-  // пересекаются (футболка и очки на одном человеке), а :hover достаётся только верхней.
+  // Which finds lie under the cursor. Computed from the point rather than from a box's `:hover`: boxes
+  // overlap (a shirt and glasses on one person) and `:hover` only reaches the topmost.
   const [under, setUnder] = useState<number[]>([]);
 
   const trackPointer = (e: ReactMouseEvent<HTMLElement>) => {
@@ -383,12 +358,12 @@ function BlurUpPhoto({
     const ids = boxesAt(boxes, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
       .map((b) => b.artifactId);
     setUnder((cur) => {
-      // Держим ПОРЯДОК НАВЕДЕНИЯ, а не порядок находок: кто вошёл под курсор позже, того
-      // карточка и лежит сверху. Иначе в пересечении рамок одна и та же плашка всегда была бы
-      // верхней, и к нижней находке подвести мышь было бы нельзя — её карточку не увидеть.
+      // The HOVER ORDER is kept rather than the order of finds: whoever came under the cursor later has
+      // their card on top. Otherwise, where boxes overlap, the same plate would always be uppermost and
+      // the lower find could never be reached — its card would be unreachable.
       const kept = cur.filter((id) => ids.includes(id));
       const next = [...kept, ...ids.filter((id) => !kept.includes(id))];
-      // Мышь шлёт события пачками — перерисовываемся только когда набор реально сменился.
+      // The mouse sends events in bursts, so we repaint only when the set has actually changed.
       return cur.length === next.length && cur.every((v, i) => v === next[i]) ? cur : next;
     });
   };
@@ -401,7 +376,7 @@ function BlurUpPhoto({
       onClick={(e) => onOpen(e.currentTarget)}
       onMouseMove={trackPointer}
       onMouseLeave={() => setUnder([])}
-      // Пропорцию клетки задаёт CSS по этому хуку, место в сетке — расчёт раскладки.
+      // The cell's ratio comes from CSS through this hook; its place in the grid from the layout pass.
       data-portrait={portrait ? "true" : undefined}
       style={{
         position: "relative",
@@ -409,10 +384,9 @@ function BlurUpPhoto({
         gridRow: cell && `${cell.row + 1} / span ${cell.h}`,
       }}
     >
-      {/* Клипует ИМЕННО картинку, а не весь кадр: `filter: blur()` на thumb расплывается за
-          границы элемента, и без клипа кадры «светятся» ореолом по всему периметру. Клип на
-          самом кадре был бы шире нужного — он резал бы и подписи артефактов, которым надо
-          выходить за кадр целиком (имя предмета длиннее рамки — обычное дело). */}
+      {/* This clips THE PICTURE, not the whole frame: `filter: blur()` on the thumb spreads beyond
+          the element and the frames would glow. Clipping the frame would also cut artifact
+          captions, which must be able to leave it entirely. */}
       <span
         style={{
           position: "relative",
@@ -420,13 +394,13 @@ function BlurUpPhoto({
           overflow: "hidden",
           background: "var(--bg-surface-muted)",
           borderRadius: "var(--radius-sm)",
-          // Форму задаёт клетка мозаики, а не пропорция кадра: картинка её заполняет
-          // (`cover`), обрезая свои же 0.3% — округление 1.495 до 3:2.
+          // The shape comes from the mosaic cell rather than the frame's ratio: the picture fills it
+          // (`cover`), cropping its own 0.3% — the rounding of 1.495 to 3:2.
           height: "100%",
         }}
       >
-        {/* Размытое превью — непрозрачная подложка: держит цвет/композицию всё время, пока
-            проявляется полный кадр (не гасим, иначе в кросс-фейде мелькнёт фон тайла). */}
+        {/* The blurred preview is an opaque backing: it holds colour and composition for as long as
+            the full frame is developing (never faded, or the tile's background flashes through). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={mediaUrl(photo.thumbUrl)}
@@ -459,13 +433,13 @@ function BlurUpPhoto({
             borderRadius: "var(--radius-sm)",
           }}
         />
-        {/* Затемнение по наведению — сигнал «кадр кликабелен». Лежит внутри клипа, чтобы не
-            вылезать за скруглённый край картинки. */}
+        {/* The hover dimming signals "this frame is clickable". It sits inside the clip so it does
+            not spill past the picture's rounded edge. */}
         <span className="drop-frame__scrim" aria-hidden />
       </span>
       <ArtifactBoxes boxes={boxes} shown={under} />
-      {/* Значок «крупнее» — последним в дереве, чтобы лежать поверх всего кадра. Он декор:
-          что кадр открывается, скринридеру говорит доступное имя кнопки. */}
+      {/* The "larger" glyph comes last in the tree so it lies over the whole frame. It is decor:
+          the button's accessible name is what tells a screen reader the frame opens. */}
       <span className="drop-frame__zoom" aria-hidden>
         <Icon name="zoom" size={16} />
       </span>
@@ -474,8 +448,8 @@ function BlurUpPhoto({
 }
 
 /**
- * Стоячий ли кадр. Размеров нет (кадр залит до того, как их стали хранить) — считаем лежачим:
- * это форма большинства кадров плёнки, и мозаика от одной догадки не разъедется.
+ * Whether a frame is portrait. With no dimensions (uploaded before they were stored) it counts as
+ * landscape: that is the shape of most film frames, and one guess will not break the mosaic.
  */
 function isPortrait(photo: FilmPhotoView): boolean {
   const w = photo.width ?? 0;
@@ -483,7 +457,7 @@ function isPortrait(photo: FilmPhotoView): boolean {
   return w > 0 && h > 0 && h > w;
 }
 
-/** Клеток по ширине мозаики: на узком окне полос две, а не четыре (иначе кадр мельче пальца). */
+/** Cells across the mosaic: on a narrow window two columns, not four, or a frame is smaller than a finger. */
 function useMosaicUnits(): number {
   const [units, setUnits] = useState(MOSAIC_UNITS);
   useEffect(() => {

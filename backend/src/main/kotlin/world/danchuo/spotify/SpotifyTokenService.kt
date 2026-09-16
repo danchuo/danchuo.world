@@ -9,19 +9,13 @@ import org.eclipse.microprofile.rest.client.inject.RestClient
 import java.time.Instant
 import java.util.Base64
 
-/** Слайс ещё не прошёл one-time OAuth — refresh-токена в БД нет (PRD §M3). */
+/** The slice has not been through the one-time OAuth — no refresh token in the DB (PRD §M3). */
 class SpotifyNotConnectedException : RuntimeException("spotify_not_connected")
 
 /**
- * Жизненный цикл OAuth-токенов Spotify (PRD §M3, §8).
- *
- * - [exchangeCode] — первый обмен `code → refresh_token` (one-time, из callback);
- *   refresh-токен кладётся в БД ШИФРОВАННО ([SpotifyCrypto]).
- * - [accessToken] — выдаёт валидный access-токен: держит его в памяти до истечения
- *   и перевыпускает из refresh по требованию. Access-токен короткоживущий и нигде
- *   не персистится (§8) — только refresh лежит at-rest.
- *
- * Basic-auth (`client_id:client_secret`) на token-эндпоинте готовится здесь же.
+ * Spotify OAuth token lifecycle: [exchangeCode] does the one-time `code -> refresh_token` swap and
+ * stores the refresh token ENCRYPTED, while [accessToken] keeps a valid access token in memory and
+ * reissues it on demand. Only the refresh token is ever persisted. PRD §8
  */
 @ApplicationScoped
 class SpotifyTokenService(
@@ -31,19 +25,19 @@ class SpotifyTokenService(
     private val config: SpotifyConfig,
 ) {
 
-    /** Access-токен в памяти с моментом истечения; защищён [lock]. */
+    /** The in-memory access token with its expiry; guarded by [lock]. */
     private class CachedAccess(val value: String, val expiresAt: Instant)
 
     @Volatile
     private var cached: CachedAccess? = null
     private val lock = Any()
 
-    /** Подключён ли слайс (пройден ли one-time OAuth). */
+    /** Whether the slice is connected (the one-time OAuth is done). */
     fun isConnected(): Boolean = tokens.current() != null
 
     /**
-     * Обмен авторизационного кода на токены (callback OAuth). Сохраняет refresh-токен
-     * шифрованно; сбрасывает кэш access-токена, чтобы следующий вызов взял свежий.
+     * Exchanges the authorization code for tokens (the OAuth callback). Stores the refresh token
+     * encrypted and drops the access-token cache, so the next call takes a fresh one.
      */
     @Transactional
     fun exchangeCode(code: String) {
@@ -60,9 +54,9 @@ class SpotifyTokenService(
     }
 
     /**
-     * Валидный access-токен в формате заголовка `Bearer …`. Перевыпускает из refresh,
-     * если кэш пуст/протух. Двойная проверка под локом — параллельные запросы не плодят
-     * лишние рефреши.
+     * A valid access token in `Bearer ...` header form, reissued from the refresh when the cache
+     * is empty or stale. The double check under the lock keeps parallel requests from spawning
+     * redundant refreshes.
      */
     fun bearer(): String = "Bearer " + accessToken()
 
@@ -77,9 +71,9 @@ class SpotifyTokenService(
     }
 
     /**
-     * Перевыпуск access-токена из refresh. Не `@Transactional`: зовётся из [accessToken]
-     * этого же бина (self-invocation — CDI-интерцептор не сработал бы). Чтение токена идёт
-     * в request-сессии; редкую ротацию refresh пишем явной транзакцией.
+     * Reissues the access token from the refresh. Deliberately not `@Transactional`: it is called
+     * from [accessToken] on this same bean, and a CDI interceptor would not fire on
+     * self-invocation. The rare refresh rotation is written in an explicit transaction.
      */
     private fun refreshAccessToken(): CachedAccess {
         val row = tokens.current() ?: throw SpotifyNotConnectedException()
@@ -90,7 +84,7 @@ class SpotifyTokenService(
         }
         val res = accounts.token(basicAuth(), form)
         val access = res.accessToken ?: error("Spotify не вернул access_token при рефреше")
-        // Spotify иногда ротирует refresh-токен — если прислал новый, перешифровываем и храним.
+        // Spotify sometimes rotates the refresh token — if a new one came, re-encrypt and store it.
         res.refreshToken?.let { rotated ->
             QuarkusTransaction.requiringNew().run {
                 tokens.save(crypto.encrypt(rotated), res.scope ?: row.scope)
@@ -99,13 +93,13 @@ class SpotifyTokenService(
         return CachedAccess(access, expiryFrom(res.expiresIn))
     }
 
-    /** `Basic base64(client_id:client_secret)` — авторизация token-эндпоинта. */
+    /** `Basic base64(client_id:client_secret)` — authorization for the token endpoint. */
     private fun basicAuth(): String {
         val creds = "${config.clientId().orElse("")}:${config.clientSecret().orElse("")}"
         return "Basic " + Base64.getEncoder().encodeToString(creds.toByteArray(Charsets.UTF_8))
     }
 
-    /** Истечение с запасом [SKEW_SECONDS] на сетевой лаг/часы. */
+    /** Expiry with [SKEW_SECONDS] to spare for network lag and clock drift. */
     private fun expiryFrom(expiresIn: Long?): Instant =
         Instant.now().plusSeconds((expiresIn ?: DEFAULT_TTL_SECONDS) - SKEW_SECONDS)
 

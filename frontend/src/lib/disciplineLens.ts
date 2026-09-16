@@ -1,103 +1,65 @@
 import type { DaySummary } from "@/lib/api/types";
 import { monsterVerdict } from "@/lib/monster";
 
-/**
- * Линза дисциплины (PRD §5.3/§5.6): клик по остановке карты-тропы в «Сегодня» превращает
- * календарь в фильтр — подсвечиваются дни, где именно эта остановка была закрыта.
- *
- * Линза — не режим карты, а взгляд календаря: она переживает смену выбранного дня и снимается
- * повторным кликом по той же иконке, крестиком в ярлыке календаря или Esc.
- *
- * Ключ + occurrence (а не один ключ): у пунктов с target=2 остановок на маршруте ДВЕ, и они
- * несут разные вопросы — «читал хоть раз» и «читал дважды». Порог остановки — `count >= occurrence`,
- * ровно так же, как считаются её огоньки-стрики (§5.6).
- */
+/** Calendar lenses use key + occurrence so repeated discipline stops retain distinct thresholds. PRD §5.3, §5.6. */
 
-/** Ключ линзы монстра: у него полярность обратная (см. [lensMatch]). */
+/** Monster uses inverted matching polarity; see lensMatch. */
 export const MONSTER_LENS_KEY = "monster";
 
 export interface DisciplineLens {
-  /** Ключ пункта чеклиста; [MONSTER_LENS_KEY] — детур монстра. */
+  /** Checklist key; MONSTER_LENS_KEY identifies monster consumption. */
   key: string;
-  /** Какое по счёту выполнение закрывает остановку (1..target). У монстра всегда 1. */
+  /** Completion threshold (1..target); always 1 for monster. */
   occurrence: number;
-  /** Подпись остановки — едет в ярлык календаря и в подписи ячеек. */
+  /** Stop label used by the calendar and cell descriptions. */
   label: string;
 }
 
-/**
- * Ответ линзы по дню:
- * - `yes` — совпал (отмечаем);
- * - `no` — данные за день есть, но не совпал;
- * - `unknown` — ответа нет (день пуст, ещё не наступил или пришёл из старого кэша без счётчиков).
- *
- * Третье состояние обязательно: без него дырка в записи выглядела бы как «не сделал», то есть
- * отсутствие данных читалось бы как факт (та же ошибка, что уже чинили в заливке ячейки).
- */
+/** yes = matched, no = recorded but unmatched, unknown = no answer; missing data must never imply noncompletion. */
 export type LensMatch = "yes" | "no" | "unknown";
 
-/** Одна и та же остановка? (толк для тоггла: повторный клик снимает линзу). */
+/** Compare stop identity for toggling the same lens off. */
 export function sameLens(a: DisciplineLens | null, b: DisciplineLens | null): boolean {
   if (a == null || b == null) return a === b;
   return a.key === b.key && a.occurrence === b.occurrence;
 }
 
-/**
- * Ответ линзы по сводке дня.
- *
- * Монстр инвертирован сознательно: отмечаются дни БЕЗ монстра — как и его
- * огонёк-стрик, который считает «дней чисто». На карте детур «пройден», когда монстр выпит, но в
- * календаре достижение — это чистый день, поэтому подсветка идёт акцентом по чистым.
- */
+/** Match a day against the lens; monster returns yes for a recorded clean day, while lensTone controls visible marking. */
 export function lensMatch(day: DaySummary, lens: DisciplineLens): LensMatch {
-  // Пустой (в т.ч. будущий) день ответа не даёт — ни «сделал», ни «не сделал».
+  // Empty and future days provide no answer.
   if (!day.hasData) return "unknown";
 
   if (lens.key === MONSTER_LENS_KEY) {
-    // Запись дня ещё не значит, что монстра отмечали: её создаёт health-ingest, а монстра
-    // пишет интерактивный шорткат. Не отмечали ⇒ ответа нет (§5.6).
+    // Health ingest can create a day without a monster response; absent marking stays unknown. PRD §5.6.
     const drunk = day.monsterDrunk ?? null;
     if (drunk == null) return "unknown";
-    // Полярность обратная: отмечаем ЧИСТЫЕ дни, поэтому «пил» — это `no`.
+    // Inverted polarity: drinking is no, a recorded clean day is yes.
     return drunk ? "no" : "yes";
   }
 
-  // Старый ответ из localStorage-кэша поля не несёт: молча деградируем в «нет ответа»,
-  // а не в «не сделал» — иначе релиз на сутки нарисовал бы ложную пустую полосу.
+  // Old cached responses lack counts; unknown avoids falsely reporting an entire empty streak.
   if (!day.disciplineCounts) return "unknown";
   return (day.disciplineCounts[lens.key] ?? 0) >= lens.occurrence ? "yes" : "no";
 }
 
-/**
- * Имя линзы для ярлыка календаря — подпись остановки, у монстра тоже.
- *
- * У монстра размечены ОБА ответа и разными цветами ([lensTone]), тем же зелёным/тревожным,
- * что и вердикт на карте, — ярлыку остаётся назвать предмет линзы. Разворот «не пил монстр»
- * рассмотрен и отклонён (DESIGN §5.1).
- */
+/** Name the lens by its stop label, including monster. DESIGN §5.1. */
 export function lensTitle(lens: DisciplineLens): string {
   return lens.label;
 }
 
-/** Строка линзы для ховер-сводки/скринридера ячейки; `null` — ответа нет, молчим. */
+/** Cell hover/screen-reader description; null means no answer. */
 export function lensNote(match: LensMatch, lens: DisciplineLens): string | null {
   if (match === "unknown") return null;
-  // Монстр говорит вердиктом — той же формулировкой, что подпись детура и сцена выходного.
+  // Use the shared monster verdict wording.
   if (lens.key === MONSTER_LENS_KEY) return monsterVerdict(match === "no").phrase;
   return `${lens.label}: ${match === "yes" ? "сделано" : "не сделано"}`;
 }
 
-/**
- * Тон отметки ячейки — чем календарь красит ответ линзы; `null` = отметки нет.
- *
- * У монстра метится ТОЛЬКО «пил»; зелёная отметка чистых дней рассмотрена и отклонена
- * (DESIGN §5.1). Красное «пил» — единственная отметка, и она
- * видна сразу; чистый день остаётся обычной ячейкой (не гаснет: он не «не сделал»).
- */
+/** Cell marking tone; monster marks only drinking, while clean days stay undimmed. DESIGN §5.1. */
 export type LensTone = "match" | "drunk";
 
 export function lensTone(match: LensMatch, lens: DisciplineLens): LensTone | null {
-  // «Нет ответа» отсекается первым — и у монстра тоже: пустой день не красится ничем.
+  // Unknown days receive no marking, including monster.
   if (match === "unknown") return null;
   if (lens.key === MONSTER_LENS_KEY) return match === "no" ? "drunk" : null;
   return match === "yes" ? "match" : null;

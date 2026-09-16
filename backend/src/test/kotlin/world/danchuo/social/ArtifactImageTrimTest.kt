@@ -10,21 +10,15 @@ import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
 
 /**
- * Обрезка прозрачных полей у картинки артефакта (PRD §5.8).
- *
- * Зачем: лента артефактов (DESIGN §7.2) равняет предметы по **оптическому весу**, считая его от
- * пропорции картинки. Пропорция берётся у холста, а не у предмета — поэтому картинка с широкими
- * прозрачными полями показывает предмет во столько раз мельче, во сколько поля больше.
- *
- * Замер на проде: очки занимали **30%** холста 640×640, и лента считала их квадратными (1.00
- * вместо настоящих 2.82) — предмет рисовался 37×13 px внутри рамки 40×40. После обрезки та же
- * рамка даёт 81×29.
+ * Trimming transparent margins off an artifact image (PRD §5.8). The marquee (DESIGN §7.2) sizes
+ * items by optical weight taken from the CANVAS proportion, so wide transparent margins shrink
+ * the item by exactly the margin's factor — 30% canvas coverage read as square instead of 2.82.
  */
 class ArtifactImageTrimTest {
 
     @Test
     fun `crops transparent margins down to the object`() {
-        // Предмет 20x10 в середине холста 100x100 — ровно случай очков с прода.
+        // A 20x10 item in the middle of a 100x100 canvas — the sunglasses case from production.
         val png = pngOf(100, 100) { g -> g.color = Color.RED; g.fillRect(40, 45, 20, 10) }
 
         val out = ImageIO.read(ArtifactImageTrim.trim(png).inputStream())
@@ -35,7 +29,7 @@ class ArtifactImageTrimTest {
 
     @Test
     fun `keeps a fully opaque image as is`() {
-        // Непрозрачный холст (например, фотография) — обрезать нечего, предмет уже во весь кадр.
+        // An opaque canvas (a photo, say): nothing to trim, the item already fills the frame.
         val png = pngOf(60, 40, opaque = true) { g -> g.color = Color.BLUE; g.fillRect(0, 0, 60, 40) }
 
         val out = ImageIO.read(ArtifactImageTrim.trim(png).inputStream())
@@ -46,7 +40,7 @@ class ArtifactImageTrimTest {
 
     @Test
     fun `leaves a fully transparent image alone instead of producing nothing`() {
-        // Пустая картинка — вырожденный случай: обрезка дала бы 0x0, а это уже не картинка.
+        // An empty picture is the degenerate case: trimming would give 0x0, which is not a picture.
         val png = pngOf(30, 30) { }
 
         val out = ImageIO.read(ArtifactImageTrim.trim(png).inputStream())
@@ -57,8 +51,8 @@ class ArtifactImageTrimTest {
 
     @Test
     fun `returns unreadable bytes untouched instead of losing the upload`() {
-        // Тихая деградация: не смогли разобрать — отдаём как есть. Потерять загруженный
-        // владельцем файл хуже, чем сохранить его необрезанным.
+        // Quiet degradation: what we cannot parse we return as is. Losing the owner's upload is
+        // worse than keeping it untrimmed.
         val junk = byteArrayOf(1, 2, 3, 4, 5)
 
         assertArrayEquals(junk, ArtifactImageTrim.trim(junk))
@@ -66,8 +60,8 @@ class ArtifactImageTrimTest {
 
     @Test
     fun `normalises other formats to png`() {
-        // Раздача помечает картинку image/png независимо от того, что загрузили, поэтому
-        // приводим к PNG на входе — иначе JPEG уезжает под чужим content-type.
+        // Serving labels the picture image/png whatever was uploaded, so we convert on the way
+        // in — otherwise a JPEG travels under a foreign content type.
         val jpeg = ByteArrayOutputStream().also { out ->
             val img = BufferedImage(50, 20, BufferedImage.TYPE_INT_RGB)
             img.createGraphics().apply { color = Color.GREEN; fillRect(0, 0, 50, 20); dispose() }
@@ -76,21 +70,18 @@ class ArtifactImageTrimTest {
 
         val out = ArtifactImageTrim.trim(jpeg)
 
-        // Сигнатура PNG: 89 50 4E 47.
+        // The PNG signature: 89 50 4E 47.
         assertTrue(out.size > 4 && out[0] == 0x89.toByte() && out[1] == 'P'.code.toByte())
         assertEquals(50, ImageIO.read(out.inputStream()).width)
     }
 
     @Test
     fun `invisible alpha haze over the canvas does not defeat the crop`() {
-        // Главный кейс, найденный на проде. Фон снимали внешним инструментом, и он оставил по
-        // всему холсту пиксели с альфой 1..8 (0.4-3% непрозрачности — глазом не видно). При
-        // строгом «альфа > 0» рамка непрозрачного растягивалась на весь холст, обрезка решала,
-        // что резать нечего, и ракетка 619x2055 уезжала в ленту как холст 1600x2400: лента
-        // считала её пропорцию 0.67 вместо 0.30, не признавала вытянутой и не клала набок,
-        // хотя предмету это разрешено.
+        // Found in production: a background remover left alpha 1..8 across the whole canvas
+        // (invisible to the eye). Under a strict "alpha > 0" the opaque bounds covered everything,
+        // trimming decided there was nothing to cut, and an elongated item never lay flat.
         val png = pngOf(100, 100) { g ->
-            g.color = Color(0, 0, 0, 6) // дымка ниже порога видимости — по всему холсту
+            g.color = Color(0, 0, 0, 6) // haze below the visibility threshold, across the whole canvas
             g.fillRect(0, 0, 100, 100)
             g.color = Color.RED
             g.fillRect(40, 45, 20, 10)
@@ -104,10 +95,10 @@ class ArtifactImageTrimTest {
 
     @Test
     fun `a real halo around the object survives the crop`() {
-        // Порог не должен съедать настоящее свечение: у предмета бывает мягкий ореол, и он
-        // часть его вида. Различие чисто количественное — заметная альфа остаётся в рамке.
+        // The threshold must not eat a real glow: an item's soft halo is part of how it looks.
+        // The difference is purely quantitative — visible alpha stays inside the bounds.
         val png = pngOf(100, 100) { g ->
-            g.color = Color(255, 0, 0, 60) // ~24% непрозрачности: видно глазом
+            g.color = Color(255, 0, 0, 60) // ~24% opacity: visible to the eye
             g.fillRect(30, 40, 40, 20)
             g.color = Color.RED
             g.fillRect(40, 45, 20, 10)
@@ -121,7 +112,7 @@ class ArtifactImageTrimTest {
 
     @Test
     fun `crop is tight on every side`() {
-        // Поля бывают несимметричными — обрезка обязана снять каждое по отдельности.
+        // Margins are often asymmetric — each side must be trimmed on its own.
         val png = pngOf(80, 60) { g -> g.color = Color.BLACK; g.fillRect(5, 30, 40, 10) }
 
         val out = ImageIO.read(ArtifactImageTrim.trim(png).inputStream())

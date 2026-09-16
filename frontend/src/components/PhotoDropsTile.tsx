@@ -29,25 +29,25 @@ interface PhotoDropsTileProps {
    */
   orientation?: TileOrientation;
   /**
-   * Вёрстка ленты (DESIGN §7.5) — выбирает ВОЛНА через раскладку (`tiles.photoDrops.edition`):
-   * - не задана / незнакомая — прежние ленты, которыми правит [orientation];
-   * - `carousel` — карусель архива: кадр в середине окна крупный, дальние уходят в холст (волна 03).
+   * The rail's layout (DESIGN §7.5), chosen by the WAVE through `tiles.photoDrops.edition`:
+   * unset or unknown gives the former rails, governed by [orientation]; `carousel` gives the archive
+   * carousel, where the frame in the middle of the window is large and distant ones fade into canvas.
    */
   edition?: string;
-  /** Редакция галереи из раскладки волны (см. [PhotoDropModal]). */
+  /** Gallery edition from the wave's layout (see [PhotoDropModal]). */
   gallery?: string;
 }
 
-/** Незнакомое имя редакции ⇒ дефолт: набор редакций — знание тайла, а не реестра раскладки. */
+/** An unknown edition name falls back to the default: the set of editions is the tile's knowledge,
+ *  not the layout registry's. */
 function resolveEdition(value: string | undefined): "carousel" | "default" {
   return value === "carousel" ? "carousel" : "default";
 }
 
 /**
- * Компактная лента фото-дропов (D) — PRD §5.12, DESIGN §7.5. Маленькое перечисление всех дропов
- * (обложка + название), новые слева; клик по дропу → модалка-галерея. Сама лента и есть архив —
- * отдельной страницы нет. Крупно последний дроп показывает отдельный [LatestDropTile]. До первой
- * загрузки через /admin дропов нет ⇒ тихий empty «пока нет дропов».
+ * The compact ribbon of photo drops, newest on the left, a click opening the gallery. THE RIBBON
+ * IS THE ARCHIVE — there is no separate page — while [LatestDropTile] shows the newest one large.
+ * Before the first upload it is a quiet empty. PRD §5.12, DESIGN §7.5
  */
 export function PhotoDropsTile({
   style,
@@ -64,86 +64,71 @@ export function PhotoDropsTile({
   const drops = data ?? [];
   const isEmpty = phase === "loaded" && drops.length === 0;
   const [openDrop, setOpenDrop] = useState<FilmDropView | null>(null);
-  // Карусель — вёрстка вертикальная по своей природе, поэтому она сильнее ориентации: волна,
-  // забывшая снять `orientation: horizontal`, не должна получить ленту внутри колонки.
+  // A carousel is vertical by nature, so it outranks orientation: a wave that forgot to drop
+  // `orientation: horizontal` must not end up with a rail inside a column.
   const carousel = edition === "carousel";
   const horizontal = !carousel && orientation === "horizontal";
   const shelfRef = useRef<HTMLUListElement>(null);
   const reelRef = useRef<HTMLUListElement>(null);
   /**
-   * Движение карусели к кадру — тот же шов, что у плёнки ([useRollMotion]). Нативная плавная
-   * прокрутка здесь вязла на быстром вращении колеса: каждый щелчок обрывал ещё едущую
-   * анимацию и заново считал, откуда ехать, по живому положению ленты — а она в этот момент
-   * стояла на кадре, который уже проехала бы.
+   * Carousel movement, the same seam as the reel's. Native smooth scrolling bogged down on fast
+   * wheeling: each click interrupted an animation still running and recomputed the origin from the
+   * ribbon's live position, which was on a frame it would already have passed.
    */
   const motion = useRollMotion(reelRef, "y", CAROUSEL_MOTION_RATE);
-  /** Лента уже поставлена на стартовый кадр: ресайз и смена данных её больше не двигают. */
+  /** The rail has already been set to its starting frame: resize and new data no longer move it. */
   const startedRef = useRef(false);
-  // …но уход редакции — это КОНЕЦ жизни ленты, а не пауза. Плитка при смене волны не
-  // размонтируется, узлы `<ul>`/`<li>` переиспользуются, и без сброса вернувшаяся карусель
-  // заставала прокрутку в нуле и показывала последний дроп вместо предпоследнего. Сброс
-  // именно на смене редакции: уборка общего эффекта бежит и на приезде новых данных, а они
-  // зрителя с выбранного кадра утаскивать не должны.
+  // A leaving edition is the END of the ribbon's life, not a pause. The tile does not unmount when
+  // the wave changes and the nodes are reused, so without a reset the returning carousel found
+  // scroll at zero and showed the wrong drop. Keyed on the edition, not on data arriving.
   useEffect(() => {
     if (!carousel) startedRef.current = false;
   }, [carousel]);
-  // Плитка, из которой растёт галерея: проявке нужен именно тот кадр, по которому кликнули.
+  // The tile the gallery grows from: the develop transition needs the exact frame that was clicked.
   const originRef = useRef<HTMLElement | null>(null);
   /**
-   * Кадр, на котором закрыли галерею, — по дропу. Нужен, чтобы проявка возвращалась в тот
-   * кадр, из которого выходишь, а не в тот, с которого входил (то же правило, что у плитки
-   * последнего дропа, DESIGN §7.5). Живёт в памяти вкладки: перезагрузка страницы молча
-   * возвращает обложку, выбранную владельцем, — и это верно, а не забывчивость.
+   * The frame a drop's gallery was closed on. It exists so the develop transition returns to the
+   * frame you leave from rather than the one you entered by. It lives in tab memory: a reload
+   * silently restores the owner's chosen cover, which is correct rather than forgetful. §7.5
    */
   const [viewed, setViewed] = useState<Record<number, FilmPhotoView>>({});
   /**
-   * Первая обложка доехала. До этого лента не рисуется вовсе: с плитой, снятой скином волны,
-   * пустой каркас читался мигающим прямоугольником на холсте (замечание владельца о жёсткой
-   * перезагрузке). На повторных загрузках данные уже в кэше, и ленте нечего ждать.
+   * The first cover has arrived. Until then the rail is not drawn at all: with the slab removed by a
+   * wave's skin, an empty scaffold read as a flickering rectangle on the canvas during a hard reload.
+   * On later loads the data is already cached and the rail has nothing to wait for.
    */
   const [coversReady, setCoversReady] = useState(false);
   /**
-   * Готовность обложки читается и с самого узла, а не только по событию `load` (тот же приём,
-   * что у обложки альбома в [NowPlayingCard]). Событие может не случиться вовсе: смена волны
-   * меняет редакцию ленты, но `<ul>`/`<li>`/`<img>` остаются на своих местах в дереве с теми же
-   * ключами — React переиспользует узлы, `src` не меняется, и второго `load` не будет. Приехав
-   * на карусель после волны, где обложки уже загрузились, зритель видел на её месте пустоту
-   * (лента погашена до первой обложки) — и та не проходила до перезагрузки страницы.
-   * `complete` + ненулевая ширина = картинка уже нарисована; битую (complete без ширины)
-   * отпускает `onError`.
+   * Cover readiness is read from the NODE as well as from `load`, because that event may never
+   * fire: changing the wave swaps the edition while React reuses the same nodes and `src`, so
+   * there is no second `load` and the ribbon stayed blank until a page reload.
    */
   const markCoverReady = useCallback((node: HTMLImageElement | null) => {
     if (node?.complete && node.naturalWidth > 0) setCoversReady(true);
   }, []);
-  // Какой дроп стоит в середине окна: он и есть «текущий» для доступности. Индекс, а не id,
-  // — позиция в ленте здесь и есть ответ, а он меняется от прокрутки, не от данных.
+  // Which drop stands in the middle of the window: that one is "current" for accessibility. An index
+  // rather than an id — position in the rail IS the answer here, and it changes with scrolling.
   const [centered, setCentered] = useState(0);
 
-  // Карусель: вид каждого кадра — чистая функция расстояния до середины окна
-  // (`slotLook`, DESIGN §7.5). Считаем императивно по ref, а не состоянием на кадр
-  // прокрутки: раскладка от этого не зависит, а перерисовывать React 60 раз в секунду
-  // ради двух CSS-свойств незачем. В состояние уезжает только смена центрального кадра.
+  // Carousel: each slot's look is a pure function of its distance from the window's centre.
+  // Computed imperatively through refs rather than per-frame state — layout does not depend on it,
+  // and redrawing React sixty times a second for two CSS properties is not worth it.
   useEffect(() => {
     const el = reelRef.current;
     if (!el || !carousel) return;
 
-    // Боковой запас ленты: без него КРАЙНИЕ дропы недостижимы — по центру окна встаёт не
-    // первый кадр, а тот, что отстоит от края на полокна (тот же приём и та же функция,
-    // что у ленты галереи плёнки).
-    //
-    // ⚠️ Считается от `clientHeight`, то есть лента ОБЯЗАНА иметь высоту от родителя. Пока её
-    // не было (стек телефона: высота от содержимого), запас накручивал сам себя — вырос до
-    // 588px, а плитка до 1842px и показывала весь архив разом. Высоту в стеке называет CSS
-    // (`.board-stack .drop-carousel`), здесь остаётся только замер.
+    // Side padding of the ribbon: without it the OUTERMOST drops are unreachable, as the window's
+    // centre lands half a window in from the edge. It is computed from `clientHeight`, so the
+    // ribbon MUST get its height from the parent — sized by content, the padding fed itself.
     const layout = () => {
       const pad = stripPadding(el.clientHeight, CAROUSEL_SLOT_PX);
       el.style.paddingBlock = `${pad}px`;
     };
 
     /**
-     * Первый показ ставит ленту на ВТОРОЙ дроп: на первом сверху пусто (там боковой запас),
-     * и архив читается началом списка, а не каруселью. Один раз за жизнь ленты — ресайз и
-     * приезд новых данных не должны утаскивать зрителя с того кадра, который он выбрал.
+     * The first render sets the rail to the SECOND drop: above the first there is only empty side
+     * padding, so the archive reads as the start of a list rather than a carousel. Once per rail
+     * lifetime — a resize or new data must not drag the viewer off the frame they chose.
      */
     const start = () => {
       if (startedRef.current) return;
@@ -160,15 +145,15 @@ export function PhotoDropsTile({
       for (const node of Array.from(el.children)) {
         const li = node as HTMLElement;
         const rect = li.getBoundingClientRect();
-        // Масштаб держит центр слота на месте (`transform-origin` по умолчанию — середина),
-        // поэтому замер по нему не гоняет сам себя: центр не зависит от своего же масштаба.
+        // Scale keeps a slot's centre in place (`transform-origin` defaults to the middle), so
+        // measuring by it does not chase itself: the centre does not depend on its own scale.
         const center = rect.top + rect.height / 2;
         centers.push(center);
         const look = slotLook(center - mid, CAROUSEL_RADIUS_PX);
         li.style.transform = `scale(${look.scale})`;
         li.style.opacity = String(look.opacity);
-        // Расфокус дальних кадров — им же прячется жёсткий срез четвёртого и пятого кадра
-        // краем плитки на высоких экранах: у размытого кадра резкой границы уже нет.
+        // Defocusing distant frames also hides the hard cut of the fourth and fifth frame by the
+        // tile's edge on tall screens: a blurred frame no longer has a sharp boundary.
         li.style.filter = look.blur > 0.01 ? `blur(${look.blur.toFixed(2)}px)` : "";
         li.style.zIndex = String(look.zIndex);
       }
@@ -185,15 +170,9 @@ export function PhotoDropsTile({
       });
     };
 
-    // Колесо мыши лента разбирает САМА, а не отдаёт браузеру: щелчок стоит ровно один дроп,
-    // всегда одинаково. Отданная браузеру прокрутка спорила со снапом — тот доводил кадр в
-    // середину поверх ещё едущего щелчка, и лента то шла ровно, то вязла. Решает [wheelStep]
-    // — та же чистая функция, что у плёнки: щелчок мыши = один шаг, мелкие дельты трекпада
-    // копятся до порога. На краях колесо отдаётся странице (не запираем прокрутку).
-    //
-    // Считать СЛЕДУЮЩИЙ кадр надо от заказанного ([motion.target]), а не от того, что стоит в
-    // середине сейчас: лента едет несколько кадров отрисовки, и цепочка щелчков, считающая по
-    // разметке, топталась бы на месте — «автодокрутка мешает» на скорости выше средней.
+    // The ribbon handles the wheel ITSELF rather than leaving it to the browser: one click is
+    // exactly one drop, always. Browser scrolling fought the snap. The NEXT frame is counted from
+    // the requested one, not from what sits in the centre now, or a chain of clicks marks time.
     let acc = 0;
     const onWheel = (e: WheelEvent) => {
       const max = el.scrollHeight - el.clientHeight;
@@ -219,8 +198,8 @@ export function PhotoDropsTile({
       motion.to(Math.min(last, Math.max(0, from + step.dir)));
     };
 
-    // Рука важнее заказанного колесом кадра: пока лента едет сама, палец боролся бы с ней за
-    // одну и ту же прокрутку (на тач-устройствах карусель листается родным жестом).
+        // A hand outranks the frame the wheel asked for: while the rail travels by itself, a finger
+        // would be fighting it for the same scroll (on touch the carousel pages by the native gesture).
     const onTouch = () => motion.stop();
 
     layout();
@@ -229,12 +208,12 @@ export function PhotoDropsTile({
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onWheel, { passive: false });
     el.addEventListener("touchstart", onTouch, { passive: true });
-    // Замеры держит живыми ResizeObserver (ресайз окна, смена волны/раскладки). В jsdom его
-    // нет — там лента просто остаётся с первой раскраской, и это ровно то, что проверяют тесты.
+    // ResizeObserver keeps the measurements alive (window resize, a change of wave or layout). In
+    // jsdom there is none, so the rail keeps its first painting — which is exactly what tests check.
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
       layout();
-      // Замер мог приехать только сейчас (в стеке лента получает высоту после первой
-      // раскладки) — тогда стартовый кадр ставится здесь, а дальше `start` молчит.
+      // The measurement may only have arrived now (in the stack the rail gets its height after the
+      // first layout), so the starting frame is set here and `start` stays silent afterwards.
       start();
       paint();
     });
@@ -245,11 +224,9 @@ export function PhotoDropsTile({
       el.removeEventListener("touchstart", onTouch);
       motion.stop();
       ro?.disconnect();
-      // Стереть за собой ВСЁ, что эффект написал в разметку. Инлайновые стили ставит не
-      // React, а этот эффект, и React их не уберёт: смена волны меняет редакцию ленты, но
-      // `<ul>` и `<li>` остаются на своих местах в дереве — узлы переиспользуются, и на
-      // прежней ленте оставались масштаб, прозрачность и боковой запас карусели (на волне 01
-      // это читалось «список есть, а картинок нет»).
+      // Erase EVERYTHING this effect wrote into the markup. React did not set these inline styles
+      // and will not remove them: changing the wave swaps the edition while the nodes stay in
+      // place, so the old ribbon kept the carousel's scale, opacity and padding.
       el.style.paddingBlock = "";
       for (const node of Array.from(el.children)) {
         const li = node as HTMLElement;
@@ -261,21 +238,20 @@ export function PhotoDropsTile({
     };
   }, [carousel, motion, phase, drops.length]);
 
-  // Живой скролл горизонтальной полки без видимого ползунка (DESIGN §7.5): вертикальное колесо
-  // мыши листает полку вбок. Перетаскивания мышью НЕТ намеренно — оно перехватывало клик и
-  // мешало открывать дроп на весь экран; листаем только колесом (и родным touch/трекпадом).
-  // На краях колесо отдаётся странице (не запираем прокрутку).
+  // Live scrolling of a horizontal shelf with no visible scrollbar: a vertical wheel pages it
+  // sideways. Mouse dragging is deliberately absent — it swallowed the click and broke opening a
+  // drop. At the edges the wheel is handed back to the page rather than trapped. DESIGN §7.5
   useEffect(() => {
     const el = shelfRef.current;
     if (!el || !horizontal) return;
 
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // родной горизонтальный (трекпад)
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // a native horizontal scroll (trackpad)
       const max = el.scrollWidth - el.clientWidth;
       if (max <= 0) return;
       const atStart = el.scrollLeft <= 0;
       const atEnd = el.scrollLeft >= max - 1;
-      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return; // край → страница скроллит
+      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return; // at the edge → the page scrolls
       e.preventDefault();
       el.scrollLeft += e.deltaY;
     };
@@ -285,11 +261,9 @@ export function PhotoDropsTile({
   }, [horizontal, phase, drops.length]);
 
   /**
-   * Открыть дроп из карусели. Если кадр стоит не по центру окна, лента доматывает его в
-   * середину: проявка растёт из кадра, и расти ей надо из того места, куда смотрит зритель, —
-   * иначе галерея выезжает из края плитки. Переезд при этом идёт СВОЕЙ тягучестью
-   * ([CAROUSEL_OPEN_RATE], втрое резвее прокрутки) и почти сразу отдаёт галерею: выбор уже
-   * сделан, и ждать тут нечего — доводка успевает пройти под открывающейся модалкой.
+   * Opens a drop from the carousel, first winding an off-centre frame to the middle: the develop
+   * transition grows out of a frame, and it must grow from where the viewer is looking. The wind
+   * runs at its own, brisker rate and hands over almost at once — the choice is already made.
    */
   const openFromReel = (drop: FilmDropView, card: HTMLElement) => {
     originRef.current = card;
@@ -309,9 +283,9 @@ export function PhotoDropsTile({
       return;
     }
     motion.to(Array.from(reel.children).indexOf(slot), CAROUSEL_OPEN_RATE);
-    // Ждём, пока лента доедет. Потолок по времени обязателен: у КРАЙНЕГО кадра цель зажата
-    // максимумом прокрутки, в середину окна он не встаёт вовсе — и без потолка клик по краю
-    // ленты не открыл бы дроп никогда.
+    // Wait for the rail to arrive. A time ceiling is mandatory: for the OUTERMOST frame the target is
+    // clamped by maximum scroll and it never reaches the middle of the window, so without one a click
+    // on the rail's edge would never open its drop.
     const startedAt = performance.now();
     const settle = () => {
       if (Math.abs(offset()) <= ROLL_SETTLE_PX * 3 || performance.now() - startedAt > CAROUSEL_OPEN_WAIT_MS) {
@@ -335,20 +309,16 @@ export function PhotoDropsTile({
         className={className}
       >
         {phase === "loaded" && !isEmpty && (carousel ? (
-          // Карусель архива: кадры едут вертикальной лентой, и главный тот, что встал в
-          // середину окна. Прокрутка и есть орган управления — наведение в раскладке не
-          // участвует, поэтому лента не дёргается под курсором и одинаково ведёт себя на
-          // трёх дропах и на трёхстах. Масштаб и яркость пишет `slotLook` (см. эффект выше).
-          //
-          // Обложка — <img>, а не фон: слот фиксированной высоты, кадру нужен только
-          // `object-fit`, а браузеру — знание, что это картинка (ленивая загрузка, декод).
+          // The archive carousel: frames travel a vertical ribbon and the one in the window's
+          // centre is the main one. SCROLL IS THE CONTROL — hover plays no part in layout, so the
+          // ribbon never twitches under the cursor, at three drops or three hundred alike.
           <ul
             ref={reelRef}
             className={`drop-carousel scroll-invisible tile-frame${coversReady ? " is-ready" : ""}`}
           >
             {drops.map((d, i) => {
-              // Обложка дропа — та, на которой закрыли его галерею; до первого захода и
-              // после перезагрузки страницы это обложка, выбранная владельцем.
+              // A drop's cover is the frame its gallery was closed on; before the first visit and
+              // after a page reload it is the cover the owner chose.
               const cover = viewed[d.id]?.thumbUrl ?? d.coverPhotoUrl;
               return (
               <li key={d.id} className="drop-carousel__slot">
@@ -367,7 +337,7 @@ export function PhotoDropsTile({
                       className="drop-carousel__cover"
                       ref={markCoverReady}
                       onLoad={() => setCoversReady(true)}
-                      // Битая обложка ленту не запирает: показываем то, что есть.
+                      // A broken cover does not lock the rail: whatever exists is shown.
                       onError={() => setCoversReady(true)}
                     />
                   ) : (
@@ -437,9 +407,9 @@ export function PhotoDropsTile({
             ))}
           </ul>
         ) : (
-          // Вертикальный список листается тем же жестом и БЕЗ ползунка — как полка выше:
-          // серая полоса поверх обложек читалась элементом интерфейса, а не подсказкой
-          // (`scroll-invisible` в common.css; прокрутка колесом и тачпадом на месте).
+          // The vertical list pages by the same gesture and WITHOUT a scrollbar, like the shelf above:
+          // a grey strip over the covers read as an interface element rather than a hint
+          // (`scroll-invisible` in common.css; wheel and trackpad scrolling stay).
           <ul className="scroll-invisible tile-frame flex h-full flex-col gap-1.5 overflow-y-auto">
             {drops.map((d) => (
               <li key={d.id} className="min-w-0">
@@ -478,12 +448,12 @@ export function PhotoDropsTile({
           title={openDrop.title}
           monthLabel={openDrop.monthLabel}
           gallery={gallery}
-          // Проявка: галерея растёт из того кадра ленты, по которому кликнули, и возвращается
-          // в него же. Шов тот же, что у плитки последнего дропа, — компонент один.
+          // Develop transition: the gallery grows out of the rail frame that was clicked and returns
+          // into it. The same seam as the latest-drop tile, since the component is one.
           origin={originRef}
-          // Первый заход встречает ОБЛОЖКА дропа — тот самый кадр, что стоит на карточке
-          // ленты: клик спрашивает про кадр, на который смотрят, а не про начало плёнки.
-          // Дальше её место занимает кадр, на котором галерею закрыли.
+          // The first visit opens on the drop's COVER, the frame shown on the rail card: a click asks
+          // about the frame being looked at, not about the start of the film. Afterwards its place is
+          // taken by whichever frame the gallery was closed on.
           startAt={viewed[openDrop.id]?.imageUrl ?? openDrop.coverPhotoUrl}
           onFrameShown={(photo) => setViewed((v) => ({ ...v, [openDrop.id]: photo }))}
           onClose={() => setOpenDrop(null)}

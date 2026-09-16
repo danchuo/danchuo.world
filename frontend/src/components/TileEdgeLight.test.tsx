@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TileEdgeLight } from "./TileEdgeLight";
 
 /**
- * jsdom не каскадирует пользовательские свойства: значение, объявленное в скине волны,
- * `getComputedStyle` тут не увидит. Поэтому опт-ин подменяем — проверяем поведение шва,
- * а не движок стилей.
+ * jsdom does not cascade custom properties: a value declared in a wave's skin is invisible to
+ * `getComputedStyle` here. So the opt-in is stubbed — what is checked is the seam's behaviour,
+ * not the style engine.
  */
 function waveAsksForLight(on: boolean, perTile: Record<string, string> = {}) {
   vi.spyOn(window, "getComputedStyle").mockImplementation((el: Element) => {
@@ -15,7 +15,7 @@ function waveAsksForLight(on: boolean, perTile: Record<string, string> = {}) {
   });
 }
 
-/** Плитка с честной коробкой: в jsdom `getBoundingClientRect` сам по себе отдаёт нули. */
+/** A tile with an honest box: in jsdom `getBoundingClientRect` returns zeros on its own. */
 function tile(id: string, box: { left: number; top: number; width: number; height: number }) {
   const el = document.createElement("div");
   el.dataset.tileId = id;
@@ -39,15 +39,15 @@ describe("TileEdgeLight", () => {
     const el = tile("today", { left: 100, top: 50, width: 200, height: 100 });
     render(<TileEdgeLight wave="wave-03" />);
 
-    move(el, 300, 50); // правый верхний угол
+    move(el, 300, 50); // the top right corner
     expect(el.style.getPropertyValue("--tile-dx")).toBe("1.000");
     expect(el.style.getPropertyValue("--tile-dy")).toBe("-1.000");
   });
 
   it("плитка, которая свет не рисует, вектора не получает", () => {
-    // Запись наследуемой переменной метит на перерасчёт ВСЁ поддерево плитки, и так на каждое
-    // движение мыши. Плитке без плиты это не даёт ничего, а на WebKit заново растрирует
-    // фоновые картинки внутри — марки соцсетей моргали (docs/pitfalls.md).
+    // Writing an inherited variable marks the tile's WHOLE subtree for recalculation, on every
+    // mouse move. A tile with no plate gains nothing, while WebKit re-rasterises the background
+    // pictures inside it and the social marks flickered (docs/pitfalls.md).
     waveAsksForLight(true, { social: "0" });
     const el = tile("social", { left: 100, top: 50, width: 200, height: 100 });
     render(<TileEdgeLight wave="wave-03" />);

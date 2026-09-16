@@ -9,13 +9,9 @@ import world.danchuo.core.crypto.SecretBox
 import java.time.Instant
 
 /**
- * Жизненный цикл токена Instagram (PRD §5.17): обмен кода при разовом OAuth, продление
- * долгоживущего токена и выдача его читающим.
- *
- * ⚠️ **Обмен идёт в ДВА шага, и это не формальность.** `api.instagram.com/oauth/access_token`
- * возвращает токен на ЧАС; пригодный к делу шестидесятидневный получается вторым вызовом на
- * `graph.instagram.com/access_token`. Сохрани мы результат первого шага — источник умер бы
- * через час после подключения, причём выглядело бы это как «внезапно перестало работать».
+ * The Instagram token lifecycle: the one-off code exchange, renewal, and handing the token to
+ * readers. The exchange takes TWO steps — the first returns an HOUR-long token, and storing that
+ * one would kill the source an hour after connecting. PRD §5.17
  */
 @ApplicationScoped
 class InstagramTokenService(
@@ -29,7 +25,7 @@ class InstagramTokenService(
 
     private val box: SecretBox by lazy { SecretBox(config.tokenEncryptionKey().orElse("")) }
 
-    /** Разовый OAuth: код из браузера → долгоживущий токен в БД. */
+    /** One-off OAuth: the code from the browser becomes a long-lived token in the DB. */
     @Transactional
     fun exchangeCode(code: String) {
         val form = MultivaluedHashMap<String, String>().apply {
@@ -49,11 +45,11 @@ class InstagramTokenService(
         repository.save(box.encrypt(longToken), granted, Instant.now())
     }
 
-    /** Расшифрованный токен для читающих. `null` — аккаунт не подключён или токен уже мёртв. */
+    /** The decrypted token for readers. `null` when unconnected, or the token is already dead. */
     fun accessToken(now: Instant = Instant.now()): String? {
         val token = repository.current() ?: return null
         if (!InstagramTokenPolicy.isAlive(token.issuedAt, now)) {
-            // Мёртвый токен не лечится ничем, кроме нового захода владельца: молчим, но громко.
+            // A dead token is cured by nothing but the owner reconnecting: stay silent, but loudly.
             log.warn("instagram: токен просрочен — нужен повторный OAuth (/api/ingest/instagram/authorize)")
             return null
         }
@@ -61,9 +57,9 @@ class InstagramTokenService(
     }
 
     /**
-     * Продлить токен, если подошёл срок ([InstagramTokenPolicy]). Отдельной транзакцией и
-     * до всякого чтения ленты: неудача продления не должна отменять забор поста, а неудача
-     * забора — откатывать успешное продление.
+     * Renews the token when it is due ([InstagramTokenPolicy]). In its own transaction and before
+     * any feed read: a failed renewal must not cancel the post fetch, and a failed fetch must not
+     * roll back a successful renewal.
      */
     @Transactional
     fun refreshIfDue(now: Instant = Instant.now()) {

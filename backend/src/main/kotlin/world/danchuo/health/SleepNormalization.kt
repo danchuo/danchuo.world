@@ -1,6 +1,6 @@
 package world.danchuo.health
 
-/** Метрики сна одной ночи, как приходят с ingest'а (длительность + фазы). Все — nullable (§5.4). */
+/** One night's sleep metrics as ingest sends them (duration + phases). All nullable (§5.4). */
 data class SleepInput(
     val minutes: Int?,
     val rem: Int?,
@@ -10,13 +10,9 @@ data class SleepInput(
 )
 
 /**
- * Нормализация сна перед записью (исключение из общего правила `null ≠ 0`, §5.4).
- *
- * У сна нет осмысленного «реального нуля»: ночь в 0 минут означает, что записи сна не было
- * (iOS-шорткат шлёт 0, когда в HealthKit нет сессии за день). В отличие от шагов, где 0 — это
- * честный ноль, 0-минутную ночь схлопываем целиком в «нет данных»: null и длительность, и фазы —
- * рисовать нечего. `null`-сон остаётся `null`; реальная ночь (>0) не трогается, включая 0 в
- * отдельной фазе (это настоящий ноль этой фазы).
+ * The one exception to `null != 0`: sleep has no meaningful real zero, and a 0-minute night means
+ * the shortcut found no session at all. Such a night collapses ENTIRELY into "no data", duration
+ * and phases alike. A real night (>0) is untouched, including a zero inside one phase. PRD §5.4
  */
 object SleepNormalization {
 

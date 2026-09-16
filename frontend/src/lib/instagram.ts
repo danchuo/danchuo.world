@@ -1,28 +1,19 @@
 /**
- * Адреса действий над постом Instagram (PRD §5.17).
- *
- * ⚠️ **Ссылкой у Instagram делается не всё.** Публичных адресов, которые СРАЗУ ставят лайк,
- * сохраняют пост в закладки или открывают шторку «Поделиться», у платформы нет — такого API
- * попросту не существует, и выдумывать правдоподобный адрес нельзя: он молча уедет в 404 или,
- * хуже, на чужой пост. Поэтому лайк и закладка ведут на сам пост (там оба действия в один
- * клик), а «поделиться» — единственное, что мы правда умеем сами: копирование ссылки.
- *
- * `…/comments/` — настоящий маршрут: незалогиненного он отправляет на вход с `next=` на тот же
- * адрес, тогда как ЛЮБОЙ неизвестный сегмент Instagram молча показывает сам пост. То есть даже
- * если маршрут однажды исчезнет, ссылка деградирует в открытие поста, а не в ошибку.
+ * Addresses for actions on an Instagram post. NOT EVERYTHING CAN BE A LINK there: no public URL
+ * likes, saves or opens the share sheet, and inventing a plausible one would 404 or, worse, hit
+ * someone else's post. Like and save open the post; sharing copies the link. PRD §5.17
  */
 const HOST = "https://www.instagram.com";
 
-/** Профиль владельца. Ник приезжает из API без «собаки», но лишнюю снимаем на всякий случай. */
+/** The owner's profile. The API sends the handle without an "@", but we strip one just in case. */
 export function instagramProfileUrl(username: string): string {
   return `${HOST}/${username.trim().replace(/^@+/, "")}/`;
 }
 
 /**
- * Комментарии поста. Собирается по ПУТИ, а не приклеиванием к строке: у пермалинка бывает
- * хвост (`?igsh=…`), и наивное `permalink + "comments/"` приписало бы сегмент к параметрам.
- * Разобрать адрес не удалось ⇒ отдаём пермалинк как есть: открыть пост всегда лучше, чем
- * повести пользователя по собранному наугад адресу.
+ * A post's comments. Built through the URL's PATH rather than string concatenation: a permalink
+ * may carry a query tail, and naive appending would attach the segment to the parameters. If the
+ * address cannot be parsed, the permalink is returned as is: opening the post beats guessing.
  */
 export function instagramCommentsUrl(permalink: string): string {
   try {

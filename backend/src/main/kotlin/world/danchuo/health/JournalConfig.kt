@@ -5,12 +5,9 @@ import io.smallrye.config.WithDefault
 import java.time.LocalTime
 
 /**
- * Правило производной отметки «дневник перед сном» (PRD §5.6).
- *
- * Вечернее окно дня и порог минут в нём — настройка, а не константа в коде: «сколько
- * считается записью» и «когда начинается вечер» — это привычка владельца, она меняется.
- * [windowEnd] не позже [windowStart] ⇒ окно закрывается на следующих сутках (обычный случай:
- * 19:00 → 02:00). Значения — в `application.properties` под префиксом `danchuo.journal`.
+ * The rule behind the derived "journal before sleep" mark: the evening window and its minute
+ * threshold are settings rather than constants — both are the owner's habit and do change.
+ * [windowEnd] not after [windowStart] means the window closes next day (19:00 -> 02:00). §5.6
  */
 @ConfigMapping(prefix = "danchuo.journal")
 interface JournalConfig {
@@ -21,7 +18,7 @@ interface JournalConfig {
     @WithDefault("02:00")
     fun windowEnd(): LocalTime
 
-    /** Сколько минут в окне считается «дневник вёлся». */
+    /** How many minutes in the window count as "the journal was kept". */
     @WithDefault("15")
     fun minMinutes(): Int
 }

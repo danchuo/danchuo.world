@@ -7,17 +7,9 @@ import org.junit.jupiter.api.Test
 import java.util.Base64
 
 /**
- * Шифрование чужих токенов at-rest (PRD §8). Ящик общий на все внешние источники: копия
- * AES-GCM во втором слайсе — худший из возможных copy-paste.
- *
- * Проверяем то, ради чего он нужен, без БД и без сети:
- * - **круг**: что зашифровали, то и расшифровали;
- * - **свежий IV на каждый вызов**: один и тот же секрет дважды не даёт одинаковый шифротекст,
- *   иначе по базе видно, что токен не менялся;
- * - **порча не проходит молча**: GCM-тег ловит правку шифротекста — это и отличает ящик от
- *   голого шифрования, где подмена вернула бы мусор под видом токена;
- * - **чужой ключ не открывает**;
- * - **ключ не того размера — отказ на входе**, а не на первом же сохранении токена.
+ * At-rest encryption of foreign tokens (PRD §8), shared by every external source. Pinned here:
+ * the round trip, a fresh IV per call, tampering caught by the GCM tag, a foreign key refused,
+ * and a wrong-sized key rejected on the way in rather than at the first token save.
  */
 class SecretBoxTest {
 

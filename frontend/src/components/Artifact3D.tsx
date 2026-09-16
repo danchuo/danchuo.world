@@ -4,40 +4,27 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { mountArtifact, type ArtifactHandle } from "@/lib/artifact3dStage";
 
 /**
- * **3D-артефакт — универсальный элемент борда** (DESIGN §12.5). Ставится в любой слот и
- * ведёт себя везде одинаково: в покое — статичная картинка (первый кадр модели), под
- * курсором — предмет оживает (вращение + встроенная анимация glTF, если она есть).
- *
- * ⚠️ «Артефакт» здесь — 3D-предмет волны, не запись слайса `artifacts` (витрина вещей,
- * `ArtifactMarquee`). Слова совпали, домены разные.
- *
- * Три правила, из-за которых он безопасен в любом количестве:
- * - **Грузится, только когда виден.** Пока слот за пределами экрана (или спрятан волной —
- *   `display: none` в наблюдатель не попадает), ни `three`, ни модель не скачиваются вовсе.
- * - **Контекст WebGL общий** на все артефакты — см. `artifact3dStage.ts`.
- * - **Сорвался — молчит.** Нет WebGL, не доехал файл, отказал 2D-контекст: слот остаётся
- *   пустым, вместо битой картинки. Артефакт — украшение строки, а не её содержание.
- *
- * Движение только по наведению и фокусу: `prefers-reduced-motion` держит предмет
- * неподвижным всегда, а на тач-устройствах (наведения нет) он просто стоит картинкой.
+ * A 3D artifact — a universal board element that is a still picture at rest and comes alive under
+ * the cursor. It loads ONLY when visible, shares one WebGL context, and stays silent on failure:
+ * it is decoration, never content. Not the `artifacts` slice's records. DESIGN §12.5
  */
 export interface Artifact3DProps {
-  /** Адрес модели (`.glb`/`.gltf`). */
+  /** Address of the model (`.glb`/`.gltf`). */
   src: string;
   /**
-   * Подпись для читалки. Не задана ⇒ предмет декоративный (`aria-hidden`) — так он стоит в
-   * строке проекта, где рядом уже есть название с тем же адресом.
+   * Label for a screen reader. Unset means the item is decorative (`aria-hidden`) — which is how
+   * it stands in a project row, where the title beside it already carries the same address.
    */
   label?: string;
   className?: string;
   style?: CSSProperties;
-  /** Оборотов в минуту под курсором. */
+  /** Revolutions per minute under the cursor. */
   rpm?: number;
-  /** Поле вокруг предмета: 1 — впритык к краю слота. */
+  /** Padding around the item: 1 means flush with the slot's edge. */
   padding?: number;
 }
 
-/** Плотность пикселей канваса: выше двойной не даёт видимой разницы, а стоит вчетверо. */
+/** Canvas pixel density: past double there is no visible gain, and it costs four times as much. */
 const MAX_DPR = 2;
 
 export function Artifact3D({ src, label, className, style, rpm, padding }: Artifact3DProps) {
@@ -45,7 +32,7 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
   const handleRef = useRef<ArtifactHandle | null>(null);
   const [failed, setFailed] = useState(false);
 
-  // Монтаж: ждём, пока слот покажется на экране, и только тогда тянем библиотеку и модель.
+  // Mount: wait until the slot is on screen, and only then fetch the library and the model.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -79,8 +66,8 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
         });
     };
 
-    // Без наблюдателя (старый браузер, jsdom в тестах) грузим сразу: лучше лишний запрос,
-    // чем пустой слот.
+    // With no observer (an old browser, jsdom in tests) load at once: an extra request beats an
+    // empty slot.
     if (typeof IntersectionObserver === "undefined") {
       start();
     } else {
@@ -126,7 +113,7 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
       ref={canvasRef}
       className={className}
       style={style}
-      // Курсор и фокус — единственные органы управления: борд не двигается сам по себе.
+      // Cursor and focus are the only controls: the board never moves by itself.
       onPointerEnter={() => spin(true)}
       onPointerLeave={() => spin(false)}
       onFocus={() => spin(true)}
@@ -139,8 +126,8 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
 }
 
 /**
- * Читаем настройку в момент наведения, а не на монтаже: посетитель включает её на ходу, и
- * борд обязан замереть сразу, не дожидаясь перезагрузки.
+ * The setting is read at hover time rather than on mount: a visitor may turn it on mid-session,
+ * and the board must freeze at once instead of waiting for a reload.
  */
 function prefersReducedMotion(): boolean {
   return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;

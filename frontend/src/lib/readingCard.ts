@@ -1,28 +1,15 @@
 import type { ReadingBookView } from "./api/types";
 
 /**
- * Формулы карточки прочитанного (PRD §5.16) — то, что нужно знать до отрисовки: какую сессию
- * показать у остановки и как выразить пройденный кусок книги.
- *
- * **Часов на карточке книги нет, и это осознанно.** У подкаста время честное — головку мы
- * опрашиваем раз в минуту и видим начало захода почти сразу. У читалки взять его неоткуда:
- * Anx не пишет событий «открыл/закрыл», а копит секунды в счётчике «книга × день» без
- * времени вовсе (`tb_reading_time.date` — голая дата). Единственный момент, который мы знаем,
- * — когда телефон выгрузил базу на WebDAV, то есть КОНЕЦ чтения, да ещё и с лагом синка
- * (замерено: до трёх часов). Подписывать его «началом» — врать; подписывать «концом» —
- * отвечать не на тот вопрос. Поэтому карточка говорит только то, что знает точно: пройденный
- * кусок книги. Сколько это заняло, стоит под кружком остановки — минуты считает сама читалка.
- *
- * Рассмотрено и отклонено: вычислять начало как «время синка минус зачтённые минуты». Оно
- * правдоподобно ровно до первого отложенного синка, а поймать неверные часы на борде хуже,
- * чем не иметь их.
+ * Formulas for the reading card: which session to show at a stop and how to express the passage
+ * covered. THERE ARE NO CLOCK TIMES on a book card, deliberately — the reader records no
+ * open/close events, and the only moment we know is the sync, which lags by hours. PRD §5.16
  */
 
 /**
- * Карточка для остановки с номером [occurrence] (1-based). Раздаются по порядку, и их может быть
- * МЕНЬШЕ, чем закрытых остановок: отметки считаются по сумме минут за сутки, а карточки — по
- * сессиям. Час в присест закрывает обе остановки и приносит одну карточку — вторая остаётся без
- * ховера, и это норма, а не потеря данных (то же правило, что у подкастов).
+ * The card for the stop numbered [occurrence]. Handed out in order, and there may be FEWER than
+ * closed stops: marks count by the day's minutes, cards by sessions. An hour in one sitting closes
+ * both stops and brings one card; the second having no hover is normal, as with podcasts.
  */
 export function bookForStop(
   books: ReadingBookView[] | undefined,
@@ -32,24 +19,16 @@ export function bookForStop(
 }
 
 /**
- * Подпись перед процентами: «прочитано 35% → 42%».
- *
- * Отдельной строкой от самих цифр, а не внутри [progressLabel], потому что набраны они по-разному:
- * слово — приглушённой подписью, цифры — плотным начертанием (это главный факт карточки, и он не
- * должен выглядеть тоньше времени на карточке подкаста). Слово при этом идёт в оценку ширины
- * карточки наравне с числами — иначе строка уехала бы в многоточие.
+ * The caption before the percentages. It is a separate string from the figures because the two are
+ * SET DIFFERENTLY — the word muted, the numbers dense, as they are the card's main fact. The word
+ * still counts towards the card's estimated width, or the line would run into an ellipsis.
  */
 export const PROGRESS_CAPTION = "прочитано";
 
 /**
- * Путь по книге за этот заход: «35% → 42%».
- *
- * Начало известно не всегда, и пустота у него осмысленная: книга приехала к нам уже начатой, и
- * подставить туда ноль значило бы приписать владельцу проценты, которых он при нас не проходил.
- * Тогда показываем только достигнутое — «42%», без стрелки из ниоткуда.
- *
- * Конца не бывает только у импортированного дня (минуты есть, процентов нет) — там строки нет
- * вовсе: «→ 42%» без второго конца не отвечает ни на один вопрос.
+ * The path through a book this sitting covered: "35% -> 42%". A missing start is MEANINGFUL — the
+ * book reached us already begun, and a zero there would credit the owner with percentages they did
+ * not pass here — so only the reached figure shows, with no arrow out of nowhere.
  */
 export function progressLabel(book: ReadingBookView): string | null {
   const end = percent(book.endPercent);
@@ -59,9 +38,9 @@ export function progressLabel(book: ReadingBookView): string | null {
   return `${start} → ${end}`;
 }
 
-/** Доля 0..1 в целые проценты; `null` — не знаем (это не то же самое, что 0%). */
+/** A 0..1 share as whole percent; `null` means unknown, which is not the same as 0%. */
 function percent(value: number | null | undefined): string | null {
   if (typeof value !== "number" || Number.isNaN(value)) return null;
-  // Читалка хранит долю, но 0.999 у дочитанной книги должно читаться как 100%, а не как 99.9%.
+  // The reader stores a fraction, but 0.999 on a finished book must read as 100%, not 99.9%.
   return `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%`;
 }

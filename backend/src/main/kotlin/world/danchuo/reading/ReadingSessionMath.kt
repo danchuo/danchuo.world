@@ -6,35 +6,22 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * Чистая арифметика чтения (PRD §5.16).
- *
- * В отличие от подкастов, минуты нам считать не надо — их считает сама читалка и копит в
- * счётчике «книга × день» (`tb_reading_time`). Наша задача обратная: разложить прирост этого
- * счётчика на сессии и прицепить к ним проценты.
- *
- * **Курсора у поллера нет.** Сколько уже учтено — это сумма наших собственных строк за
- * книгу-день, а зачёт равен разнице с показанием читалки ([credit]). Поэтому пропущенный опрос,
- * поздно приехавший офлайновый день и перезапуск бэкенда посреди сессии стоят недобора ровно до
- * следующего такта: следующая же разница вберёт всё пропущенное. Отдельная колонка-курсор
- * рассмотрена и отклонена — она умеет расходиться с фактом, а сумма строк не умеет.
- *
- * **Границы сессий — наши, не читалкины.** Внутри дня читалка не хранит ничего: одна строка на
- * книгу-день, без времени. Значит «две получасовые сессии за вечер» — это то, что мы видим по
- * тактам опроса, а не то, что нам сообщили. Отсюда порог [continues]: прирост, пришедший вскоре
- * после предыдущего, — та же сессия; после долгой тишины — новая.
+ * Pure reading arithmetic: the reader counts the minutes, our job is to split the growth of its
+ * per-book-per-day counter into sittings and attach percentages. THE POLLER HAS NO CURSOR —
+ * credit is the difference against our own rows, so a missed tick costs nothing. PRD §5.16
  */
 object ReadingSessionMath {
 
     /**
-     * Сколько секунд зачесть: показание счётчика читалки минус уже записанное нами. Ноль —
-     * ничего не изменилось; отрицательного не бывает — счётчик, уехавший назад (переустановка
-     * читалки, база из бэкапа), не отнимает прочитанное, а просто становится новым уровнем.
+     * Seconds to credit: the reader's counter less what we already recorded. Zero means nothing
+     * changed, and it is never negative — a counter that went backwards (a reinstall, a restored
+     * backup) does not subtract what was read, it simply becomes the new level.
      */
     fun credit(shelfSeconds: Int, recordedSeconds: Int): Int = max(0, shelfSeconds - recordedSeconds)
 
     /**
-     * Тянется ли открытая сессия дальше. Нечего тянуть ⇒ `false`; отрицательная пауза (сбитые
-     * часы) тоже `false` — начать новую строку безопаснее, чем растянуть прежнюю назад во времени.
+     * Whether an open session extends. Nothing to extend gives `false`; so does a negative pause
+     * (a skewed clock) — starting a new row is safer than stretching the old one back in time.
      */
     fun continues(lastSeenAt: Instant?, at: Instant, gap: Duration): Boolean {
         if (lastSeenAt == null) return false
@@ -43,8 +30,8 @@ object ReadingSessionMath {
     }
 
     /**
-     * Секунды в минуты для подписи. Округление к ближайшей, но всё прочитанное — минимум минута:
-     * «0 мин» под непустой сессией читается как сбой, а не как «читал совсем чуть-чуть».
+     * Seconds to minutes for the caption. Rounded to nearest, but anything read is at least one
+     * minute: "0 min" under a non-empty session reads as a fault, not as "read very little".
      */
     fun minutes(seconds: Int): Int = when {
         seconds <= 0 -> 0

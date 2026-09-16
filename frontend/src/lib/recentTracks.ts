@@ -1,20 +1,18 @@
 /**
- * Схлопывание недавних треков Spotify (§5.5) — чистый расчёт, отдельно от компонента:
- * `MusicTile.tsx` должен экспортировать только компоненты, иначе Fast Refresh не сохраняет
- * состояние при правке файла.
+ * Collapsing Spotify's recent tracks (§5.5) — a pure calculation kept apart from the component:
+ * `MusicTile.tsx` must export components only, or Fast Refresh loses state on every edit.
  */
 
 import type { RecentTrackView, TrackView } from "@/lib/api/types";
 
-/** Идентичность недавнего трека для схлопывания: url, а без него — название + имена артистов. */
+/** A recent track's identity for collapsing: the url, or failing that title plus artist names. */
 function recentKey(t: TrackView): string {
   return t.url ?? `${t.title} | ${t.artists.map((a) => a.name).join(", ")}`;
 }
 
 /**
- * Схлопывает **подряд** идущие одинаковые треки в один ряд (повтор трека, сыгранный сразу
- * после себя же), сохраняя первый — самый свежий — элемент серии (§5.5). Повторы «через один»
- * не трогаем: это отдельные прослушивания. Чистая функция — под юнит-тест.
+ * Collapses CONSECUTIVE identical tracks into one row (a track replayed right after itself),
+ * keeping the first — freshest — of the run (§5.5). Repeats further apart are separate listens.
  */
 export function collapseConsecutiveRecent(recent: RecentTrackView[]): RecentTrackView[] {
   const out: RecentTrackView[] = [];
@@ -29,20 +27,9 @@ export function collapseConsecutiveRecent(recent: RecentTrackView[]): RecentTrac
 }
 
 /**
- * Давность прослушивания одной короткой меткой: «сейчас», «14 мин», «3 ч», «2 дн» (§5.5).
- *
- * Список недавних отвечает на вопрос «что я слушал», и без времени он — просто набор
- * названий: одинаково выглядит трек, доигравший минуту назад, и трек позавчерашний.
- * Метка стоит в узкой колонке рядом с рядом трека, поэтому единица сокращена до одной-двух
- * букв, а не склоняется: «мин/ч/дн» одинаковы при любом числе, и колонка не пляшет.
- *
- * Единицы режутся ВНИЗ, как часы плеера: 119 минут — это ещё «1 ч». Ноль минут не пишем
- * вовсе («0 мин» читается сломанным счётчиком, а не свежестью) — до минуты это «сейчас»,
- * туда же уходит метка из будущего: часы клиента и Spotify расходятся на секунды, и
- * отрицательному числу в списке взяться неоткуда.
- *
- * Лестница обрывается на днях намеренно: Spotify отдаёт последние ~50 треков, до календарных
- * дат этот список не доживает, и заводить ради него таблицу месяцев не за чем.
+ * How long ago a track played, as one short label. Units are truncated DOWN like the player's clock
+ * (119 minutes is still "1 h"), zero minutes never prints — it reads as a broken counter rather
+ * than freshness — and the ladder deliberately stops at days. PRD §5.5
  */
 export function formatPlayedAgo(playedAt: string | null, nowMs: number): string | null {
   if (!playedAt) return null;

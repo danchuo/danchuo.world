@@ -6,12 +6,9 @@ import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.rest.client.inject.RestClient
 
 /**
- * Музыкальный слой Spotify (PRD §M3): тянет плеер через [SpotifyApiClient] и сжимает в
- * публичные проекции ([SpotifyViews]). Кэш Caffeine гасит нагрузку и держит лимиты
- * Spotify (TTL в `application.properties`: now-playing ~20с, recent/top — минуты).
- *
- * Токен берётся из [SpotifyTokenService] (рефреш прозрачен). Неподключённый слайс
- * (нет OAuth) бросает [SpotifyNotConnectedException] — ресурс решает, как показать.
+ * The Spotify music layer: pulls the player and squeezes it into public projections, with a
+ * Caffeine cache absorbing load and respecting Spotify's limits (TTLs in `application.properties`).
+ * An unconnected slice throws [SpotifyNotConnectedException] and the resource decides how to show.
  */
 @ApplicationScoped
 class SpotifyService(
@@ -23,12 +20,9 @@ class SpotifyService(
 
     @CacheResult(cacheName = "spotify-now-playing")
     fun nowPlaying(): NowPlayingView {
-        // Просим и эпизоды: плитка показывает, что играет СЕЙЧАС, и подкаст — такой же ответ на
-        // этот вопрос, как трек. Без `episode` в списке Spotify его просто не отдаёт, и плитка
-        // молчала «ничего не играет» посреди часового эпизода.
-        // Запись прослушанного этим не занимается — у неё свой такт ([PodcastPoller]): здешний
-        // опрос будит зритель, и как логгер он бесполезен.
-        // 204 (ничего не играет) ⇒ тело null ⇒ единый «тихий» IDLE.
+        // Episodes are requested too: the tile shows what is playing NOW, and a podcast answers
+        // that question as well as a track does. Without `episode` in the list Spotify withholds
+        // it and the tile said "nothing playing" in the middle of an hour-long episode.
         val current = api.currentlyPlaying(tokenService.bearer(), "track,episode", config.podcast().market())
             ?: return NowPlayingView.IDLE
         return NowPlayingView(
@@ -39,7 +33,7 @@ class SpotifyService(
         )
     }
 
-    /** Источник + дорезолвенное имя (плейлист/артист), кэш в [SpotifySourceResolver]. */
+    /** The source plus its resolved name (playlist/artist), cached in [SpotifySourceResolver]. */
     private fun resolveSource(context: SpotifyContext?): SourceRef? {
         val base = SourceRef.from(context) ?: return null
         val name = context?.uri?.let { sources.name(it) }

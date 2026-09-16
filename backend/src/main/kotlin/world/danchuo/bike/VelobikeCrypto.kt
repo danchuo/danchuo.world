@@ -8,13 +8,9 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Шифрование refresh-токена Велобайка at-rest (PRD §8): AES-256-GCM, как
- * [world.danchuo.spotify.SpotifyCrypto]. Ключ — из [VelobikeConfig.tokenEncryptionKey]
- * (Base64 32 байта). Случайный 12-байтный IV на каждое шифрование кладётся в префикс;
- * GCM-тег даёт аутентификацию. Формат хранимой строки — Base64(IV ‖ ciphertext+tag).
- *
- * (Spotify и Велобайк держат свои крипто-бины раздельно: каждый слайс владеет своим ключом
- * и его конфигом — §3.1, никаких общих провайдеров наперёд.)
+ * At-rest encryption of the Velobike refresh token (PRD §8): AES-256-GCM, a random 12-byte IV
+ * per encryption stored as the prefix, format Base64(IV || ciphertext+tag). Each slice owns its
+ * own key and crypto bean rather than sharing a provider (§3.1).
  */
 @ApplicationScoped
 class VelobikeCrypto(private val config: VelobikeConfig) {

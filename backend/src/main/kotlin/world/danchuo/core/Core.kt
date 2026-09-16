@@ -1,15 +1,6 @@
 /**
- * Пакет **core** — сквозные соглашения danchuo.world (PRD §3.1, §4; CLAUDE.md).
- *
- * Здесь живёт только то, что общее для всех feature-слайсов и не принадлежит
- * ни одному из них:
- * - [world.danchuo.core.security.IngestAuthFilter] — bearer-защита `/api/ingest/…`;
- *   все `GET` публичны.
- * - [world.danchuo.core.config.TimeConfig] / [world.danchuo.core.config.MskTime] —
- *   канон MSK (UTC+3) + генезис-дата.
- * - пакет `core.cache` — общий кэш-вайринг (Caffeine, in-process).
- *
- * Принцип open/closed: `core` закрыт на правку, открыт на использование.
- * Новая фича = новый слайс рядом ([world.danchuo.days] и т.п.), `core` не трогается.
+ * The **core** package: only what every slice shares and none of them owns — the bearer filter on
+ * `/api/ingest`, the MSK/genesis canon, the cache wiring. Closed for change, open for use: a new
+ * feature is a new slice beside [world.danchuo.days], never an edit here. PRD §3.1, §4
  */
 package world.danchuo.core

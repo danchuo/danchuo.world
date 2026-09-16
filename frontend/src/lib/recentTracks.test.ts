@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { formatPlayedAgo } from "./recentTracks";
 
-/** Момент «сейчас» в тестах — фиксированный, чтобы дельты считались, а не гадались. */
+/** The tests' fixed "now", so deltas are computed rather than guessed. */
 const NOW = Date.parse("2026-09-03T12:00:00Z");
 
-/** ISO-метка «столько-то миллисекунд назад». */
+/** An ISO stamp "this many milliseconds ago". */
 function ago(ms: number): string {
   return new Date(NOW - ms).toISOString();
 }
 
 describe("formatPlayedAgo", () => {
   it("меньше минуты — «сейчас», без нулевых цифр", () => {
-    // «0 мин» на экране читается сломанным счётчиком, а не свежестью.
+    // "0 min" on screen reads as a broken counter rather than freshness.
     expect(formatPlayedAgo(ago(0), NOW)).toBe("сейчас");
     expect(formatPlayedAgo(ago(59_000), NOW)).toBe("сейчас");
   });
@@ -37,7 +37,7 @@ describe("formatPlayedAgo", () => {
   });
 
   it("метка из будущего не даёт отрицательных чисел", () => {
-    // Часы клиента и Spotify расходятся на секунды; «−1 мин» в списке недопустимо.
+    // The client's clock and Spotify's differ by seconds; a negative age in the list is unacceptable.
     expect(formatPlayedAgo(new Date(NOW + 30_000).toISOString(), NOW)).toBe("сейчас");
   });
 

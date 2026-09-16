@@ -4,12 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import io.quarkus.runtime.annotations.RegisterForReflection
 
 /**
- * Проекции фото-дропов (PRD §5.12; DESIGN §7.5). Публичные — на чтение борда/архива/модалки;
- * админские — под bearer для управления через /admin (B1). URL-ы вариантов кадров строит
- * [PhotoStorage] из ключа, поэтому проекции собираются в ресурсах (а не в `from`-фабрике).
+ * Photo-drop projections (PRD §5.12; DESIGN §7.5). The public ones feed the board, archive and
+ * modal; the admin ones sit behind the bearer for /admin (B1). [PhotoStorage] builds variant URLs
+ * from the key, so the projections are assembled in resources rather than a `from` factory.
  */
 
-/** Дроп для тизер-тайла/архива: подпись + обложка-thumb + число кадров. */
+/** A drop for the teaser tile and archive: caption, thumb cover and frame count. */
 // Response-wrapped views need explicit reflection registration for native-image (else {} in JSON).
 @RegisterForReflection
 data class FilmDropView(
@@ -18,39 +18,39 @@ data class FilmDropView(
     val droppedOn: String,
     val monthLabel: String?,
     val photoCount: Int,
-    /** Thumb-URL кадра-обложки (или `null`, если кадров нет). */
+    /** Thumb URL of the cover frame (`null` when the drop has no frames). */
     val coverPhotoUrl: String?,
 )
 
-/** Кадр дропа для модалки: [imageUrl] (web) + [thumbUrl] (превью) + размеры для композиции. */
+/** A drop frame for the modal: [imageUrl] (web), [thumbUrl] (preview) and composition sizes. */
 @RegisterForReflection
 data class FilmPhotoView(
     val imageUrl: String,
     val thumbUrl: String,
     val width: Int?,
     val height: Int?,
-    /** Найденные на кадре артефакты — подсветка в модалке (§5.12). Пусто, если ничего нет. */
+    /** Artifacts found on the frame — highlights in the modal (§5.12). Empty when there are none. */
     val artifacts: List<ArtifactBoxView> = emptyList(),
 )
 
 /**
- * Подсвеченный артефакт: подпись + рамка в **долях кадра** (0..1). Доли, а не пиксели — кадр
- * рендерится в разных размерах (мозаика, thumb, модалка), и фронт умножает их на свой размер.
+ * A highlighted artifact: caption plus a box in FRAME FRACTIONS (0..1). Fractions, not pixels —
+ * the frame renders at several sizes (mosaic, thumb, modal) and the board scales them itself.
  */
 @RegisterForReflection
 data class ArtifactBoxView(
     val artifactId: Long,
     val name: String,
     /**
-     * Картинка предмета из каталога — та же, что едет в ленте артефактов; `null` у предмета
-     * без картинки. Нужна подсказке у рамки: имя словами не объясняет, что за надпись на фото,
-     * а знакомый вырезанный предмет объясняет сразу (DESIGN §7.5).
+     * The item's catalogue picture, the same one the artifact marquee uses; `null` for an item
+     * without one. The box tooltip needs it: a name does not explain what the print on the photo
+     * is, while the familiar cut-out item explains it instantly (DESIGN §7.5).
      */
     val imageUrl: String?,
     /**
-     * Можно ли класть предмет набок. Карточка у рамки держит **лежачий** слот, а предмет бывает
-     * нарисован стоймя (ракетка) — без флага он вырождался бы в нитку. Тот же флаг, что у ленты
-     * (DESIGN §7.2): разрешает он, а решает пропорция картинки — считает её фронт.
+     * Whether the item may lie on its side. The tooltip card holds a LANDSCAPE slot while an item
+     * may be drawn upright (a racket), and without the flag it would collapse to a thread. Same
+     * flag as the marquee (DESIGN §7.2): it permits, the picture's ratio decides, on the frontend.
      */
     val rotatable: Boolean,
     val x0: Double,
@@ -59,9 +59,9 @@ data class ArtifactBoxView(
     val y1: Double,
 )
 
-// ── Админские проекции (за bearer, /api/ingest/drops) ──
+// -- Admin projections (behind the bearer, /api/ingest/drops) --
 
-/** Дроп в админке: всё для управления, включая текущую обложку. */
+/** A drop in the admin UI: everything needed to manage it, including the current cover. */
 @RegisterForReflection
 data class AdminDropView(
     val id: Long,
@@ -72,82 +72,80 @@ data class AdminDropView(
     val coverPhotoId: Long?,
 )
 
-/** Кадр в админ-сетке выбора обложки: id + thumb + признак текущей обложки. */
+/** A frame in the admin cover grid: id, thumb and whether it is the current cover. */
 @RegisterForReflection
 data class AdminPhotoView(
     val id: Long,
     val thumbUrl: String,
     /**
-     * web-вариант — для ручной разметки артефактов (§5.12): рамку тянут мышью прямо по кадру,
-     * а координаты считаются долями его нарисованного размера. На превью в 96px промах в один
-     * пиксель это процент кадра, поэтому разметчик открывает большой кадр, а не сетку.
+     * The web variant, for marking artifacts by hand (§5.12): the box is dragged across the frame
+     * and its coordinates are fractions of the drawn size. On a 96px preview a one-pixel miss is a
+     * whole percent of the frame, so the marker opens the big frame rather than the grid.
      */
     val imageUrl: String,
     // Runtime Jackson has no Kotlin module (test-only dep) and strips the "is" prefix from
     // boolean getters — pin the wire name to what the frontend type expects.
     @get:JsonProperty("isCover")
     val isCover: Boolean,
-    /** Итог проверки поворота (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`, `null` — не проверялся. */
+    /** Orientation result (B9): `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual`, `null` unchecked. */
     val orientation: String?,
-    /** Что нашлось на кадре (§5.12) — админка показывает список и даёт снять лишнее. */
+    /** What was found on the frame (§5.12) — admin lists it and lets the owner remove extras. */
     val artifacts: List<ArtifactBoxView> = emptyList(),
 )
 
-/** Статус проверки поворота дропа (B9): поллится админкой, пока `state == "running"`. */
+/** A drop's orientation-check status (B9), polled by admin while `state == "running"`. */
 @RegisterForReflection
 data class OrientationStatusView(
-    /** `idle` (не запускалась) / `running` / `done` / `failed`. */
+    /** `idle` (never started) / `running` / `done` / `failed`. */
     val state: String,
-    /** Сколько кадров было непроверенных на старте прогона (или всего кадров при `idle`). */
+    /** How many frames were unchecked when the pass started (or all frames when `idle`). */
     val total: Int,
     val checked: Int,
     val rotated: Int,
-    /** Пропущено (LLM молчала/битые байты) — останутся непроверенными до следующего прогона. */
+    /** Skipped (the LLM was silent, or bytes were broken) — unchecked until the next pass. */
     val skipped: Int,
 )
 
-/** Статус поиска артефактов по дропу (§5.12): поллится админкой, пока `state == "running"`. */
+/** A drop's artifact-search status (§5.12), polled by admin while `state == "running"`. */
 @RegisterForReflection
 data class ArtifactScanStatusView(
-    /** `idle` (не запускался) / `queued` / `running` / `done` / `failed` / `cancelled`. */
+    /** `idle` (never started) / `queued` / `running` / `done` / `failed` / `cancelled`. */
     val state: String,
-    /** Сколько кадров было к проверке на старте прогона (или всего кадров при `idle`). */
+    /** How many frames were due for checking when the pass started (or all frames when `idle`). */
     val total: Int,
     val checked: Int,
-    /** Сколько рамок нашла модель за прогон (при `idle` — сколько их лежит в БД). */
+    /** How many boxes the model found in the pass (when `idle`, how many sit in the DB). */
     val found: Int,
-    /** Пропущено (модель молчала/нет байтов) — останутся непроверенными до следующего прогона. */
+    /** Skipped (the model was silent, or no bytes) — unchecked until the next pass. */
     val skipped: Int,
 )
 
 /**
- * Сводка по прогону, запущенному разом по всем дропам (§5.12).
- *
- * Отдельная от [ArtifactScanStatusView] проекция, потому что вопрос другой: там «что с этим
- * дропом», здесь «сколько ещё ждать и не пора ли остановить». Без неё прогон по архиву был
- * непрозрачен — единственным следом оставалась строчка «запущен по N дропам».
+ * Summary of a run launched across every drop at once. It is separate from
+ * [ArtifactScanStatusView] because the question differs: that one answers "what about this drop",
+ * this one "how much longer, and is it time to stop". Without it an archive run was opaque. §5.12
  */
 @RegisterForReflection
 data class ArtifactScanRunView(
-    /** `idle` (прогонов не было) / `running` / `done` / `failed` / `cancelled`. */
+    /** `idle` (no pass yet) / `running` / `done` / `failed` / `cancelled`. */
     val state: String,
-    /** Кадров к проверке во всём прогоне. */
+    /** Frames due for checking across the whole pass. */
     val total: Int,
     val checked: Int,
     val found: Int,
     /**
-     * Кадров пропущено. Устойчиво большое число при нулевых находках — почти всегда не «пусто
-     * на кадрах», а молчащий провайдер: нет ключа, не тот провайдер, рейт-лимит.
+     * Frames skipped. A persistently large number with zero findings almost never means "nothing
+     * on the frames" — it means a silent provider: no key, wrong provider, or a rate limit.
      */
     val skipped: Int,
-    /** Дропов в прогоне и сколько уже закрыто — чтобы видеть движение на длинном прогоне. */
+    /** Drops in the pass and how many are done, so a long pass visibly moves. */
     val drops: Int,
     val dropsDone: Int,
-    /** Имя предмета, если прогон заведён ради одного артефакта; `null` — искали весь каталог. */
+    /** Item name when the pass was started for one artifact; `null` for the whole catalogue. */
     val artifactName: String?,
 )
 
-/** Итог загрузки zip: созданный дроп + сколько кадров обработано/пропущено (HEIC/битые). */
+/** Zip upload result: the created drop plus frames processed and skipped (HEIC, corrupt). */
 @RegisterForReflection
 data class UploadResultView(
     val drop: AdminDropView,

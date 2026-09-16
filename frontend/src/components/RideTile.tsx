@@ -12,22 +12,16 @@ import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
 /**
- * Редакции виджета (DESIGN §10.1) — выбирает ВОЛНА через раскладку (`tiles.ride.edition`),
- * компонент о волнах не знает. Незнакомое значение ⇒ `card`.
- * - `card` — досье поездки: мини-карта сверху, цифры под ней, «предыдущие» отдельной кнопкой;
- * - `map`  — карта во всю плитку, данные последней поездки лежат НА ней полосой блюра,
- *            и вся плитка целиком — вход в модалку.
- *
- * Редакция общая на плитку и на её модалку: это две стороны одного виджета, и разъехаться
- * им нечем — карту, вылетающую из плитки в окно другой вёрстки, пришлось бы согласовывать
- * дважды.
+ * Editions of the widget, chosen by the WAVE through its layout; an unknown value falls back to
+ * `card`. `card` is a dossier with a mini-map above the figures, `map` is a full-tile map with the
+ * data lying on it. The edition is SHARED with the modal — two sides of one widget. DESIGN §10.1
  */
 export type RideEdition = "card" | "map";
 
 interface RideTileProps {
-  /** Активная волна — пробрасывается в мини-карту для выбора пиксельных пинов (DESIGN §12). */
+  /** The active wave, passed into the mini-map to pick the pixel pins (DESIGN §12). */
   wave?: string | null;
-  /** Редакция из раскладки волны (строка как есть; проверяется здесь). */
+  /** Edition from the wave's layout (taken as a string and validated here). */
   edition?: string;
   style?: CSSProperties;
   className?: string;
@@ -40,12 +34,9 @@ function resolveEdition(value: string | undefined): RideEdition {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /**
- * Виджет последней поездки Велобайк (B4, PRD §9, DESIGN §7.6). Геоданных всего две точки —
- * старт и финиш, — и обе редакции ([RideEdition]) показывают их картой; расходятся они в том,
- * что вокруг карты. `card` — досье: мини-карта, под ней цифры и кнопка «предыдущие». `map` —
- * карта во всю плитку, цифры последней поездки лежат на ней полосой блюра, а входом в модалку
- * работает вся плитка. Обе ведут в одну модалку [RidesModal], и редакцию она получает ту же.
- * Пусто до первого ingest — тихий empty (§7). Ноль хардкод-цветов (токены волны).
+ * The latest Velobike ride. There are only two geo points, and both editions show them on a map;
+ * they differ in what surrounds it. Both lead to the same modal, which inherits the edition.
+ * Empty until the first ingest is a quiet empty, and there are no hardcoded colours. DESIGN §7.6
  */
 export function RideTile({ wave, edition: editionRaw, style, className }: RideTileProps) {
   const edition = resolveEdition(editionRaw);
@@ -66,35 +57,24 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
     latest?.finishLon != null;
 
   /**
-   * Карта на плитке — источник проявки (DESIGN §7.5): из неё вырастает карта в модалке.
-   * Ссылка, а не прямоугольник: снимать его надо и на открытии, и на закрытии.
+   * The map on the tile is the source of the develop transition (DESIGN §7.5): the modal's map grows
+   * out of it. A ref rather than a rectangle, since it has to be measured on opening and on closing.
    */
   const mapCardRef = useRef<HTMLButtonElement>(null);
 
   /**
-   * Приехали ли первые тайлы карты. Редакция `map` — это карта во всю плитку, и до них на
-   * экране стоял её каркас: подложка, пины и полоса данных на пустом месте, а через секунду
-   * под ними проявлялся город. Плитка
-   * ждёт карту и появляется ВМЕСТЕ с ней — тот же размен, что у плитки последнего дропа,
-   * ждущей свой снимок, и у модалки поездок, ждущей карту перед проявкой (§7.6).
-   *
-   * Гасим ПРОЗРАЧНОСТЬЮ, а не размонтированием: карте надо быть в разметке, чтобы начать
-   * грузиться и было чему доехать (тот же приём, что у ленты дропов с её `.is-ready`).
-   *
-   * ⚠️ Готовность помнит ВОЛНУ, чью карту показали, а не голое «карта была»: [RideMap]
-   * пересобирается на смену волны (пины и стиль приезжают с ней), и метка от прежней волны
-   * открывала бы полосу данных над пустым местом — то самое мигание, которого нет на
-   * перезагрузке страницы.
+   * Whether the map's first tiles arrived. The tile waits for the map and appears WITH it, hidden
+   * by OPACITY rather than unmounting — the map must be in the markup to start loading at all.
+   * Readiness remembers WHICH WAVE's map was shown, since [RideMap] rebuilds on a wave change.
    */
   const [readyWave, setReadyWave] = useState<string | null>(null);
   const waveKey = wave ?? "";
   const mapReady = readyWave === waveKey;
 
   /**
-   * Высота полосы данных — замером, а не числом в коде: её задаёт CSS (`--ride-band-*` плюс сам
-   * текст), и карта обязана увести маршрут из-под неё ровно на столько, сколько полоса заняла.
-   * Узел в state (callback-ref), а не в ref: полоса появляется ПОСЛЕ ответа сети, и замер,
-   * привязанный к фазе, не перезапустился бы (та же ловушка, что у мозаики дропа).
+   * The data band's height, MEASURED rather than written as a number: CSS owns it, and the map
+   * must lift the route out from under exactly what the band took. The node lives in state via a
+   * callback ref — the band appears AFTER the network answer, so a phase-keyed measure misses it.
    */
   const [bandEl, setBandEl] = useState<HTMLElement | null>(null);
   const [bandH, setBandH] = useState(0);
@@ -102,7 +82,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
     if (!bandEl) return;
     const measure = () => setBandH(bandEl.getBoundingClientRect().height);
     measure();
-    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
     const ro = new ResizeObserver(measure);
     ro.observe(bandEl);
     return () => ro.disconnect();
@@ -122,10 +102,9 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
         } ${className ?? ""}`}
       >
       {phase === "loaded" && !isEmpty && latest && edition === "map" && (
-        // Карта во всю плитку, данные — полосой блюра НА ней (та же мысль, что у полосы подписи
-        // в плитке дропа, §7.5): у виджета нет ни полей, ни второй колонки, весь его предмет —
-        // карта. Плитка целиком одна кнопка: «предыдущие» отдельной строкой тут негде и незачем
-        // рисовать — нажатие в любую точку открывает модалку.
+        // A full-tile map with the data as a blurred band ON it, the same thought as the drop
+        // tile's caption band: this widget has no margins and no second column — the map is its
+        // whole subject. The entire tile is one button, so "previous" needs no row of its own.
         <button
           ref={mapCardRef}
           type="button"
@@ -147,23 +126,14 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
           ) : (
             <span className="ride-frame__map" style={{ background: "var(--bg-surface-muted)" }} aria-hidden />
           )}
-          {/* Блюр полосы — ДВА прохода `backdrop-filter` во всю плитку, маской открытые только
-              сверху. Во всю плитку намеренно: выборка backdrop-filter зажимается краями своего
-              бокса, и полоса ростом с саму себя дала бы смаз вдоль нижней кромки (та же серая
-              линия, что ловили на плитке дропа, docs/pitfalls.md). У слоя ростом с карту кромки
-              совпадают с кромками карты — смазу неоткуда взяться внутри кадра. Копией картинки,
-              как у дропа, тут не обойтись: под полосой не снимок, а живая карта Leaflet. */}
+          {/* The strip's blur is TWO `backdrop-filter` passes across the whole tile, masked open
+              only at the top. Full height is deliberate: the sampling clamps at its own box's
+              edges, and a strip its own height would smear along the bottom (docs/pitfalls.md). */}
           <span className="ride-frame__blur ride-frame__blur--soft" aria-hidden />
           <span className="ride-frame__blur ride-frame__blur--deep" aria-hidden />
-          {/* Подпись — ОДНОЙ строкой и тем же приёмом, что подпись кадра в плитке дропа
-              (`.drop-frame__caption`): крупное главное слева, всё остальное моно-мелочью при
-              нём. Родство не косметическое — обе полосы лежат на прогрессивном блюре поверх
-              чужой картинки и стоят рядом на одном борде; разъехавшись строем, читались бы
-              двумя разными приёмами вместо одного.
-              Слов в подписи ровно столько, сколько влезает в самую узкую плитку: «когда» и
-              длительность при километрах. Пометки «последняя» тут нет — плитка показывает
-              ровно одну поездку и подписана «велобайк», а лишнее слово первым выталкивало
-              минуты за край (полоса усекает хвост, а не переносит его). */}
+          {/* The caption is ONE line, by the same device as a drop frame's (`.drop-frame__caption`):
+              the big thing left, the rest in small mono beside it. The kinship is not cosmetic —
+              both strips lie on progressive blur over someone else's picture, side by side. */}
           <span ref={setBandEl} className="ride-frame__band">
             <span className="ride-frame__caption">
               <span className="ride-frame__km">{formatKm(latest.distanceMeters)}</span>
@@ -178,15 +148,15 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
       {phase === "loaded" && !isEmpty && latest && edition === "card" && (
         <div className="tile-frame flex h-full flex-col gap-2">
           {hasCoords && (
-            // Клик по карте открывает модалку поездок (карта статична и pointer-events:none —
-            // клики доходят до кнопки). Тот же вход, что и «предыдущие».
+            // A click on the map opens the rides modal (the map is static with pointer-events: none,
+            // so clicks reach the button). The same entry point as "previous rides".
             <button
               ref={mapCardRef}
               type="button"
               onClick={() => setModalOpen(true)}
               aria-label="Открыть карту поездок"
-              // Геометрия бокса — в классе .ride-map-box: в бенто это доля высоты тайла, в стеке
-              // (§8) её нет вовсе, и карта инициализировалась в нулевую высоту (пустое место).
+              // The box's geometry lives in `.ride-map-box`: in bento it is a share of tile height,
+              // while in the stack (DESIGN §8) there is none, and the map initialised into zero height.
               className="ride-map-box tap-target"
               style={{
                 overflow: "hidden",
@@ -210,7 +180,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
           )}
 
           <div className="flex flex-col gap-1">
-            {/* «Когда» слева, «предыдущие» — по правому краю той же строки. */}
+            {/* "When" on the left, "previous" flush right on the same line. */}
             <div className="flex items-baseline justify-between gap-2">
               <span className="t-ride-when" style={{ color: "var(--text-secondary)" }}>{relativeDayRu(latest.rideDate, today)}</span>
               {rides.length > 1 && (
@@ -226,9 +196,8 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
               )}
             </div>
 
-            {/* Цифры на тайле: дистанция (крупно) слева, длительность (чуть меньше) прижата к
-                правому краю — чтобы правая сторона не пустовала. Калории на тайле не показываем —
-                они остаются только в модалке (строки списка). */}
+            {/* Figures on the tile: distance (large) left, duration (slightly smaller) flush right
+                so the right side is not empty. Calories stay in the modal's list rows only. */}
             <div className="flex items-baseline justify-between gap-x-2" style={{ ...mono, color: "var(--text-primary)" }}>
               <span className="t-ride-km" style={{ lineHeight: 1 }}>{formatKm(latest.distanceMeters)}</span>
               <span className="t-ride-dur" style={{ color: "var(--text-secondary)" }}>{formatDuration(latest.durationSeconds)}</span>
@@ -239,17 +208,17 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
       )}
       </TileShell>
 
-      {/* Модалка — сиблинг TileShell (не внутри): у .pixel-tile clip-path/тень создают
-          containing block, и fixed-оверлей внутри тайла обрезался бы им вместо вьюпорта.
-          Тот же приём, что у фото-дропов (§7.5) — окно сверху на весь экран. */}
+      {/* The modal is a sibling of TileShell, not inside it: `.pixel-tile`'s clip-path and shadow
+          create a containing block, and a fixed overlay inside the tile would be clipped by it
+          instead of the viewport. The same device as the photo drops' (§7.5). */}
       {modalOpen && (
         <RidesModal
           rides={rides}
           today={today}
           wave={wave}
           edition={editionRaw}
-          // Карта на плитке — то, из чего растёт карта модалки (проявка, §7.5). Ссылку даём
-          // всегда: играть проявку или нет, решает скин волны (`--drop-morph`), а не редакция.
+          // The tile's map is what the modal's map grows from (DESIGN §7.5). The ref is always given:
+          // whether the transition plays is decided by the wave's skin, not by the edition.
           origin={mapCardRef}
           onClose={() => setModalOpen(false)}
         />

@@ -7,20 +7,17 @@ import { SleepNoData } from "./SleepNoData";
 import { useTileData } from "./useTileData";
 
 /**
- * Ночь по дорожкам (§7.7, идея I-23): ночь выбранного дня во времени — во сколько лёг, где
- * провалился, в какие минуты не спал. Вертикаль несёт глубину сна, поэтому у ночи появляется
- * рельеф: глубокий сон в начале, REM к утру, пробуждения всплесками вверх.
- *
- * Данные тянутся отдельным запросом и только когда график открыли: борду он не нужен. Компонент
- * монтируется по дню (`key`), поэтому смена дня начинает загрузку заново.
+ * The night on tracks: the selected day's night laid out in time — when sleep began, where it
+ * broke, which minutes were awake. Depth drives the vertical, so the night gains relief. It is
+ * fetched only when the chart is opened, and remounts per day by `key`. DESIGN §7.7
  */
 export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: string | null) => void }) {
   const fetcher = useCallback((signal: AbortSignal) => getSleepNight(date, { signal }), [date]);
   const { phase, data, retry } = useTileData(fetcher, `sleep-night:${date}`);
 
-  // «Лёг–встал» показывает шапка плитки, но знает эти числа только загруженная ночь, а грузится
-  // она здесь: компонент пересоздаётся по дню (`key`), и только так смена дня начинает загрузку
-  // заново. Поэтому времена уезжают наверх колбэком, а не тянут за собой запрос в родителя.
+  // The header shows "asleep–awake", but only the loaded night knows those numbers and it loads
+  // here: the component is recreated per day (`key`), which is the only way a day change starts a
+  // fresh load. So the times go up by callback rather than dragging the request into the parent.
   const times =
     data?.band != null
       ? `${clockLabel(data.band.onsetMinute, data.axisStartHour)}–${clockLabel(data.band.wakeMinute, data.axisStartHour)}`
@@ -51,11 +48,9 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
 
   return (
     <div data-testid="night-band" className="flex h-full min-w-0 flex-col gap-1">
-      {/*
-        Подписи дорожек и сами дорожки — одна строка: только так подпись стоит строго напротив
-        своей дорожки. Подписи заодно работают вечной легендой — они видны всегда, а не
-        вспоминаются, поэтому отдельной строки-легенды нет вовсе и её высота досталась графику.
-      */}
+      {/* Lane labels and the lanes share one row: only then does a label stand exactly opposite its
+          lane. The labels double as a permanent legend, so there is no legend row at all and its
+          height went to the chart. */}
       <div className="flex min-h-0 w-full flex-1 gap-2">
         <div className="relative w-[52px] shrink-0 text-[9px] leading-none">
           {LANES.map((lane, i) => (
@@ -69,7 +64,7 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
           ))}
         </div>
 
-        {/* Дорожки фаз. Вертикаль здесь несёт глубину сна — см. LANES. */}
+        {/* The phase lanes. The vertical axis here carries sleep depth — see LANES. */}
         <div className="relative min-h-[44px] min-w-0 flex-1">
           {LANES.map((lane, i) => (
             <span
@@ -78,7 +73,7 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
               style={{
                 top: laneTop(i),
                 height: laneHeight,
-                // Тонкая направляющая: без неё пустая дорожка теряется и рельеф не читается.
+                // A thin guide: without it an empty lane is lost and the relief stops reading.
                 borderBottom: i < LANES.length - 1 ? "1px solid var(--border-tile)" : undefined,
                 opacity: 0.35,
               }}
@@ -93,7 +88,7 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
               style={{
                 left: `${part.left}%`,
                 width: `${part.width}%`,
-                // Кусок не во всю дорожку: зазор сверху и снизу держит дорожки различимыми.
+                // A chunk does not fill the lane: gaps above and below keep the lanes distinct.
                 top: `calc(${laneTop(part.lane)} + 2px)`,
                 height: `calc(${laneHeight} - 4px)`,
                 background: STAGE_COLOR[part.stage],
@@ -103,7 +98,7 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
         </div>
       </div>
 
-      {/* Шкала часов — под дорожками, с тем же отступом слева, что и они. */}
+      {/* The hour scale, under the lanes and with the same left inset as they have. */}
       <div className="relative ml-[60px] h-3" aria-hidden>
         {geometry.ticks.map((tick) => (
           <span

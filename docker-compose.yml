@@ -1,19 +1,16 @@
-# danchuo.world — локальный стек для тестирования (PRD §8, расцепленный монолит).
-# Полный прогон одной командой:  docker compose up --build
-#   • сайт   → http://localhost:3000
-#   • API    → http://localhost:8080/api/days/<дата>
-#   • postgres → localhost:5432 (danchuo/danchuo)
-#
-# `restart: unless-stopped` у всех сервисов — это не украшение: стек заявлен витриной проекта
-# («localhost:3000 всегда живой», CLAUDE.md), а без политики он не переживал ни перезагрузку
-# машины, ни рестарт Docker Desktop, и витрина молча гасла до следующего ручного `up`.
-#
-# Порт 8080 принадлежит ЭТОМУ стеку и больше никому. Не поднимать рядом `quarkusDev`: он
-# слушает 127.0.0.1:8080, контейнер — 0.0.0.0:8080, и на петлевых соединениях выигрывает
-# более узкая привязка. Итог — `localhost:8080` и `http://backend:8080` отвечают разными
-# процессами, а выглядит это как необъяснимое поведение бэкенда (см. docs/pitfalls.md).
-# Это ТЕСТОВЫЙ конфиг: дефолтные креды и токен открыты намеренно. Не для прода
-# (там — env-секреты + Caddy/TLS, отдельный deploy-compose появится в эру деплоя).
+# danchuo.world — the local stack (PRD §8). One command: docker compose up --build
+#   site → http://localhost:3000 · API → http://localhost:8080 · postgres → localhost:5432
+
+# `restart: unless-stopped` everywhere is not decoration: the stack is the project's shop window
+# ("localhost:3000 is always live", CLAUDE.md), and without it the stack survived neither a machine
+# reboot nor a Docker Desktop restart, going dark until the next manual `up`.
+
+# ⚠️ Port 8080 belongs to THIS stack alone. Do not run `quarkusDev` beside it: it listens on
+# 127.0.0.1:8080 while the container binds 0.0.0.0:8080, and on loopback the narrower binding wins,
+# so `localhost:8080` and `http://backend:8080` answer from different processes (docs/pitfalls.md).
+
+# This is a TEST config: default credentials and token are open deliberately. Production takes
+# its secrets from env and sits behind Caddy with TLS.
 
 services:
   postgres:
@@ -36,28 +33,28 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
-    # Spotify-креды (PRD §M3) подтягиваются из backend/.env (он в .gitignore, секреты
-    # не в репозитории). Файла нет ⇒ слайс грузится «не сконфигурирован», не падает.
+    # Spotify credentials (PRD §5.5) come from backend/.env, which is gitignored so no secrets
+    # live in the repository. No file ⇒ the slice loads as "not configured" rather than failing.
     env_file:
       - path: ./backend/.env
         required: false
     environment:
-      # Профиль prod (дефолт упакованного Quarkus) читает датасорс/токен строго из env.
+      # The prod profile (the packaged Quarkus default) reads datasource and token strictly from env.
       DANCHUO_DB_URL: jdbc:postgresql://postgres:5432/danchuo
       DANCHUO_DB_USER: danchuo
       DANCHUO_DB_PASSWORD: danchuo
       DANCHUO_INGEST_TOKEN: dev-ingest-token-change-me
-      # Соль суточного хэша аналитики (PRD §5.11): в prod-профиле обязательна из env.
-      # Это тестовый конфиг — дефолтное значение открыто намеренно (как ingest-токен выше).
+      # Salt for the analytics daily hash (PRD §5.11): mandatory from env in the prod profile.
+      # This being a test config, the default is open deliberately, like the ingest token above.
       DANCHUO_ANALYTICS_SALT: dev-analytics-salt-change-me
-      # Генезис-дата (раньше неё данных нет, PRD §4) — для теста ставим начало года.
+      # Genesis date (no data exists before it, PRD §4) — the start of the year, for testing.
       DANCHUO_TIME_GENESIS: "2026-01-01"
-      # Каталог кадров фото-дропов (B1, PRD §5.12). В prod-профиле обязателен из env;
-      # монтируем именованный том ниже, чтобы загруженные дропы переживали пересборку контейнера.
+      # Photo-drop frame directory (PRD §5.12), mandatory from env in the prod profile. A named
+      # volume is mounted below so uploaded drops survive a container rebuild.
       DANCHUO_FILM_DIR: /data/film
-      # Корень полки Anx Reader (PRD §5.16): сюда телефон льёт свою базу по WebDAV, отсюда
-      # поллер чтения её читает. Том общий с сервисом webdav, но смонтирован :ro — бэкенд
-      # читатель, а не писатель; единственный канал записи — сам WebDAV.
+      # Anx Reader shelf root (PRD §5.16): the phone pushes its database here over WebDAV and the
+      # reading poller reads it back. The volume is shared with the webdav service but mounted :ro —
+      # the backend is a reader, and the only write channel is WebDAV itself.
       DANCHUO_READING_DIR: /data/anx
     ports:
       - "8080:8080"
@@ -68,14 +65,14 @@ services:
       postgres:
         condition: service_healthy
 
-  # WebDAV-приёмник синка Anx Reader. Наружу локально торчит портом (телефон в той же сети
-  # ходит на http://<ip-машины>:6065/dav); в проде тот же контейнер стоит за Caddy на /dav/*.
+  # WebDAV endpoint for the Anx Reader sync. Locally it is exposed by port (a phone on the same
+  # network reaches http://<machine-ip>:6065/dav); in prod the same container sits behind Caddy.
   webdav:
     image: ghcr.io/hacdias/webdav:v5
     restart: unless-stopped
     command: ["-c", "/config.yml"]
     environment:
-      # Тестовый стек: креды открыты намеренно, как ingest-токен выше. Прод берёт их из .env.
+      # Test stack: credentials are open deliberately, like the ingest token above. Prod uses .env.
       WEBDAV_USERNAME: danchuo
       WEBDAV_PASSWORD: dev-webdav-change-me
     ports:
@@ -89,19 +86,19 @@ services:
     build:
       context: ./frontend
       args:
-        # Браузер ходит на тот же origin (/api/*), Next-сервер проксирует на бэкенд
-        # по docker-имени сервиса — CORS не нужен (зеркалит прод за Caddy).
-        # Цель запекается в rewrites на build-time, поэтому это build-arg.
+        # The browser stays on the same origin (/api/*) and the Next server proxies to the backend
+        # by its docker service name, so no CORS is needed — this mirrors prod behind Caddy. The
+        # target is baked into rewrites at build time, hence a build-arg.
         API_PROXY_TARGET: http://backend:8080
-        # robots.txt/sitemap.xml/opengraph-image пререндерятся статикой на build-time —
-        # SITE_URL нужен как build-arg, иначе в них запечётся прод-дефолт danchuo.world.
+        # robots.txt, sitemap.xml and opengraph-image are prerendered statically at build time, so
+        # SITE_URL has to be a build-arg or the prod default would be baked into them.
         SITE_URL: http://localhost:3000
     environment:
-      # SSR-инжект токенов активной волны (M4): Next-сервер тянет /api/theme/active по
-      # внутреннему docker-имени бэкенда (браузерные /api/* идут через rewrites выше).
+      # SSR inject of the active wave's tokens: the Next server fetches /api/theme/active by the
+      # backend's internal docker name, while browser /api/* calls go through the rewrites above.
       API_INTERNAL_URL: http://backend:8080
-      # Базовый URL сайта (OG-картинка, canonical, robots.txt, sitemap.xml). Без него
-      # фронт берёт прод-дефолт https://danchuo.world — для локального стека ставим localhost.
+      # The site's base URL (OG image, canonical, robots.txt, sitemap.xml). Without it the frontend
+      # falls back to the prod default https://danchuo.world, so the local stack sets localhost.
       SITE_URL: http://localhost:3000
     ports:
       - "3000:3000"

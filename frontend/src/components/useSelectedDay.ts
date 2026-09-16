@@ -8,22 +8,9 @@ import type { DayView } from "@/lib/api/types";
 type Status = "loading" | "error" | "loaded";
 
 /**
- * Дневной слой борда: выбранный день + его состояние (DESIGN §7 — per-tile состояния,
- * общего спиннера нет). Тот же stale-while-revalidate, что и в [useTileData], но с двумя
- * особенностями, которых у обычного тайла нет.
- *
- * **Пока едет новый день, на экране остаётся предыдущий.** Состояние `loading` рисует шиммер
- * ВМЕСТО содержимого, а в мобильном стеке у плитки «Сегодня» нет высоты от родителя (высота
- * там по контенту, см. `stackHeights.css`) — поэтому каждое переключение дня схлопывало
- * доминанту борда в ноль и экран дёргался. Подмены высотой тут мало: пропадала ещё и
- * мета-подпись плитки. Показанный день той же формы, что и следующий (заголовок в одну строку,
- * карта-тропа и сцена выходного делят одну `aspect-ratio`), поэтому смена содержимого проходит
- * без сдвига вовсе. Цена — короткая задержка: пока день не приехал, в шапке стоит прежняя дата.
- * Отказ сети её не продлевает: без данных выбранного дня статус честно уходит в `error`,
- * иначе чужой день молча выдавал бы себя за выбранный.
- *
- * **Ответ на брошенный день игнорируется.** Дни листают быстрее, чем отвечает сеть, и без
- * этого поздний ответ по отменённой дате перебивал бы уже выбранную.
+ * The board's day layer: the selected day and its state, stale-while-revalidate with two twists.
+ * WHILE A NEW DAY TRAVELS THE PREVIOUS ONE STAYS — `loading` draws a shimmer INSTEAD of content,
+ * which collapsed the board's dominant tile. An answer for an abandoned day is ignored. DESIGN §7
  */
 export function useSelectedDay(date: string): {
   day: DayView | null;
@@ -32,13 +19,13 @@ export function useSelectedDay(date: string): {
 } {
   const [day, setDay] = useState<DayView | null>(null);
   const [status, setStatus] = useState<Status>("loading");
-  // Загруженные дни — накопитель ответов сети, а не отображаемое состояние: держим в ref,
-  // чтобы запись в кэш не вызывала лишний рендер.
+  // Loaded days are an accumulator of network answers, not displayed state: kept in a ref so
+  // writing to the cache causes no extra render.
   const memo = useRef<Record<string, DayView>>({});
-  // Показанный день — тоже ref: решение «гасить или оставить» принимается внутри загрузки,
-  // и брать его из состояния значило бы пересобирать её на каждый приезд дня.
+  // The shown day is a ref too: the "blank it or keep it" decision is taken inside the load, and
+  // reading it from state would mean rebuilding the load on every arriving day.
   const shown = useRef<DayView | null>(null);
-  // Дата, ответ на которую ещё ждём; поздний ответ по любой другой отбрасывается.
+  // The date still awaited; a late answer for any other one is discarded.
   const awaiting = useRef<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -50,19 +37,19 @@ export function useSelectedDay(date: string): {
 
   useEffect(() => {
     awaiting.current = date;
-    // Уже загруженный в этой сессии день — из памяти и без сети: листание назад-вперёд по
-    // календарю не должно стучаться за одним и тем же днём (данные дня за сессию не меняются).
+    // A day already loaded this session comes from memory with no network: paging back and forth
+    // through the calendar must not ask for the same day twice.
     const seen = memo.current[date];
     if (seen) {
       show(seen, "loaded");
       return;
     }
 
-    // Копия с прошлой сессии — показываем сразу, но проверяем по сети: она межсессионная
-    // и вполне могла устареть (переживает F5 и мягкий рейтлимит публичных GET).
+    // A copy from a previous session is shown at once but revalidated: it is cross-session and may
+    // well be stale (it survives an F5 and the soft rate limit on public GETs).
     const copy = readCache<DayView>(`day:${date}`);
     if (copy) show(copy, "loaded");
-    else if (!shown.current) show(null, "loading"); // показывать нечего — честный лоадер
+    else if (!shown.current) show(null, "loading"); // nothing to show — an honest loader
 
     getDay(date)
       .then((d) => {

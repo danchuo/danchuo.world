@@ -17,13 +17,9 @@ import world.danchuo.spotify.PodcastRun
 import java.time.LocalDate
 
 /**
- * Агрегатор дня (PRD §3.1, §12 M2) — собирает read-проекции [DayView]/[DaySummary] из
- * слайсов `days`/`health`/`checklist`. Живёт в `days`: слайс владеет осью дня
- * и эндпоинтом `/api/days`, а соседей читает через их **публичные швы** (репозитории),
- * не лазая в их БД — тот же приём, что у `checklist` в `DailyIngestService`.
- *
- * Только чтение, без транзакций-мутаций. Соглашения (§4/§5.4): дни считаются по дате-ключу
- * MSK; отсутствие записи — это пустой день, а не ошибка (форма ответа не меняется).
+ * Builds the read projections [DayView]/[DaySummary] from the `days`, `health` and `checklist`
+ * slices, reading neighbours through their public repositories rather than their tables. Read
+ * only; a missing record is an empty day, not an error, and the response shape is the same. §5.4
  */
 @ApplicationScoped
 class DayAggregator(
@@ -38,43 +34,39 @@ class DayAggregator(
 ) {
 
     /**
-     * Полная проекция дня для плитки «Сегодня» / перефокуса; пустой день — валидная проекция.
-     *
-     * [today] (сегодня MSK) — отдельный параметр, а не `mskTime.today()` внутри: он входит в
-     * КЛЮЧ кэша, поэтому в полночь MSK проекция «сегодня» естественно протухает, а один и тот же
-     * день, просмотренный как «сегодня» и назавтра как «прошлый», не путается (правило стрика
-     * «по вчера» разное). Кэшируем, чтобы скан истории под стрики (см. [DayHistory]) считался
-     * раз на изменение данных; инвалидация — из единой точки записи [DayRecordService].
+     * Full day projection; an empty day is a valid one. [today] is a parameter rather than
+     * `mskTime.today()` inside because it belongs to the CACHE KEY: "today" has to expire at MSK
+     * midnight, and the streak rule differs once that same day is viewed as past. PRD §5.6
      */
     @CacheResult(cacheName = "day-view")
     fun viewOf(date: LocalDate, today: LocalDate): DayView {
         val items = checklistItems.listActive()
-        // Ленивое окно истории для стриков (читается назад батчами до первого разрыва) —
-        // одно на все пункты и монстра дня. Первая страница уже держит записи/отметки самого дня.
+        // Lazy history window for streaks (read backwards in batches until the first break), one
+        // for every item and for the monster. Its first page already holds the day's own rows.
         val history = DayHistory(date, mskTime.genesis, days, checklistEntries)
         val record = history.record(date)
 
-        // Прослушанное за день читаем ОДИН раз на проекцию: минуты и карточки — свёртки одного
-        // и того же набора заходов, а пункт подкастов в списке ровно один.
+        // The day's listening is read ONCE per projection: minutes and cards are both folds of
+        // the same set of sessions, and the podcast item appears exactly once in the list.
         val podcastRuns = podcasts.runsOn(date)
         val podcastMinutes = PodcastDayRollup.listenedMinutes(podcastRuns.sumOf { it.listenedMs })
-        // Минуты эпизода за весь день — знаменатель строки «80 из 85 мин за день» на карточке.
-        // Про какие заходы есть что рассказать (§5.16.1) — одним запросом на день, как у чтения.
+        // Episode minutes across the whole day — the denominator of the card's per-day line.
+        // Which sessions have a summary (§5.16.1) comes in one query per day, as with reading.
         val retoldRuns = summaries.readySessions(SummaryKind.PODCAST, podcastRuns.map { it.sessionId })
 
-        // Прочитанное за день — так же одним чтением: минуты и карточки суть свёртки одного и
-        // того же набора сессий, а пункт чтения в списке ровно один.
+        // The day's reading, read once for the same reason: minutes and cards are folds of one
+        // set of sessions, and the reading item appears exactly once in the list.
         val readingSessions = reading.sessionsOn(date)
         val readingMinutes = ReadingDayRollup.minutes(readingSessions.sumOf { it.readSeconds })
-        // Про какие заходы есть что рассказать (§5.16). Спрашиваем ОДНИМ запросом на день: сам
-        // текст пересказа сюда не едет — карточке нужен только факт, что кнопке есть что открыть.
+        // Which sessions have something to tell (§5.16), in ONE query per day: the summary text
+        // stays out — the card only needs to know the button has something to open.
         val retoldSessions = summaries.readySessions(SummaryKind.READING, readingSessions.mapNotNull { it.id })
 
         val discipline = items.map { item ->
             val itemId = item.id!!
-            // Стрик по КАЖДОЙ остановке пункта: occurrence k (1..target) закрыт днями с count ≥ k.
-            // Выходные для дисциплины НЕЙТРАЛЬНЫ (все дела будничные): выходной не считается в серию
-            // и не рвёт её — стрик «перешагивает» уик-энд (§5.6).
+            // Streak per EVERY stop: occurrence k (1..target) is closed by days with count >= k.
+            // Weekends are NEUTRAL for discipline — a weekend neither counts into a run nor
+            // breaks it, so the streak steps over it (§5.6).
             val occurrenceStreaks = (1..item.target).map { k ->
                 StreakCalculator.streak(date, today, mskTime.genesis, isNeutral = ::isWeekend) { d ->
                     history.count(d, itemId) >= k
@@ -87,14 +79,14 @@ class DayAggregator(
                 count = history.count(date, itemId),
                 target = item.target,
                 occurrenceStreaks = occurrenceStreaks,
-                // Измеряются два пункта: дневник — минутами «Журнала», подкасты — поллером
-                // плеера (§5.6). Ключи известны здесь так же, как `monster` известен приёму:
-                // производные пункты знают себя по ключу, остальной список остаётся data-driven.
+                // Two items are measured: journal by "Journal" app minutes, podcasts by the
+                // player poller (§5.6). Derived items know themselves by key, exactly as ingest
+                // knows `monster`; the rest of the list stays data-driven.
                 measuredMinutes = when (item.key) {
                     JOURNAL_ITEM_KEY -> record?.journalMinutes
-                    // Ноль минут — это «не слушал», а не измерение: пусть молчит, как остальные.
+                    // Zero minutes means "did not listen", not a measurement: stay silent.
                     PODCAST_ITEM_KEY -> podcastMinutes.takeIf { it > 0 }
-                    // Чтение измеряется так же — минутами с полки читалки (§5.16).
+                    // Reading is measured the same way, in minutes off the reader shelf (§5.16).
                     READING_ITEM_KEY -> readingMinutes.takeIf { it > 0 }
                     else -> null
                 },
@@ -113,19 +105,17 @@ class DayAggregator(
             )
         }
 
-        // Монстр целиком живёт отметкой своего пункта: `ingest/daily` пишет её ВСЕГДА — 1 «пил»,
-        // 0 «не пил», — поэтому наличие СТРОКИ и есть признак «шорткат за день отработал», а её
-        // отсутствие — «не отмечали». Ровно это различие и даёт третий ответ (см. DayView).
+        // The monster lives entirely in its item's mark: `ingest/daily` ALWAYS writes it (1 drunk,
+        // 0 clean), so the presence of the ROW means the shortcut ran that day and its absence
+        // means it did not. That difference is what gives the third answer (see DayView).
         val monsterItemId = items.firstOrNull { it.key == MONSTER_ITEM_KEY }?.id
         fun drunkOn(d: LocalDate): Boolean? =
             if (monsterItemId == null || !history.hasEntry(d, monsterItemId)) null
             else history.count(d, monsterItemId) >= 1
 
-        // Инверсный стрик «чистоты»: день «чист», только если монстра за него ОТМЕЧАЛИ и не пил.
-        // Разделитель — отметка, а НЕ наличие записи дня: запись создаёт авто-health-ingest
-        // (12/18/24 MSK), и по ней стрик прибавлял бы сегодняшний день ещё до того, как шорткат
-        // отработал. Неотмеченный день = «неизвестно» ⇒ разрыв, как и выпитый. В ОТЛИЧИЕ от
-        // дисциплины монстр считается КАЖДЫЙ день, включая выходные (isNeutral по умолчанию пуст).
+        // Inverse "clean" streak: a day counts only if monster WAS marked and not drunk. The
+        // divider is the mark, not the day record — auto health ingest creates the record at
+        // 12/18/24 MSK, so today would count before the shortcut ran. Unmarked = break. §5.6
         val monsterCleanStreak = StreakCalculator.streak(date, today, mskTime.genesis) { d ->
             drunkOn(d) == false
         }
@@ -149,9 +139,9 @@ class DayAggregator(
     }
 
     /**
-     * Сводки за непрерывный диапазон `[from, to]` для календаря и мини-графика. Дни без
-     * записи возвращаются пустыми сводками — сетка календаря рисуется без дыр (§4).
-     * Грузим соседей пакетно (записи и отметки — по одному запросу), без N+1 по дням.
+     * Summaries over the continuous range `[from, to]` for the calendar and the mini chart. Days
+     * without a record come back as empty summaries, so the grid draws with no holes (§4).
+     * Neighbours load in batches (records and marks one query each), never N+1 per day.
      */
     fun summaries(from: LocalDate, to: LocalDate): List<DaySummary> {
         val items = checklistItems.listActive()
@@ -162,8 +152,8 @@ class DayAggregator(
         return generateSequence(from) { if (it < to) it.plusDays(1) else null }
             .map { date ->
                 val record = records[date]
-                // `counts` — карта только по РЕАЛЬНЫМ строкам, поэтому отсутствие ключа отличает
-                // «не отмечали» от «отмечено нулём», то есть от честного «не пил».
+                // `counts` maps only REAL rows, so a missing key separates "never marked" from
+                // "marked zero", which is the honest "did not drink".
                 val counts = entriesByDate[date].orEmpty().associate { it.itemId to it.count }
                 val monsterDrunk = monsterItemId?.let { id -> counts[id]?.let { it >= 1 } }
 
@@ -174,8 +164,8 @@ class DayAggregator(
                     steps = record?.steps,
                     sleepMinutes = record?.sleepMinutes,
                     contributions = record?.contributions,
-                    // Ключи — активных пунктов, не только отмеченных: линза должна отличать
-                    // «пункт есть, не сделан» от «пункта нет».
+                    // Keys come from active items, not just marked ones: the lens must tell
+                    // "item exists, not done" from "no such item".
                     disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
                     monsterDrunk = monsterDrunk,
                 )
@@ -183,10 +173,10 @@ class DayAggregator(
             .toList()
     }
 
-    /** Карточка захода: миллисекунды свёртки переводим в минуты уже на выходе. */
+    /** Session card: the fold's milliseconds become minutes only on the way out. */
     private fun episodeViewOf(run: PodcastRun, retold: Set<Long>): PodcastEpisodeView {
-        // Пройденный кусок выпуска — обе границы или ни одной: «→ 95» без начала не отвечает
-        // ни на один вопрос (то же правило, что у процентов книги).
+        // The stretch covered needs both bounds or neither: an end without a start answers no
+        // question at all (the same rule as the book percentages).
         val start = run.startProgressMs?.let { PodcastDayRollup.listenedMinutes(it) }
         val end = start?.let { PodcastDayRollup.listenedMinutes(run.lastProgressMs) }
 
@@ -206,8 +196,9 @@ class DayAggregator(
     }
 
     /**
-     * Карточка сессии чтения. Обложка отдаётся ссылкой на наш бэкенд по id сессии, а не путём
-     * внутри полки: путь пришёл из чужой базы, и светить его наружу незачем ([ReadingResource]).
+     * Reading session card. The cover is served as a link to our backend by session id rather
+     * than a path inside the shelf: that path came from someone else's database, and there is no
+     * reason to expose it ([ReadingResource]).
      */
     private fun readingBookViewOf(session: ReadingSession, retold: Set<Long>) = ReadingBookView(
         title = session.bookTitle,
@@ -221,11 +212,11 @@ class DayAggregator(
         hasSummary = session.id in retold,
     )
 
-    /** Выходной MSK (даты оси уже в MSK): суббота/воскресенье — нейтральны для стрика дисциплины. */
+    /** MSK weekend (axis dates are already MSK): Saturday and Sunday are neutral for streaks. */
     private fun isWeekend(d: LocalDate): Boolean =
         d.dayOfWeek == java.time.DayOfWeek.SATURDAY || d.dayOfWeek == java.time.DayOfWeek.SUNDAY
 
-    /** Фазы сна записи; `null`, если ни одна не пришла (null ≠ 0, §5.4). */
+    /** The record's sleep phases; `null` when none arrived (null is not 0, §5.4). */
     private fun stagesOf(record: DayRecord): SleepStagesView? {
         val rem = record.sleepRemMinutes
         val deep = record.sleepDeepMinutes
@@ -236,26 +227,24 @@ class DayAggregator(
     }
 
     private companion object {
-        /** Единственный пункт с измерением: минуты в приложении «Журнал» (§5.6). */
+        /** The one item with a measurement: minutes in the "Journal" app (§5.6). */
         const val JOURNAL_ITEM_KEY = "journal"
 
-        /** Пункт монстра: его отметка — единственный носитель «пил / не пил» (§5.6). */
+        /** The monster item: its mark is the only carrier of drunk / clean (§5.6). */
         const val MONSTER_ITEM_KEY = "monster"
 
-        /** Производный пункт подкастов: минуты и карточки считает поллер плеера (§5.6). */
+        /** Derived podcast item: minutes and cards are counted by the player poller (§5.6). */
         const val PODCAST_ITEM_KEY = "podcasts"
 
-        /** Производный пункт чтения: минуты и карточки приезжают с полки читалки (§5.16). */
+        /** Derived reading item: minutes and cards arrive from the reader shelf (§5.16). */
         const val READING_ITEM_KEY = "reading"
     }
 }
 
 /**
- * Ленивое окно истории дней для стриков (§5.6). Обход серии уходит назад по одному дню; чтобы не
- * ходить в БД построчно и не тянуть сразу всю историю, окно читается **батчами** ([PAGE] дней),
- * расширяясь только когда серия действительно жива и заходит глубже. Одно окно переиспользуется
- * всеми пунктами и монстром дня. Скан целиком гасит кэш проекции — здесь важна лишь дешёвая типовая
- * ветка (короткая серия рвётся в первой странице).
+ * Lazy window of day history for streaks: the walk goes back a day at a time, so the window is
+ * read in batches of [PAGE] and grows only while a streak is alive and reaching deeper. One
+ * window serves every discipline item and the monster alike. PRD §5.6
  */
 private class DayHistory(
     anchor: LocalDate,
@@ -266,10 +255,10 @@ private class DayHistory(
     private val records = HashMap<LocalDate, DayRecord>()
     private val counts = HashMap<LocalDate, Map<Long, Int>>()
 
-    // Загруженная область — `[loadedLo, anchor]` включительно; до первого [ensure] пусто.
+    // The loaded span is `[loadedLo, anchor]` inclusive; empty until the first [ensure].
     private var loadedLo: LocalDate = anchor.plusDays(1)
 
-    /** Догрузить окно вниз так, чтобы оно накрыло [date] (но не глубже генезиса). */
+    /** Extends the window downwards to cover [date], but never past genesis. */
     private fun ensure(date: LocalDate) {
         val target = maxOf(date, genesis)
         if (!target.isBefore(loadedLo)) return
@@ -293,9 +282,9 @@ private class DayHistory(
     }
 
     /**
-     * Есть ли ОТМЕТКА пункта за день — в отличие от [count], которая схлопывает «отметки нет»
-     * и «отмечено нулём» в один и тот же `0`. Ровно это различие и отделяет «не пил» от
-     * «шорткат за день не запускали» (см. `DayView.monsterDrunk`).
+     * Whether the item has a MARK for the day, unlike [count], which collapses "no mark" and
+     * "marked zero" into the same `0`. That difference is what separates "did not drink" from
+     * "the shortcut never ran that day" (see `DayView.monsterDrunk`).
      */
     fun hasEntry(date: LocalDate, itemId: Long): Boolean {
         ensure(date)
@@ -303,7 +292,7 @@ private class DayHistory(
     }
 
     private companion object {
-        /** Размер батча чтения назад (~квартал): почти всегда серия рвётся в первой странице. */
+        /** Backward read batch size (about a quarter): a run almost always breaks on page one. */
         const val PAGE = 92L
     }
 }

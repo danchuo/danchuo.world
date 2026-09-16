@@ -3,40 +3,37 @@ import { minutesLabel, stretchLabel } from "./podcastCard";
 import { progressLabel } from "./readingCard";
 
 /**
- * Приведение карточки борда к предмету разговора для окна пересказа (PRD §5.16.1).
- *
- * Окно у книги и у выпуска одно и то же: вопрос («что было в этом куске») и ответ (пункты плюс
- * строка-итог) не зависят от того, читали или слушали. Различается ровно шапка — и различия
- * живут здесь **данными**, а не вторым похожим компонентом: два почти одинаковых окна
- * разошлись бы по мелочам при первой же правке одного из них.
+ * Coerces a board card into the summary window's subject. Book and episode share ONE window: the
+ * question and the answer do not depend on which it was, only the header differs — and that
+ * difference lives here as DATA rather than in a second near-identical component. PRD §5.16.1
  */
 
-/** Чей это пересказ — тот же дискриминатор, что у строки на бэкенде (`kind`). */
+/** Whose retelling this is — the same discriminator as the backend row's (`kind`). */
 export type SummaryKind = "reading" | "podcast";
 
-/** Шапка окна пересказа: всё, что борд знает про заход и без похода на бэкенд. */
+/** Header of the retelling window: everything the board knows about a sitting without a request. */
 export interface SummarySubject {
   kind: SummaryKind;
-  /** Ключ захода: по нему тянется сам текст. */
+  /** The sitting's key, which the text itself is fetched by. */
   sessionId: number;
-  /** Первая строка шапки: книга или выпуск. */
+  /** First line of the header: the book or the episode. */
   title: string;
-  /** Вторая строка: автор книги / название шоу. `null` — её нет. */
+  /** Second line: the book's author or the show's name. `null` means there is none. */
   byline: string | null;
   coverUrl: string | null;
-  /** Портретная ли обложка: у книги корешок, у выпуска квадратный конверт. */
+  /** Whether the cover is portrait: a book has a spine, an episode a square sleeve. */
   portrait: boolean;
-  /** Подпись над крупной строкой — «прочитано / прослушано за этот заход». */
+  /** Caption above the large line — "read" or "listened" in this sitting. */
   progressCaption: string;
-  /** Сам кусок на языке предмета: «48% → 53%» или «35 из 48 мин». `null` — сказать нечего. */
+  /** The chunk in the subject's own language: "48% → 53%" or "35 of 48 min". `null` says nothing. */
   progressValue: string | null;
-  /** Что услышит скринридер вместо шапки. */
+  /** What a screen reader hears in place of the header. */
   ariaLabel: string;
 }
 
 /**
- * Прочитанный заход как предмет окна. `null` — открывать нечем: без id захода пересказ не
- * запросить, а значит и кнопки на карточке быть не должно.
+ * A reading sitting as the window's subject. `null` means there is nothing to open: without a
+ * sitting id the retelling cannot be requested, so the card must carry no button either.
  */
 export function bookSubject(book: ReadingBookView): SummarySubject | null {
   if (book.sessionId == null) return null;
@@ -54,11 +51,9 @@ export function bookSubject(book: ReadingBookView): SummarySubject | null {
 }
 
 /**
- * Прослушанный заход как предмет окна. `null` — по той же причине, что у книги.
- *
- * Кусок меряется минутами, а не долями, но отвечает на тот же вопрос и той же стрелкой, что
- * проценты книги: «45 → 95 мин» против «35% → 42%». Границ окна не знаем (старый заход) —
- * откатываемся к «сколько слушали»: это меньше, чем хотелось бы, но не молчание.
+ * A listened sitting as the window's subject. The slice is measured in minutes rather than
+ * fractions, yet answers the same question with the same arrow as a book's percentages. Unknown
+ * bounds fall back to "how long it listened" — less than wanted, but not silence.
  */
 export function episodeSubject(episode: PodcastEpisodeView): SummarySubject | null {
   if (episode.sessionId == null) return null;

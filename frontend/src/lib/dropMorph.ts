@@ -1,12 +1,6 @@
-/**
- * Проявка (DESIGN §7.5): математика первого кадра FLIP — та трансформация, которой кадр
- * галереи прикидывается плиткой, чтобы поехать из неё в своё настоящее место.
- *
- * Чистый модуль: сюда не приходит ни DOM, ни волна — только два прямоугольника. Кто их
- * снимает, когда играть и чем размывать, знают [useDropMorph] и скин волны.
- */
+/** Pure FLIP geometry from source tile to gallery frame; DOM orchestration lives in useDropMorph. DESIGN §7.5. */
 
-/** Прямоугольник в координатах вьюпорта — ровно то, что отдаёт `getBoundingClientRect`. */
+/** Viewport rectangle, as returned by getBoundingClientRect. */
 export interface MorphBox {
   left: number;
   top: number;
@@ -14,32 +8,11 @@ export interface MorphBox {
   height: number;
 }
 
-/** Пиксели — до сотых, масштаб — до десятитысячных. */
+/** Round pixels to hundredths and scales to ten-thousandths. */
 const px = (v: number) => Math.round(v * 100) / 100;
 const scale = (v: number) => Math.round(v * 1e4) / 1e4;
 
-/**
- * Трансформация, ставящая цель (`to` — кадр в галерее, уже разложенный по своему месту)
- * ровно в границы источника (`from` — кадр на плитке борда). Снимаем её и получаем движение
- * из плитки в галерею силами самого браузера.
- *
- * Считаем от ЦЕНТРОВ, а не от левых верхних углов: `transform-origin` у кадра по умолчанию
- * центральный, и сдвиг по углу пришлось бы поправлять на половину разницы размеров — лишняя
- * арифметика, которая рассыпается при первом же изменении `transform-origin` в скине.
- *
- * **Масштаб РАВНОМЕРНЫЙ, и это несущее.** Считай оси независимо — и кадр, возвращаясь
- * в плитку с другой пропорцией, заметно сплющится (лента дропов: слот шире кадра).
- * У редакции `frame` этого не видно — там карточка плитки берёт пропорцию кадра, и оси
- * совпадают сами. С равномерным масштабом кадр по дороге не искажается вовсе:
- * он едет целым и **кадрируется** — ровно то же, что делает `object-fit: cover` в плитке,
- * куда он приезжает.
- *
- * Берём БОЛЬШИЙ из двух масштабов: меньший вписал бы кадр внутрь плитки с полями по одной
- * оси, а плитка показывает снимок без полей. Лишнее по короткой оси срезает [morphClip].
- *
- * `null` — если любой из боксов вырожден: плитка ещё не отрисована или у сцены пока нет
- * размеров. Морфить не из чего, и вызывающий просто показывает галерею без движения.
- */
+/** Map target to source around their centers with uniform cover scaling; independent axes distort photos. Null for degenerate boxes. DESIGN §7.5. */
 export function morphTransform(from: MorphBox, to: MorphBox): string | null {
   if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0) return null;
   const dx = from.left + from.width / 2 - (to.left + to.width / 2);
@@ -48,24 +21,12 @@ export function morphTransform(from: MorphBox, to: MorphBox): string | null {
   return `translate(${px(dx)}px, ${px(dy)}px) scale(${scale(s)})`;
 }
 
-/** Общий масштаб морфа: по большей из осей, чтобы кадр закрывал плитку без полей. */
+/** Uniform cover scale: choose the larger axis ratio to avoid letterboxing. */
 export function morphScale(from: MorphBox, to: MorphBox): number {
   return Math.max(from.width / to.width, from.height / to.height);
 }
 
-/**
- * Клип кадра на время движения: что от снимка видно, пока он стоит в границах плитки.
- *
- * Масштаб теперь равномерный, поэтому по короткой оси кадр вылезает за плитку — и вылезающее
- * надо срезать, иначе снимок не сядет в плитку, а накроет её соседей. Инсет считается в
- * СОБСТВЕННЫХ координатах кадра (до трансформации), потому что `clip-path` применяется до неё:
- * половина разницы между кадром и тем куском, который в плитку помещается.
- *
- * Ноль по оси, вдоль которой масштаб и выбирался, — там кадр совпал с плиткой ровно.
- * Скругление уезжает в клип тем же числом, что и радиус: угол режется вместе с краем.
- *
- * `null` — на вырожденных боксах, как и у [morphTransform].
- */
+/** Clip overflow in pre-transform frame coordinates, preserving the corner radius; null for degenerate boxes. DESIGN §7.5. */
 export function morphClip(from: MorphBox, to: MorphBox, radius: number): string | null {
   if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0) return null;
   const s = morphScale(from, to);
@@ -75,38 +36,16 @@ export function morphClip(from: MorphBox, to: MorphBox, radius: number): string 
   return `inset(${px(insetY)}px ${px(insetX)}px${r})`;
 }
 
-/**
- * Скругление, которое надо назначить кадру галереи на время движения, чтобы ПОСЛЕ сжатия оно
- * совпало со скруглением плитки (`radius` — её радиус в пикселях, уже за вычетом канта).
- *
- * Делим на масштаб потому же, почему `transform` вообще выбран движком морфа: он сжимает
- * элемент целиком, вместе со скруглением. Кадр, приехавший домой со своим галерейным радиусом,
- * щёлкает углами в момент подмены — прямые становятся круглыми на один кадр (замечание
- * владельца). Приехавший с этим — садится незаметно.
- *
- * Масштаб — общий для обеих осей ([morphScale]), как и у самой трансформации: с равномерным
- * масштабом выбирать между осями больше не приходится.
- *
- * `null` — на вырожденных боксах и отрицательном радиусе: как и в [morphTransform], это «морфа
- * нет», а не «радиус 0».
- */
+/** Divide the tile radius by uniform scale so corners match after transformation; null for invalid boxes or negative radius. */
 export function morphRadius(from: MorphBox, to: MorphBox, radius: number): string | null {
   if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0 || radius < 0) return null;
   return `${px(radius / morphScale(from, to))}px`;
 }
 
-/** `320ms` / `.32s` / `0.44s` — и ничего больше: голое число в CSS не длительность. */
+/** Accept ms and s only; a unitless CSS number is not a duration. */
 const DURATION = /^(\d+\.?\d*|\.\d+)(ms|s)$/;
 
-/**
- * Длительность из CSS-переменной в миллисекундах; `null` — если её нет, она нулевая или
- * невнятная, то есть «скин не назвал, бери своё».
- *
- * Единицу разбираем, а не отбрасываем: **минификатор сборки переписывает `320ms` в `.32s`**, и
- * `parseInt` на таком молча отдаёт NaN. Дефолт подменял число, CSS играл свою длительность,
- * таймеры в JS — чужую, и плитка мигает на посадке кадра. В деве этого не видно вовсе:
- * там CSS не минифицируется. См. `docs/pitfalls.md`.
- */
+/** Parse CSS duration units, including minified .32s; null means absent, zero or invalid. See docs/pitfalls.md. */
 export function cssDurationMs(value: string): number | null {
   const m = DURATION.exec(value.trim());
   if (!m) return null;

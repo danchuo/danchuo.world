@@ -4,9 +4,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * Порядок публичного списка проектов (PRD §5.7): идущие «по настоящее» — сверху,
- * завершённые — ниже; внутри групп — новые по началу промежутка, при равенстве — sortOrder.
- * Чистый компаратор [ProjectRepository.ORDERING], без БД.
+ * Order of the public project list (PRD §5.7): ongoing on top, finished below; inside a group,
+ * newest by the range's start, ties broken by sortOrder. The pure [ProjectRepository.ORDERING].
  */
 class ProjectOrderingTest {
 

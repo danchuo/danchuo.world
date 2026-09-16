@@ -5,49 +5,23 @@ import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
 
 /**
- * Обрезка прозрачных полей у картинки артефакта (PRD §5.8) — чистая функция, отдельно от
- * хранилища и сервиса.
- *
- * **Зачем.** Лента артефактов (DESIGN §7.2) равняет предметы по оптическому весу, а вес считает
- * от пропорции **картинки**. Пропорция берётся у холста, не у предмета, поэтому картинка с
- * широкими прозрачными полями показывает предмет во столько раз мельче, во сколько поля больше —
- * и вдобавок вводит расчёт в заблуждение: квадратный холст с лежачими очками считается
- * квадратным предметом.
- *
- * Замер на проде: очки занимали **30%** холста 640×640, лента считала их пропорцию 1.00 вместо
- * настоящих 2.82, и предмет рисовался 37×13 px внутри рамки 40×40. После обрезки та же рамка даёт
- * 81×29. Футболка занимала 72% и получала 32×29 вместо 44×40.
- *
- * **Обрезаем только по альфе.** Белый фон не трогаем намеренно: у половины предметов белое —
- * часть самой вещи (белая футболка, белая ракетка), и порог по светлоте съел бы её края. Картинка
- * без прозрачности остаётся как есть.
- *
- * Оригинал не сохраняется — та же политика, что у кадров фото-дропов: промахнулись, перезаливаем.
+ * Trims transparent margins off an artifact image — a pure function, apart from storage and
+ * service. The ribbon sizes items by optical weight taken from the PICTURE's proportion, so wide
+ * margins both shrink the item and lie about its shape. Measurements and the alpha cut: PRD §5.8.
  */
 object ArtifactImageTrim {
 
     /**
-     * Ниже какой альфы пиксель не считается частью предмета (0..255).
-     *
-     * **Почему не «строго больше нуля».** Так и было — и обрезка молча не срабатывала ни на одной
-     * картинке прода. Инструменты снятия фона оставляют по всему холсту пиксели с альфой 1..8
-     * (0.4–3% непрозрачности, глазом не видно): замер ракетки — 24 309 таких пикселей, и они
-     * дотягиваются до краёв. Рамка непрозрачного растягивалась на весь холст, обрезка решала,
-     * что резать нечего, и предмет 619×2055 уезжал в ленту как холст 1600×2400 — пропорция 0.67
-     * вместо 0.30, лента не признавала предмет вытянутым и не клала набок, хотя ему разрешено.
-     *
-     * 8/255 ≈ 3% — заведомо ниже порога видимости и заведомо выше шума: на той же ракетке рамка
-     * при порогах 2, 8 и 32 совпадает с точностью до пикселя (620×2056 против 619×2055), то есть
-     * у края предмета нет плавного схода, который порог мог бы съесть.
+     * Below which alpha a pixel is not part of the object (0..255). NOT "greater than zero" — that
+     * was the first version and it silently trimmed NOTHING: background removers leave an
+     * invisible 1..8 haze reaching the canvas edges. Measurements: PRD §5.8.
      */
     private const val ALPHA_FLOOR = 8
 
     /**
-     * Обрезать прозрачные поля и привести к PNG.
-     *
-     * Не смогли разобрать байты — возвращаем их нетронутыми: потерять загруженный владельцем
-     * файл хуже, чем сохранить его необрезанным (та же тихая деградация, что у кадров с
-     * неподдерживаемым форматом).
+     * Trims transparent margins and converts to PNG. Bytes that cannot be decoded come back
+     * UNTOUCHED: losing a file the owner uploaded is worse than keeping it untrimmed — the same
+     * quiet degradation as a drop frame in an unsupported format.
      */
     fun trim(bytes: ByteArray): ByteArray {
         val source = runCatching { ImageIO.read(bytes.inputStream()) }.getOrNull() ?: return bytes
@@ -61,9 +35,9 @@ object ArtifactImageTrim {
 
         return runCatching {
             ByteArrayOutputStream().also { out ->
-                // Копируем в свежий ARGB-буфер: getSubimage отдаёт вид на исходный растр, а
-                // раздача помечает картинку image/png независимо от того, что загрузили, —
-                // поэтому формат нормализуем здесь, на входе.
+                // Copy into a fresh ARGB buffer: getSubimage returns a view onto the source
+                // raster, and serving labels the picture image/png whatever was uploaded — so the
+                // format is normalised here, on the way in.
                 val canvas = BufferedImage(cropped.width, cropped.height, BufferedImage.TYPE_INT_ARGB)
                 canvas.createGraphics().apply {
                     drawImage(cropped, 0, 0, null)
@@ -74,7 +48,7 @@ object ArtifactImageTrim {
         }.getOrDefault(bytes)
     }
 
-    /** Рамка видимых пикселей; `null` — прозрачности нет вовсе или видимого не нашлось. */
+    /** Box of visible pixels; `null` when there is no transparency at all, or nothing visible. */
     private fun alphaBounds(img: BufferedImage): java.awt.Rectangle? {
         if (!img.colorModel.hasAlpha()) return null
 
@@ -84,8 +58,8 @@ object ArtifactImageTrim {
         var maxY = -1
         for (y in 0 until img.height) {
             for (x in 0 until img.width) {
-                // Видимое полупрозрачное свечение вокруг предмета — часть его вида и в рамку
-                // входит; отбрасывается только невидимая дымка ниже [ALPHA_FLOOR].
+                // A visible semi-transparent glow around the item is part of its look and belongs
+                // in the box; only invisible haze below [ALPHA_FLOOR] is discarded.
                 if ((img.getRGB(x, y) ushr 24) <= ALPHA_FLOOR) continue
                 if (x < minX) minX = x
                 if (y < minY) minY = y
@@ -93,8 +67,8 @@ object ArtifactImageTrim {
                 if (y > maxY) maxY = y
             }
         }
-        // Ни одного видимого пикселя: обрезка дала бы 0×0, а это уже не картинка (сюда же
-        // попадает картинка из одной дымки — целиком ниже порога, резать нечего).
+        // Not one visible pixel: trimming would give 0x0, which is no longer a picture (a
+        // picture made entirely of haze lands here too — nothing to trim).
         if (maxX < 0) return null
         return java.awt.Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1)
     }

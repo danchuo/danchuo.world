@@ -12,11 +12,9 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 /**
- * Деталь ночи (PRD §5.4, реестр I-23): выбранная ночь, разложенная во времени.
- *
- * Читается публично, как и всё остальное (§11): защищаются креды записи, а не контент.
- * Даты уведены в октябрь, подальше от ночей соседних тестов: общая БД, и результат не
- * должен зависеть от порядка классов.
+ * The night's detail (PRD §5.4, registry I-23): the chosen night laid out in time, read publicly
+ * like everything else (§11). Dates sit in October, away from neighbouring tests' nights: the DB
+ * is shared and the result must not depend on class order.
  */
 @QuarkusTest
 class SleepNightResourceTest {
@@ -24,7 +22,6 @@ class SleepNightResourceTest {
     @Inject
     lateinit var sleepSegmentRepository: SleepSegmentRepository
 
-    /** Даты, за которыми убираем после себя. */
     private val nights = (1..12).map { LocalDate.of(2026, 10, it) }
 
     private val token = "dev-ingest-token-change-me"
@@ -55,10 +52,10 @@ class SleepNightResourceTest {
             .body("axisStartHour", equalTo(18))
             .body("band.onsetMinute", equalTo(320)) // 23:20
             .body("band.wakeMinute", equalTo(780)) // 07:00
-            // Пробуждение в 02:00 остаётся на полосе своим куском, а не срезается
+            // The 02:00 waking stays on the band as its own chunk rather than being trimmed
             .body("band.parts.size()", equalTo(3))
             .body("band.parts[1].stage", equalTo("awake"))
-            .body("band.asleepMinutes", equalTo(420)) // 160 + 260, сорок минут возни не в счёт
+            .body("band.asleepMinutes", equalTo(420)) // 160 + 260; forty minutes of tossing do not count
     }
 
     @Test

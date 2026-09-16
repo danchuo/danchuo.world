@@ -25,13 +25,12 @@ import { ArtifactBoxes } from "./ArtifactBoxes";
 import { Icon } from "./Icon";
 import { useRollMotion } from "./useRollMotion";
 
-/** Сколько соседних кадров держать предзагруженными в полном размере с каждой стороны. */
+/** How many neighbouring frames to keep preloaded at full size on each side. */
 const PRELOAD_AHEAD = 3;
 /**
- * Магнит гребёнки (px). Радиус — насколько далеко от курсора засечки ещё растут; база и потолок
- * — от какой высоты и до какой. `COMB_BASE` обязан совпадать с высотой покоя в CSS
- * (`.drop-roll__tick`), `COMB_CURRENT` — с высотой засечки текущего кадра: высоты JS пишет,
- * только пока курсор над рядом, а уходя, возвращает их под управление стилям.
+ * Magnet radius of the comb, in px: how far from the cursor the teeth still grow, and between
+ * which heights. `COMB_BASE` MUST match the resting height in CSS and `COMB_CURRENT` the current
+ * frame's tooth — JS writes heights only while the cursor is over the row, then hands them back.
  */
 const COMB_RADIUS = 78;
 const COMB_BASE = 8;
@@ -39,29 +38,9 @@ const COMB_PEAK = 30;
 const COMB_CURRENT = 26;
 
 /**
- * Галерея дропа в редакции **«плёнка»** (DESIGN §7.5): дроп — одна катушка, и читается он как
- * катушка. Крупный кадр сверху, под ним лента миниатюр, под лентой — **магнитная гребёнка**:
- * засечка на каждый кадр, и она же единственный регулятор. Соседи в ленте уходят в
- * прогрессивный блюр — тот же приём, которым волна одевает борд.
- *
- * **Регулятор здесь один** — засечки, и дорожки с ползунком над ними нет: она отвечала бы
- * на тот же вопрос «где я в ленте», держа ради этого целую полосу, чужую плёнке по языку.
- * Засечки объявляют себя органом управления сами — ряд отзывается на подход курсора, ближние
- * зубцы растут косинусным спадом ([toothHeight]), под пальцем всплывает кадр. Цена принята
- * сознательно: «сколько ленты видно» не показывается нигде, а на тач-устройствах магнита
- * нет — там гребёнка работает как обычный ряд засечек с перетаскиванием.
- *
- * **Позиция ленты — единственное состояние.** Крупный кадр и засечки читают её прокрутку
- * (`nearestFrameIndex`), а не держат свой индекс: два источника истины разошлись бы на первом
- * же инерционном докрутe. Клик по засечке и стрелки двигают саму ленту, а не «текущий кадр».
- *
- * **Крайние кадры достижимы** — у ленты боковой запас в полокна (`stripPadding`): при
- * `scroll-snap-align: center` без него лента доезжает до края, но по центру встаёт кадр,
- * отстоящий от конца на полокна, и последние кадры выбрать нельзя вовсе.
- *
- * Находки на крупном кадре подсвечиваются, как в мозаике: рамка акцентом волны, карточка
- * предмета — по наведению. А кнопка лупы открывает кадр во весь экран **чистым**: полный
- * размер и ни одной рамки поверх: разглядывают снимок, а не разметку.
+ * The drop gallery in its "film" edition: one reel, read as a reel — a large frame, a thumbnail
+ * strip, and a magnetic comb that is the ONLY control. The strip's scroll position is the single
+ * source of truth, and the strip carries half-window padding so the last frames stay reachable.
  */
 export function DropRoll({
   photos,
@@ -70,40 +49,41 @@ export function DropRoll({
   onCurrent,
 }: {
   photos: FilmPhotoView[];
-  /** Адрес кадра, с которого открыть плёнку (кадр из плитки); нет — открываем с первого. */
+  /** Address of the frame to open the reel on (the tile's frame); none means the first. */
   startAt?: string | null;
-  /** Открыть кадр во весь экран (чистым, без находок). */
+  /** Open a frame full-screen, clean, with no detections over it. */
   onZoom: (index: number, trigger: HTMLElement) => void;
-  /** Какой кадр сейчас крупным. Плитка борда слушает это, чтобы вернуться на него (§7.5). */
+  /** Which frame is large now. The board tile listens so it can return to it (§7.5). */
   onCurrent?: (photo: FilmPhotoView) => void;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const rollRef = useRef<HTMLDivElement>(null);
   const initial = useMemo(() => startFrameIndex(photos, startAt), [photos, startAt]);
   const [current, setCurrent] = useState(initial);
-  // Какие полные кадры уже в кэше браузера. Держим в ref + счётчике, а не в state-множестве:
-  // сюда пишет предзагрузка соседей, и перерисовка нужна только чтобы снять размытую подложку.
+  // Which full frames are already in the browser cache. Kept in a ref plus a counter rather than a
+  // state set: neighbour preloading writes here, and a redraw is needed only to drop the blur.
   const readyRef = useRef<Set<string>>(new Set());
   const [, bumpReady] = useState(0);
-  // Последний ЗАКАЗАННЫЙ кадр: плавная прокрутка едет несколько кадров отрисовки, и цепочка
-  // щелчков колеса, считающая от видимого кадра, топталась бы на месте. Сбрасывается, когда
-  // лента доехала, и когда за неё берутся рукой (тогда заказ уже неактуален).
+  // The last REQUESTED frame: smooth scrolling takes several painted frames, and a chain of wheel
+  // clicks counting from the visible one would mark time. Cleared when the ribbon arrives, and
+  // when a hand takes hold of it — the request is moot by then.
   const targetRef = useRef<number | null>(null);
   const scrubRef = useRef<HTMLDivElement>(null);
   const peekRef = useRef<HTMLDivElement>(null);
   const peekImgRef = useRef<HTMLImageElement>(null);
   const peekNoRef = useRef<HTMLSpanElement>(null);
-  /** Тащат ли гребёнку прямо сейчас: пока да, движение мыши двигает и плёнку. */
+  /** Whether the comb is being dragged right now: while it is, mouse movement moves the reel. */
   const scrubbingRef = useRef(false);
-  /** Где курсор над гребёнкой (clientX); `null` — курсора над рядом нет. */
+  /** Where the cursor is over the comb (clientX); `null` means it is not over the row. */
   const combXRef = useRef<number | null>(null);
-  // Боковой запас считается по ЖИВОЙ ширине окна ленты: она зависит от ширины модалки, а та —
-  // от экрана. До первого замера запас 0 — лента просто стоит с начала, без скачка.
+  // Side padding is computed from the ribbon window's LIVE width, which depends on the modal's,
+  // which depends on the screen. Before the first measurement it is 0 — the ribbon simply starts
+  // at the beginning, with no jump.
   const [pad, setPad] = useState(0);
 
   /**
-   * Собственное движение ленты к кадру — общий шов обеих лент дропов ([useRollMotion]):
-   * нативная плавная прокрутка каждым новым вызовом обрывала анимацию и разгонялась с нуля.
+   * The ribbon's own motion towards a frame — the seam shared by both drop ribbons: native smooth
+   * scrolling aborted its animation on every new call and accelerated from zero again.
    */
   const motion = useRollMotion(stripRef, "x");
   const scrollTo = useCallback(
@@ -114,8 +94,8 @@ export function DropRoll({
     [motion],
   );
 
-  // Запас — от ширины окна и ширины миниатюры (её задаёт CSS волны, поэтому меряем, а не
-  // берём число из кода). Пересчитывается на ресайзе: модалка резиновая.
+  // Padding comes from the window's width and the thumbnail's (which the wave's CSS sets, so it is
+  // measured rather than hardcoded). Recomputed on resize: the modal is fluid.
   useEffect(() => {
     const strip = stripRef.current;
     if (!strip) return;
@@ -124,14 +104,15 @@ export function DropRoll({
       setPad(stripPadding(strip.clientWidth, item?.offsetWidth ?? 0));
     };
     measure();
-    if (typeof ResizeObserver === "undefined") return; // jsdom-тесты без ResizeObserver
+    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
     const ro = new ResizeObserver(measure);
     ro.observe(strip);
     return () => ro.disconnect();
   }, [photos.length]);
 
-  // Открываем на кадре из плитки — без анимации: это стартовая позиция, а не переход. Ждём
-  // запаса: до него у крайних кадров нет места встать по центру, и прокрутка легла бы не туда.
+  // Open on the tile's frame, without animation: this is a starting position, not a transition. We
+  // wait for the padding — before it the outermost frames have no room to centre, and the scroll
+  // would land in the wrong place.
   const jumped = useRef(false);
   useEffect(() => {
     if (jumped.current || pad === 0) return;
@@ -140,17 +121,9 @@ export function DropRoll({
   }, [initial, pad, scrollTo]);
 
   /**
-   * Форма гребёнки под курсором: каждой засечке — своя высота по расстоянию до него
-   * ([toothHeight]). Возвращает засечку, над которой стоит курсор, — она же и кадр, к которому
-   * едем, если гребёнку тащат.
-   *
-   * Пишем прямо в стили, как раньше писали ползунок: событие приходит на каждый пиксель
-   * движения, и перерисовывать ради него всю галерею (37 миниатюр плюс крупный кадр) нельзя.
-   * Замеры идут ОДНИМ проходом до записи: чередовать чтение и запись значило бы просить
-   * браузер пересчитать раскладку 37 раз на каждое движение мыши.
-   *
-   * `null` вместо координаты — «курсора над рядом больше нет»: высоты снимаются, и засечки
-   * возвращаются к тому, что говорит CSS.
+   * Shapes the comb under the cursor and returns the tooth it stands over. Heights are written
+   * straight to style, as the event fires every pixel and redrawing the gallery is impossible.
+   * Measurements happen in ONE pass before any write, or the browser relayouts 37 times a move.
    */
   const shapeComb = useCallback((clientX: number | null): number => {
     const scrub = scrubRef.current;
@@ -174,19 +147,17 @@ export function DropRoll({
     return tickIndexAt(clientX - row.left, row.width, ticks.length);
   }, []);
 
-  // Кадр сменился, а курсор всё ещё над рядом — гребёнку лепим заново. Высоты живут в инлайн-
-  // стилях и пишутся только на движении мыши; после клика по засечке (или щелчка колеса под
-  // рядом) прежний текущий зубец оставался бы высоким, а новый — низким, пока мышь не
-  // шевельнётся. Эффект идёт после коммита React: классы `is-current`,
-  // по которым [shapeComb] берёт базу зубца, к этому моменту уже переставлены.
+  // Frame changed while the cursor is still over the row: reshape the comb. Heights live in inline
+  // styles written only on mouse movement, so after a click the old tooth would stay tall until
+  // the mouse twitched. The effect runs post-commit, when `is-current` has already moved.
   useEffect(() => {
     if (combXRef.current !== null) shapeComb(combXRef.current);
   }, [current, shapeComb]);
 
   /**
-   * Кадр под пальцем — всплывающей миниатюрой над гребёнкой. Она и есть ответ на «куда я
-   * попаду»: лента показывает лишь несколько кадров вокруг текущего, а гребёнка тянется на весь
-   * дроп, и без превью тыкать в её дальний конец пришлось бы вслепую.
+   * The frame under the finger, as a thumbnail popped above the comb. It IS the answer to "where
+   * will I land": the ribbon shows only a few frames around the current one while the comb spans
+   * the whole drop, and without a preview its far end would be poked at blind.
    */
   const movePeek = useCallback(
     (index: number, x: number) => {
@@ -194,8 +165,8 @@ export function DropRoll({
       const photo = photos[index];
       if (!peek || !photo) return;
       peek.hidden = false;
-      // Держим карточку в пределах ряда: у первого и последнего кадра она иначе вылезает за
-      // край гребёнки — а там её обрежет панель модалки, и превью крайнего кадра не увидеть.
+      // Keep the card within the row: at the first and last frame it otherwise overhangs the comb's
+      // edge, where the modal panel clips it — and the outermost frame's preview is never seen.
       const half = peek.offsetWidth / 2;
       const row = peek.parentElement?.clientWidth ?? 0;
       peek.style.left = `${row > peek.offsetWidth ? Math.max(half, Math.min(row - half, x)) : x}px`;
@@ -208,8 +179,8 @@ export function DropRoll({
     [photos],
   );
 
-  // Прокрутка ленты → текущий кадр. Считаем в rAF: события скролла идут пачками, а нам нужен
-  // один ответ на кадр отрисовки.
+  // Ribbon scroll to current frame. Computed in rAF: scroll events arrive in bursts while we need
+  // one answer per painted frame.
   useEffect(() => {
     const strip = stripRef.current;
     if (!strip) return;
@@ -224,7 +195,7 @@ export function DropRoll({
           return item.offsetLeft + item.offsetWidth / 2;
         });
         const next = nearestFrameIndex(centers, mid);
-        if (targetRef.current === next) targetRef.current = null; // доехали — заказ исполнен
+        if (targetRef.current === next) targetRef.current = null; // arrived — the request is done
         setCurrent(next);
       });
     };
@@ -235,12 +206,9 @@ export function DropRoll({
     };
   }, [photos.length]);
 
-  // Колесо и трекпад листают плёнку — по кадру за щелчок, и **в любом месте панели галереи**,
-  // а не только над лентой: рука уже на кадре, и требовать прицелиться в ленту незачем. Слушаем ПАНЕЛЬ модалки, а не окно: над затемнённым фоном по краям экрана
-  // колесо не должно двигать кадры — там мышь уже не в галерее.
-  //
-  // Сколько кадров стоит одно событие, решает [wheelStep] — чистая функция: мышиный щелчок
-  // равен одному кадру, мелкие дельты трекпада копятся до порога.
+  // Wheel and trackpad page the reel, one frame per click, ANYWHERE over the gallery panel — the
+  // hand is already on the frame. We listen to the PANEL, not the window: over the dimmed backdrop
+  // the mouse has left the gallery. How many frames one event is worth: [wheelStep].
   useEffect(() => {
     const host = (rollRef.current?.closest('[role="dialog"]') as HTMLElement | null) ?? rollRef.current;
     if (!host) return;
@@ -252,8 +220,8 @@ export function DropRoll({
       acc = step.acc;
       const dir = step.dir;
       if (dir === 0) return;
-      // Считаем от последнего ЗАКАЗАННОГО кадра, а не от видимого: плавная прокрутка ещё едет,
-      // и цепочка щелчков иначе топталась бы на месте.
+      // Counted from the last REQUESTED frame rather than the visible one: smooth scrolling is
+      // still travelling, and a chain of clicks would otherwise mark time.
       const base = targetRef.current ?? current;
       const next = Math.min(photos.length - 1, Math.max(0, base + dir));
       targetRef.current = next;
@@ -263,10 +231,9 @@ export function DropRoll({
     return () => host.removeEventListener("wheel", onWheel);
   }, [current, photos.length, scrollTo]);
 
-  // Свайп по САМОМУ кадру (DESIGN §7.5). На телефоне гребёнка и полоса миниатюр — цели в
-  // несколько миллиметров, а самый большой объект на экране до сих пор на жест не отвечал.
-  // Мышь сюда не пускаем: у неё уже есть колесо и гребёнка, а протяжка мышью по кадру
-  // перехватывала бы наведение на находки.
+  // Swipe on the FRAME ITSELF (DESIGN §7.5). On a phone the comb and strip are millimetre targets
+  // while the biggest object on screen answered no gesture at all. The mouse is kept out: it has
+  // the wheel and the comb already, and dragging would steal hover from the detections.
   const swipeRef = useRef<{
     id: number;
     startX: number;
@@ -294,8 +261,8 @@ export function DropRoll({
     const totalX = e.clientX - swipe.startX;
     const totalY = e.clientY - swipe.startY;
     if (!swipe.locked) {
-      // Пока жест не определился, ничего не двигаем. Определившись вертикальным, отдаём его
-      // странице совсем: диагональ, начатую как скролл, лента перехватывать не вправе.
+      // Nothing moves until the gesture has made up its mind. Once it turns out vertical it goes to
+      // the page entirely: a diagonal begun as a scroll is not the ribbon's to seize.
       if (Math.abs(totalX) < 8 && Math.abs(totalY) < 8) return;
       if (Math.abs(totalY) > Math.abs(totalX)) {
         swipeRef.current = null;
@@ -308,8 +275,8 @@ export function DropRoll({
     swipe.lastX = e.clientX;
     swipe.acc = step.acc;
     if (step.dir === 0) return;
-    // Считаем от последнего ЗАКАЗАННОГО кадра, как и колесо: движение ещё едет, и длинный
-    // свайп иначе топтался бы на месте.
+    // Counted from the last REQUESTED frame, as the wheel is: motion is still travelling, and a
+    // long swipe would otherwise mark time.
     const base = targetRef.current ?? current;
     const next = Math.min(photos.length - 1, Math.max(0, base + step.dir));
     targetRef.current = next;
@@ -320,13 +287,9 @@ export function DropRoll({
     swipeRef.current = null;
   };
 
-  // Полные кадры соседей — заранее. Иначе при листании крупный кадр стоит размытой миниатюрой,
-  // пока едет web-версия: «заметно плохое качество». Окно узкое: тянуть
-  // все 37 кадров вперёд значило бы выкачивать дроп целиком ради одного просмотренного.
-  //
-  // Окно тянется и к ЗАКАЗАННОМУ кадру: при быстром вращении колеса лента уходит вперёд быстрее,
-  // чем три соседа успевают приехать, и крупный кадр мелькал подложкой (замер: шесть кадров
-  // отрисовки с миниатюрой на двадцати щелчках).
+  // Neighbours' full frames are prefetched, or paging leaves the large frame as a blurred
+  // thumbnail while the web version travels. The window also stretches to the REQUESTED frame:
+  // spinning the wheel outruns three neighbours, and the large frame flashed its placeholder.
   useEffect(() => {
     const ordered = targetRef.current ?? current;
     const from = Math.max(0, Math.min(current, ordered) - PRELOAD_AHEAD);
@@ -344,16 +307,17 @@ export function DropRoll({
       dying.push(img);
     }
     return () => {
-      // Уезжая, снимаем обработчики: догрузка кадра, который уже никому не нужен, не должна
-      // будить перерисовку размонтированной галереи.
+      // On the way out the handlers come off: a frame finishing its load when nobody needs it must
+      // not wake a redraw of an unmounted gallery.
       dying.forEach((img) => {
         img.onload = null;
       });
     };
   }, [current, photos]);
 
-  // Стрелки листают плёнку. Слушаем окно, а не ленту: фокус чаще на кнопке лупы или на самой
-  // модалке, и требовать «сперва ткни в ленту» значило бы прятать управление.
+  // Arrow keys page the reel. We listen on the window rather than the ribbon: focus is more often
+  // on the zoom button or the modal itself, and demanding "click the ribbon first" would hide the
+  // control.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -367,9 +331,9 @@ export function DropRoll({
     return () => window.removeEventListener("keydown", onKey);
   }, [current, photos.length, scrollTo]);
 
-  // Наведение и перетаскивание гребёнки — один обработчик: разница между ними ровно в том,
-  // держат ли кнопку. Пока тащим, прокрутка НЕ плавная (`auto`): плавность спорила бы с рукой —
-  // плёнка догоняла бы палец с отставанием.
+  // Hovering and dragging the comb share one handler: the only difference is whether a button is
+  // held. While dragging, scrolling is NOT smooth — smoothness would fight the hand, leaving the
+  // reel trailing the finger.
   const onCombPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     combXRef.current = e.clientX;
     const index = shapeComb(e.clientX);
@@ -379,8 +343,8 @@ export function DropRoll({
   };
 
   const onCombPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    e.preventDefault(); // иначе тянется выделение текста, и жест обрывается на первом же пикселе
-    targetRef.current = null; // рука важнее заказанного колесом кадра
+    e.preventDefault(); // otherwise text selection drags and the gesture dies on its first pixel
+    targetRef.current = null; // the hand outranks the frame the wheel asked for
     motion.stop();
     scrubbingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -391,9 +355,9 @@ export function DropRoll({
 
   const onCombPointerLeave = () => {
     scrubbingRef.current = false;
-    // Класс ставим ДО снятия высот и напрямую, а не через state: переход должен быть в силе уже
-    // в тот момент, когда высоты снимаются, иначе гребёнка не опадала бы, а схлопывалась. Ждать
-    // перерисовки React здесь нельзя — она произойдёт после.
+    // The class is set BEFORE the heights come off, and directly rather than through state: the
+    // transition must already be in force as they are removed, or the comb would snap shut instead
+    // of settling. Waiting for React's redraw is impossible here — it happens afterwards.
     scrubRef.current?.classList.add("is-relaxing");
     combXRef.current = null;
     shapeComb(null);
@@ -401,9 +365,9 @@ export function DropRoll({
   };
 
   const photo = photos[current] ?? photos[0];
-  // Кадр, на котором сейчас стоит плёнка, — наружу. Из-за него плитка борда меняет свой снимок
-  // (и вместе с ним пропорцию), поэтому возврат проявки садится в тот же прямоугольник, а не
-  // растягивает вертикальный кадр по горизонтальной карточке (§7.5).
+  // The frame the reel now stands on goes outwards. The board tile changes its photo because of it
+  // (and with it the aspect ratio), so the develop transition returns into the same rectangle
+  // instead of stretching a vertical frame across a horizontal card (§7.5).
   useEffect(() => {
     if (photo) onCurrent?.(photo);
   }, [photo, onCurrent]);
@@ -411,8 +375,8 @@ export function DropRoll({
   const ratio = photo?.width && photo?.height ? `${photo.width} / ${photo.height}` : undefined;
   const zoomRef = useRef<HTMLButtonElement>(null);
 
-  // Какие находки под курсором — та же механика, что в мозаике: считаем по точке, а не по
-  // `:hover` рамки (рамки пересекаются, и ховер достаётся только верхней).
+  // Which detections are under the cursor — the same mechanics as the mosaic: computed from the
+  // point rather than a box's `:hover`, since boxes overlap and only the top one would get it.
   const [under, setUnder] = useState<number[]>([]);
   useEffect(() => setUnder([]), [current]);
   const trackPointer = (e: ReactMouseEvent<HTMLElement>) => {
@@ -434,14 +398,14 @@ export function DropRoll({
   return (
     <div className="drop-roll" ref={rollRef}>
       <div className="drop-roll__hero">
-        {/* Сцена повторяет пропорцию кадра: только тогда рамки находок, заданные процентами,
-            попадают туда же, куда попали бы на самом снимке. Размеров нет (старый дроп до
-            замера) — сцена просто обнимает картинку, и находок на ней не рисуем. */}
+        {/* The scene repeats the frame's proportion: only then do percentage-placed finding boxes
+            land where they would on the shot itself. With no dimensions (an old drop from before
+            measuring) the scene simply hugs the picture and findings are not drawn. */}
         <span
           className="drop-roll__stage"
-          // Сцена — «тот самый кадр» для проявки (DESIGN §7.5): её границы совпадают с
-          // границами снимка, потому что пропорцию она берёт у него же. Атрибут, а не класс:
-          // шов [useDropMorph] ищет кадр по нему в любой редакции галереи.
+          // The scene is "that very frame" for the develop transition (DESIGN §7.5): its bounds
+          // match the photo's, because it takes its ratio from it. An attribute, not a class: the
+          // seam finds the frame by it in any gallery edition.
           data-morph-hero
           style={ratio ? { aspectRatio: ratio } : undefined}
           onMouseMove={trackPointer}
@@ -451,8 +415,8 @@ export function DropRoll({
           onPointerUp={endSwipe}
           onPointerCancel={endSwipe}
         >
-          {/* Миниатюра — подложка только пока полного кадра НЕТ в кэше. Соседи предзагружены,
-              поэтому при листании её обычно не видно вовсе: кадр сразу полного качества. */}
+          {/* The thumbnail backs the frame only while the full one is NOT cached. Neighbours are
+              preloaded, so while paging it is usually never seen. */}
           {!readyRef.current.has(photo.imageUrl) && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img data-morph-face src={mediaUrl(photo.thumbUrl)} alt="" aria-hidden className="drop-roll__thumb" />
@@ -460,8 +424,8 @@ export function DropRoll({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             key={photo.imageUrl}
-            // «Лицо» героя проявки — слой, который режется клипом на время полёта (common.css).
-            // У дропа это сам снимок; у карты поездок лицом работает её контейнер.
+            // The hero's "face" — the layer clipped during the flight (common.css). For a drop that
+            // is the photo itself; for the rides map its container plays the part.
             data-morph-face
             src={mediaUrl(photo.imageUrl)}
             alt=""
@@ -475,9 +439,8 @@ export function DropRoll({
             className="drop-roll__photo"
           />
           {ratio && <ArtifactBoxes boxes={boxes} shown={under} />}
-          {/* Лупа — НА самом кадре, а не в углу сцены: кнопка относится к
-              снимку, который сейчас смотрят, и уезжает вместе с ним, когда пропорция меняет
-              размер кадра. */}
+          {/* The magnifier sits ON the frame, not in the scene's corner: the button belongs to the
+              shot being looked at and moves with it when the proportion changes its size. */}
           <button
             ref={zoomRef}
             type="button"
@@ -490,8 +453,8 @@ export function DropRoll({
         </span>
       </div>
 
-      {/* Полоса данных — ПОД кадром, а не поверх: кадр смотрят целиком, и закрывать его низ
-          подписью незачем (места хватает — плёнка и так ниже). */}
+      {/* The data strip goes UNDER the frame rather than over it: the shot is looked at whole, and
+          there is no reason to cover its bottom with a caption. */}
       <div className="drop-roll__ribbon">
         <span className="drop-roll__no">
           кадр {String(current + 1).padStart(2, "0")} / {photos.length}
@@ -510,7 +473,7 @@ export function DropRoll({
         style={{ paddingInline: pad }}
         onPointerDown={() => {
           targetRef.current = null;
-          motion.stop(); // рука важнее заказанного кадра
+          motion.stop(); // the hand outranks the requested frame
         }}
       >
         {photos.map((p, i) => {
@@ -524,8 +487,8 @@ export function DropRoll({
               aria-label={`кадр ${i + 1}`}
               aria-current={d === 0 ? "true" : undefined}
             >
-              {/* `decoding="async"` — не микрооптимизация: лента открывается в один кадр с проявкой,
-                  и синхронный декод десятка миниатюр отъедает у неё первые кадры движения. */}
+              {/* `decoding="async"` is not a micro-optimisation: the ribbon opens in the same frame
+                  as the developing animation, and a synchronous decode eats its first frames. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={mediaUrl(p.thumbUrl)} alt="" loading="lazy" decoding="async" />
             </button>
@@ -533,10 +496,9 @@ export function DropRoll({
         })}
       </div>
 
-      {/* Гребёнка: засечка на кадр — и она же единственный регулятор плёнки. Ряд отвечает на
-          подход курсора (высоты пишет [shapeComb]), поэтому объявляет себя органом управления
-          ещё до касания — то, ради чего прежде над ним стояла отдельная дорожка с ползунком.
-          Тащат гребёнку — едет плёнка; под пальцем всплывает кадр, к которому приедешь. */}
+      {/* The comb: one notch per frame, and the roll's only control. The row responds to the
+          cursor approaching, so it announces itself as a control before being touched — which is
+          what the separate slider track above it used to be for. */}
       <div
         className="drop-roll__scrub"
         ref={scrubRef}
@@ -561,8 +523,8 @@ export function DropRoll({
             aria-current={i === current ? "true" : undefined}
           />
         ))}
-        {/* Превью кадра под пальцем. Стоит ПОСЛЕДНИМ и позиционируется абсолютно: в ряду
-            засечек оно не участвует, а лежит над ним. */}
+        {/* The peek of the frame under the finger. It comes LAST and is positioned absolutely: it
+            takes no part in the row of notches but lies over it. */}
         <div className="drop-roll__peek" ref={peekRef} hidden aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img ref={peekImgRef} alt="" />

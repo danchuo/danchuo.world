@@ -9,17 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Найденный на кадре артефакт: ссылка на предмет + рамка, которой он подсвечивается (PRD §5.12).
- *
- * **Координаты — доли кадра (0..1), а не пиксели**: мозаика последнего дропа масштабирует кадры
- * произвольно, thumb и web разного размера, а `aspect-ratio` держит место до загрузки — доли
- * переживают всё это без пересчёта, пиксели не переживают ничего.
- *
- * [source] отделяет находку модели от поставленной рукой: ручную правку повторный прогон не
- * трогает. Рамка — **прямоугольник по осям кадра**: одна фигура и от модели,
- * и от руки ⇒ один рендер, одно поле, один пересчёт при повороте кадра.
- *
- * [artifactId] — плоский FK на `artifact` из слайса `social` (как [FilmPhoto.dropId] на дроп).
+ * An artifact found on a frame: a link to the item plus the box that highlights it. Coordinates
+ * are FRACTIONS of the frame (0..1), never pixels — the mosaic scales frames freely and web and
+ * thumb differ in size. [artifactId] is a flat FK to `artifact` in the `social` slice. PRD §5.12
  */
 @Entity
 @Table(name = "artifact_detection")
@@ -47,12 +39,9 @@ class ArtifactDetection {
     var y1: Double = 0.0
 
     /**
-     * `llm` — нашла модель, `manual` — поставлено руками, `rejected` — владелец снял находку.
-     *
-     * Отклонение **хранится**, а не удаляется: иначе следующий прогон нашёл бы предмет заново
-     * и рамка вернулась бы — снятие руками должно быть решением, а не косметикой. Координаты у
-     * отклонённой строки сохраняются: по ним видно, что именно модель принимала за предмет.
-     * Обратный ход есть — ручная рамка на ту же пару перезаписывает строку в `manual`.
+     * `llm` found by the model, `manual` placed by hand, `rejected` taken off by the owner.
+     * A rejection is STORED, never deleted: a deleted pair would be found again by the next run
+     * and the box would come back. The reasoning and the way back to `manual`: PRD §5.12.
      */
     @Column(name = "source", nullable = false)
     lateinit var source: String

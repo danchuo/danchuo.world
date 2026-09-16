@@ -4,42 +4,39 @@ import io.smallrye.config.ConfigMapping
 import io.smallrye.config.WithDefault
 
 /**
- * Конфиг пересказов (PRD §5.16) — общий на все источники.
- *
- * Общий намеренно: потолок выдержки и такт очереди меряются не книгами и не выпусками, а
- * **бесплатной полосой модели**, и она одна на всех. Разводить их по слайсам значило бы
- * настраивать один и тот же лимит в двух местах и однажды разойтись.
+ * Config of summaries, shared across every source on purpose: the excerpt ceiling and the queue's
+ * tick are measured by the model's FREE LANE, which is one for all. Splitting them per slice would
+ * mean configuring the same limit twice and drifting apart one day. PRD §5.16
  */
 @ConfigMapping(prefix = "danchuo.summary")
 interface SummaryConfig {
 
-    /** Включён ли фоновый счёт (в `%test` выключен — иначе он ходил бы в модель). */
+    /** Whether the background queue runs (off in `%test`, or it would call the model). */
     @WithDefault("true")
     fun enabled(): Boolean
 
     /**
-     * Такт очереди (формат Quarkus `every`). Читается плейсхолдером в [SummaryPoller]; метод
-     * объявлен, чтобы валидация `@ConfigMapping` приняла свойство под префиксом.
+     * Queue tick (Quarkus `every` format), read via a placeholder in [SummaryPoller]; the method
+     * exists so `@ConfigMapping` validation accepts the property under the prefix.
      */
     @WithDefault("2m")
     fun interval(): String
 
     /**
-     * Потолок выдержки в знаках. Держит один вызов внутри самого скупого free-лимита (12 тыс.
-     * токенов в минуту), а кусок длиннее берётся окнами по всей длине ([SummaryWindows]).
+     * Excerpt cap in characters. It keeps one call inside the stingiest free limit, and a longer
+     * stretch is taken in windows across its whole length ([SummaryWindows]).
      */
     @WithDefault("12000")
     fun maxChars(): Int
 
-    /** Сколько раз пробовать заход, прежде чем оставить его без пересказа. */
+    /** How many times a sitting is attempted before it is left without a summary. */
     @WithDefault("3")
     fun maxAttempts(): Int
 
     /**
-     * На сколько долей источника заход должен уйти вперёд от рассказанного, чтобы пересказ
-     * пересобрали. По умолчанию 0.02 — два процента: заход, продлённый на столько, это уже
-     * другая история, а меньшее не отличить от округления доли. Ноль здесь означал бы поход к
-     * модели на каждый такт поллера.
+     * How far, in source fractions, a sitting must move past what was told before the summary is
+     * rebuilt. The default two percent: less than that is indistinguishable from rounding, and
+     * zero would mean a trip to the model on every poller tick.
      */
     @WithDefault("0.02")
     fun refreshFraction(): Double

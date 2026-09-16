@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { MOSAIC_UNITS, columnMajorMosaic, type MosaicCell } from "./dropMosaic";
 
-/** Кадры дропа: `true` — стоячий. */
+/** A drop's frames: `true` means portrait. */
 const land = (n: number) => Array(n).fill(false);
-/** Последовательность ориентаций живого дропа (37 кадров) — на ней и судим о раскладке. */
+/** The orientation sequence of a real drop (37 frames) — the layout is judged on it. */
 const REAL = "LLLLLLLLPLLLPPLLLLLPLLLLPLLLLLLLLLPLP".split("").map((c) => c === "P");
 
-/** Клетки, занятые кадром. */
+/** The cells a frame occupies. */
 function* unitsOf(c: MosaicCell) {
   for (let r = c.row; r < c.row + c.h; r++) for (let x = c.col; x < c.col + c.w; x++) yield `${r},${x}`;
 }
@@ -19,7 +19,7 @@ describe("columnMajorMosaic", () => {
   });
 
   it("колонка кончилась — следующий кадр начинает соседнюю сверху", () => {
-    // 8 лежачих на 12 клеток ширины = 4 клетки высоты, то есть по два кадра в колонке.
+    // 8 landscape frames over 12 cells of width = 4 cells of height, so two frames per column.
     const cells = columnMajorMosaic(land(8), MOSAIC_UNITS);
     expect(cells[2]).toMatchObject({ col: 3, row: 0 });
     expect(cells[3]).toMatchObject({ col: 3, row: 2 });
@@ -31,7 +31,7 @@ describe("columnMajorMosaic", () => {
     expect(cells[1]).toMatchObject({ w: 2, h: 3 });
   });
 
-  /** Главный запрет: кадры не наезжают друг на друга ни при какой смеси ориентаций. */
+  /** The main prohibition: frames never overlap, whatever the mix of orientations. */
   it("кадры не перекрываются и не вылезают за сетку", () => {
     for (const units of [MOSAIC_UNITS, 6]) {
       const seen = new Set<string>();
@@ -46,12 +46,12 @@ describe("columnMajorMosaic", () => {
   });
 
   /**
-   * Щель рядом со стоячим кадром занимает следующий подходящий, а не «конец колонки»: без этого
-   * щели складывались в пустую колонку во всю высоту мозаики.
+   * A gap beside a portrait frame is taken by the next frame that fits rather than "the end of the
+   * column": without that the gaps added up into an empty column the full height of the mosaic.
    */
   it("кадр садится в щель, оставленную стоячим соседом", () => {
-    // Стоячий кадр занимает клетки 0..1, тринадцатая клетка колонки свободна — её и займёт
-    // следующий лежачий, начавшись со второй клетки, а не с третьей.
+    // The portrait frame takes cells 0..1 and the column's thirteenth cell is free, so the next
+    // landscape frame takes it, starting from the second cell rather than the third.
     const cells = columnMajorMosaic([true, false, false, false], MOSAIC_UNITS);
     expect(cells[0]).toMatchObject({ col: 0, row: 0, w: 2, h: 3 });
     expect(cells.some((c) => c.col === 2)).toBe(true);

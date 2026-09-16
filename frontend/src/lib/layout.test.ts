@@ -22,9 +22,9 @@ describe("resolveLayout", () => {
     const r = resolveLayout({ tiles: { today: { col: 2, colSpan: 5 } } });
     expect(r.tiles.today.col).toBe(2);
     expect(r.tiles.today.colSpan).toBe(5);
-    // Незаданные поля тайла — из дефолта.
+    // Fields the tile does not set come from the default.
     expect(r.tiles.today.row).toBe(TILE_LAYOUT.today.row);
-    // Другой тайл не тронут.
+    // Another tile is untouched.
     expect(r.tiles.music).toEqual({ ...TILE_LAYOUT.music, hidden: false });
   });
 
@@ -47,7 +47,7 @@ describe("resolveLayout", () => {
     const r = resolveLayout({ grid: { cols: 24, rows: 18 }, mobileOrder: ["music", "today"] });
     expect(r.cols).toBe(24);
     expect(r.rows).toBe(18);
-    // Заданные — первыми, недостающие из дефолта — в хвосте (борд не теряет тайлы).
+    // Named ones first, the missing defaults in the tail — the board loses no tiles.
     expect(r.mobileOrder.slice(0, 2)).toEqual(["music", "today"]);
     expect(new Set(r.mobileOrder)).toEqual(new Set(MOBILE_ORDER));
   });
@@ -61,7 +61,7 @@ describe("resolveLayout", () => {
   it("волна может развернуть тайл (orientation), дефолт — ориентация не задана", () => {
     const r = resolveLayout({ tiles: { marquee: { orientation: "vertical" } } });
     expect(r.tiles.marquee.orientation).toBe("vertical");
-    // Без переопределения — undefined (тайл рендерит свой дефолт).
+    // With no override it is undefined and the tile renders its own default.
     expect(r.tiles.social.orientation).toBeUndefined();
   });
 
@@ -72,9 +72,9 @@ describe("resolveLayout", () => {
   });
 
   it("волна может выбрать планету проектов (planet); дефолт — не задана", () => {
-    // ⚠️ Регрессия: каждое поле контракта раскладки надо ПЕРЕНЕСТИ здесь явно — мерж собирает
-    // спан по одному полю, и забытый ключ волна теряет молча (на 3D-планетах так и вышло:
-    // ключ доехал из БД до API и оборвался ровно тут).
+    // ⚠️ A regression: every field of the layout contract must be CARRIED OVER explicitly here.
+    // The merge assembles a span field by field, and a forgotten key is lost silently — which is
+    // what happened to 3D planets: the key reached the API from the DB and died right here.
     const r = resolveLayout({ tiles: { projects: { planet: "model" } } });
     expect(r.tiles.projects.planet).toBe("model");
     expect(r.tiles.music.planet).toBeUndefined();
@@ -106,8 +106,9 @@ describe("resolveLayout", () => {
 });
 
 /**
- * Высота тайла в ячейке bento: по спану (все) или по содержимому с потолком в спан (проекты).
- * Свойство самого тайла, а не волны, — поэтому проверяется и на перекроенном волной спане.
+ * A tile's height in its bento cell: by span (all of them) or by content with the span as a
+ * ceiling (projects). It is the tile's own property, not the wave's, so it is also checked on a
+ * span the wave has recut.
  */
 describe("tileBox — как тайл занимает свою ячейку", () => {
   it("обычный тайл растянут на весь спан", () => {
@@ -120,10 +121,10 @@ describe("tileBox — как тайл занимает свою ячейку", (
   it("проекты меряются содержимым, а спан им только потолок", () => {
     const box = tileBox("projects", TILE_LAYOUT.projects);
     expect(box.cell.gridArea).toBe(gridArea(TILE_LAYOUT.projects));
-    // Растяжение грид-элемента снято, потолок остался: процент считается от ячейки спана.
+    // The grid item's stretch is removed and the ceiling stays: the percentage is of the span's cell.
     expect(box.cell.alignSelf).toBe("start");
     expect(box.cell.maxHeight).toBe("100%");
-    // Своей высоты у тайла нет — её даёт список внутри.
+    // The tile has no height of its own — the list inside gives it one.
     expect(box.tile.height).toBeUndefined();
     expect(box.tile.width).toBe("100%");
   });

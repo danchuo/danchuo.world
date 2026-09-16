@@ -1,13 +1,9 @@
 package world.danchuo.llm
 
 /**
- * Public API of the `llm` slice — an abstraction over an external LLM provider, mirroring the
- * proxemics `llm` module. v1 talks to Groq's OpenAI-compatible API; the provider can be swapped
- * (Anthropic, self-hosted) by replacing the implementation only — callers stay the same.
- *
- * Consumers are future slices (PRD backlog): the humorous board "search" widget (text) and
- * photo-drop orientation validation on upload (vision). This slice owns no domain logic —
- * callers build the prompts and interpret the replies.
+ * Public API of the `llm` slice: an abstraction over an external LLM provider, swappable by
+ * replacing the implementation only. The slice owns no domain logic — callers build the
+ * prompts and interpret the replies. PRD §9
  */
 interface LlmClient {
 
@@ -34,12 +30,9 @@ interface LlmClient {
     fun completeVision(systemPrompt: String, userPrompt: String, image: LlmImage): String?
 
     /**
-     * Vision completion whose reply is constrained to [jsonSchema] (provider-native structured
-     * output), returning raw JSON text under the same `null` rules as [completeVision].
-     *
-     * Providers that cannot constrain the reply fall back to a plain [completeVision] — callers
-     * must parse defensively either way, since a schema-less model may wrap the JSON in prose or
-     * run out of budget mid-object.
+     * Vision completion constrained to [jsonSchema], returning raw JSON under the `null` rules
+     * of [completeVision]. A provider that cannot constrain the reply falls back to plain
+     * [completeVision], so parse defensively: the JSON may arrive wrapped in prose or truncated.
      */
     fun completeVisionJson(
         systemPrompt: String,
@@ -49,54 +42,42 @@ interface LlmClient {
     ): String? = completeVision(systemPrompt, userPrompt, image)
 
     /**
-     * Расшифровка речи: текст [audio] или `null` по тем же правилам, что у [completeText] (нет
-     * ключа, отказ провайдера, сеть). Лимит здесь **свой** — он меряется аудиосекундами, а не
-     * токенами, поэтому расшифровка не отнимает бюджет у текстовых вызовов той же полосы.
-     *
-     * Присылать сюда надо КУСКИ, а не файл целиком: у бесплатной полосы есть потолок на размер
-     * запроса, а у пересказа — потолок на выдержку, и оба берутся нарезкой окон до расшифровки
-     * (см. `AudioWindows` в слайсе spotify).
+     * Speech to text, `null` under the rules of [completeText]. Its quota is its own, measured
+     * in audio seconds, so it takes no budget from text calls on the same lane. Send WINDOWS,
+     * not whole files — both the lane and the summary cap size (`AudioWindows` in spotify).
      */
     fun transcribe(audio: LlmAudio, lane: LlmLane): String? = null
 }
 
 /**
- * Полоса вызовов: чьим лимитом (и чьими деньгами) оплачен поход к модели.
- *
- * Разведены они намеренно. Основная полоса — витринная: ответ нужен здесь и сейчас, в неё
- * настроена лучшая доступная модель, и она вправе быть платной. Фоновая работа, которая может
- * подождать такт поллера, обязана жить в бесплатной: пересказ прочитанного куска (PRD §5.16)
- * набегает по книге за книгой, и ставить его в один ряд с разовой проверкой поворота кадра
- * значило бы платить за то, что прекрасно делает free-лимит.
- *
- * Полоса — это провайдер + модель, а не просто модель: у бесплатной полосы вполне может быть
- * другой провайдер (Groq), чем у основной (Gemini). Разводит их [ConfiguredLlmClient].
+ * Which quota (and whose money) pays for the call. Anything that can wait a poller tick MUST
+ * use [FREE]: summaries accrue book after book, and billing them like a one-off check would
+ * pay for what the free quota does fine. A lane is provider + model, not just a model.
  */
 enum class LlmLane {
-    /** Как настроено `danchuo.llm.provider`/`model` — может стоить денег. */
+    /** As configured by `danchuo.llm.provider`/`model` — may cost money. */
     PRIMARY,
 
-    /** Только бесплатный лимит: `danchuo.llm.free-*`. Фоновая работа, ждать не жалко. */
+    /** Free quota only (`danchuo.llm.free-*`). Background work, waiting is fine. */
     FREE,
 }
 
 /**
- * Внутренний шов слайса: провайдер, которому модель называют явно. Наружу его нет — он нужен
- * ровно затем, чтобы [ConfiguredLlmClient] мог послать бесплатную полосу в другую модель (и к
- * другому провайдеру), не заводя второго бина на каждую полосу.
+ * Slice-internal seam: a provider told its model explicitly. It exists so [ConfiguredLlmClient]
+ * can route the free lane to another model, and another provider, without a bean per lane.
  */
 interface LlmTextProvider {
 
     fun completeText(systemPrompt: String, userPrompt: String, call: LlmTextCall): String?
 }
 
-/** Как звать модель на этот раз: чем считать и насколько вольно отвечать. */
+/** How to call the model this time: what to count with, and how freely to answer. */
 data class LlmTextCall(
     val model: String,
     val temperature: Double,
     /**
-     * Только для reasoning-моделей (`none` гасит «размышления вслух»). Пусто ⇒ параметр не
-     * слать вовсе: модель, которая его не знает, отвергает ВЕСЬ запрос.
+     * Reasoning models only (`none` silences thinking aloud). Empty means do not send the
+     * parameter at all: a model that does not know it rejects the WHOLE request.
      */
     val reasoningEffort: String? = null,
 )
@@ -108,11 +89,9 @@ class LlmImage(
 )
 
 /**
- * Кусок аудио на расшифровку: байты, тип и **имя файла**.
- *
- * Имя здесь несущее, а не для красоты: провайдеры распознавания определяют формат по
- * расширению в multipart-части и отвергают безымянную. Байты при этом — честный срез потока
- * (не целый файл), и это нормально: mp3 самосинхронизируется на первом заголовке фрейма.
+ * A chunk of audio to transcribe. The file name is load-bearing: providers read the format off
+ * the extension in the multipart part and reject a nameless one. The bytes are a raw slice of
+ * the stream, not a whole file, which is fine — mp3 resynchronises on the first frame header.
  */
 class LlmAudio(
     val bytes: ByteArray,

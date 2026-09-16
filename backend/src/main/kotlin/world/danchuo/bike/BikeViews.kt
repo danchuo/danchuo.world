@@ -1,13 +1,13 @@
 package world.danchuo.bike
 
 /**
- * Публичные проекции слайса bike (PRD §9 B4). Всё на чтение, без токена (§3). Наружу отдаём
- * нашу модель, а не сырьё Велобайка ([VelobikeApi]).
+ * Public projections of the bike slice (PRD §9 B4). Read-only, no token (§3). We expose our own
+ * model rather than Velobike's raw shape ([VelobikeApi]).
  */
 
 /**
- * Одна поездка для ленты/дневного слоя борда. Времена — ISO-8601, дата — MSK (`ride_date`).
- * Координаты — только старт и финиш (трека маршрута API не отдаёт): фронт рисует 2 пина на мини-карте.
+ * One ride for the feed and the day layer. Times are ISO-8601, the date is MSK (`ride_date`).
+ * Only start and finish coordinates exist — the API returns no track, so the board draws 2 pins.
  */
 data class RideView(
     val id: Long,
@@ -18,25 +18,24 @@ data class RideView(
     val durationSeconds: Int,
     val calories: Int?,
     /**
-     * Что натикало **сверх** доступа (копейки, `cost` API): минуты поминутного тарифа либо
-     * превышение пакета. Это НЕ полная цена поездки — вход в тариф оплачен отдельной покупкой
-     * ([accessKopecks]). null — данных о стоимости нет. Формат — на фронте.
+     * What ran up BEYOND the access (kopecks, the API's `cost`): per-minute tariff time or a
+     * package overrun. This is NOT the ride's full price — entering the tariff was paid by a
+     * separate purchase ([accessKopecks]). null means no cost data. Formatting is the board's.
      */
     val costKopecks: Int?,
     /**
-     * Цена (копейки) «Доступа», купленного **ради этой поездки**: платный старт поминутного тарифа
-     * или пакет минут. Вместе с [costKopecks] складывается в [totalKopecks]. null — доступ к тарифу
-     * оплатила другая поездка либо покупки в истории нет (см. [TariffAttribution]).
+     * Price (kopecks) of the access bought FOR THIS RIDE: a paid per-minute start or a minute
+     * package. With [costKopecks] it sums into [totalKopecks]. null means another ride paid for
+     * the access, or the history holds no purchase at all (see [TariffAttribution]).
      */
     val accessKopecks: Int?,
     /**
-     * Цена (копейки) пакета, под которым едет поездка, **не купившая доступ сама**: фронт покажет
-     * «в рамках тарифа за N ₽» / «сверх тарифа». Деньги за этот пакет уже учтены у поездки, которая
-     * его купила, — здесь они только поясняют строку и в [totalKopecks] не входят. null — поездка
-     * купила доступ сама либо подходящей покупки в истории нет.
+     * Price (kopecks) of the package a ride runs under when it did NOT buy the access itself.
+     * That money is already counted on the ride that bought it, so this field only explains the
+     * line and stays OUT of [totalKopecks]. null when the ride bought its own access.
      */
     val coveredByTariffKopecks: Int?,
-    /** Сколько поездка стоила на самом деле: [accessKopecks] + [costKopecks]. null — данных нет. */
+    /** What the ride actually cost: [accessKopecks] + [costKopecks]. null means no data. */
     val totalKopecks: Int?,
     val vehicleType: String?,
     val tariffName: String?,
@@ -49,8 +48,8 @@ data class RideView(
 )
 
 /**
- * Агрегат истории поездок — для тайла-сводки («сколько накатал»). Все суммы по сохранённым
- * поездкам; пусто (нулевой агрегат) — штатное состояние до первого ingest, не ошибка.
+ * Ride history aggregate for the summary tile. All sums are over stored rides; an empty (zero)
+ * aggregate is the normal state before the first ingest, not an error.
  */
 data class RideStatsView(
     val totalRides: Int,
@@ -63,18 +62,12 @@ data class RideStatsView(
 )
 
 /**
- * Сводка за **текущий календарный месяц** (MSK) для шапки модалки поездок: сколько раз проехал,
- * сколько минут суммарно и сколько денег ушло. `rides == 0` — в этом месяце поездок нет (фронт
- * не рисует строку).
- *
- * `spentKopecks` — **фактически уплаченные деньги за месяц**, а не сумма стоимостей поездок: это
- * платные поездки (`cost > 0`, прямое списание) **плюс** покупки тарифов-пакетов, сделанные в этом
- * месяце ([BikeTariff], каждая учтена ровно один раз). Так деньги не задваиваются: четыре
- * бесплатные поездки «в рамках тарифа за 399 ₽» — это ровно те 399 ₽ (или 2×399, если пакетов
- * куплено два) из реальных записей о покупках, а не 4×399 из строк поездок.
+ * Current-month summary for the rides modal header. `spentKopecks` is money actually paid that
+ * month — paid rides plus this month's package purchases, each counted once — not the sum of
+ * ride prices, so four free rides under one package are that one package. PRD §7
  */
 data class RideMonthSummaryView(
-    /** Месяц сводки в формате `YYYY-MM` (MSK) — для подписи/отладки. */
+    /** Summary month as `YYYY-MM` (MSK), for the caption and for debugging. */
     val month: String,
     val rides: Int,
     val durationSeconds: Long,

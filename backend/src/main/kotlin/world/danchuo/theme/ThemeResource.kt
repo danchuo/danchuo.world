@@ -7,11 +7,9 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичное чтение волн (PRD §5.9, §12 M4; DESIGN §10). Всё на чтение, без токена (§3).
- *
- * - `GET /api/theme/active` — токены активной волны (default); фронт инжектит их в `:root`.
- *   Нет активной волны ⇒ 404 — фронт остаётся на дефолтах `globals.css` (без вспышки).
- * - `GET /api/themes` — список выпущенных волн для переключателя (DESIGN §2.6).
+ * Public reads of waves, token-free like everything read-side (§3). `/api/theme/active` gives the
+ * active wave's tokens and 404s when there is none, leaving the frontend on `globals.css` defaults
+ * with no flash; `/api/themes` lists released waves for the switcher. DESIGN §10
  */
 @Path("/api")
 @Produces(MediaType.APPLICATION_JSON)

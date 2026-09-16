@@ -3,51 +3,40 @@ import { monsterVerdict } from "@/lib/monster";
 
 interface WeekendSceneProps {
   wave: string;
-  /** Был ли монстр выпит — единственное дело будней, оставленное на выходной. `null` — за
-   *  день записи нет, и тогда вердикта тоже нет (отсутствие записи не выдаём за «не пил»). */
+  /** Whether the monster was drunk — the only weekday matter left for a weekend. `null` means
+   *  there is no record for the day, and then no verdict either. */
   monsterDrunk: boolean | null;
 }
 
 const pixelated: CSSProperties = { imageRendering: "pixelated" };
 
 /**
- * Weekend body of the "Сегодня" tile (§5.6). Weekdays are demanding — a discipline quest map with
- * streaks. Weekends are rest: the map is replaced by a calm dawn-horizon scene (all chores are
- * weekday chores, so an empty trail on a Saturday would read as failure). The scene PNG has a
- * **transparent background** — only the small distant sun, horizon and reflection are drawn, so the
- * tile's own surface is the sky and there is no pasted-in box (it blends like the SVG quest map).
- * Anchored to the bottom so the sun sits low with open sky above; the header (date + day name) stays.
- *
- * The single carry-over is the **monster**, tracked every day — but on weekends there are **no
- * streaks**, just a one-line checklist centered at the bottom, spelled out in words (a tick was
- * ambiguous): **«монстр — не пил»** (clean, `--accent-clean`) or **«монстр — пил»** (drunk, `--danger`).
- *
- * Wording and colors come from [monsterVerdict] — the same source the weekday quest map now uses,
- * so the board says «пил»/«не пил» in one voice regardless of which day you land on.
+ * The weekend body of the "Today" tile. Weekdays are demanding — a quest map with streaks — while
+ * weekends are rest, since every chore is a weekday chore and an empty trail on a Saturday would
+ * read as failure. The only carry-over is the monster, spelled out in words. PRD §5.6
  */
 export function WeekendScene({ wave, monsterDrunk }: WeekendSceneProps) {
   const monster = monsterVerdict(monsterDrunk);
   return (
     <div
       className="weekend-scene"
-      // Все слои сцены — absolute, своего контента по высоте у неё нет: в бенто высоту даёт
-      // flex-рост, в стеке (§8) — aspect-ratio класса `.weekend-scene` (иначе схлопывается в ноль).
+      // Every layer of the scene is absolute, so it has no content height of its own: in bento the
+      // height comes from flex growth, in the stack from `.weekend-scene`'s aspect-ratio (§8).
       style={{ position: "relative", flex: 1, minHeight: 0, overflow: "hidden" }}
       role="img"
       aria-label={`Выходной — отдых. ${monster.phrase}`}
       data-testid="weekend-scene"
     >
-      {/* Сцена — прозрачный пиксель-рассвет волны, прижат к низу (солнце низко, небо-плитка сверху). */}
+      {/* The scene is the wave's transparent pixel dawn, pinned to the bottom (a low sun). */}
       <img
         src={`/assets/waves/${wave}/today/weekend-horizon.png`}
         alt=""
         aria-hidden
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: "auto", ...pixelated }}
       />
-      {/* Монстр на выходной — без стриков: короткий чеклист словами снизу по центру
-          («пил»/«не пил» — галочка была неоднозначной). Только текст, читается сразу.
-          Без записи за день вердикта нет: строка становится тихим «нет данных» третичным
-          цветом, а не утверждает «не пил» — отсутствие записи это не чистый день. */}
+      {/* The monster on a weekend, with no streaks: a short worded checklist at the bottom centre
+          (a tick was ambiguous). With no record for the day there is no verdict — the line becomes
+          a quiet "no data" in the tertiary colour rather than claiming "not drunk". */}
       <div
         className="weekend-monster"
         data-testid="weekend-monster"
@@ -69,7 +58,7 @@ export function WeekendScene({ wave, monsterDrunk }: WeekendSceneProps) {
         монстр —{" "}
         <span
           data-testid="weekend-monster-mark"
-          // Вердикт жирный; «нет данных» остаётся обычным весом — это не ответ, а его отсутствие.
+          // The verdict is bold; "no data" keeps the normal weight — it is the absence of an answer.
           style={{ fontWeight: monster.verb ? 700 : 400, color: monster.color }}
         >
           {monster.verb ?? "нет данных"}

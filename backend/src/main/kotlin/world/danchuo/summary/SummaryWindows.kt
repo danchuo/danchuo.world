@@ -1,35 +1,24 @@
 package world.danchuo.summary
 
 /**
- * Как длинный кусок ужимается под потолок одного вызова модели (PRD §5.16).
- *
- * Потолок держит вызов внутри самого скупого free-лимита (у Groq это 12 тысяч токенов в минуту),
- * а на длинных заходах ещё и режет ожидание ответа. Но **обрезать по началу нельзя**: пересказ
- * оборвался бы на середине захода и молчал ровно про то место, где владелец остановился, — а
- * оно самое памятное. Вместо обрезки берём несколько равномерных окон по всей длине, последнее
- * — впритык к концу, и отмечаем пропуски явно, чтобы модель видела разрывы, а не сочиняла
- * мостики между ними.
- *
- * Живёт это здесь, а не в разборе epub, потому что про книги оно ничего не знает. Замер на
- * расшифровке подкаста: 767 знаков на минуту речи, то есть часовой заход — 46 тысяч знаков
- * против потолка в 12 тысяч. Для подкастов нарезка окнами станет не краевым случаем, а
- * основным путём (и резать там выгоднее само аудио — до расшифровки, а не после).
+ * How a long passage is squeezed under one model call's ceiling. It must NOT be cut at the start:
+ * the summary would fall silent exactly where the owner stopped, the most memorable spot. Instead,
+ * even windows across the length, the last flush to the end, with gaps marked. PRD §5.16
  */
 object SummaryWindows {
 
-    /** На сколько окон режется кусок, не влезший в потолок. */
     const val WINDOWS = 4
 
-    /** Окно тоньше этого пересказывать нечем — тогда берём одну связную выдержку. */
+    /** A window thinner than this is not worth retelling; one connected excerpt is taken instead. */
     const val MIN_WINDOW = 300
 
-    /** Явный разрыв между окнами: модель должна видеть пропуск, а не додумывать его. */
+    /** An explicit break between windows: the model must SEE a gap rather than invent a bridge. */
     const val GAP = "\n\n[…]\n\n"
 
     /**
-     * Ужать [text] до [maxChars]. Влезает — отдаём как есть; не влезает — режем окнами по всей
-     * длине. Совсем маленький потолок (меньше [MIN_WINDOW] на окно) окнами не нарезать: там
-     * честнее одна связная выдержка от начала, чем четыре обрывка по паре слов.
+     * Squeezes [text] to [maxChars]: if it fits it is returned as is, otherwise it is cut into
+     * windows across the whole length. Under a very small ceiling windows are not used — one
+     * connected excerpt from the start is honester than four fragments of a few words.
      */
     fun cap(text: String, maxChars: Int): String {
         if (text.length <= maxChars) return text
@@ -44,7 +33,7 @@ object SummaryWindows {
         }
     }
 
-    /** Обрезка по границе слова, чтобы выдержка не обрывалась на полубукве. */
+    /** Cuts on a word boundary so an excerpt never breaks mid-letter. */
     fun word(text: String, maxChars: Int): String {
         if (text.length <= maxChars) return text
         val cut = text.take(maxChars)

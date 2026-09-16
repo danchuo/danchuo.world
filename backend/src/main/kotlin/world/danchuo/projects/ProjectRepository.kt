@@ -4,9 +4,8 @@ import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
 import jakarta.enterprise.context.ApplicationScoped
 
 /**
- * Доступ к [Project]. Публичный шов слайса: идущие «по настоящее» — сверху, завершённые —
- * ниже (PRD §5.7); внутри групп — новые по началу промежутка, при равенстве — по
- * [Project.sortOrder].
+ * Access to [Project]. The slice's public seam: ongoing projects first, finished ones below
+ * (PRD §5.7); within a group, newest by start, ties broken by [Project.sortOrder].
  */
 @ApplicationScoped
 class ProjectRepository : PanacheRepository<Project> {

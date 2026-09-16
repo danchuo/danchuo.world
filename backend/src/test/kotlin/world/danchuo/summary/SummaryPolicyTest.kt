@@ -6,22 +6,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Правила очереди пересказов (PRD §5.16) — кого вообще спрашивать у модели.
- *
- * Раньше эти правила проверялись только через `@QuarkusTest` с живой БД: чтобы задать вопрос
- * «дорос ли заход настолько, чтобы пересобрать пересказ», приходилось поднимать Postgres и
- * писать строку. Сами правила при этом — арифметика над четырьмя числами и ни на что не
- * опираются, поэтому здесь они проверяются напрямую, а служба ([SummaryServiceTest]) отвечает
- * уже только за то, что читает и пишет их в базу.
- *
- * Правил ровно четыре, и все четыре про «что уже рассказано», а не про «сколько раз пробовали»:
- * - **не спрашивали** — берём;
- * - **рассказано и заход не сдвинулся** — не берём, иначе фон жёг бы бесплатный лимит на одном
- *   и том же куске;
- * - **заход дорос за порог** — берём заново: текст про его начало перестал отвечать за него
- *   целиком;
- * - **промахи считаются**, но счёт ведётся ПО ЦЕЛИ: заход, доросший дальше, — новая цель, и
- *   прежнее «сдаюсь» было принято про другой кусок.
+ * Queue rules for retellings (PRD §5.16) — who is worth asking the model about. Four rules, all
+ * about what has already been told rather than how many attempts were made: never asked ⇒ take;
+ * told and the sitting has not moved ⇒ skip; grown past the threshold ⇒ take again.
+ */
+
+/**
+ * Misses are counted PER TARGET: a sitting that grew further is a new target, and the earlier
+ * "giving up" was decided about a different chunk.
  */
 class SummaryPolicyTest {
 
@@ -45,8 +37,8 @@ class SummaryPolicyTest {
 
     @Test
     fun `a hair of extra progress does not wake the queue`() {
-        // Полпроцента книги — это округление процента у читалки и пара абзацев; звать за них
-        // модель незачем. Ноль вместо порога означал бы поход к модели на каждый такт поллера.
+        // Half a percent of a book is the reader's rounding and a couple of paragraphs. A zero
+        // instead of the threshold would mean a trip to the model on every poller tick.
         assertFalse(queued(end = 0.16, known = told(covered = 0.15, target = 0.15)))
     }
 
@@ -67,7 +59,7 @@ class SummaryPolicyTest {
 
     @Test
     fun `the attempt counter restarts on a new target and adds up on the same one`() {
-        // Счёт промахов держит решение «сдаюсь» только про ту цель, на которую целились.
+        // The miss count holds "give up" only for the target it was aimed at.
         assertEquals(1, attempts(known = null, end = 0.15))
         assertEquals(2, attempts(known = missed(target = 0.15, attempts = 1), end = 0.15))
         assertEquals(1, attempts(known = missed(target = 0.15, attempts = 2), end = 0.40))
@@ -75,8 +67,8 @@ class SummaryPolicyTest {
 
     @Test
     fun `a sitting told about a shorter stretch is asked again even after a miss`() {
-        // Освежение промахнулось: цель осталась прежней, попытки капают, но пока они не вышли,
-        // заход обязан оставаться в очереди — на карточке лежит текст про меньший кусок.
+        // A refresh missed: the target is unchanged and attempts tick, but until they run out the
+        // sitting stays queued — the card is showing text about a smaller chunk.
         val stale = SummaryState(ready = true, coveredEnd = 0.15, targetEnd = 0.40, attempts = 1)
 
         assertTrue(queued(end = 0.40, known = stale))
@@ -88,11 +80,11 @@ class SummaryPolicyTest {
     private fun attempts(known: SummaryState?, end: Double): Int =
         SummaryPolicy.attemptsAfter(known, end, refresh)
 
-    /** Про заход рассказано ровно до [covered], и последняя попытка целилась в [target]. */
+    /** The sitting is told up to [covered], and the last attempt aimed at [target]. */
     private fun told(covered: Double, target: Double) =
         SummaryState(ready = true, coveredEnd = covered, targetEnd = target, attempts = 0)
 
-    /** Про заход рассказать не смогли: покрывать нечем, но попытки засчитаны. */
+    /** The sitting could not be told: nothing covered, but the attempts are counted. */
     private fun missed(target: Double, attempts: Int) =
         SummaryState(ready = false, coveredEnd = null, targetEnd = target, attempts = attempts)
 }

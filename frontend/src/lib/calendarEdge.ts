@@ -1,33 +1,14 @@
 import type { DaySummary } from "@/lib/api/types";
 import { monthRowsLayout, type MonthGap } from "./calendarMonthRows";
 
-/**
- * Нарезка окна календаря на **кромки и сетку** (DESIGN §5.2, редакция «поле»).
- *
- * Кромка — соседняя строка, показанная полоской в треть высоты и растворённая маской в плиту.
- * Чтобы полоска несла настоящий свет дней, а не одни числа, борд берёт окно **на неделю шире
- * с каждого края**, а компонент отделяет лишнее от сетки здесь.
- *
- * Здесь же держится **высота сетки**: перенос месяца (§5.2) добавляет строку, и без потолка
- * плитка на таких окнах становилась на ряд выше, а клетки мельчали от того, в каком месте
- * истории стоит окно.
- *
- * Чистая функция и свой модуль по той же причине, что и у [monthEdges]: это арифметика по
- * позициям в окне, и ошибиться в ней тихо — значит уронить высоту сетки, чего в разметке
- * не видно.
- */
+/** Split fetched calendar weeks into edges and a height-capped field grid. DESIGN §5.2. */
 
 const DAYS_IN_WEEK = 7;
 
-/**
- * Сколько строк показывает сетка «поля»: две прошлые недели и текущая.
- *
- * Будущая неделя в сетку не попадает вовсе (§5.2): данных за неё не бывает, и строка под неё
- * гарантированно пустая — ровно та пустота, ради которой редакция и затевалась.
- */
+/** Two past weeks and the current week; future weeks have no data. DESIGN §5.2. */
 export const FIELD_ROWS = 3;
 
-/** День со своим местом в сетке: слоты после переноса месяца идут не подряд. */
+/** Day with its grid slot; month breaks make slots noncontiguous. */
 export interface PlacedDay {
   day: DaySummary;
   row: number;
@@ -35,42 +16,30 @@ export interface PlacedDay {
 }
 
 export interface FieldWindow {
-  /** Строка над сеткой — ровно та, что въедет следующим шагом. Пусто, если ехать некуда. */
+  /** The exact layout row entering on the next backward step; empty at the boundary. */
   before: DaySummary[];
   grid: PlacedDay[];
-  /** Неделя после сетки — шаг вперёд. Рисовать её или нет, решает компонент. */
+  /** The week after the grid; the component decides whether to display it. */
   after: DaySummary[];
-  /** Имена месяцев в пустых кусках (§5.2), уже в координатах показанной сетки. */
+  /** Month labels in grid-relative gaps. DESIGN §5.2. */
   marks: MonthGap[];
-  /** Первые числа, которые называет сама клетка. */
+  /** First-of-month cells that carry their own label. */
   inline: string[];
   rows: number;
 }
 
 export interface FieldWindowOptions {
-  /**
-   * Взял ли борд окно шире сетки. `false` — кромок нет вовсе, и тогда сетке достаётся всё
-   * окно целиком: резать нечего, а срезанное было бы недостижимо.
-   */
+  /** Whether extra edge weeks were fetched; without them, retain the entire window. */
   edges: boolean;
-  /** Есть ли что листать назад (ответ бэка, §5.3). У генезиса кромка была бы мёртвой. */
+  /** Backend-derived backward availability; no dead edge at genesis. PRD §5.3. */
   canGoBack: boolean;
-  /** Потолок высоты сетки в строках. */
+  /** Maximum grid height in rows. */
   maxRows: number;
 }
 
 const EMPTY: FieldWindow = { before: [], grid: [], after: [], marks: [], inline: [], rows: 0 };
 
-/**
- * Разложить окно на кромки и сетку.
- *
- * ⚠️ **Хвостовая неделя отрезается всегда, даже когда шага вперёд нет.** Дома вперёд идти
- * некуда, но если вернуть эту неделю в сетку, сетка дома была бы на ряд выше, чем
- * в отлистанном окне — высота плитки не может зависеть от того, листали её или нет.
- *
- * ⚠️ **Лишние строки срезаются сверху, и только когда есть куда шагнуть.** У генезиса
- * листать назад нечем, и срезанная строка не просто спряталась бы, а стала бы недостижимой.
- */
+/** Always remove the trailing week to keep home height stable; trim excess rows only when backward paging can reach them. */
 export function splitFieldWindow(
   days: readonly DaySummary[],
   { edges, canGoBack, maxRows }: FieldWindowOptions,
@@ -96,8 +65,7 @@ export function splitFieldWindow(
   const marks = layout.marks
     .filter((m) => m.row >= drop)
     .map((m) => ({ ...m, row: m.row - drop }));
-  // Месяц, чей пустой кусок уехал за верхний край, не может остаться безымянным: имя
-  // возвращается в клетку первого числа — тем же способом, что у месяца с понедельника.
+  // Restore the first-cell month label when its gap scrolls above the grid.
   const inline = [
     ...layout.inline,
     ...layout.marks.filter((m) => m.row < drop).map((m) => m.date),
@@ -113,18 +81,7 @@ export function splitFieldWindow(
   };
 }
 
-/**
- * Дни одной строки раскладки — по её номеру.
- *
- * ⚠️ Кромке достаётся **строка**, а не календарная неделя. Разница видна там, где перенос
- * месяца делит неделю надвое: неделя-ответ промахивалась мимо того, что реально въезжает в
- * сетку. Хвост прошлого месяца (у сентября 2026 это одно 31 августа) не показывался тогда
- * ВООБЩЕ — ни в сетке, ни в кромке, — а шаг назад приводил вместо обещанной недели именно
- * его. Отсюда и дёрганье: полоска дважды подряд показывала одно и то же, а въезжало третье.
- *
- * Под подписями дней недели строка стоит правильно и так: колонку каждый день считает сам
- * по своей дате (см. рендер кромки), а неполная строка просто не занимает всех семи.
- */
+/** Return a layout row, not a calendar week: month breaks can split a week and otherwise hide its tail. */
 function rowAt(head: readonly DaySummary[], slots: readonly number[], row: number): DaySummary[] {
   if (row < 0) return [];
   return head.filter((_, i) => Math.floor(slots[i] / DAYS_IN_WEEK) === row);

@@ -1,16 +1,15 @@
 package world.danchuo.summary
 
 /**
- * Что именно пересказано. Дискриминатор строки [ContentSummary] и ключ к словарю промпта.
- *
- * Вид — часть ключа, а не отдельная таблица: id захода уникален внутри своего слайса, но не
- * между слайсами (сессия чтения №7 и сессия подкаста №7 — разные вещи).
+ * What exactly was summarised. The discriminator of a [ContentSummary] row and the key to the
+ * prompt vocabulary. The kind is part of the key rather than a separate table: a sitting id is
+ * unique inside its slice but not across slices.
  */
 enum class SummaryKind {
-    /** Заход по книге с полки Anx (слайс `reading`). */
+    /** A sitting with a book from the Anx shelf (the `reading` slice). */
     READING,
 
-    /** Заход по эпизоду подкаста (слайс `spotify`). */
+    /** A sitting with a podcast episode (the `spotify` slice). */
     PODCAST,
     ;
 
@@ -22,79 +21,66 @@ enum class SummaryKind {
 }
 
 /**
- * Заход, которому пересказ ещё положен, — снимок, снятый источником в его собственной
- * транзакции. Снимок, а не сущность, намеренно: поход к модели идёт секунды, и держать ради
- * него открытую транзакцию (да ещё и прицепленную строку) незачем.
- *
- * Доли [from] и [to] — 0..1 внутри своей единицы: у книги это доля книги, у выпуска будет доля
- * его длительности. Ядро не знает, чего именно, и знать не обязано: вся его арифметика —
- * сравнение двух чисел с порогом ([SummaryPolicy]).
+ * A sitting still owed a summary — a SNAPSHOT taken by the source in its own transaction, not an
+ * entity, because the trip to the model takes seconds and must not hold one open. [from] and [to]
+ * are 0..1 inside the source's own unit, and the core need not know which. PRD §5.16
  */
 data class SummaryTarget(
     val kind: SummaryKind,
-    /** Id захода ВНУТРИ слайса-источника; уникален вместе с [kind], но не сам по себе. */
+    /** The sitting id INSIDE its source slice; unique together with [kind], not on its own. */
     val sessionId: Long,
-    /** Чем подписан кусок: название книги (для выпуска будет его название). */
+    /** What the stretch is captioned by: the book title (an episode uses its own title). */
     val title: String,
-    /** Вторая строка подписи: автор книги (для выпуска — название шоу). */
+    /** The caption's second line: the book's author (for an episode, the show name). */
     val byline: String?,
     val from: Double,
     val to: Double,
     /**
-     * Ключ источника к самому тексту — **ядру непрозрачен**. У книги это путь файла на полке;
-     * у выпуска будет ссылка на аудио. Ядро возит его от [SummarySource.candidates] обратно в
-     * [SummarySource.excerpt] и никогда в него не заглядывает.
+     * The source's key to the text itself — OPAQUE to the core. For a book it is the shelf file
+     * path; for an episode it will be an audio link. The core carries it from
+     * [SummarySource.candidates] back into [SummarySource.excerpt] and never looks inside.
      */
     val ref: String? = null,
 )
 
-/** Текст куска и то, чем он подписан внутри источника. */
+/** The stretch's text and what captions it inside the source. */
 data class SummaryExcerpt(
     val text: String,
-    /** Заголовки разделов, попавших в кусок; пусто — источник их не знает. */
+    /** Section titles falling inside the stretch; empty when the source does not know them. */
     val sections: List<String> = emptyList(),
 )
 
-/** Разобранный ответ модели: пункты и (если дала) строка-итог. */
+/** The model's parsed reply: the points and, if it gave one, a closing line. */
 data class Retelling(
     val bullets: List<String>,
     val takeaway: String?,
 )
 
 /**
- * Шов между ядром пересказа и слайсом, который владеет внешним источником.
- *
- * Разделение ровно одно: **источник знает, откуда взять текст, ядро — кому и когда его
- * пересказывать**. Поэтому epub, WebDAV-полка (а завтра — RSS и расшифровка аудио) остаются
- * целиком внутри своих слайсов, как того требует правило вертикальных слайсов, а очередь,
- * счётчик попыток, порог освежения, промпт и разбор ответа живут здесь в одном экземпляре.
- *
- * Один экземпляр — не только ради DRY. Бесплатная полоса модели ([world.danchuo.llm.LlmLane])
- * это **один** дефицитный лимит на всех: два независимых поллера с собственными очередями
- * дрались бы за 12 тысяч токенов в минуту и взаимно ловили 429, тратя попытки впустую.
+ * The seam between the summary core and the slice owning an external source: THE SOURCE KNOWS
+ * WHERE THE TEXT COMES FROM, THE CORE KNOWS WHO AND WHEN TO SUMMARISE. One instance, not one per
+ * slice, because the model's free lane is a single scarce limit shared by all. PRD §5.16
  */
 interface SummarySource {
 
     fun kind(): SummaryKind
 
     /**
-     * Настроен ли источник. Не настроен — [SummaryPoller] молча его пропускает: это нормальное
-     * состояние (нет полки, не прошли OAuth), а не поломка.
+     * Whether the source is configured. When it is not, [SummaryPoller] skips it silently: that is
+     * a normal state (no shelf, no OAuth), not a breakage.
      */
     fun isConfigured(): Boolean
 
     /**
-     * Заходы, из которых МОЖНО вырезать кусок, свежие вперёд. Фильтровать по «уже рассказано»
-     * не нужно — это дело очереди; источник отвечает только за «есть ли что резать».
-     *
-     * Свежие вперёд намеренно: борд смотрят с сегодняшнего дня, и вчерашний вечер нужен
-     * раньше мартовского.
+     * Sittings a passage CAN be cut from, newest first — the board is read starting from today.
+     * There is no need to filter out what was already told: that belongs to the queue, and a
+     * source answers only "is there anything to cut".
      */
     fun candidates(): List<SummaryTarget>
 
     /**
-     * Текст куска; `null` — вырезать нечем (файла нет, не разобрался, окно пустое). Вызывается
-     * ВНЕ транзакции: внутри бывает и файловый, и сетевой поход.
+     * The stretch's text; `null` when there is nothing to cut (no file, no parse, an empty
+     * window). Called OUTSIDE a transaction: it may make a file or a network trip.
      */
     fun excerpt(target: SummaryTarget): SummaryExcerpt?
 }

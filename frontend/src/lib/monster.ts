@@ -1,48 +1,30 @@
 /**
- * Вердикт монстра — ЕДИНСТВЕННАЯ формулировка «пил / не пил» на всём борде.
- *
- * Зачем модуль. Монстр живёт в четырёх местах разом — детур карты-тропы, сцена выходного,
- * ярлык и ячейки линзы календаря. Говори каждое место о нём по-своему — выйдет три словаря
- * на один факт, и ни один не ответит на вопрос сразу: закрытая остановка читается как
- * достижение, хотя закрывает её как раз выпитый монстр. Поэтому формулировка и цвет живут
- * здесь, а места их только показывают.
- *
- * Полярность: **монстр — не пункт дисциплины со «сделано/не сделано», а событие**. Отмечать
- * его «сделанным» нельзя ни в одну сторону: «выпил» — не достижение, «не выпил» — не пропуск.
- * Поэтому у него своя пара состояний (`tone`: clean / drunk) и свой цвет, а не done/pending
- * общего маршрута (DESIGN §4.1).
+ * The monster's verdict — THE ONLY wording of "drank / did not" on the whole board. It appears in
+ * four places, and three vocabularies for one fact would answer nothing. The monster is an EVENT,
+ * not a discipline item: neither state is an achievement, so it has its own pair. DESIGN §4.1
  */
 
 /**
- * Ключ состояния монстра — им же именуются CSS-модификаторы карты и календаря.
- *
- * Состояний ТРИ, а не два. `unknown` («за день ничего не приходило») обязателен по той же
- * причине, что третий ответ у линзы календаря: без него отсутствие записи выдаётся за факт.
- * Дефолт «не пил» ровно это и делает: у будущего дня и у дырки в записи монстра никто
- * не отмечал, а борд утверждал бы, что день был чистый.
+ * The monster's state key, also naming the CSS modifiers of map and calendar. There are THREE
+ * states, not two: `unknown` is required for the same reason the calendar lens has a third answer
+ * — without it a missing record passes for a fact, and "did not drink" is claimed for the owner.
  */
 export type MonsterTone = "clean" | "drunk" | "unknown";
 
 export interface MonsterVerdict {
-  /** Глагол-вердикт: это и есть то, что красится. `null` — ответа нет, глагола не рисуем. */
+  /** The verdict's verb, which is what gets coloured. `null` = no answer, so no verb is drawn. */
   verb: string | null;
-  /** Вердикт целиком — для озвучки, подсказок и ярлыков. Глагол ПЕРЕД словом «монстр». */
+  /** The whole verdict — for speech, hints and labels. The verb comes BEFORE the noun. */
   phrase: string;
-  /** Токен волны с фолбэком: зелёный «чисто» / тревожный «пил» / тихий третичный «нет ответа». */
+  /** A wave token with a fallback: green "clean", alarming "drunk", quiet tertiary "no answer". */
   color: string;
   tone: MonsterTone;
 }
 
 /**
- * `drunk` — был ли монстр выпит в этот день; `null` — за день записи нет вовсе (в проекции
- * дня это `!hasData`; при наличии записи пустой монстр = честное «не пил»).
- *
- * Цвета — РАЗНЫЕ роли, а не два оттенка одной. `--accent` сюда не годится: на волне 01 он
- * `#e2604c`, почти тот же тон, что `--danger` `#d2553f`, и состояния различались бы одним
- * словом, а цвет в обоих случаях говорил бы «тревога». `--success` тоже не годится — он
- * держит связи тропы, и «не пил» звучал бы как ещё один пройденный пункт дисциплины,
- * тогда как монстр от маршрута отдельно (DESIGN §3.2, §4.2). У «нет ответа» цвета нет
- * вовсе — только третичный текст: молчать надо и цветом тоже.
+ * `drunk` is whether the monster was drunk that day; `null` means there is no record at all. The
+ * colours are DIFFERENT ROLES, not two shades of one: the board's accent is almost the danger tone,
+ * and success holds the route's links, which would make "did not drink" a discipline item. §4.2
  */
 export function monsterVerdict(drunk: boolean | null): MonsterVerdict {
   if (drunk == null) {

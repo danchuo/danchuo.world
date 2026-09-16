@@ -8,11 +8,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Запись и чтение прочитанного (PRD §5.16) — состояние поллера и свёртки дня.
- *
- * Отдельный бин от [ReadingPoller] не для красоты: `@Transactional` — это CDI-перехватчик, а он
- * не срабатывает на вызове метода того же бина. Поллеру нужно писать в БД, значит вызов должен
- * уйти наружу, в соседний бин (тот же приём, что в слайсе подкастов).
+ * Writing and reading of what was read: poller state and the day rollup. A separate bean from
+ * [ReadingPoller] out of necessity — `@Transactional` is a CDI interceptor and does not fire on a
+ * call into the same bean, so the poller's write has to leave for a neighbour.
  */
 @ApplicationScoped
 class ReadingService(
@@ -23,24 +21,20 @@ class ReadingService(
 ) {
 
     /**
-     * Втянуть снимок полки. Возвращает зачтённые секунды — ноль означает «ничего не изменилось»
-     * (файл тот же, счётчики те же), и поллеру не за чем сбрасывать проекцию дня.
-     *
-     * Проход идёт по ВСЕМ дням снимка, а не только по сегодняшнему: телефон мог синкнуться с
-     * опозданием, и вчерашние минуты приезжают сегодня. Зачёт считается разницей с уже
-     * записанным ([ReadingSessionMath.credit]), поэтому повторный проход по тем же дням
-     * бесплатен и ничего не задваивает.
+     * Absorbs a shelf snapshot, returning credited seconds; zero means nothing changed and the
+     * poller need not drop the day projection. It walks EVERY day in the snapshot, since a late
+     * sync brings yesterday's minutes today; credit is a difference, so a repeat pass is free.
      */
     @Transactional
     fun absorb(snapshot: ShelfSnapshot, today: LocalDate, at: Instant): Int {
         var credited = 0
         val touched = LinkedHashSet<LocalDate>()
-        // Что мы видели на ПРОШЛОМ такте — снимается до разбора: это и есть «откуда» для захода,
-        // который вот-вот откроется. Возьми проценты после — и старт совпал бы с финишем.
+        // What we saw on the PREVIOUS tick, taken before parsing: that is the "from" of the
+        // session about to open. Take the percentages after, and the start would equal the finish.
         val seenBefore = bookStates.percentsByBook()
 
-        // Порядок по датам не косметика: прошлые дни должны лечь импортом ДО того, как откроется
-        // сегодняшняя сессия, — иначе она не увидит, что у книги уже была история.
+        // Date order is not cosmetic: past days must be imported BEFORE today's session opens, or
+        // it would not see that the book already had a history.
         for (total in snapshot.dayTotals.sortedWith(compareBy({ it.date }, { it.bookId }))) {
             val book = snapshot.books[total.bookId] ?: continue
             val gained = absorb(book, total, snapshot, seenBefore, today, at)
@@ -50,14 +44,14 @@ class ReadingService(
             }
         }
 
-        // Наблюдение обновляем в конце и по ВСЕМ книгам полки, а не только по читавшимся: смысл
-        // строки как раз в книге, которая лежит нетронутой, — её процент понадобится, когда за
-        // неё сядут.
+        // The observation is updated at the end and for EVERY shelf book, not just the ones read:
+        // the point of the row is precisely the untouched book, whose percentage will be needed
+        // when someone finally sits down with it.
         snapshot.books.values.forEach { book ->
             bookStates.observe(book.id, book.percent, at)
-            // Путь к файлу дописываем всем заходам этой книги, у которых его ещё нет: метаданные
-            // освежаются только вместе с приростом минут, а файл мы стали забирать позже самих
-            // заходов — иначе вся прошлая история осталась бы без пересказа навсегда (§5.16).
+            // The file path is backfilled onto every session of this book that lacks one: metadata
+            // refreshes only alongside a minutes increment, and we began fetching the file later
+            // than the sessions — otherwise all past history would stay unsummarisable (§5.16).
             book.filePath?.let { sessions.fillMissingFilePath(book.id, it) }
         }
 
@@ -65,19 +59,19 @@ class ReadingService(
         return credited
     }
 
-    /** Сессии за сутки в хронологическом порядке — карточки дня. */
+    /** A day's sessions in chronological order — the day's cards. */
     fun sessionsOn(date: LocalDate): List<ReadingSession> =
         sessions.listByDate(date).sortedWith(compareBy({ it.startedAt ?: Instant.EPOCH }, { it.id }))
 
-    /** Суммарно прочитанные минуты за сутки — подпись пункта дисциплины. */
+    /** Total minutes read in a day — the discipline item's caption. */
     fun minutesOn(date: LocalDate): Int = ReadingDayRollup.minutes(secondsOn(date))
 
-    // ── запись ──
+    // -- writing --
 
     /**
-     * Втянуть прирост счётчика одной книги за один день. День уже прошедший ложится
-     * импортированной строкой (времени и процентов у него взяться неоткуда), сегодняшний —
-     * живой сессией: продолжаем открытую либо начинаем новую.
+     * Pulls in one book's counter increment for one day. A day already past lands as an imported
+     * row (it can have neither times nor percentages), while today lands as a live session:
+     * either continuing an open one or starting a new one.
      */
     private fun absorb(
         book: ShelfBook,
@@ -94,17 +88,17 @@ class ReadingService(
         if (total.date.isBefore(today)) {
             importPast(book, total.date, credit, existing)
         } else if (!live(book, total, snapshot, seenBefore, credit, at)) {
-            // Открыл книгу глянуть: сессию не заводим, секунды остаются незачтёнными и доедут
-            // со следующим приростом (зачёт считается от счётчика читалки, а не по тактам).
+            // Opened a book for a glance: no session is started, and the seconds stay uncredited
+            // until the next increment (crediting counts off the reader's counter, not off ticks).
             return 0
         }
         return credit
     }
 
     /**
-     * Прошедший день: минуты известны, всё остальное — нет. Одна импортированная строка на
-     * книгу-день, которая при позднем синке дорастает, а не плодит соседей: рассказать про
-     * вчерашние заходы нам всё равно нечего, а лишние строки заняли бы карточки зря.
+     * A past day: the minutes are known, nothing else is. One imported row per book-day, which
+     * grows on a late sync rather than spawning neighbours: we have nothing to tell about
+     * yesterday's sittings anyway, and extra rows would take up cards for nothing.
      */
     private fun importPast(book: ShelfBook, date: LocalDate, credit: Int, existing: List<ReadingSession>) {
         val imported = existing.firstOrNull { it.source == ReadingSource.IMPORTED.code() }
@@ -119,10 +113,9 @@ class ReadingService(
     }
 
     /**
-     * Сегодняшний день: тянем открытую сессию, если пауза в пределах порога, иначе начинаем
-     * новую. Начало новой — последний известный процент книги: вчерашняя остановка на 35% и
-     * есть «откуда» сегодняшнего захода. Не знаем — оставляем пусто, а не подставляем текущий:
-     * «с 42% до 42%» читалось бы как «ничего не прочитал».
+     * Today: extend the open session while the pause is within the gap, otherwise start a new one
+     * from the last known percentage — yesterday's stop at 35% is today's "from". Unknown leaves
+     * it EMPTY rather than the current value: "from 42% to 42%" would read as "read nothing".
      */
     private fun live(
         book: ShelfBook,
@@ -146,13 +139,13 @@ class ReadingService(
             return true
         }
 
-        // Порог — только на ОТКРЫТИЕ сессии: дочитанные полминуты уже начатого захода зачитываются.
+        // The threshold gates only OPENING a session: the tail minutes of an open one still count.
         if (credit < config.minSessionSeconds()) return false
 
         sessions.persist(
             newSession(book, total.date, credit).apply {
-                // «Откуда» ищется по убыванию точности: где мы сами закончили в прошлый раз →
-                // что видели на полке до этого захода → ноль у никогда не читанной книги.
+                // The "from" is sought by decreasing precision: where we ourselves stopped last
+                // time, then what the shelf showed before this session, then zero for a new book.
                 startPercent = sessions.lastKnownPercent(book.id)
                     ?: seenBefore[book.id]
                     ?: fromScratch(book, total, snapshot)
@@ -165,16 +158,9 @@ class ReadingService(
     }
 
     /**
-     * «Откуда» для книги, про которую мы ничего не знаем. Ноль — только если книгу и правда
-     * начали сейчас: на полке нет ни одного дня чтения раньше этого. Если дни были, а мы их не
-     * видели (полка приехала с историей), старт остаётся пустым — подставить туда ноль значило бы
-     * приписать владельцу проценты, которые он прошёл до нас.
-     *
-     * Одних счётчиков читалки для этого мало. Прогресс, принесённый из ДРУГОГО приложения (позиция
-     * выставлена руками), не оставляет в Anx ни одного прошлого дня — по счётчикам такая книга
-     * неотличима от начатой с нуля, и заход записался бы как «с 0% до 47%» за три минуты. Поэтому
-     * ноль ещё и проверяется на правдоподобие: проценты, которые сегодняшними минутами объяснить
-     * нельзя, прочитаны не сегодня.
+     * The "from" for a book we know nothing about. Zero only if it truly started now — no earlier
+     * reading day on the shelf AND the percentage is plausible for today's minutes. A position
+     * carried in from another reader leaves no past day and must not become "0% to 47%". §5.16
      */
     private fun fromScratch(book: ShelfBook, total: ShelfDayTotal, snapshot: ShelfSnapshot): Double? {
         if (snapshot.dayTotals.any { it.bookId == book.id && it.date.isBefore(total.date) }) return null
@@ -182,17 +168,17 @@ class ReadingService(
         return if (total.seconds >= percent * 100 * MIN_SECONDS_PER_PERCENT) 0.0 else null
     }
 
-    /** Пересчитать отметку пункта по сумме минут; ручную отметку [ReadingMarker] не тронет. */
+    /** Recomputes the item's mark from the minutes total; a manual [ReadingMarker] is left alone. */
     private fun remark(date: LocalDate) {
         val target = marker.target() ?: return
         marker.mark(date, ReadingDayRollup.occurrences(secondsOn(date), target))
     }
 
-    /** Сумма зачтённого за сутки по всем книгам — от неё считаются отметки пункта. */
+    /** The day's credited total across all books — the item's marks are computed from it. */
     private fun secondsOn(date: LocalDate): Int = sessions.listByDate(date).sumOf { it.readSeconds }
 
     private fun newSession(book: ShelfBook, date: LocalDate, credit: Int) =
-        // IDENTITY-генерация вставляет строку немедленно ⇒ все not-null поля заполняем ДО persist.
+        // IDENTITY generation writes the row immediately, so every not-null field is set BEFORE persist.
         ReadingSession().apply {
             this.date = date
             bookId = book.id
@@ -200,23 +186,21 @@ class ReadingService(
             describe(book)
         }
 
-    /** Освежить метаданные строки: переименовал книгу или сменил обложку — увидим это на борде. */
+    /** Refreshes a row's metadata: rename a book or change its cover and the board will show it. */
     private fun ReadingSession.describe(book: ShelfBook) {
         bookTitle = book.title
         bookAuthor = book.author
         coverPath = book.coverPath
-        // Путь файла не затираем пустотой: книга, снятая с полки, не должна лишать прошлый
-        // заход пересказа, который по ней ещё можно собрать.
+        // The file path is never overwritten with emptiness: a book taken off the shelf must not
+        // rob a past session of the summary that can still be built from it.
         book.filePath?.let { bookFilePath = it }
     }
 
     private companion object {
         /**
-         * Порог правдоподобия старта с нуля: секунд чтения на один процент книги. Взят с огромным
-         * запасом — 18 с/процент это целая книга за полчаса, то есть заведомо быстрее любого
-         * настоящего чтения. Порог не измеряет скорость владельца и не нужен для этого: он
-         * отделяет чтение от переноса позиции, а между ними разница на порядки (сегодняшний
-         * случай — 3.6 с/процент против 180 с/процент у реальных получаса за 10% книги).
+         * Plausibility threshold for starting at zero: seconds of reading per percent of a book.
+         * Taken with huge slack — 18 s/percent is a whole book in half an hour. It does not
+         * measure the owner's speed; it separates reading from an imported position. PRD §5.16
          */
         const val MIN_SECONDS_PER_PERCENT = 18
     }

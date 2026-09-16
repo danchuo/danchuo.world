@@ -1,7 +1,6 @@
 /**
- * Justified-раскладка кадров фото-дропа (DESIGN §7.5) — чистый расчёт, отдельно от
- * компонента: `LatestDropTile.tsx` должен экспортировать только компоненты, иначе
- * Fast Refresh не сохраняет состояние при правке файла.
+ * Justified layout of photo-drop frames (DESIGN §7.5) — pure arithmetic, kept apart from the
+ * component: `LatestDropTile.tsx` must export only components, or Fast Refresh loses state on edit.
  */
 
 import type { FilmPhotoView } from "@/lib/api/types";
@@ -12,30 +11,25 @@ export interface Cell {
   h: number;
 }
 
-/** Зазор между кадрами мозаики (px) — тот же и в расчёте, и в разметке ряда. */
+/** Gap between mosaic frames (px) — the same in the arithmetic and in the row's markup. */
 export const GAP = 6;
 
 /**
- * Запас между мозаикой и внутренним краем карточки (px).
- *
- * ⚠️ Не косметика, а ИНВАРИАНТ. Раскладка justified заполняет отпущенную ширину ровно, а
- * карточка жалась к результату — замер на живом стенде давал зазор 0.00–0.02px. При нулевом
- * запасе исход решает арифметика движка: ширины ячеек дробные, каждый вложенный бокс
- * округляется по-своему, и у Safari сумма выходила чуть больше внутренней ширины — правый
- * кадр обрезался краем карточки. Запас снимает вопрос целиком, вместо того чтобы подгонять
- * округления под конкретный браузер.
+ * Slack between the mosaic and the card's inner edge. NOT cosmetic but an INVARIANT: a justified
+ * layout fills the given width exactly, cell widths are fractional, every nested box rounds its own
+ * way, and in Safari the sum exceeded the inner width and clipped the right frame.
  */
 export const MOSAIC_SLACK = 2;
 
-/** Ширина, под которую строится мозаика: из ячейки вычтены поля карточки И запас. */
+/** The width the mosaic is built for: the cell minus the card's padding AND its slack. */
 export function mosaicWidth(frameW: number, padX: number): number {
   return Math.max(0, frameW - padX - MOSAIC_SLACK);
 }
 
 /**
- * Ширина карточки под готовую мозаику: жмётся к её самому широкому ряду, но не уже минимума
- * и не шире своей ячейки. Ряд округляется ВВЕРХ — дробный остаток обязан достаться карточке,
- * а не съесть запас.
+ * Card width for a finished mosaic: shrunk to its widest row, but no narrower than the minimum and
+ * no wider than its cell. The row rounds UP — the fractional remainder must go to the card rather
+ * than eat into the slack.
  */
 export function dropCardWidth(usedW: number, frameW: number, padX: number, minW: number): number {
   const hug = Math.ceil(usedW) + padX + MOSAIC_SLACK;
@@ -47,7 +41,7 @@ const MAX_PER_ROW = 4;
 
 const aspectOf = (p: FilmPhotoView) => (p.width && p.height && p.height > 0 ? p.width / p.height : 1);
 
-/** Разбить кадры на [rows] смежных рядов, балансируя сумму пропорций (≈ровные высоты рядов). */
+/** Split frames into [rows] adjacent rows, balancing the sum of ratios for even row heights. */
 function balancedRows(photos: FilmPhotoView[], rows: number): FilmPhotoView[][] {
   const target = photos.reduce((s, p) => s + aspectOf(p), 0) / rows;
   const groups: FilmPhotoView[][] = [];
@@ -57,8 +51,8 @@ function balancedRows(photos: FilmPhotoView[], rows: number): FilmPhotoView[][] 
     cur.push(photos[i]);
     curSum += aspectOf(photos[i]);
     const itemsLeft = photos.length - 1 - i;
-    const rowsLeft = rows - groups.length - 1; // ряды после текущего
-    // Закрываем ряд, когда добрали целевую сумму и хватает кадров на оставшиеся ряды.
+    const rowsLeft = rows - groups.length - 1; // the rows after this one
+    // A row closes once the target sum is reached and enough frames remain for the rows still to come.
     if (curSum >= target && rowsLeft > 0 && itemsLeft >= rowsLeft) {
       groups.push(cur);
       cur = [];
@@ -70,12 +64,9 @@ function balancedRows(photos: FilmPhotoView[], rows: number): FilmPhotoView[][] 
 }
 
 /**
- * Justified-мозаика: пакует кадры в ряды, заполняющие ширину, и подбирает число рядов так,
- * чтобы естественная высота раскладки была ближе всего к высоте виджета. Каждая ячейка имеет
- * точную пропорцию своего кадра ⇒ **без обрезки и без искажения**; масштаб ≤1 не даёт вылезти
- * за пределы (центрируется остаток). `null` — пока контейнер не измерен.
- * Ряды длиннее [MAX_PER_ROW] кадров отбрасываются ещё кандидатами (лента из 5 в один ряд
- * не собирается никогда); вариант «по кадру на ряд» валиден всегда, так что раскладка есть.
+ * A justified mosaic: frames are packed into rows filling the width, and the number of rows is
+ * chosen so the natural height lands closest to the widget's. Every cell keeps its frame's exact
+ * ratio, so nothing is cropped or distorted. `null` while the container is unmeasured.
  */
 export function buildMosaic(photos: FilmPhotoView[], W: number, H: number): Cell[][] | null {
   if (W <= 0 || H <= 0 || photos.length === 0) return null;
@@ -88,20 +79,17 @@ export function buildMosaic(photos: FilmPhotoView[], W: number, H: number): Cell
 
     const rowH = groups.map((g) => {
       const sa = g.reduce((s, p) => s + aspectOf(p), 0);
-      return (W - (g.length - 1) * GAP) / sa; // высота, при которой ряд заполняет ширину
+      return (W - (g.length - 1) * GAP) / sa; // the height at which the row fills the width
     });
     const totalH = rowH.reduce((s, h) => s + h, 0) + (r - 1) * GAP;
-    // Чем ближе естественная высота к высоте виджета, тем меньше пустот по обеим осям.
+    // The closer the natural height is to the widget's, the less empty space on either axis.
     const score = Math.min(totalH, H) / Math.max(totalH, H);
     if (best && score <= best.score) continue;
 
-    const scale = Math.min(1, H / totalH); // не даём вылезти за высоту
-    // ⚠️ Размеры ячеек — ЦЕЛЫЕ пиксели, и это не косметика расчёта. Дробную ширину каждый
-    // бокс движок округляет сам и по-своему: ряд из четырёх кадров набирал до ~4px сверх
-    // расчёта, съедал запас MOSAIC_SLACK и обрезался краем карточки в Safari (ряды из двух-
-    // трёх при этом влезали — оттого симптом и выглядел случайным). Целые числа округлять
-    // нечего: что посчитали, то и нарисовано, каким бы движок ни был.
-    // Округляем ВНИЗ: ряд может выйти у́же расчёта, но никогда шире.
+    const scale = Math.min(1, H / totalH); // do not let it exceed the height
+    // Cell sizes are WHOLE pixels, and that is not calculation hygiene. The engine rounds a
+    // fractional width per box in its own way: a row of four frames gathered ~4px over the
+    // calculation, ate the slack and clipped in Safari. Rounding DOWN — never wider than computed.
     const rows: Cell[][] = groups.map((g, i) => {
       const h = Math.floor(rowH[i] * scale);
       return g.map((photo) => ({ photo, w: Math.floor(aspectOf(photo) * h), h }));

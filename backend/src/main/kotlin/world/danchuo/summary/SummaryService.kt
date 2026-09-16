@@ -9,19 +9,9 @@ import world.danchuo.llm.LlmLane
 import java.time.Instant
 
 /**
- * Пересказ пройденного за заход куска (PRD §5.16): выбрать заход, взять у источника его текст,
- * сходить в модель, записать результат.
- *
- * **Что здесь важнее всего — никогда не рассказывать по памяти.** Текст берётся у источника
- * ([SummarySource]) и только у него. Нет текста — нет пересказа и нет кнопки на борде (решение
- * владельца): пустое место честнее уверенной выдумки про книгу, которой модель не знает.
- *
- * **Полоса — бесплатная** ([LlmLane.FREE]). Пересказ никуда не спешит: он считается фоном по
- * одному заходу за такт, и его лимит меряется в минуту, а не в скорость. Витринные вызовы
- * (проверка поворота кадра) при этом остаются на основной полосе и его очередью не задеты.
- *
- * Бин отдельный от [SummaryPoller] не для красоты: `@Transactional` — это CDI-перехватчик, и на
- * вызове метода того же бина он не срабатывает.
+ * Summarising a passage: pick a sitting, take its text FROM THE SOURCE and only from there, ask
+ * the model, store the result. No text means no summary and no button — an empty space is honester
+ * than a confident invention. It runs on the free lane, so showcase calls are untouched. §5.16
  */
 @ApplicationScoped
 class SummaryService(
@@ -33,13 +23,13 @@ class SummaryService(
 
     private val log: Logger = Logger.getLogger(SummaryService::class.java)
 
-    /** Настроенные источники в стабильном порядке — по ним поллер ходит по кругу. */
+    /** Configured sources in a stable order — the poller walks them in a circle. */
     fun sources(): List<SummarySource> = sources.filter { it.isConfigured() }.sortedBy { it.kind().ordinal }
 
     /**
-     * Следующий заход этого источника — самый свежий из тех, кому пересказ ещё нужен. Порядок
-     * задаёт сам источник ([SummarySource.candidates]); здесь только отсев по тому, что уже
-     * рассказано ([SummaryPolicy]).
+     * The source's next sitting — the freshest of those still needing a summary. The order is the
+     * source's own ([SummarySource.candidates]); here we only filter by what has already been
+     * told ([SummaryPolicy]).
      */
     @Transactional
     fun nextTarget(source: SummarySource): SummaryTarget? {
@@ -55,9 +45,9 @@ class SummaryService(
     }
 
     /**
-     * Сходить за пересказом куска. `null` — рассказывать нечего: источник не дал текста, модель
-     * промолчала или отказалась. Транзакции здесь нет намеренно — внутри внешние вызовы на
-     * секунды (файл, сеть, модель).
+     * Fetches a summary for a stretch. `null` means there is nothing to tell: the source gave no
+     * text, or the model stayed silent or refused. There is deliberately no transaction here —
+     * inside are external calls that take seconds (file, network, model).
      */
     fun retell(source: SummarySource, target: SummaryTarget): Retelling? {
         val excerpt = source.excerpt(target) ?: run {
@@ -77,31 +67,27 @@ class SummaryService(
     }
 
     /**
-     * Записать итог попытки по [target]. [retelling] `null` — промах: строка всё равно заводится,
-     * потому что она и есть память очереди о попытках. Возвращает `true`, если на борде появилось
-     * что показать (и, значит, проекцию дня пора сбросить).
-     *
-     * **Промах не стирает того, что уже рассказано.** Освежение — это попытка рассказать про
-     * заход, который дорос; не вышло — на карточке остаётся прежний текст (он про меньший кусок,
-     * но он правдив), а не пустое место вместо кнопки.
+     * Stores the outcome of an attempt; a `null` retelling is a miss, and the row is still written
+     * because it IS the queue's memory of attempts. A MISS NEVER ERASES WHAT WAS ALREADY TOLD —
+     * the old text covers a smaller passage but is true. `true` if the board gained something.
      */
     @Transactional
     fun store(target: SummaryTarget, retelling: Retelling?, model: String): Boolean {
         val row = summaries.findBy(target.kind, target.sessionId) ?: ContentSummary().apply {
             kind = target.kind.code()
             sessionId = target.sessionId
-            // IDENTITY-генерация вставляет строку немедленно ⇒ not-null поля заполняем ДО persist.
+            // IDENTITY generation writes the row immediately, so not-null fields are set BEFORE persist.
             updatedAt = Instant.now()
             summaries.persist(this)
         }
 
-        // Счёт промахов ведётся по ЦЕЛИ: сменилась — начинаем заново (см. SummaryPolicy).
+        // Misses are counted per TARGET: once it changes, the count starts over (see SummaryPolicy).
         row.attempts = SummaryPolicy.attemptsAfter(row.state(), target.to, config.refreshFraction())
         row.targetEnd = target.to
         row.updatedAt = Instant.now()
 
         if (retelling == null) {
-            // Уже рассказанное переживает неудачное освежение — статус и текст остаются прежними.
+            // What was already told survives a failed refresh: status and text both stay.
             if (!row.isReady()) row.status = SummaryStatus.FAILED.code()
             return false
         }
@@ -115,13 +101,12 @@ class SummaryService(
         return true
     }
 
-    // ── чтение ──
 
-    /** Готовый пересказ захода; `null` — его нет либо он не удался. */
+    /** A ready summary for a sitting; `null` if there is none or it failed. */
     fun readyFor(kind: SummaryKind, sessionId: Long): ContentSummary? =
         summaries.findBy(kind, sessionId)?.takeIf { it.isReady() }
 
-    /** Из каких заходов пачки есть что рассказать — карточкам дня нужен только этот факт. */
+    /** Which sittings of the batch have something to tell — all a day card needs to know. */
     fun readySessions(kind: SummaryKind, sessionIds: Collection<Long>): Set<Long> =
         summaries.listBy(kind, sessionIds).filter { it.isReady() }.map { it.sessionId }.toSet()
 }

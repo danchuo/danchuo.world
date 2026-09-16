@@ -1,12 +1,7 @@
 import type { BoxRect } from "@/lib/artifactHighlight";
 import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
-/**
- * Админ-клиент фото-дропов (B1, PRD §5.12, §9 п.8) — `/api/ingest/drops*` за статическим bearer
- * (тот же токен, что у ingest-шортката). Токен передаётся явно из формы /admin (хранится в
- * sessionStorage там же, не в коде). Только владельческие операции: загрузка zip, список,
- * выбор обложки, удаление. Публичное чтение борда — в `client.ts`.
- */
+/** Owner API uses an explicit bearer from /admin sessionStorage. Public reads use client.ts. PRD §5.12, §9.8. */
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 
@@ -29,17 +24,12 @@ async function parseError(res: Response): Promise<never> {
   try {
     code = ((await res.json()) as { error?: string }).error;
   } catch {
-    // тело не JSON — оставляем код пустым
+    // Non-JSON errors have no application code.
   }
   throw new AdminApiError(res.status, code);
 }
 
-/**
- * Загрузить дроп: zip с кадрами + название + дата (ISO `yyyy-MM-dd`). Прогресс аплоада не
- * показываем — он вводит в заблуждение (через прокс­и/локально браузер «отправляет» почти мгновенно,
- * а реальное время уходит на форвард + ресайз ~36 кадров на сервере). UI вместо этого показывает
- * счётчик секунд до ответа.
- */
+/** Upload a ZIP with a title and ISO date; elapsed time reflects server processing better than upload progress. */
 export async function uploadDrop(
   token: string,
   zip: File,
@@ -52,28 +42,28 @@ export async function uploadDrop(
   form.append("date", date);
   const res = await fetch(`${BASE}/api/ingest/drops`, {
     method: "POST",
-    headers: authHeaders(token), // Content-Type выставит сам FormData (boundary)
+    headers: authHeaders(token), // FormData sets Content-Type itself (the boundary)
     body: form,
   });
   if (!res.ok) return parseError(res);
   return (await res.json()) as UploadResultView;
 }
 
-/** Список дропов для управления. Заодно проверяет токен (401 — неверный). */
+/** List drops; 401 also identifies an invalid token. */
 export async function listDropsAdmin(token: string): Promise<AdminDropView[]> {
   const res = await fetch(`${BASE}/api/ingest/drops`, { headers: authHeaders(token) });
   if (!res.ok) return parseError(res);
   return (await res.json()) as AdminDropView[];
 }
 
-/** Кадры дропа с id + thumb (для сетки выбора обложки). */
+/** Get drop photo IDs and thumbnails for cover selection. */
 export async function getDropPhotosAdmin(token: string, dropId: number): Promise<AdminPhotoView[]> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/photos`, { headers: authHeaders(token) });
   if (!res.ok) return parseError(res);
   return (await res.json()) as AdminPhotoView[];
 }
 
-/** Пометить кадр обложкой дропа. */
+/** Set the drop cover photo. */
 export async function setCover(token: string, dropId: number, photoId: number): Promise<AdminDropView> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/cover`, {
     method: "PUT",
@@ -84,10 +74,7 @@ export async function setCover(token: string, dropId: number, photoId: number): 
   return (await res.json()) as AdminDropView;
 }
 
-/**
- * Запустить LLM-проверку поворота кадров дропа (B9). Возвращает стартовый статус; дальше
- * прогресс поллится через {@link getOrientationStatus}. Идемпотентно (бегущий прогон не дублируется).
- */
+/** Start an idempotent orientation check; poll {@link getOrientationStatus} for progress. */
 export async function startOrientationCheck(token: string, dropId: number): Promise<OrientationStatusView> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/orientation`, {
     method: "POST",
@@ -97,7 +84,7 @@ export async function startOrientationCheck(token: string, dropId: number): Prom
   return (await res.json()) as OrientationStatusView;
 }
 
-/** Статус проверки поворота дропа (B9). */
+/** Get drop orientation-check status. */
 export async function getOrientationStatus(token: string, dropId: number): Promise<OrientationStatusView> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/orientation`, {
     headers: authHeaders(token),
@@ -106,10 +93,7 @@ export async function getOrientationStatus(token: string, dropId: number): Promi
   return (await res.json()) as OrientationStatusView;
 }
 
-/**
- * Ручной поворот кадра на 90° по часовой (B9, override ошибки LLM). В ответ — обновлённый
- * список кадров дропа (свежие thumb-URL с `?v=` cache-bust).
- */
+/** Rotate a photo 90 degrees clockwise; return photos with versioned thumbnail URLs. */
 export async function rotatePhoto(token: string, dropId: number, photoId: number): Promise<AdminPhotoView[]> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/photos/${photoId}/rotate`, {
     method: "POST",
@@ -120,10 +104,7 @@ export async function rotatePhoto(token: string, dropId: number, photoId: number
   return (await res.json()) as AdminPhotoView[];
 }
 
-/**
- * Удалить один кадр дропа (неудачный) — `DELETE …/photos/{photoId}`. Возврата нет (перезалей
- * дроп, если что); в ответ — свежий список кадров (обложка переназначается, если удалили её).
- */
+/** Permanently delete a photo; return the updated list with its cover reassigned if needed. */
 export async function deletePhoto(token: string, dropId: number, photoId: number): Promise<AdminPhotoView[]> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}/photos/${photoId}`, {
     method: "DELETE",
@@ -133,7 +114,7 @@ export async function deletePhoto(token: string, dropId: number, photoId: number
   return (await res.json()) as AdminPhotoView[];
 }
 
-/** Удалить дроп (кадры + файлы). */
+/** Delete a drop and its photo files. */
 export async function deleteDrop(token: string, dropId: number): Promise<void> {
   const res = await fetch(`${BASE}/api/ingest/drops/${dropId}`, {
     method: "DELETE",
@@ -142,12 +123,7 @@ export async function deleteDrop(token: string, dropId: number): Promise<void> {
   if (!res.ok) return parseError(res);
 }
 
-/**
- * Импорт истории поездок Велобайка (B4, PRD §5.13) — `POST /api/ingest/bike/rides` за тем же bearer.
- * `rides` — сырой массив `content[]`, собранный букмарклетом внутри залогиненной PWA `pwa.velobike.ru`
- * (серверный поллер упирается в Qrator, §13 — поэтому доставка идёт из авторизованного браузера).
- * Идемпотентно по id аренды: повтор не плодит дубли.
- */
+/** Import raw browser-collected ride content, idempotently by rental ID. PRD §5.13, §13. */
 export async function importBikeRides(token: string, rides: unknown[]): Promise<BikeImportResultView> {
   const res = await fetch(`${BASE}/api/ingest/bike/rides`, {
     method: "POST",
@@ -158,13 +134,7 @@ export async function importBikeRides(token: string, rides: unknown[]): Promise<
   return (await res.json()) as BikeImportResultView;
 }
 
-/**
- * Импорт истории покупок тарифов Велобайка (B4, PRD §5.13) — `POST /api/ingest/bike/tariffs`.
- * `purchases` — записи `purchaseType === "TARIFF"` из `purchases/history`, собранные тем же
- * букмарклетом. Нужны, чтобы цена поездки была полной: `cost` поездки — лишь то, что натикало
- * сверх «Доступа» (входа в тариф), а сам доступ живёт в этих записях. Записи
- * `RENTAL` бэк отсеивает сам. Идемпотентно по id платежа.
- */
+/** Import TARIFF purchases, idempotently by payment ID; rental cost excludes tariff access. PRD §5.13. */
 export async function importBikeTariffs(token: string, purchases: unknown[]): Promise<BikeImportResultView> {
   const res = await fetch(`${BASE}/api/ingest/bike/tariffs`, {
     method: "POST",
@@ -175,10 +145,7 @@ export async function importBikeTariffs(token: string, purchases: unknown[]): Pr
   return (await res.json()) as BikeImportResultView;
 }
 
-/**
- * Хитмапа кликов по тайлам борда (B2) — `GET /api/ingest/analytics/heatmap`, за тем же bearer.
- * `from`/`to` — даты MSK (ISO `yyyy-MM-dd`); пусто ⇒ серверный дефолт (последние 30 дней).
- */
+/** Get the private tile heatmap for ISO MSK dates; omitted bounds use the server default (30 days). */
 export async function getHeatmap(
   token: string,
   path = "/",
@@ -195,7 +162,7 @@ export async function getHeatmap(
   return (await res.json()) as HeatmapView;
 }
 
-// ── Артефакты (PRD §5.8): раньше новый предмет означал миграцию, теперь — форма ──
+// Artifacts: PRD §5.8.
 
 export async function listArtifactsAdmin(token: string): Promise<AdminArtifactView[]> {
   const res = await fetch(`${BASE}/api/ingest/artifacts`, { headers: authHeaders(token) });
@@ -254,10 +221,7 @@ export async function uploadArtifactImage(
   return (await res.json()) as AdminArtifactView;
 }
 
-/**
- * Попросить дешёвую модель описать предмет по его картинке. `null` — модель не настроена или
- * промолчала: это штатный ответ, поле дозаполняется руками.
- */
+/** Ask the model for an artifact hint; null is normal when unconfigured or unanswered, so manual input remains available. */
 export async function suggestArtifactHint(token: string, id: number): Promise<string | null> {
   const res = await fetch(`${BASE}/api/ingest/artifacts/${id}/hint`, {
     method: "POST",
@@ -267,11 +231,7 @@ export async function suggestArtifactHint(token: string, id: number): Promise<st
   return ((await res.json()) as { hint: string | null }).hint;
 }
 
-/** Искать артефакты на кадрах ВСЕХ дропов — путь «завели предмет, ищем в старом архиве». */
-/**
- * Прогон по всему архиву. [artifactId] сужает его до одного предмета — так новый артефакт
- * ищется, не задевая находки остальных. Дешевле от этого не становится: вызов один на кадр.
- */
+/** Scan the archive; artifactId limits updates to one artifact, but each photo still costs one model call. */
 export async function scanArtifactsEverywhere(
   token: string,
   artifactId?: number,
@@ -285,14 +245,14 @@ export async function scanArtifactsEverywhere(
   return (await res.json()) as ArtifactScanRunView;
 }
 
-/** Сводка по прогону архива — поллится, пока `state === "running"`. */
+/** Poll archive scan status while state is running. */
 export async function getArtifactScanRun(token: string): Promise<ArtifactScanRunView> {
   const res = await fetch(`${BASE}/api/ingest/artifact-scan`, { headers: authHeaders(token) });
   if (!res.ok) return parseError(res);
   return (await res.json()) as ArtifactScanRunView;
 }
 
-/** Остановить прогон архива. 409, если останавливать нечего. */
+/** Cancel an archive scan; 409 means no active scan. */
 export async function cancelArtifactScan(token: string): Promise<ArtifactScanRunView> {
   const res = await fetch(`${BASE}/api/ingest/artifact-scan`, {
     method: "DELETE",
@@ -302,7 +262,7 @@ export async function cancelArtifactScan(token: string): Promise<ArtifactScanRun
   return (await res.json()) as ArtifactScanRunView;
 }
 
-/** Запустить поиск артефактов по кадрам одного дропа (§5.12). */
+/** Start an artifact scan for one drop. PRD §5.12. */
 export async function startArtifactScan(
   token: string,
   dropId: number,
@@ -326,13 +286,7 @@ export async function getArtifactScanStatus(
   return (await res.json()) as ArtifactScanStatusView;
 }
 
-/**
- * Поставить/подвинуть рамку артефакта руками (§5.12). Возвращает свежие кадры дропа.
- *
- * Пара «кадр + предмет» и есть ключ: повторное сохранение перезаписывает прежнюю рамку, а не
- * заводит вторую, — поэтому перерисовать находку модели и снять с неё отклонение можно тем же
- * жестом. Рамка приезжает уже нормализованной (`boxFromDrag`): доли 0..1 и `x1 > x0`.
- */
+/** Upsert by photo + artifact; pass a normalized 0..1 box with x1 > x0. Returns updated photos. PRD §5.12. */
 export async function saveArtifactBox(
   token: string,
   dropId: number,
@@ -352,7 +306,7 @@ export async function saveArtifactBox(
   return (await res.json()) as AdminPhotoView[];
 }
 
-/** Снять рамку артефакта с кадра (ошибка модели или передумали). Возвращает свежие кадры. */
+/** Remove an artifact box and return updated photos. */
 export async function deleteArtifactBox(
   token: string,
   dropId: number,

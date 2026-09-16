@@ -1,14 +1,12 @@
 /**
- * Геометрия «плёнки» — редакции галереи дропа, где кадры едут одной лентой (DESIGN §7.5).
- * Чистые функции: лента живёт в браузере, но её арифметика проверяется без DOM.
+ * Geometry of the "reel" — the drop gallery edition where frames travel as one rail (DESIGN §7.5).
+ * Pure functions: the rail lives in the browser, but its arithmetic is checked without a DOM.
  */
 
 /**
- * Кадр, чей центр ближе всего к середине окна ленты. Позиция ленты — единственный источник
- * истины: и крупный кадр, и засечки читают её прокрутку, а не своё состояние.
- *
- * Равное расстояние отдаётся кадру, который в ленте РАНЬШЕ: иначе на границе между двумя
- * соседями индекс дрожал бы туда-сюда на дробном пикселе прокрутки.
+ * The frame whose centre is nearest the ribbon window's middle. The ribbon's scroll position is the
+ * single source of truth. A tie goes to the EARLIER frame, or the index would jitter back and
+ * forth on a fractional pixel of scroll.
  */
 export function nearestFrameIndex(centers: number[], mid: number): number {
   let best = 0;
@@ -24,16 +22,9 @@ export function nearestFrameIndex(centers: number[], mid: number): number {
 }
 
 /**
- * С какого кадра открыть плёнку. Плитка «последний дроп» в редакции кадра показывает ОДИН
- * снимок — открывать галерею с начала значило бы потерять тот кадр, по которому кликнули.
- * Опознаём по адресу картинки, а не по индексу: у плитки и у галереи это один и тот же ответ
- * бэкенда, но полагаться на совпадение порядка незачем — адрес и есть тождество кадра.
- *
- * Годится адрес ЛЮБОГО варианта кадра — web или thumb: лента архива знает свой дроп по
- * обложке (`coverPhotoUrl`), а та приезжает превью-адресом. Вариант — размер файла, а не
- * другой снимок, и требовать от звонящего перевода одного адреса в другой незачем.
- *
- * Кадра нет в дропе (или адрес не передан) ⇒ первый: галерея обязана открыться в любом случае.
+ * Which frame to open the reel on. The tile's frame edition shows ONE photo, so opening at the
+ * start would lose the very frame that was clicked. Identified by image ADDRESS rather than index —
+ * the address is the frame's identity — and any variant will do, web or thumb.
  */
 export function startFrameIndex(
   photos: readonly { imageUrl: string; thumbUrl?: string }[],
@@ -45,42 +36,31 @@ export function startFrameIndex(
 }
 
 /**
- * Боковой запас ленты — полокна минус полкадра.
- *
- * Без него КРАЙНИЕ кадры недостижимы: при `scroll-snap-align: center` лента доезжает до конца,
- * а по центру окна встаёт не последний кадр, а тот, что отстоит от края на полокна (на замере
- * прототипа — пятый с конца). Запас даёт первому и последнему кадру место встать по центру,
- * и максимум прокрутки означает ровно «последний кадр».
+ * The ribbon's side padding: half a window minus half a frame. Without it the OUTERMOST frames are
+ * unreachable — with centre snapping the ribbon reaches its end while the window's centre holds a
+ * frame half a window in. The padding makes maximum scroll mean exactly "the last frame".
  */
 export function stripPadding(viewportW: number, itemW: number): number {
   return Math.max(0, (viewportW - itemW) / 2);
 }
 
-/** Дельта колеса, с которой событие считается МЫШИНЫМ ЩЕЛЧКОМ (браузеры шлют ~100px на щелчок). */
+/** Wheel delta at which an event counts as a MOUSE CLICK (browsers send ~100px per click). */
 const WHEEL_NOTCH = 50;
-/** Сколько накопить мелких трекпадных дельт на один кадр. */
+/** How much small trackpad delta to accumulate for one frame. */
 const WHEEL_STEP = 40;
-/** Дельта в строках (`deltaMode: 1`, Firefox на мыши) в пикселях. */
+/** A delta in lines (`deltaMode: 1`, Firefox on a mouse), expressed in pixels. */
 const LINE_PX = 16;
 
-/** Решение колеса: на сколько кадров шагнуть и что осталось в накопителе. */
+/** The wheel's decision: how many frames to step, and what is left in the accumulator. */
 export interface WheelDecision {
   dir: -1 | 0 | 1;
   acc: number;
 }
 
 /**
- * Шаг плёнки по одному событию колеса — «не один кадр на всё движение, а кадр на каждый
- * щелчок» (формулировка владельца).
- *
- * Мышь и трекпад разведены по величине события, а не по типу устройства (его браузер не
- * сообщает): щелчок мыши приходит крупной дельтой и стоит ровно один кадр, каким бы длинным он
- * ни был; трекпад сыплет мелкими, и они копятся до порога — иначе одно движение пальцем
- * пролистывало бы полдропа. Ось берём ту, по которой жест сильнее: боковой свайп по трекпаду
- * для ленты естественнее вертикального, и запрещать его незачем.
- *
- * Накопитель сбрасывается при смене направления: «вниз-вниз-вверх» не должно копиться в шаг
- * вниз — жест уже передумал.
+ * One wheel event's step through the reel: "not one frame per movement, but a frame per click".
+ * Mouse and trackpad are told apart BY EVENT SIZE, not device type, which browsers do not report:
+ * a mouse click is one large delta worth one frame, trackpad dribbles accumulate to a threshold.
  */
 export function wheelStep(deltaX: number, deltaY: number, deltaMode: number, acc: number): WheelDecision {
   const k = deltaMode === 1 ? LINE_PX : 1;
@@ -92,38 +72,19 @@ export function wheelStep(deltaX: number, deltaY: number, deltaMode: number, acc
   return { dir: 0, acc: next };
 }
 
-/** Сколько пути (px) набрать трекпадом на ОДИН кадр плитки «последний дроп». */
+/** How much travel (px) a trackpad must gather for ONE frame of the latest-drop tile. */
 export const FRAME_WHEEL_TRAVEL_PX = 220;
 /**
- * Сколько кадр стоит на месте после шага, прежде чем плитка примет следующий (мс).
- *
- * ⚠️ Оба порога держат ОДИН мах в одном кадре и потому меняются только вместе. Мах по
- * трекпаду — это короткий разгон и длинный инерционный хвост: система шлёт его тем же
- * потоком событий около секунды, и пути в нём на несколько кадров вперёд. Порог пути один
- * такой хвост не удержит (он длинный), остывание одно — тоже (оно короче хвоста); вдвоём
- * они дают ровно то, что нужно: мах стоит кадра, а ведение пальцами не отрываясь идёт
- * ровной чередой. Замер на модели хвоста macOS: обычный мах 1 кадр, резкий 2.
+ * How long a frame rests after a step before the tile accepts another. Both thresholds hold ONE
+ * trackpad flick in one frame and therefore change together: a flick is a short push with a long
+ * inertial tail, which distance alone cannot contain and a cooldown alone cannot outlast.
  */
 export const FRAME_STEP_COOLDOWN_MS = 560;
 
 /**
- * Шаг плитки «последний дроп» по горизонтальному колесу (трекпад).
- *
- * Правило здесь ДРУГОЕ, чем у плёнки в галерее ([wheelStep]), и не то, что было раньше.
- * Плитка показывает один снимок, поэтому щедрый накопитель плёнки доматывал её до края дропа
- * рывком — а прежний замок «один жест = один кадр» бросался в другую крайность: на трекпаде
- * жест не прерывается, пока ведёшь пальцами, и второй кадр было не получить, не убрав руку.
- *
- * Поэтому шаг меряется ДВУМЯ величинами сразу: пройденным путём ([FRAME_WHEEL_TRAVEL_PX]) и
- * временем с прошлого шага ([FRAME_STEP_COOLDOWN_MS]). Ведёшь пальцами не отрываясь — кадры
- * идут ровной чередой, по одному за остывание.
- *
- * ⚠️ Пока шаг остывает, путь **не копится вовсе** (возвращаем `acc: 0`), и это несущее
- * условие, а не оптимизация: инерционный хвост маха живёт около секунды, и копись он в
- * остывании — к первому же открытому окну накопитель был бы полон, то есть один мах листал
- * бы кадрами, пока хвост не выдохнется.
- *
- * Смена направления обнуляет накопленное: жест передумал, и досчитывать ему нечего.
+ * The drop tile's step on a horizontal wheel. The rule DIFFERS from the gallery reel's: the tile
+ * shows one photo, so the reel's generous accumulator wound it to the drop's end, while a strict
+ * one-gesture-one-frame lock made a second frame unreachable without lifting the hand.
  */
 export function frameWheelStep(
   deltaX: number,
@@ -140,31 +101,24 @@ export function frameWheelStep(
 }
 
 /**
- * Сосед кадра в пределах дропа — **без закольцовки**: на первом кадре шаг назад и на последнем
- * шаг вперёд никуда не ведут. Кольцо здесь врало бы про содержимое: дроп — это плёнка
- * с началом и концом, а не карусель.
+ * The neighbouring frame within a drop, **without wrapping**: on the first frame a step back and on
+ * the last a step forward lead nowhere. Wrapping would lie about the content — a drop is a film with
+ * a beginning and an end, not a carousel.
  */
 export function stepFrameIndex(index: number, dir: number, count: number): number {
   return Math.max(0, Math.min(count - 1, index + dir));
 }
 
 /**
- * Порог перетаскивания (px), за которым палец стоит один кадр. Меньше — и лента срывается
- * с места от дрожания руки, больше — и пролистывание дропа превращается в работу.
+ * Drag threshold (px) past which a finger is worth one frame. Less and the rail breaks loose at a
+ * tremor of the hand; more and paging through a drop becomes work.
  */
 export const SWIPE_NOTCH = 56;
 
 /**
- * Шаг ленты по перетаскиванию САМОГО кадра пальцем (DESIGN §7.5).
- *
- * На телефоне гребёнка и полоса миниатюр — цели шириной в несколько миллиметров, поэтому
- * жест принимает и сам кадр, самый большой объект на экране: лента листается тем же
- * движением, которым листают что угодно на телефоне.
- *
- * Накопитель — тот же приём, что у колеса ([wheelStep]): длинное движение стоит нескольких
- * кадров, а не одного, и остаток переносится в следующее событие, поэтому лента едет ровно
- * за пальцем, а не рывком в конце жеста. Палец ВЛЕВО уводит ленту вперёд — так же, как
- * уезжает влево лист бумаги, который тянут за левый край.
+ * The ribbon's step when the FRAME itself is dragged by finger. On a phone the comb and strip are
+ * millimetre targets, so the largest object on screen takes the gesture too. A finger moving LEFT
+ * carries the ribbon forward, the way a sheet of paper follows its left edge.
  */
 export function swipeStep(deltaX: number, acc: number): WheelDecision {
   const next = acc + deltaX;
@@ -174,16 +128,9 @@ export function swipeStep(deltaX: number, acc: number): WheelDecision {
 }
 
 /**
- * Высота засечки под магнитом гребёнки: чем ближе курсор, тем выше зубец.
- *
- * Спад — **косинус в квадрате**, а не линейный: линейный даёт ряду острый угол в точке
- * курсора и хорошо видимый излом на границе радиуса, а квадрат косинуса подходит к обоим
- * концам с нулевой производной, поэтому горб выглядит вылепленным, а не собранным из отрезков.
- * Тот же спад несёт увеличение иконок в доке — приём, у которого гребёнка и заимствована.
- *
- * [base] у каждой засечки свой: у текущего кадра он выше остальных, и магнит обязан его
- * ПОДНИМАТЬ, а не ронять до общего уровня — иначе, проводя мышью мимо, мы бы теряли из виду
- * тот кадр, на котором стоим.
+ * A tooth's height under the comb's magnet: the nearer the cursor, the taller. The falloff is
+ * COSINE SQUARED, not linear — linear leaves a sharp angle at the cursor and a visible kink at the
+ * radius. [base] differs per tooth, and the magnet must RAISE the current frame, never flatten it.
  */
 export function toothHeight(distance: number, radius: number, base: number, peak: number): number {
   if (radius <= 0) return base;
@@ -193,12 +140,9 @@ export function toothHeight(distance: number, radius: number, base: number, peak
 }
 
 /**
- * Засечка под точкой ряда. Ряд — равные доли на всю ширину (`flex: 1` у каждой), поэтому
- * попадание считается долей, а не поиском по замерам: 37 засечек мерить по одной незачем,
- * а на движении мыши это ещё и лишний пересчёт раскладки на каждый пиксель.
- *
- * Промах за край отдаёт крайнюю засечку: гребёнка узкая, и жест, ушедший чуть выше или ниже
- * ряда, должен доводить плёнку до конца, а не бросать её на полпути.
+ * The tooth under a point of the row. The row is equal shares across its width, so a hit is a
+ * fraction rather than a search through measurements — measuring 37 teeth one by one would cost a
+ * layout pass per pixel of movement. Overshooting an edge returns the outermost tooth.
  */
 export function tickIndexAt(pointerX: number, rowW: number, count: number): number {
   if (rowW <= 0 || count <= 0) return 0;
@@ -206,39 +150,27 @@ export function tickIndexAt(pointerX: number, rowW: number, count: number): numb
   return Math.max(0, Math.min(count - 1, i));
 }
 
-/** Ближе этого (px) лента считается ДОЕХАВШЕЙ: дальше дробить полпикселя незачем. */
+/** Closer than this (px) the rail counts as ARRIVED: splitting half a pixel further is pointless. */
 export const ROLL_SETTLE_PX = 0.5;
 /**
- * Какую долю оставшегося пути лента берёт за кадр отрисовки (60 Гц), отстав на один кадр.
- * Это ДЕФОЛТ плёнки; лента вправе взять свою тягучесть параметром [rollMotionStep] — у карусели
- * архива кадр крупный и вертикальный, и та же доля читается там слишком резвой.
+ * What share of the remaining distance the rail covers per painted frame (60 Hz) when one frame
+ * behind. This is the REEL's default; a rail may take its own stickiness through [rollMotionStep] —
+ * in the archive carousel the frame is large and vertical, and the same share reads too brisk.
  */
 const MOTION_RATE_BASE = 0.20;
-/** Прибавка к доле за каждый кадр отставания сверх первого. */
+/** Addition to the share for each frame of lag beyond the first. */
 const MOTION_RATE_PER_CELL = 0.05;
-/** Потолок доли: и далёкая цель берётся движением, а не прыжком. */
+/** Ceiling on the share: even a distant target is reached by movement rather than a jump. */
 const MOTION_RATE_MAX = 0.5;
-/** Кадр отрисовки при 60 Гц (мс). */
+/** One painted frame at 60 Hz, in ms. */
 const FRAME_MS = 1000 / 60;
-/** Больше стольких кадров за один шаг не засчитываем: зависший кадр — не повод прыгать. */
+/** No more than this many frames counted per step: a stalled frame is no reason to jump. */
 const MAX_FRAMES_PER_STEP = 2;
 
 /**
- * Один кадр отрисовки собственного движения ленты к цели — вместо нативного
- * `scrollTo({behavior: "smooth"})`.
- *
- * Нативная плавная прокрутка каждым новым вызовом **обрывает текущую анимацию и начинает
- * новую с нуля** по ease-in-out: на серии щелчков колеса лента шла рывками «стоп-ход-стоп»
- * (замер: скорость 35, 1, 44, 2, 0, 8, 0 px за кадр), а после последнего щелчка получала один
- * длинный заказ и пролетала оставшиеся кадры залпом. Здесь же цель — **движущаяся**: щелчок
- * лишь переставляет её, а лента каждый кадр подтягивается к ней экспоненциально, и скорость не
- * обнуляется на новом щелчке — разгоняется, пока крутишь, и досаживается, когда перестал.
- *
- * Доля пути за кадр растёт с отставанием (в ширинах ячейки): быстрое вращение колеса
- * догоняется быстрее, чем один щелчок, но потолок держит движение движением. Время шага
- * считается не больше чем за два кадра: после зависшего кадра отрисовки лента не прыгает.
- * Экспонента, а не пружина: пружина мягче разгоняется, но дольше садится (замер: 1613 против
- * 1322 мс на десяти щелчках при базовой доле 0.22), а плёнке важнее встать на кадр, чем покачаться.
+ * One rendered frame of the ribbon's own motion towards its target. Native smooth scrolling ABORTS
+ * and restarts on every call, which made a burst of clicks move in lurches. Here the TARGET moves,
+ * the ribbon closes on it exponentially, and speed builds while you scroll instead of resetting.
  */
 export function rollMotionStep(
   pos: number,
@@ -256,13 +188,9 @@ export function rollMotionStep(
 }
 
 /**
- * Прокрутка ленты, при которой ячейка встаёт ровно в середину окна, — **зажатая в достижимое**.
- *
- * Одна арифметика на обе ленты (плёнка дропа и карусель архива) и на все поводы поехать:
- * первая раскладка, щелчок колеса, клик по кадру не в середине. Зажим обязателен с ОБЕИХ
- * сторон: у крайней ячейки боковой запас ([stripPadding]) уже поставил её по центру, а за
- * максимумом прокрутки лента не сдвинется вовсе — и собственное движение ([rollMotionStep])
- * ехало бы к недостижимой точке вечно, не доезжая и не останавливаясь.
+ * The scroll position that puts a cell exactly in the window's middle, CLAMPED to the reachable.
+ * One arithmetic for both ribbons and every reason to move. The clamp is required at BOTH ends, or
+ * the ribbon's own motion would travel forever towards a point it can never reach.
  */
 export function centerScroll(offset: number, itemSize: number, windowSize: number, maxScroll: number): number {
   return Math.max(0, Math.min(maxScroll, offset - (windowSize - itemSize) / 2));

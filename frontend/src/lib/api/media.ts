@@ -1,9 +1,4 @@
-/**
- * Абсолютизация media-URL кадров фото-дропа (B1). Бэкенд отдаёт относительные пути
- * `/api/film-media/...` (в проде фронт и API за одним origin — Caddy). В деве API на другом
- * порту (`NEXT_PUBLIC_API_BASE_URL`), поэтому относительный путь нужно префиксовать базой.
- * Пустая база ⇒ путь как есть (same-origin прод). Абсолютные URL (будущий CDN/S3) не трогаем.
- */
+/** Prefix relative media paths with the API base for cross-port development; preserve absolute URLs and same-origin production paths. */
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 

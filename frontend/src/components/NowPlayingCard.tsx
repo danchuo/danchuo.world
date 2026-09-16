@@ -4,33 +4,27 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import type { AlbumRef, ArtistRef, TrackView } from "@/lib/api/types";
 
 /**
- * Карточка «что играет» (PRD §M3) — обложка слева, справа название / исполнитель / альбом
- * и слот под низ. Общая для музыкальной плитки и для тултипа подкаста на карте-тропе: там и
- * там ответ на один и тот же вопрос, и выглядеть он должен одинаково (DESIGN §4.1).
- *
- * Компонент чисто презентационный и **размер берёт снаружи**. Тултип живёт внутри SVG-карты
- * (`foreignObject`), где единица — не CSS-пиксель, а единица viewBox: там кегли переопределяются
- * теми же токенами `--fs-music-*`, а обложка — через [coverSize]. Ничего не форкается.
+ * The "now playing" card, shared by the music tile and the quest map's podcast tooltip: both
+ * answer the same question and must look the same. Purely presentational and SIZED FROM OUTSIDE,
+ * because inside the SVG map the unit is a viewBox unit, not a CSS pixel. DESIGN §4.1
  */
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /**
- * Сколько ждём обложку, прежде чем считать её неприехавшей (см. врез в [Cover]).
- *
- * Три секунды — не «сколько грузится картинка», а «после чего пустое место хуже заглушки».
- * Обложка Spotify весит десятки килобайт и на мобильной сети приезжает за доли секунды; всё,
- * что дольше, посетитель уже читает как дырку в виджете, а не как загрузку.
+ * How long to wait for a cover before treating it as missing. Three seconds is not "how long an
+ * image takes" but "after which an empty space reads worse than a placeholder": a Spotify cover is
+ * tens of kilobytes and arrives in a fraction of a second even on mobile.
  */
 const COVER_WAIT_MS = 3000;
 
-/** Альбом прижат к исполнителям (меньше воздуха), чем низ карточки — к альбому. */
+/** The album sits closer to the artists than the card's foot sits to the album. */
 export const albumStyle = {
   color: "var(--text-tertiary)",
   fontSize: "var(--fs-music-meta)",
   marginTop: -2,
 } satisfies CSSProperties;
 
-/** Исполнители — чуть отодвинуты от названия. */
+/** Artists sit slightly away from the title. */
 export const artistsStyle = {
   color: "var(--text-secondary)",
   fontSize: "var(--fs-music-artists)",
@@ -38,8 +32,8 @@ export const artistsStyle = {
 } satisfies CSSProperties;
 
 /**
- * Тело блока. Высоту НЕ фиксируем — блок растёт по контенту; обложка прижата к верху
- * (`items-start` на строке), поэтому при смене трека не «ездит».
+ * Body of the block. The height is NOT fixed — the block grows with its content — and the cover is
+ * pinned to the top (`items-start` on the row), so it does not shift when the track changes.
  */
 export const nowPlayingBody = {
   ...mono,
@@ -48,9 +42,9 @@ export const nowPlayingBody = {
 } satisfies CSSProperties;
 
 /**
- * Бегущая строка: содержимое едет, только если не влезло по ширине (замеряем overflow через
- * ResizeObserver). Влезло — обычная строка. Reduced-motion гасит анимацию глобально
- * (globals.css). В jsdom (тесты) и там, где ResizeObserver нет, — тихо рендерим статично.
+ * Marquee: the content travels only when it does not fit by width (overflow is measured through
+ * ResizeObserver); when it fits, it is an ordinary line. Reduced motion stops the animation globally.
+ * In jsdom, and anywhere without ResizeObserver, it renders statically and silently.
  */
 export function Marquee({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   const outer = useRef<HTMLDivElement>(null);
@@ -83,7 +77,7 @@ export function Marquee({ children, style }: { children: ReactNode; style?: CSSP
           scrolling
             ? ({
                 "--marquee-shift": `-${shift}px`,
-                // Темп ~25px/с, не короче 4с — чтобы читалось, а не мельтешило.
+                // A tempo of ~25px/s and no shorter than 4s, so it reads rather than flickers.
                 "--marquee-duration": `${Math.max(4, shift / 25)}s`,
               } as CSSProperties)
             : undefined
@@ -96,10 +90,10 @@ export function Marquee({ children, style }: { children: ReactNode; style?: CSSP
 }
 
 /**
- * Обложка; [size] задаётся снаружи — в плитке это CSS-пиксели, в карте единицы viewBox.
+ * A cover; [size] is given from outside — CSS pixels in a tile, viewBox units on the map.
  *
- * [height] отдельно от [size] нужно книгам: обложка книги портретная (~2:3), и в квадрате
- * подкаста она либо сминается, либо срезается по корешку. По умолчанию квадрат — как было.
+ * [height], separate from [size], is what books need: a book cover is portrait (~2:3) and in a
+ * podcast's square it is either crushed or cut off at the spine. The default stays square.
  */
 export function Cover({
   url,
@@ -114,30 +108,30 @@ export function Cover({
   size?: number;
   height?: number;
   /**
-   * Чем заменить картинку, когда её нет или она не загрузилась. Не задан — глухой
-   * прямоугольник: плашку Spotify подставляет тот, чья картинка оттуда и приехала (трек,
-   * эпизод подкаста), а обложке книги она была бы чужим знаком.
+   * What replaces the picture when there is none or it failed to load. Unset gives an opaque
+   * rectangle: the Spotify plate is supplied by whoever's picture came from there (a track, a podcast
+   * episode), whereas on a book cover it would be a foreign mark.
    */
   fallback?: ReactNode;
-  /** Картинка не загрузилась. Плитке это нужно знать: волна вправе перестроиться (§7.1). */
+  /** The picture failed to load. The tile needs to know: a wave may rearrange itself (DESIGN §7.1). */
   onError?: () => void;
 }) {
-  /* Помним НЕ факт «сломалось», а КАКОЙ адрес сломался: при смене трека приезжает новый
-     url, сравнение перестаёт совпадать, и картинка пробуется заново — без эффекта на сброс
-     флага и без риска, что один битый кадр похоронит все следующие. */
+  /* Not the fact that something broke but WHICH address broke: a track change brings a new url, the
+     comparison stops matching, and the picture is tried again — with no effect to reset the flag and
+     no risk that one bad frame buries every following one. */
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  /* …и отдельно — адрес, которого мы просто НЕ ДОЖДАЛИСЬ (см. врез у COVER_WAIT_MS). */
+  /* …and separately, the address we simply did NOT WAIT for (see the note at COVER_WAIT_MS). */
   const [timedOutUrl, setTimedOutUrl] = useState<string | null>(null);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const broken = url != null && (failedUrl === url || timedOutUrl === url);
 
-  /* Ждём картинку не вечно. Ошибку браузер отдаёт, только когда запрос ЗАВЕРШИЛСЯ неудачей;
-     недоступный CDN (у Spotify это `i.scdn.co` — с мобильной сети он у владельца просто не
-     отвечает) держит соединение открытым, `onerror` не приходит НИКОГДА, и на месте обложки
-     остаётся пустое место вместо оговорённой заглушки.
-     Поэтому «не приехала за отведённое время» — такой же отказ, как ошибка: показываем ту же
-     запасную плашку. Ожидание считается по АДРЕСУ, поэтому новый трек пробует загрузку
-     заново, а картинка, успевшая приехать, ожидание снимает. */
+  /* A picture is not waited for forever. The browser reports an error only when a request has FAILED,
+     while an unreachable CDN holds the connection open, `onerror` NEVER arrives, and an empty space is
+     left where the agreed placeholder should be. */
+
+  /* So "did not arrive in time" counts as the same refusal as an error, and the same fallback plate is
+     shown. The wait is tracked BY ADDRESS, so a new track tries loading afresh and a picture that does
+     arrive clears the wait. */
   const notifyError = useRef(onError);
   notifyError.current = onError;
   useEffect(() => {
@@ -172,9 +166,9 @@ export function Cover({
       alt={alt}
       width={size}
       height={height}
-      // Картинка из кэша успевает загрузиться до того, как React повесит `onLoad`, — поэтому
-      // готовность проверяем ещё и на самом узле (`complete` + ненулевая ширина), иначе
-      // ожидание досчитало бы до конца над уже нарисованной обложкой.
+      // A cached picture can load before React attaches `onLoad`, so readiness is also checked on the
+      // node itself (`complete` plus a non-zero width); otherwise the wait would count down over an
+      // already painted cover.
       ref={(el) => {
         if (el?.complete && el.naturalWidth > 0) setLoadedUrl(url);
       }}
@@ -183,14 +177,14 @@ export function Cover({
         setFailedUrl(url);
         onError?.();
       }}
-      // Кадрируем, а не мнём: пропорции обложки на экране должны остаться её собственными,
-      // даже если книга оказалась не ровно 2:3.
+      // Cropped rather than squashed: a cover's proportions on screen must stay its own, even if a
+      // book turns out not to be exactly 2:3.
       style={{ flexShrink: 0, borderRadius: "var(--radius-sm)", objectFit: "cover" }}
     />
   );
 }
 
-/** Исполнители через запятую, каждый — ссылка-атрибуция на свою страницу в Spotify. */
+/** Artists separated by commas, each an attribution link to its own Spotify page. */
 export function Artists({ artists, color }: { artists: ArtistRef[]; color: string }) {
   return (
     <>
@@ -210,7 +204,7 @@ export function Artists({ artists, color }: { artists: ArtistRef[]; color: strin
   );
 }
 
-/** Альбом строкой-ссылкой. */
+/** The album as a link line. */
 export function Album({ album }: { album: AlbumRef }) {
   return album.url ? (
     <a href={album.url} target="_blank" rel="noreferrer" style={albumStyle}>
@@ -230,14 +224,14 @@ export function NowPlayingCard({
   children,
 }: {
   track: TrackView;
-  /** Сторона обложки в единицах контекста (по умолчанию 44 CSS-пикселя плитки). */
+  /** Cover side in the context's units (by default the tile's 44 CSS pixels). */
   coverSize?: number;
   testId?: string;
-  /** Запасная обложка (см. [Cover]); не задана — прежний глухой прямоугольник. */
+  /** Fallback cover (see [Cover]); unset gives the former opaque rectangle. */
   coverFallback?: ReactNode;
-  /** Обложка не загрузилась — сообщаем наверх (см. [Cover]). */
+  /** The cover failed to load — reported upwards (see [Cover]). */
   onCoverError?: () => void;
-  /** Подвал карточки: плашка источника у плитки, строка минут у карточки подкаста. */
+  /** Card footer: the source plate in a tile, the minutes line on a podcast card. */
   children?: ReactNode;
 }) {
   const cover = (
@@ -251,9 +245,9 @@ export function NowPlayingCard({
   );
   return (
     <div data-testid={testId} className="flex min-w-0 items-start gap-3">
-      {/* Обложка ведёт на трек — как в самом Spotify, где картинка и есть кнопка «открыть».
-          Ссылка оборачивает обложку, а не подменяет её: без `url` (бэк его не отдал) остаётся
-          прежняя картинка без ссылки, а не битый якорь. */}
+      {/* The cover leads to the track, as in Spotify itself where the picture IS the open button.
+          The link wraps the cover rather than replacing it: with no `url` the picture stays
+          without a link instead of becoming a broken anchor. */}
       {track.url ? (
         <a
           className="np-cover-link"
@@ -282,9 +276,9 @@ export function NowPlayingCard({
             <Artists artists={track.artists} color="var(--text-secondary)" />
           </Marquee>
         )}
-        {/* Цвет альбома — на обёртке, а не только на ссылке: многоточие усечения рисует тот
-            элемент, что режет строку, и берёт ЕГО цвет. Со цветом на одной ссылке длинный альбом
-            кончался белыми точками при сером тексте. */}
+        {/* The album colour goes on the wrapper, not only the link: the ellipsis is drawn by the
+            element that truncates the line and takes ITS colour. With the colour on the link alone
+            a long album ended in white dots against grey text. */}
         {track.album && (
           <div className="np-album truncate fit-measure" style={{ color: albumStyle.color }}>
             <Album album={track.album} />

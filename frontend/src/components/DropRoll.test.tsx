@@ -69,8 +69,8 @@ describe("DropRoll", () => {
 
 describe("DropRoll — кадр наружу", () => {
   it("сообщает, на каком кадре стоит плёнка: плитке борда возвращаться в него", () => {
-    // Плитка идёт за этим адресом, чтобы проявка (DESIGN §7.5) садилась в кадр, из которого
-    // выходишь. Иначе вертикальный снимок возвращается в горизонтальную карточку и тянется.
+    // The tile follows this address so the developing animation (DESIGN §7.5) lands on the frame
+    // you exit from. Otherwise a portrait shot returns into a landscape card and stretches.
     const onCurrent = vi.fn();
     render(
       <DropRoll photos={photos} startAt="/api/film-media/1/1/web" onZoom={() => {}} onCurrent={onCurrent} />,

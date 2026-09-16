@@ -8,21 +8,9 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Арифметика сессий чтения (PRD §5.16). Минуты считает сама читалка — она копит их в
- * счётчике «книга × день»; наше дело — разложить прирост счётчика на сессии.
- *
- * Отсюда главный приём: **зачёт = сколько у читалки минус сколько мы уже записали**.
- * Состояние поллера — это сумма наших же строк, отдельной колонки-курсора нет. Такой зачёт
- * самовосстанавливается: пропущенный опрос, поздний синк офлайнового дня и перезапуск бэкенда
- * дают недобор ровно до следующего такта, а не расхождение навсегда.
- *
- * Проверяем:
- * - **обычный прирост**: разница между счётчиком читалки и нашей суммой;
- * - **ничего не изменилось**: тот же счётчик — нулевой зачёт (опрос впустую, файл не менялся);
- * - **счётчик уехал назад**: переустановка читалки или откат базы из бэкапа не должны давать
- *   отрицательных минут — зачёт ноль, дальше считаем от нового уровня;
- * - **разрыв сессии**: пауза больше порога открывает новую строку, меньше — тянет прежнюю;
- * - **первая сессия дня**: тянуть нечего, порог не при чём.
+ * Reading-session arithmetic (PRD §5.16). The reader counts the minutes per book-day; our job is
+ * to split its increment into sessions. The trick: tally = the reader's counter minus what we
+ * already recorded, so a missed poll or a restart under-counts until the next tick, not forever.
  */
 class ReadingSessionMathTest {
 
@@ -41,7 +29,7 @@ class ReadingSessionMathTest {
 
     @Test
     fun `a counter that went backwards credits nothing instead of negative minutes`() {
-        // Переустановленная читалка либо база, откатившаяся из бэкапа: у неё меньше нашего.
+        // A reinstalled reader, or a database rolled back from a backup: it has less than we do.
         assertEquals(0, ReadingSessionMath.credit(shelfSeconds = 600, recordedSeconds = 1_800))
     }
 
@@ -62,7 +50,7 @@ class ReadingSessionMathTest {
 
     @Test
     fun `a session from the future is not continued`() {
-        // Сбитые часы: отрицательная пауза безопаснее трактуется как «это другая сессия».
+        // A skewed clock: a negative pause is safer read as "a different session".
         assertFalse(ReadingSessionMath.continues(at.plusSeconds(60), at, gap))
     }
 

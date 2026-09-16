@@ -28,23 +28,19 @@ interface PhotoGridProps {
   photos: AdminPhotoView[];
   orientation: OrientationStatusView | null;
   onCheckOrientation: () => void;
-  /** Поиск артефактов по кадрам дропа (§5.12) — только вручную: платная модель на каждый кадр. */
+  /** Artifact scanning is explicit because each photo incurs a model call. PRD §5.12. */
   artifactScan: ArtifactScanStatusView | null;
   onScanArtifacts: () => void;
   onSetCover: (photoId: number) => void;
   onRotate: (photoId: number) => void;
   onDeletePhoto: (photoId: number) => void;
-  /** Снять с кадра рамку конкретного предмета — на кадре их может быть несколько. */
+  /** Remove one item's box while preserving other detections on the photo. */
   onDeleteArtifact: (photoId: number, artifactId: number) => void;
-  /** Открыть кадр в разметчике артефактов: там предмет выбирают и обводят мышью (§5.12). */
+  /** Open manual annotation for a selected catalog item. PRD §5.12. */
   onMarkPhoto: (photoId: number) => void;
 }
 
-/**
- * Сетка кадров выбранного дропа: клик по кадру помечает его обложкой, ↻ поворачивает на 90°,
- * ✕ удаляет без возврата, «?» — LLM не определилась с верхом (B9). Своего состояния нет —
- * кадры и статус проверки поворота живут в родителе (их обновляют и другие действия).
- */
+/** Parent-owned photos and orientation state are shared with other admin actions. PRD §5.12. */
 export function PhotoGrid({
   selected,
   photos,
@@ -68,14 +64,13 @@ export function PhotoGrid({
       </h2>
       {selected && (
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          {/* Запуск/статус LLM-проверки поворота кадров (B9). */}
           <button type="button" onClick={onCheckOrientation} disabled={checking} style={secondaryBtnStyle}>
             {checking ? "проверяю поворот…" : "проверить поворот"}
           </button>
           {orientation && <span aria-live="polite" style={mono}>{orientationLabel(orientation)}</span>}
-          {/* Название кнопки называет ОХВАТ: прогон берёт весь каталог предметов разом, но
-              только по кадрам этого дропа. Прежнее «искать артефакты» об охвате молчало, и
-              рядом с кнопкой «искать все во всех дропах» читалось как её половина. */}
+          {/* The button's name states its SCOPE: the scan takes the whole item catalogue at once
+              but only this drop's frames. The old wording said nothing about scope and read as
+              half of the neighbouring "all items in all drops". */}
           <button
             type="button"
             onClick={onScanArtifacts}
@@ -97,10 +92,9 @@ export function PhotoGrid({
           <ul className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))" }}>
             {photos.map((p) => (
               <li key={p.id}>
-                {/* Углы отсчитываются от САМОГО кадра, а не от строки списка: подписи находок
-                    лежат ниже, и с общим контекстом позиционирования кнопки уезжали на них —
-                    а у кадра без находок скатывались вниз за компанию (ряд грида тянется по
-                    самому высокому соседу). */}
+                {/* Corners are measured from the FRAME itself, not the list row: finding captions
+                    sit below, and with a shared positioning context the buttons drifted onto
+                    them (a grid row stretches to its tallest neighbour). */}
                 <div style={{ position: "relative" }}>
                   <button
                     type="button"
@@ -115,8 +109,8 @@ export function PhotoGrid({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={mediaUrl(p.thumbUrl)} alt="" className="h-full w-full object-cover" />
                   </button>
-                  {/* Ручная стрелка поворота — поверх угла кадра, отдельная от клика-обложки
-                      (stopPropagation не нужен: это соседний элемент, а не вложенный). */}
+                  {/* The manual rotate arrow sits over the frame's corner, separate from the
+                      cover click (it is a sibling, not nested, so stopPropagation is not needed). */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -130,7 +124,7 @@ export function PhotoGrid({
                   >
                     <Icon name="rotate" size={15} />
                   </button>
-                  {/* Удаление одного кадра — верхний-правый угол (напротив ↻), отдельно от клика-обложки. */}
+                  {/* Deleting one frame — the top right corner, opposite ↻, apart from the cover click. */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -144,9 +138,8 @@ export function PhotoGrid({
                   >
                     <Icon name="close" size={15} />
                   </button>
-                  {/* Разметка руками — нижний-левый угол, единственный свободный (остальные три
-                      заняты «?», ✕ и ↻). Занята прогоном: рамки, поставленные во время поиска,
-                      тот же прогон и перезаписал бы. */}
+                  {/* Manual marking — the bottom left corner, the only free one. It is disabled
+                      during a scan: boxes placed while searching would be overwritten by it. */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -158,12 +151,12 @@ export function PhotoGrid({
                     title="обвести предмет руками"
                     style={markBtnStyle}
                   >
-                    {/* Ракетка, а не абстрактная рамка: глиф выделения на 15px читался пустой
-                        плашкой, а ракетка — первый предмет каталога, и по ней сразу понятно,
-                        что кнопка про артефакты. */}
+                    {/* A racket rather than an abstract frame: a selection glyph at 15px read as
+                        an empty plate, while the racket is the catalogue's first item and makes
+                        the button's subject obvious. */}
                     <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>🏸</span>
                   </button>
-                  {/* LLM не определилась с верхом — кадр ждёт ручной стрелки. */}
+                  {/* The model could not decide which way is up — the frame awaits a manual arrow. */}
                   {p.orientation === "ambiguous" && (
                     <span
                       title="LLM не определилась с верхом — проверь кадр"
@@ -173,8 +166,8 @@ export function PhotoGrid({
                     </span>
                   )}
                 </div>
-                {/* Что нашлось на кадре (§5.12). Чипами, а не одной кнопкой: находок может быть
-                    несколько, и выбирать нужную удобнее по имени, чем по порядку. */}
+                {/* What was found on the frame (§5.12), as chips rather than one button: there can
+                    be several findings, and picking one by name beats picking by position. */}
                 {p.artifacts && p.artifacts.length > 0 && (
                   <ul style={artifactChipListStyle}>
                     {p.artifacts.map((a) => (

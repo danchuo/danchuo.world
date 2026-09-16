@@ -6,12 +6,9 @@ import world.danchuo.core.config.MskTime
 import java.security.MessageDigest
 
 /**
- * Суточный хэш посетителя (PRD §5.11, §11): `sha256(ip + ua + соль + дата)`.
- *
- * **Сырой IP никогда не хранится** — наружу идёт только хэш. Соль ротируется ежедневно:
- * статический серверный секрет (`danchuo.analytics.salt`) комбинируется с датой MSK, так что
- * один и тот же посетитель за день даёт стабильный хэш (уник), а назавтра — другой
- * (нельзя связать посещения через сутки → как правило, cookie-баннер не нужен).
+ * The daily visitor hash: `sha256(ip + ua + salt + date)`. The raw IP never leaves this class.
+ * The date inside the hash rotates it every day, so one visitor is stable within a day and
+ * unrecognisable the next. PRD §5.11, §11
  */
 @ApplicationScoped
 class VisitorHash(

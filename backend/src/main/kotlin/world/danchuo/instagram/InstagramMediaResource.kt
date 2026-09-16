@@ -7,11 +7,9 @@ import jakarta.ws.rs.core.CacheControl
 import jakarta.ws.rs.core.Response
 
 /**
- * Раздача снятых картинок Instagram (PRD §5.17) — кадра поста и аватара. Публично, как медиа
- * дропов и артефактов.
- *
- * Кэш короткий: под теми же двумя адресами завтра лежит уже следующий пост, и висящая неделю
- * копия в браузере показывала бы позавчерашний кадр с сегодняшней подписью.
+ * Serves the downloaded Instagram images, post frame and avatar, publicly like drop and artifact
+ * media. The cache is deliberately SHORT: tomorrow the next post lives at these same two
+ * addresses, and a week-old copy would pair yesterday's frame with today's caption.
  */
 @Path("/api/instagram-media")
 class InstagramMediaResource(private val storage: InstagramImageStorage) {
@@ -24,13 +22,13 @@ class InstagramMediaResource(private val storage: InstagramImageStorage) {
         val bytes = storage.get(parsed)
             ?: return Response.status(Response.Status.NOT_FOUND).build()
         val cache = CacheControl().apply { maxAge = 3600 }
-        // Тип вычисляем по байтам: Instagram отдаёт и JPEG, и (у аватаров) WebP.
+        // The type is read off the bytes: Instagram serves JPEG and, for avatars, WebP.
         return Response.ok(bytes, sniff(bytes)).cacheControl(cache).build()
     }
 
     /**
-     * Сигнатура формата по первым байтам. Хранилище кладёт то, что приехало, не перекодируя:
-     * перекодировать кадр ради известного расширения — терять качество на ровном месте.
+     * Format signature from the first bytes. Storage keeps what arrived without re-encoding:
+     * re-encoding a frame for the sake of a known extension loses quality for nothing.
      */
     private fun sniff(bytes: ByteArray): String = when {
         bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"

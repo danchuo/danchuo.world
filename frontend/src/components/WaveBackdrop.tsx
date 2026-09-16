@@ -6,58 +6,39 @@ import { onFontsReady } from "@/lib/fontGate";
 import { buildRibbon } from "@/lib/waveRibbon";
 
 /**
- * Фоновый слой волны (DESIGN §10.2) — **общий шов, а не часть волны 03**.
- *
- * До сих пор фон волны был чистым CSS: волна 02 рисует небо и облака псевдоэлементами,
- * и этого хватало, потому что фон ничего не знал о данных. Волне 03 «PRIME» фоном служит
- * сама лента прожитых дней, а она приезжает из API и меняется вместе с окном календаря —
- * такое из CSS не достать. Поэтому слой живёт компонентом.
- *
- * Чтобы это не сломало правило «новая волна = запись в БД, без правок кода» (§10.1), шов
- * сделан **волна-агностичным**: разметка есть всегда, `common.css` держит её выключенной
- * (`display: none`), а волна включает и оформляет её у себя в скине. Волне, которой фон не
- * нужен, он не стоит ничего — ни узла в раскладке, ни кадра на отрисовке.
- *
- * Заполнение экрана — императивное, не через состояние: лента дублируется до тех пор, пока
- * не перестанет помещаться, а это измерение, и на каждый его шаг рендерить React-дерево
- * незачем. React владеет самим узлом, содержимым узла владеет этот эффект.
+ * The wave's backdrop layer — a SHARED SEAM, not part of any one wave. It exists as a component
+ * because PRIME's backdrop is the ribbon of lived days, which comes from the API and CSS cannot
+ * reach. The markup is always present and `common.css` keeps it off until a skin wants it. §10.2
  */
 
 /**
- * Потолок длины текста — страховка от вранья измерения. 300 000 символов с запасом
- * закрывают 8K-стену и стоят полмегабайта.
+ * Ceiling on text length, insuring against a lying measurement. 300,000 characters cover an 8K wall
+ * with room to spare and cost half a megabyte.
  */
 const MAX_CHARS = 300_000;
 
-/** Тот же разделитель, что внутри ленты, — стык повторов не должен быть заметен. */
+/** The same separator as inside the ribbon, so the seam between repeats is not noticeable. */
 const DOT = " · ";
 
 /**
- * Доля ширины строки, ниже которой перенос по слову не делается: у длинного слова в конце
- * строки иначе срезалось бы полстроки, и рваный край становился бы дырой.
- *
- * *Рассмотрено и отклонено: резать по счёту знаков, чтобы строка перекрывала окно и края
- * заполнялись до упора.* Пустые полоски по бокам оно не убрало (строка шире окна не двигается
- * выключкой — она уже упёрлась в левый край), зато слова стали рваться посередине. Слово
- * целое важнее ровного края: холст читают краем глаза, и обрубок слова заметнее просвета.
+ * The share of a line's width below which no word wrap is made: otherwise a long word at the end
+ * would cut half a line away and the ragged edge would read as a hole. Breaking by character count
+ * was considered and rejected — it did not remove the side gaps and broke words mid-way.
  */
 const MIN_LINE_FILL = 0.72;
 
 /**
- * Ширина знака, если замер не состоялся (jsdom, скрытый таб). Лента набрана моноширинным,
- * а у моноширинных наборов ширина знака — около 0.6 кегля.
+ * Character width when the measurement did not happen (jsdom, a hidden tab). The ribbon is set in
+ * monospace, and in monospace faces a character is about 0.6 of the type size.
  */
 const MONO_ADVANCE = 0.6;
-/** Межстрочный интервал, если `line-height` не вычислился (`normal` в jsdom). */
+/** Line spacing when `line-height` did not compute (`normal` in jsdom). */
 const FALLBACK_LEADING = 1.4;
 
 /**
- * Ширина знака ленты — замером по пробе, потому что это единственный честный способ.
- *
- * ⚠️ Проба набирается САМОЙ ЛЕНТОЙ, а не строкой из нулей. У холста задан `word-spacing`, и
- * лента состоит из слов: проба без пробелов не платила за межсловные интервалы, знак выходил
- * у́же настоящего, строка получалась длиннее окна — и её хвост срезался справа. Реальный
- * кусок ленты несёт ту же плотность пробелов, что и строки, которые из него нарежут.
+ * The ribbon's character advance, measured from a sample, which is the only honest way. The sample
+ * is taken FROM THE RIBBON ITSELF, not a string of zeroes: the canvas sets `word-spacing`, so a
+ * sample without spaces underpaid for it and the line overran its window.
  */
 function measureAdvance(el: HTMLElement, fontSize: number, sample: string): number {
   const text = sample.length >= 200 ? sample.slice(0, 200) : sample.repeat(Math.ceil(200 / Math.max(1, sample.length))).slice(0, 200);
@@ -76,7 +57,7 @@ export function WaveBackdrop({
   wave,
 }: {
   summaries: DaySummary[];
-  /** Опора «сегодня» (MSK): дни после неё на холст не едут — они ещё не прожиты. */
+  /** The "today" anchor (MSK): days after it do not travel onto the canvas, being unlived. */
   today: string;
   wave: string | null;
 }) {
@@ -88,7 +69,7 @@ export function WaveBackdrop({
     if (!el) return;
 
     const fill = () => {
-      // Волна фон не включала — не тратим ни измерения, ни узлов текста.
+      // The wave never switched the background on, so neither measurements nor text nodes are spent.
       if (!ribbon || getComputedStyle(el).display === "none") {
         el.replaceChildren();
         return;
@@ -102,29 +83,28 @@ export function WaveBackdrop({
       const innerH =
         el.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
 
-      // Вёрстки ещё нет (SSR-гидрация, скрытый таб): кладём ленту одной строкой и ждём
-      // наблюдателя — резать на строки нечем, ширина неизвестна.
+      // There is no layout yet (SSR hydration, a hidden tab): the ribbon is laid as a single line and
+      // waits for the observer — with an unknown width there is nothing to break lines by.
       if (innerW <= 0 || innerH <= 0) {
         el.textContent = ribbon;
         return;
       }
 
-      // Строки лента ломает САМА, а не переносом браузера, и вот почему: выключка у этой
-      // волны идёт ЧЕРЕЗ СТРОКУ (нечётные прижаты влево, чётные вправо, см. wave-03.css),
-      // а `text-align` в CSS применяется ко всему абзацу сразу — отдельной строкой оттуда
-      // не управлять. Значит, каждая строка обязана быть своим узлом.
+      // The ribbon breaks its own lines rather than letting the browser wrap, because this wave
+      // justifies ALTERNATE lines — odd left, even right — and `text-align` applies to a whole
+      // paragraph at once. A single line cannot be steered from there, so each must be its own node.
       const advance = measureAdvance(el, fontSize, ribbon);
-      // Знак запаса: плотность пробелов у строки своя, и средняя по пробе может оказаться
-      // чуть оптимистичнее реальной. Недобрать знак незаметно, перебрать — срезать хвост.
+      // A character of slack: space density varies by line, and the average from a sample can come out
+      // slightly optimistic. Falling a character short is invisible; overshooting cuts the tail.
       const perLine = Math.max(8, Math.floor(innerW / advance) - 1);
       const rows = Math.min(
         Math.ceil(innerH / lineH) + 1,
         Math.floor(MAX_CHARS / (perLine + 1)),
       );
 
-      // Лента короче стены — повторяем её до нужной длины (тем же разделителем, чтобы стык
-      // повторов не был заметен). Удвоение, а не дописывание по куску: стена бывает в сотни
-      // раз выше ленты, и линейный шаг упирался в потолок раньше, чем закрывал её.
+      // The ribbon is shorter than the wall, so it repeats to the needed length with the same separator.
+      // Doubling rather than appending piece by piece: a wall can be hundreds of times taller than the
+      // ribbon, and a linear step hit the ceiling before it covered one.
       const need = rows * (perLine + 1);
       let pool = ribbon;
       while (pool.length < need && pool.length < MAX_CHARS) pool += DOT + pool;
@@ -132,11 +112,11 @@ export function WaveBackdrop({
       const frag = document.createDocumentFragment();
       let at = 0;
       for (let r = 0; r < rows; r += 1) {
-        if (at >= pool.length) at = 0; // лента кончилась — заходим на второй круг
+        if (at >= pool.length) at = 0; // the ribbon ran out — go round again
         let end = Math.min(pool.length, at + perLine);
         if (end < pool.length) {
-          // Перенос по слову: середины слов на срезе строки не режем, из-за этого край
-          // и получается рваным — а рваный край здесь и есть рисунок.
+          // Wrapping by word: words are not cut in the middle at a line break, which is what makes the
+          // edge ragged — and the ragged edge is the picture here.
           const cut = pool.lastIndexOf(" ", end);
           if (cut > at + perLine * MIN_LINE_FILL) end = cut;
         }
@@ -151,18 +131,14 @@ export function WaveBackdrop({
 
     fill();
 
-    // Пересборка по открытию ворот шрифта (`fontGate.ts`): лента набрана моноширинным, а до
-    // его загрузки строки меряются подменным набором — заполнение, честное на старте, после
-    // подмены не достаёт до края. Наблюдатель размеров этот случай не ловит: коробка слоя не
-    // меняется, меняются метрики текста внутри. Ворота, а не `document.fonts.ready` напрямую:
-    // до первой раскладки набор шрифтов пуст и отвечает «готов» мгновенно (см. врез там же),
-    // и пересборка пришлась бы на то же подменное начертание.
+    // Rebuild when the font gate opens: the ribbon is mono, and before it loads the lines are
+    // measured in a fallback, so a fill honest at first no longer reaches the edge. A resize
+    // observer misses this — the box does not change, the text metrics inside it do.
     const offFonts = onFontsReady(fill);
 
-    // Наблюдаем за самим слоем, а не за окном: он растянут на всю страницу, поэтому ловит
-    // одним источником и ресайз, и зум, и смену ориентации, и подросшую от новых данных
-    // страницу. Дубли меняют scrollHeight, но не border-box, так что наблюдатель себя не
-    // будит. `undefined` — jsdom-тесты без ResizeObserver: там хватает первого прохода.
+    // Observe the layer itself, not the window: it spans the page, so one source catches resize,
+    // zoom, orientation and a page grown by new data. Duplicates change scrollHeight but not the
+    // border box, so the observer never wakes itself. `undefined` is jsdom without ResizeObserver.
     let frame = 0;
     const observer =
       typeof ResizeObserver === "undefined"
@@ -177,8 +153,8 @@ export function WaveBackdrop({
       cancelAnimationFrame(frame);
       observer?.disconnect();
     };
-    // `wave` в зависимостях: своп волны меняет `display` слоя, и ленту надо пересобрать
-    // под новую высоту (или стереть, если новая волна фон не рисует).
+    // `wave` is in the dependencies: a wave swap changes the layer's `display`, and the ribbon has to
+    // be rebuilt for the new height (or erased, if the new wave draws no background).
   }, [ribbon, wave]);
 
   return (

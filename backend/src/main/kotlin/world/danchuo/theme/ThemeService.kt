@@ -4,9 +4,9 @@ import io.quarkus.cache.CacheResult
 import jakarta.enterprise.context.ApplicationScoped
 
 /**
- * Чтение волн с кэшем Caffeine (PRD §8 — активная тема кэшируется). Токены почти не меняются
- * (смена активной волны — редкое событие владельца), TTL в `application.properties`. Ключа
- * у кэша нет (один активный набор / один список) — `@CacheResult` без `@CacheKey`.
+ * Reads waves through a Caffeine cache: tokens barely change, since switching the active wave is a
+ * rare owner event, and the TTL lives in `application.properties`. The cache needs no key — there
+ * is one active set and one list — so `@CacheResult` carries no `@CacheKey`. PRD §8
  */
 @ApplicationScoped
 class ThemeService(

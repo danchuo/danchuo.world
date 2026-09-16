@@ -1,117 +1,55 @@
-/**
- * Геометрия карусели дропов — редакции ленты, где архив листается прокруткой (DESIGN §7.5).
- *
- * Правило редакции одно: **вид кадра — чистая функция его расстояния до середины окна**.
- * Наведение в раскладке не участвует вообще, поэтому лента не дёргается под курсором,
- * который просто проходит мимо, и ведёт себя одинаково на трёх дропах и на трёхстах.
- *
- * Раскрытие кадра по наведению рассмотрено и отклонено — разбор в DESIGN §7.5.
- */
+/** Slot appearance depends on distance from the viewport center, never hover. DESIGN §7.5. */
 import { toothHeight } from "./dropRoll";
 
-/**
- * Высота слота (px) — **константа, а не доля архива**: именно она делает плитку независимой
- * от числа дропов. Чуть ниже квадрата намеренно: на квадрате дроп перестаёт читаться кадром.
- */
+/** Fixed slot height keeps the tile independent of archive size. DESIGN §7.5. */
 export const CAROUSEL_SLOT_PX = 78;
-/** Просвет между слотами — тот же, что у остальных лент волны без плиты. */
+/** Match the spacing of other plateless wave strips. */
 export const CAROUSEL_GAP_PX = 6;
-/**
- * Радиус спада (px) — на сколько от середины окна кадр успевает уйти в фон. Полтора слота:
- * ближайший сосед уже заметно мельче, но ещё читается кадром, а не полоской.
- */
+/** Fade radius keeps adjacent frames recognizable. DESIGN §7.5. */
 export const CAROUSEL_RADIUS_PX = (CAROUSEL_SLOT_PX + CAROUSEL_GAP_PX) * 1.5;
 
-/** Пол масштаба: дальний кадр мельче центрального, но не превращается в миниатюру. */
+/** Far frames remain photographs rather than miniatures. */
 export const CAROUSEL_FAR_SCALE = 0.87;
-/** Пол непрозрачности: дальний кадр уходит в холст, но остаётся различимой фотографией. */
+/** Far frames blend into the canvas without disappearing. */
 export const CAROUSEL_FAR_OPACITY = 0.45;
-/**
- * Потолок расфокуса дальнего кадра (px). Третий голос той же фразы «кадр уходит в холст»:
- * масштаб уводит его вглубь, прозрачность растворяет, а расфокус снимает с него внимание —
- * глаз перестаёт читать дальний кадр как снимок и держится за центральный. Заодно это лечит
- * жёсткий срез четвёртого и пятого кадров краем плитки на высоких экранах: размытый кадр
- * обрезается мягко, потому что резкой границы в нём уже нет.
- * Больше — и лента превращается в туман, в котором не видно, что листается.
- */
+/** Blur softens far-frame clipping at the tile edge. DESIGN §7.5. */
 export const CAROUSEL_FAR_BLUR_PX = 1.9;
-/**
- * Докуда кадр остаётся РЕЗКИМ — ровно на шаг ленты, то есть на ближайшего соседа сверху и
- * снизу. Расфокус заводился ради жёсткого среза дальних кадров краем плитки, а соседи
- * центрального кадра ни во что не упираются: они на виду, читаются кадрами и мутнеть им
- * незачем. За этой границей расфокус нарастает на протяжении ещё одного шага и упирается
- * в потолок: ступеньки «резко → мутно» между соседними кадрами не возникает.
- */
+/** Keep the central frame and immediate neighbors sharp. DESIGN §7.5. */
 export const CAROUSEL_SHARP_PX = CAROUSEL_SLOT_PX + CAROUSEL_GAP_PX;
-/**
- * Тягучесть собственного движения карусели — доля оставшегося пути за кадр отрисовки
- * (см. `rollMotionStep`). Меньше плёночной (0.20): у плёнки кадр мелкий и едет вбок, а здесь
- * крупный вертикальный снимок, и та же доля пути за кадр читается слишком быстро.
- */
+/** Per-frame remaining-distance fraction; vertical photos need slower motion. DESIGN §7.5. */
 export const CAROUSEL_MOTION_RATE = 0.13;
-/**
- * Тягучесть ОДНОГО заказа — переезда к кадру, по которому кликнули (см. `openFromReel`).
- * Прокрутка и клик просят разного: листая ленту, зритель СМОТРИТ на кадры и ему нужна
- * тягучесть; кликнув, он уже выбрал и ждёт дроп, а переезд — накладные расходы. Втрое
- * резвее ленты: соседний кадр встаёт в середину примерно за 120мс, то есть в пределах
- * одного взгляда.
- */
+/** Click-to-open motion is faster than browsing motion. DESIGN §7.5. */
 export const CAROUSEL_OPEN_RATE = 0.42;
-/**
- * Потолок ожидания переезда перед открытием галереи (мс). Он обязан существовать: у КРАЙНЕГО
- * кадра цель зажата максимумом прокрутки, в середину окна он не встаёт вовсе. Потолок
- * согласован с [CAROUSEL_OPEN_RATE]: под тягучий переезд он длиннее, и ожидание читается
- * паузой между кликом и галереей.
- */
+/** Bound opening delay: end frames may never reach the viewport center due to scroll clamping. */
 export const CAROUSEL_OPEN_WAIT_MS = 260;
 
-/** Как выглядит слот на своём месте в ленте. */
+/** Appearance of a slot at its current strip position. */
 export interface SlotLook {
   scale: number;
   opacity: number;
-  /** Расфокус кадра (px): 0 в середине окна, [CAROUSEL_FAR_BLUR_PX] за радиусом. */
+  /** Blur in pixels: zero at the center, capped at CAROUSEL_FAR_BLUR_PX. */
   blur: number;
   zIndex: number;
 }
 
-/**
- * Вид слота, чей центр отстоит от середины окна на [distance] пикселей.
- *
- * Спад — тот же **косинус в квадрате**, что несёт гребёнка плёнки ([toothHeight]): он
- * подходит к обоим концам с нулевой производной, поэтому кадр вырастает вылепленно, а не
- * с изломом на границе радиуса. Одна кривая на весь проект — второй заводить незачем.
- *
- * Масштаб задаётся трансформом, а НЕ высотой слота: трансформ не влияет на поток, поэтому
- * рост центрального кадра не пересчитывает раскладку и не сдвигает прокрутку под пальцем.
- */
+/** Cosine-squared falloff has smooth endpoints; scale by transform so scroll layout stays fixed. DESIGN §7.5. */
 export function slotLook(distance: number, radius: number): SlotLook {
   return {
     scale: toothHeight(distance, radius, CAROUSEL_FAR_SCALE, 1),
     opacity: toothHeight(distance, radius, CAROUSEL_FAR_OPACITY, 1),
-    // Резкость — та же кривая, повёрнутая (в середине «пик» равен нулю, дальше набирается
-    // потолок), но отсчитывается она не от середины окна, а от [CAROUSEL_SHARP_PX]: кадр и
-    // оба его соседа стоят в зоне резкости, и мутнеть начинает только следующее кольцо.
+    // Blur starts beyond the sharp zone, preserving the central frame and both neighbors.
     blur: toothHeight(
       Math.max(0, Math.abs(distance) - CAROUSEL_SHARP_PX),
       CAROUSEL_SHARP_PX,
       CAROUSEL_FAR_BLUR_PX,
       0,
     ),
-    // Ближний кадр обязан лежать поверх дальнего: подросший центральный кадр иначе
-    // уезжал бы под соседа, который в разметке идёт следом.
+    // Near frames must stack above far neighbors regardless of DOM order.
     zIndex: Math.round(toothHeight(distance, radius, 0, 100)),
   };
 }
 
-/**
- * Кадр, на котором лента стоит при первом показе, — **второй**, а не первый.
- *
- * На первом кадре сверху пусто (там боковой запас), и лента читается началом списка, а не
- * каруселью: видно два дропа вместо трёх. Со второго кадра сосед есть и сверху, и снизу —
- * зритель сразу видит, что архив листается в обе стороны.
- *
- * Дроп один (или ни одного) ⇒ нулевой: центрировать больше нечего.
- */
+/** Start on the second frame to show neighbors in both directions; use zero for fewer than two frames. */
 export function startSlotIndex(count: number): number {
   return count > 1 ? 1 : 0;
 }

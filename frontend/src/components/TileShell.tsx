@@ -5,44 +5,41 @@ export type TileState = "loading" | "empty" | "error" | "loaded";
 interface TileShellProps {
   state: TileState;
   children?: ReactNode;
-  /** Тихий контекст пустоты (§7 Empty): «нет данных», «ничего не играет», будущий день. */
+  /** Quiet empty context (DESIGN §7): "no data", "nothing playing", a future day. */
   emptyText?: string;
   onRetry?: () => void;
-  /** Приглушённая плитка (§2.4): мягкий фон, ниже по высоте, без углового узора. */
+  /** A muted tile (DESIGN §2.4): soft ground, lower in height, with no corner pattern. */
   muted?: boolean;
-  /** Пик высоты (плитка «Сегодня», §2.3 — лежит выше остальных). */
+  /** Peak height (the "Today" tile, DESIGN §2.3 — it lies above the rest). */
   elevated?: boolean;
   /**
-   * Цепочка высоты внутри плитки — ФЛЕКСОВАЯ, а не процентная. Нужна тайлам, чья высота идёт
-   * от содержимого (`CONTENT_HEIGHT_TILES` в layout.ts): у такой плитки высота неопределённая,
-   * `height: 100%` внутри неё разрешается в «по контенту», и упёршийся в потолок список не
-   * сжимался бы, а срезался краем. Флекс сжимает без процентов — работает в обоих режимах.
+   * The height chain inside a tile as FLEX rather than percentages. Needed by tiles whose height
+   * comes from their content: there `height: 100%` resolves to "as tall as the content", so a list
+   * hitting the ceiling would be clipped instead of shrinking. Flex shrinks in both modes.
    */
   fluid?: boolean;
-  /** Угловая пиксельная осыпь (§2.4) — только на фокусной плитке «Сегодня». */
+  /** The corner pixel scatter (DESIGN §2.4), on the "Today" focus tile only. */
   scatter?: boolean;
   /**
-   * Слот ПОД содержимым, прямым ребёнком плитки (§10.2). Нужен слоям, которым мало места
-   * внутри полей: подложке во всю карточку, обрезанной её же краем. Из контента такой слой
-   * не дотянуться — он лежит за `p-4` и за колонкой `flex-1`.
+   * A slot UNDER the content, a direct child of the tile (DESIGN §10.2). It is needed by layers that
+   * have too little room inside the padding — a full-card ground clipped by the tile's own edge. From
+   * the content such a layer cannot reach: it lies behind `p-4` and behind the `flex-1` column.
    */
   backdrop?: ReactNode;
-  /** Тихая мета-подпись плитки (§3): даёт дашбордную структуру; не на лоадере.
-   *  ReactNode, а не строка: календарь вешает сюда имя активной линзы с крестиком (§5.3). */
+  /** Quiet meta caption of the tile (DESIGN §3), giving the board its dashboard structure; not on a
+   *  loader. A ReactNode rather than a string: the calendar hangs the active lens name here (PRD §5.3). */
   label?: ReactNode;
   style?: CSSProperties;
   className?: string;
   ariaLabel?: string;
-  /** Корневая `<section>` плитки — для нативных слушателей (календарь вешает сюда `wheel`). */
+  /** The tile's root `<section>`, for native listeners (the calendar attaches `wheel` here). */
   ref?: Ref<HTMLElement>;
 }
 
 /**
- * Оболочка плитки bento. Заполненная плитка несёт фирменный слой волны 01 (§2.4):
- * ступенчатую пиксель-рамку (`clip-path`), тёплый перелив поверхности и парящую
- * drop-shadow-тень с hover-lift — всё в классе `.pixel-tile` (CSS, ради `:hover`).
- * Приглушённая — мягкий `.muted-tile`. Четыре независимых состояния (§7, без общего
- * спиннера). Колорит/глубина — только из токенов волны, ни одного хардкода (§2.5).
+ * The bento tile's shell. A filled tile carries the wave's signature layer — a stepped pixel
+ * frame, a warm surface and a floating shadow with hover lift — all in `.pixel-tile`, which lives
+ * in CSS for `:hover`. Four independent states, no shared spinner, colours only from tokens.
  */
 export function TileShell({
   state,
@@ -71,14 +68,13 @@ export function TileShell({
       className={`relative flex flex-col overflow-hidden p-4 ${tileClass} ${className}`}
       style={style}
     >
-      {/* Нижняя подложка «коробочки» + белая внутренняя рамка верхней карты (§2.4) —
-          отдельные элементы: оба псевдо-слота .pixel-tile заняты верхней карточкой.
-          Скины без объёма (волна 02) гасят их у себя в CSS. */}
+      {/* The box's lower backing plus the top card's white inner frame (§2.4) as separate elements:
+          both of `.pixel-tile`'s pseudo slots are taken by the top card. Flat skins hide them. */}
       {!muted && <span className="pixel-slab" aria-hidden />}
       {!muted && <span className="pixel-lid" aria-hidden />}
 
-      {/* Подложка волны (§10.2): лежит между слоями края и содержимым, обрезана
-          `overflow-hidden` самой плитки — то есть её собственным радиусом/силуэтом. */}
+      {/* The wave's backdrop (§10.2): it lies between the edge layers and the content, clipped by
+          the tile's own `overflow-hidden` — that is, by its own radius and silhouette. */}
       {backdrop}
 
       {state === "loading" && (
@@ -89,8 +85,8 @@ export function TileShell({
         />
       )}
 
-      {/* Пиксельная осыпь угла (§2.4) — отдельный элемент поверх поверхности (оба псевдо-слота
-          .pixel-tile заняты силуэтом края). Только на фокусной плитке, не на приглушённой. */}
+      {/* The corner's pixel scatter (§2.4) is a separate element over the surface (both pseudo
+          slots are taken by the edge silhouette). Only on the focused tile, not a muted one. */}
       {scatter && !muted && <span className="pixel-scatter" aria-hidden />}
 
       {state !== "loading" && label && <div className="tile-label mb-1">{label}</div>}

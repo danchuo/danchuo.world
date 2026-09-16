@@ -4,35 +4,29 @@ import io.smallrye.config.ConfigMapping
 import io.smallrye.config.WithDefault
 
 /**
- * Конфиг визитки Telegram (PRD §5.18) — внешний источник целиком в своём слайсе, ядро о нём
- * не знает.
- *
- * Секретов здесь нет и быть не может: страница `t.me/{ник}` публична, ключа не существует
- * (почему канал именно такой — во врезе [TelegramProfileParser]). Как и с календарём вкладов,
- * ходим мы на **обычную страницу**, поэтому интервал держим скромным и представляемся честным
- * `User-Agent`.
+ * Config of the Telegram card; the external source lives entirely in its slice. There are no
+ * secrets and can be none — the `t.me/{name}` page is public and no key exists. As with the GitHub
+ * calendar, we fetch an ordinary PAGE, so the interval stays modest and the `User-Agent` honest.
  */
 @ConfigMapping(prefix = "danchuo.telegram")
 interface TelegramConfig {
 
-    /** Включён ли фоновый забор. Выключение = карточки на борде просто нет. */
+    /** Whether the background fetch runs at all. Off simply means no card on the board. */
     @WithDefault("true")
     fun enabled(): Boolean
 
-    /** Чью визитку показываем. Ник на борде всегда один — владельца. */
+    /** Whose card to show. There is always exactly one on the board — the owner's. */
     @WithDefault("danchuo")
     fun username(): String
 
     /**
-     * Интервал забора (формат Quarkus `every`). Читается плейсхолдером в
-     * [TelegramProfileCollector]; метод здесь — чтобы SmallRye принял свойство под префиксом.
-     *
-     * Час: имя, статус и аватарка меняются реже, чем что угодно другое на борде.
+     * Fetch interval (Quarkus `every` format), read by a placeholder in
+     * [TelegramProfileCollector]; the method exists so SmallRye accepts the property under the
+     * prefix. An hour: name, status and avatar change more rarely than anything else here.
      */
     @WithDefault("1h")
     fun pollInterval(): String
 
-    /** Кем представляемся публичной странице. */
     @WithDefault("danchuo.world/1.0 (https://danchuo.world)")
     fun userAgent(): String
 }

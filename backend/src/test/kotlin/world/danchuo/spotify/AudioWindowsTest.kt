@@ -5,31 +5,25 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Куда резать аудио, чтобы расшифровать прослушанный кусок (PRD §5.16.1).
- *
- * **Режем ДО расшифровки, а не после.** Замер: минута речи даёт 767 знаков, то есть часовой
- * заход — 46 тысяч против потолка выдержки в 12 тысяч. Расшифровывать час целиком значило бы
- * заплатить аудиосекундами за текст, который всё равно будет выброшен нарезкой окон. Четыре
- * окна по паре минут стоят вдесятеро дешевле и отвечают на тот же вопрос.
- *
- * **Смещение считается долей, а не миллисекундами.** У шоу с динамической вставкой рекламы
- * (megaphone) длительность в RSS расходится со Spotify — у Huberman замерено 7707 с против
- * 7692.5 с. Доля от РЕАЛЬНОГО размера файла гасит этот дрейф, абсолютные миллисекунды его
- * копят к концу выпуска.
- *
- * Байт и время связаны линейно, потому что все шесть проверенных фидов отдают **CBR mp3**
- * (96–320 kbps). Это же снимает нужду в ffmpeg: срез с произвольного байта — валидный поток,
- * декодер ресинхронизируется на первом же заголовке фрейма (замер: 137–381 байт).
+ * Where to cut audio to transcribe the listened chunk (PRD §5.16.1). We cut BEFORE transcribing:
+ * an hour yields ~46k characters against a 12k excerpt ceiling, so four two-minute windows cost
+ * a tenth and answer the same question.
+ */
+
+/**
+ * The offset is a FRACTION, not milliseconds: shows with dynamic ad insertion drift between RSS
+ * and Spotify, and a fraction of the real file size absorbs that. Bytes and time are linear
+ * because every checked feed serves CBR mp3, which also removes any need for ffmpeg.
  */
 class AudioWindowsTest {
 
-    /** Часовой выпуск на 128 kbps: 16 000 байт в секунду. */
+    /** An hour-long episode at 128 kbps: 16 000 bytes per second. */
     private val duration = 3_600_000L
     private val total = 57_600_000L
 
     @Test
     fun `a short stretch is taken whole, without gaps`() {
-        // Три минуты влезают в одно окно целиком — рвать их на четыре куска незачем.
+        // Three minutes fit one window whole; there is no reason to tear them into four.
         val windows = windows(from = 0.0, to = 180_000.0 / duration)
 
         assertEquals(1, windows.size)
@@ -42,14 +36,14 @@ class AudioWindowsTest {
         val windows = windows(from = 0.0, to = 1.0)
 
         assertEquals(4, windows.size)
-        // Окна идут по возрастанию и не перекрываются — иначе модель получила бы один кусок дважды.
+        // Windows ascend and never overlap, or the model would get one chunk twice.
         windows.zipWithNext().forEach { (a, b) -> assertTrue(a.to < b.from, "окна перекрылись: $a и $b") }
     }
 
     @Test
     fun `the last window ends where listening stopped`() {
-        // Место, где владелец выключил, — самое памятное; обрезка «по началу» молчала бы именно
-        // про него (то же правило, что у SummaryWindows для текста).
+        // Where the owner stopped is the most memorable place, and cutting "from the start" would
+        // be silent about exactly it (the same rule as SummaryWindows for text).
         val to = 0.5
         val windows = windows(from = 0.0, to = to)
 
@@ -72,14 +66,14 @@ class AudioWindowsTest {
 
     @Test
     fun `a file we know nothing about gives nothing to cut`() {
-        // Нулевая длительность или нулевой размер — делить не на что; молчим, а не падаем.
+        // A zero duration or a zero size has nothing to divide: stay silent rather than fail.
         assertTrue(AudioWindows.windows(0, duration, 0.0, 1.0, COUNT, WINDOW_MS).isEmpty())
         assertTrue(AudioWindows.windows(total, 0, 0.0, 1.0, COUNT, WINDOW_MS).isEmpty())
     }
 
     @Test
     fun `the whole cut stays inside the budget of one free lane tick`() {
-        // Четыре окна по три минуты — 720 аудиосекунд на заход при лимите 7200 в час.
+        // Four three-minute windows — 720 audio-seconds per sitting against a limit of 7200 an hour.
         val seconds = windows(from = 0.0, to = 1.0)
             .sumOf { (it.to - it.from + 1) } * duration / total / 1000
 

@@ -9,7 +9,7 @@ import {
   type SparkPoint,
 } from "./statsSparkline";
 
-/** Хронологический ряд из N дней (старые→новые), значение = индекс×1000, с опц. пропусками. */
+/** A chronological run of N days (old→new), value = index×1000, with optional gaps. */
 function series(n: number, gaps: number[] = []): SparkPoint[] {
   return Array.from({ length: n }, (_, i) => ({
     date: `2026-07-${String(i + 1).padStart(2, "0")}`,
@@ -44,7 +44,7 @@ describe("visibleWindow", () => {
   it("по умолчанию (offset 0) показывает последние `size` дней, сегодня — справа", () => {
     const w = visibleWindow(series(25), 10, 0);
     expect(w).toHaveLength(10);
-    expect(w[0].date).toBe("2026-07-16"); // 25 дней, срез 15..24 (0-инд)
+    expect(w[0].date).toBe("2026-07-16"); // 25 days, the slice 15..24 (0-indexed)
     expect(w[9].date).toBe("2026-07-25");
   });
 
@@ -56,7 +56,7 @@ describe("visibleWindow", () => {
 
   it("offset зажимается — нельзя уехать за край истории", () => {
     const w = visibleWindow(series(25), 10, 999);
-    expect(w[0].date).toBe("2026-07-01"); // упёрлись в самый старый
+    expect(w[0].date).toBe("2026-07-01"); // we hit the oldest day
     expect(w).toHaveLength(10);
   });
 
@@ -78,7 +78,7 @@ describe("niceMax", () => {
   });
 
   it("игнорирует пропуски (null), не считает их нулём", () => {
-    expect(niceMax(series(5, [4]))).toBe(3000); // день 4 (самый большой) — пропуск
+    expect(niceMax(series(5, [4]))).toBe(3000); // day 4 (the largest) is a gap
   });
 
   it("не меньше 1 (защита от деления на ноль при пустой/нулевой истории)", () => {
@@ -93,7 +93,7 @@ describe("average", () => {
   });
 
   it("игнорирует пропуски (не считает null нулём)", () => {
-    expect(average(series(4, [0]))).toBe(2000); // только 1000,2000,3000 → 2000
+    expect(average(series(4, [0]))).toBe(2000); // only 1000, 2000, 3000 → 2000
   });
 
   it("null, когда данных в окне нет", () => {
@@ -106,17 +106,17 @@ describe("axisBounds", () => {
   const pts = (vals: (number | null)[]): SparkPoint[] => vals.map((v, i) => ({ date: `d${i}`, value: v }));
 
   it("стабильные значения (размах < minSpan) раздвигаются до minSpan + паддинг", () => {
-    // [440,450,460] размах 20 < 120 → до [390,510], паддинг 120*0.15=18 → [372,528]
+    // [440,450,460] spans 20 < 120 → widened to [390,510], padding 120*0.15=18 → [372,528]
     expect(axisBounds(pts([440, 450, 460]), 120)).toEqual({ min: 372, max: 528 });
   });
 
   it("большой размах масштабируется по данным (+паддинг)", () => {
-    // [300,600] размах 300 > 120 → паддинг 45 → [255,645]
+    // [300,600] spans 300 > 120 → padding 45 → [255,645]
     expect(axisBounds(pts([300, 600]), 120)).toEqual({ min: 255, max: 645 });
   });
 
   it("низ не опускается ниже 0", () => {
-    // [50,60] → mid 55 → [-5,115] → паддинг 18 → [-23,133] → низ клампится в 0
+    // [50,60] → mid 55 → [-5,115] → padding 18 → [-23,133] → the floor clamps to 0
     expect(axisBounds(pts([50, 60]), 120)).toEqual({ min: 0, max: 133 });
   });
 

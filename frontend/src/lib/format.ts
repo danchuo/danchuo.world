@@ -1,20 +1,18 @@
 /**
- * Форматирование статов для отображения (DESIGN §4, PRD §5.4).
- *
- * Ключевое соглашение **null ≠ 0**: отсутствие метрики (`null`) рендерим как «нет данных»,
- * реальный `0` — как `0`. Поэтому везде явная проверка `=== null`, а не truthy-проверка
- * (иначе `0` схлопнулся бы в «нет данных»).
+ * Formatting of stats for display. The key convention is NULL IS NOT 0: a missing metric renders
+ * as "no data" while a real `0` renders as `0`. Hence the explicit `=== null` checks everywhere —
+ * a truthy test would collapse zero into "no data". PRD §5.4, DESIGN §4
  */
 
 export const NO_DATA = "нет данных";
 
-/** Шаги: `8 421`; `0` → `0`; `null` → «нет данных». */
+/** Steps: `8 421`; `0` → `0`; `null` → "no data". */
 export function formatSteps(steps: number | null): string {
   if (steps === null) return NO_DATA;
   return steps.toLocaleString("ru-RU");
 }
 
-/** Сон: `7 ч 17 мин`; `0` → `0 мин`; `null` → «нет данных». */
+/** Sleep as hours and minutes in Russian; `0` becomes `0 min`; `null` becomes "no data". */
 export function formatSleep(minutes: number | null): string {
   if (minutes === null) return NO_DATA;
   const h = Math.floor(minutes / 60);
@@ -24,7 +22,7 @@ export function formatSleep(minutes: number | null): string {
   return `${h} ч ${m} мин`;
 }
 
-/** Компактный сон под узкую колонку: `7ч 32м`; `0` → `0м`; `null` → «нет данных». */
+/** Compact sleep for a narrow column: single-letter units, `0` still shows, `null` is "no data". */
 export function formatSleepShort(minutes: number | null): string {
   if (minutes === null) return NO_DATA;
   const h = Math.floor(minutes / 60);
@@ -34,27 +32,27 @@ export function formatSleepShort(minutes: number | null): string {
   return `${h}ч ${m}м`;
 }
 
-/** Метка оси Y для шагов: `15K`, `7.5K`, `0` (тысячи; дробная часть — один знак). */
+/** The steps Y-axis label: `15K`, `7.5K`, `0` (thousands, one decimal). */
 export function formatStepsAxis(steps: number): string {
   if (steps === 0) return "0";
   const k = steps / 1000;
   return Number.isInteger(k) ? `${k}K` : `${k.toFixed(1)}K`;
 }
 
-/** Метка оси Y для сна: `10ч`, `5ч`, `0` (часы, округлённо). */
+/** The sleep Y-axis label: whole hours, rounded, with the hour unit in Russian. */
 export function formatSleepAxis(minutes: number): string {
   if (minutes === 0) return "0";
   return `${Math.round(minutes / 60)}ч`;
 }
 
-/** Пункт закрыт (для подсветки `--success`, DESIGN §4). */
+/** The item is closed (for the `--success` highlight, DESIGN §4). */
 export function isDisciplineDone(count: number, target: number): boolean {
   return count >= target;
 }
 
 /**
- * «N назад» для индикатора свежести (PRD §8). Компактные единицы (мин/ч/дн) под mono-плитку;
- * меньше минуты — «только что». Невалидный ISO → пустая строка (тайл покажет пусто).
+ * "N ago" for the freshness lamp (PRD §8). Compact units for a mono tile; under a minute reads as
+ * "just now". An invalid ISO gives an empty string and the tile shows nothing.
  */
 export function formatAgo(iso: string, now: number = Date.now()): string {
   const ms = now - Date.parse(iso);

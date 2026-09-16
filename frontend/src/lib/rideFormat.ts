@@ -1,21 +1,19 @@
 /**
- * Форматтеры поездки Велобайк (PRD §9 B4) — дистанция и длительность для виджета и модалки.
- * Чистые функции, без локали-сюрпризов; покрываются юнит-тестом.
+ * Velobike ride formatters (PRD §9 B4) — distance and duration for the widget and the modal.
+ * Pure functions with no locale surprises; covered by a unit test.
  */
 
 /**
- * Дистанция: <1 км — в метрах («650 м»), иначе километры с одним знаком («42.5 км»).
- *
- * Нулевая десятая не пишется: «5.0 км» обещает точность, которой в числе нет, и тянет взгляд
- * к нулю вместо пятёрки. Хвост снимается ПОСЛЕ округления — оно само приводит к целому
- * (2998 м ⇒ «3 км»), и проверка исходного числа этот случай упустила бы.
+ * Distance: metres below a kilometre, otherwise kilometres to one decimal. A trailing zero is
+ * dropped — "5.0 km" promises precision the number lacks. The tail is removed AFTER rounding, since
+ * rounding itself can produce a whole number and a check on the original would miss that case.
  */
 export function formatKm(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} м`;
   return `${(meters / 1000).toFixed(1).replace(/\.0$/, "")} км`;
 }
 
-/** Длительность: «29 мин» или «4 ч 36 мин» (часы появляются от 60 мин). */
+/** Duration: minutes, or hours and minutes once an hour is reached. */
 export function formatDuration(seconds: number): string {
   const totalMin = Math.round(seconds / 60);
   if (totalMin < 60) return `${totalMin} мин`;
@@ -24,20 +22,20 @@ export function formatDuration(seconds: number): string {
   return m === 0 ? `${h} ч` : `${h} ч ${m} мин`;
 }
 
-/** Копейки → рубли строкой («52 ₽»), округление до целого. Неположительное — пусто. */
+/** Kopecks → roubles as a string, rounded to whole. Non-positive gives an empty string. */
 function rubles(kopecks: number): string {
   return `${Math.round(kopecks / 100)} ₽`;
 }
 
-/** Стоимость: копейки → рубли, округление до целого («52 ₽»); 0/меньше — «бесплатно». */
+/** Cost: kopecks → roubles, rounded to whole; zero or less reads as "free". */
 export function formatCost(kopecks: number): string {
   if (kopecks <= 0) return "бесплатно";
   return rubles(kopecks);
 }
 
 /**
- * Русское склонение существительного по числу [n]: `[одна, две, пять]`-форма.
- * «1 поездка», «2/3/4 поездки», «5..20 поездок». Используется в сводке месяца (модалка).
+ * Russian noun inflection by the number [n], given as the one/few/many forms. Used in the month
+ * summary in the modal.
  */
 export function pluralRu(n: number, forms: [string, string, string]): string {
   const abs = Math.abs(n) % 100;
@@ -48,16 +46,15 @@ export function pluralRu(n: number, forms: [string, string, string]): string {
   return forms[2];
 }
 
-/** Копейки → целые рубли числом (без знака валюты) — для сводки, где «₽» стоит подписью. */
+/** Kopecks → whole roubles as a number, with no currency sign — for the summary, where "₽" is a label. */
 export function rublesWhole(kopecks: number): number {
   return Math.round(kopecks / 100);
 }
 
 /**
- * Адрес станции для витрины. PWA Велобайка помечает велосипед, оставленный вне именованной
- * станции, заглушкой «просто город» («Москва») — показываем честное «вне станции» (признак:
- * одно слово без цифр и запятых, зеркало бэкового `StationGeocoder.isCityPlaceholder`).
- * Настоящий адрес проходит как есть, но с схлопнутыми пробелами (сырьё бывает с двойными).
+ * A station address for display. The Velobike app marks a bike left outside a named station with a
+ * city placeholder, which becomes an honest "outside a station" here — the mirror of the backend's
+ * own check. A real address passes through with its whitespace collapsed.
  */
 export function formatStationAddress(address: string | null): string | null {
   if (address == null) return null;
@@ -67,18 +64,9 @@ export function formatStationAddress(address: string | null): string | null {
 }
 
 /**
- * Стоимость поездки для истории (модалка). Велобайк берёт деньги **двумя** записями, и строка
- * показывает обе, иначе она врёт: «Доступ» (вход в тариф — платный старт поминутного или пакет
- * минут, `accessKopecks`) и то, что натикало **сверх** него (`costKopecks` — минуты/превышение).
- *
- * Формы:
- *  - доступ куплен этой поездкой, сверху превышение → «406 ₽ (доступ 399 + 7 сверх)»;
- *  - доступ куплен, превышения нет → «399 ₽»;
- *  - едет под ранее купленным пакетом, есть превышение → «154 ₽ сверх тарифа» (сам пакет посчитан
- *    у поездки, которая его купила, — второй раз денег не берём);
- *  - едет под ранее купленным пакетом без превышения → «в рамках тарифа за 399 ₽»;
- *  - покупок в истории нет (поездки до `bike_tariff`) → как раньше: «52 ₽» / «бесплатно»;
- *  - данных о деньгах нет вовсе → пустая строка.
+ * A ride's cost for the history. Velobike charges in TWO records and the line shows both, or it
+ * lies: the "access" purchase that enters a tariff, and whatever ran up beyond it. A ride under a
+ * previously bought package shows only the excess — the package is counted on its buyer. PRD §7
  */
 export function formatRideCost(ride: {
   costKopecks: number | null;

@@ -6,21 +6,19 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Как длинный кусок ужимается под потолок одного вызова модели (PRD §5.16).
- *
- * Правило одно и оно не про экономию: **обрезать по началу нельзя**. Пересказ, оборванный на
- * середине захода, молчал бы ровно про то место, где владелец остановился, — а оно самое
- * памятное. Вместо обрезки берём несколько равномерных окон по всей длине, последнее — впритык
- * к концу, и отмечаем пропуски явно, чтобы модель видела разрывы, а не сочиняла мостики.
- *
- * Живёт правило здесь, а не в [world.danchuo.reading.EpubBook], потому что оно ничего не знает
- * про книги. Час речи даёт больше знаков, чем час чтения (замер: 767 знаков на минуту
- * расшифровки против потолка в 12 тысяч), так что для подкастов эта нарезка станет не краевым
- * случаем, а основным путём.
+ * How a long chunk is squeezed under one model call's ceiling (PRD §5.16). The rule is not about
+ * economy: truncating from the start would be silent about exactly where the owner stopped, the
+ * most memorable place. Instead, even windows across the length, the last flush to the end.
+ */
+
+/**
+ * The rule lives here rather than in [world.danchuo.reading.EpubBook] because it knows nothing
+ * about books: an hour of speech yields far more characters than an hour of reading, so for
+ * podcasts this slicing is the main path rather than an edge case.
  */
 class SummaryWindowsTest {
 
-    /** Узнаваемый текст: позицию любого куска видно по номеру. */
+    /** Recognisable text: any chunk's position is visible from the number. */
     private val long = (1..2000).joinToString(" ") { "слово$it" }
 
     @Test
@@ -39,7 +37,7 @@ class SummaryWindowsTest {
     fun `the end of the stretch survives capping`() {
         val capped = SummaryWindows.cap(long, 2_000)
 
-        // То место, где владелец остановился, обязано доехать до модели.
+        // Where the owner stopped must reach the model.
         assertTrue(capped.trimEnd().endsWith("слово2000"), "конец куска потерян: ...${capped.takeLast(60)}")
     }
 
@@ -48,14 +46,14 @@ class SummaryWindowsTest {
         val capped = SummaryWindows.cap(long, 2_000)
 
         assertTrue(capped.contains("[…]"), "разрывы должны быть видны модели: $capped")
-        // Начало тоже на месте: окна идут по всей длине, а не только по хвосту.
+        // The start is there too: windows span the whole length, not just the tail.
         assertTrue(capped.startsWith("слово1"), "начало куска потеряно: ${capped.take(60)}")
     }
 
     @Test
     fun `a ceiling too small for windows falls back to one solid excerpt`() {
-        // Окно тоньше нескольких сотен знаков пересказывать нечем — тогда честнее одна связная
-        // выдержка от начала, чем четыре обрывка по паре слов.
+        // A window thinner than a few hundred characters has nothing to retell: one coherent
+        // excerpt from the start is more honest than four scraps of a couple of words.
         val capped = SummaryWindows.cap(long, 200)
 
         assertFalse(capped.contains("[…]"))

@@ -3,10 +3,9 @@ import type { CSSProperties, ReactNode } from "react";
 export type IconName = "close" | "rotate" | "help" | "external" | "star" | "zoom";
 
 /**
- * Символьный набор волны 01 (DESIGN §12): чистые line-глифы, красятся `currentColor` —
- * следуют за цветом текста / токеном волны, как соц-иконки, но инлайном (лучше маски для
- * кнопок с ховером/состоянием). Один SVG на символ, viewBox 24×24. Стиль выбран владельцем
- * («clarity > pixel-craft»): для функциональных кнопок line читается лучше пикселя.
+ * The wave's symbol set: clean line glyphs painted by `currentColor`, so they follow the text
+ * colour like the social icons but stay inline, which beats masks for buttons with hover states.
+ * One SVG per symbol on a 24x24 viewBox. DESIGN §12
  */
 const RENDER: Record<IconName, { stroked: boolean; body: ReactNode }> = {
   close: { stroked: true, body: <path d="M7 7l10 10M17 7L7 17" /> },
@@ -38,8 +37,8 @@ const RENDER: Record<IconName, { stroked: boolean; body: ReactNode }> = {
       </>
     ),
   },
-  // Лупа с плюсом: «открыть крупнее». Плюс — короткий крест внутри линзы, на 14–16px он ещё
-  // читается, а без него глиф путается с поиском.
+  // A magnifier with a plus: "open larger". The plus is a short cross inside the lens, still
+  // readable at 14–16px; without it the glyph is confused with search.
   zoom: {
     stroked: true,
     body: (

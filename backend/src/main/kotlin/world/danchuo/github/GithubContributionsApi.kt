@@ -9,18 +9,15 @@ import jakarta.ws.rs.core.MediaType
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 
 /**
- * Публичный фрагмент календаря вкладов GitHub — тот самый, которым страница профиля рисует
- * свою сетку. Отдаёт **HTML**, а не JSON: открытого API под эти клетки у GitHub нет
- * (разбор канала — во врезе [ContributionCalendarParser]).
- *
- * База — `quarkus.rest-client.github-contributions.url` (`https://github.com`).
- * Без Kotlin-дефолтов у параметров: REST-клиент их не поддерживает.
+ * The public contribution-calendar fragment that the profile page draws its own grid with. It
+ * returns HTML rather than JSON, since GitHub has no open API for these cells (the parsing lives
+ * in [ContributionCalendarParser]). No Kotlin default parameters: the REST client ignores them.
  */
 @RegisterRestClient(configKey = "github-contributions")
 @Produces(MediaType.TEXT_HTML)
 interface GithubContributionsApi {
 
-    /** `GET /users/{login}/contributions` — год клеток с подписями, без авторизации. */
+    /** `GET /users/{login}/contributions` — a year of cells with tooltips, unauthenticated. */
     @GET
     @Path("/users/{login}/contributions")
     fun contributions(

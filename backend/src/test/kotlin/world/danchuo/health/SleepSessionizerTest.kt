@@ -9,12 +9,9 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * Сессионизация сырых кусков сна (PRD §5.4, §4 «сон относится ко дню пробуждения»).
- *
- * Регрессия, из-за которой это заведено: шорткат фильтровал семплы по `End Date is today`,
- * и куски ночи, закончившиеся ДО полуночи (уснул 23:20), терялись целиком — ночь показывалась
- * «с 00:00». Здесь границы окна не решают ничего: бэк получает всё подряд и сам выбирает
- * сессию, ЗАКОНЧИВШУЮСЯ в целевой день.
+ * Sessionising raw sleep chunks (PRD §5.4, §4 "sleep belongs to the day of waking"). Window
+ * boundaries decide nothing here: the backend takes everything and picks the session that ENDED
+ * on the target day, which is what the `End Date is today` filter used to get wrong.
  */
 class SleepSessionizerTest {
 
@@ -30,13 +27,13 @@ class SleepSessionizerTest {
     private fun summarize(vararg segments: SleepSegment) =
         SleepSessionizer.summarize(segments.toList(), wakeDate, msk)
 
-    /** Ночь 2026-07-27 23:20 → 2026-07-28 07:20, куски по обе стороны полуночи. */
+    /** The night 2026-07-27 23:20 → 2026-07-28 07:20, with chunks on both sides of midnight. */
     private fun night() = listOf(
-        seg(SleepStage.LIGHT, "2026-07-27T23:20", "2026-07-27T23:50"), // 30 — терялся из-за End Date
+        seg(SleepStage.LIGHT, "2026-07-27T23:20", "2026-07-27T23:50"), // 30 — lost to the End Date filter
         seg(SleepStage.DEEP, "2026-07-27T23:50", "2026-07-28T00:40"), // 50
         seg(SleepStage.REM, "2026-07-28T00:40", "2026-07-28T01:40"), // 60
         seg(SleepStage.LIGHT, "2026-07-28T01:40", "2026-07-28T06:00"), // 260
-        seg(SleepStage.AWAKE, "2026-07-28T06:00", "2026-07-28T06:20"), // 20 — не сон
+        seg(SleepStage.AWAKE, "2026-07-28T06:00", "2026-07-28T06:20"), // 20 — not sleep
         seg(SleepStage.DEEP, "2026-07-28T06:20", "2026-07-28T07:20"), // 60
     )
 
@@ -44,7 +41,7 @@ class SleepSessionizerTest {
     fun `night crossing midnight is counted whole, pre-midnight chunks included`() {
         val sleep = SleepSessionizer.summarize(night(), wakeDate, msk)
 
-        // 30 + 50 + 60 + 260 + 60 = 460 (8 часов в кровати минус 20 минут пробуждения)
+        // 30 + 50 + 60 + 260 + 60 = 460 (8 hours in bed minus 20 minutes awake)
         assertEquals(460, sleep.minutes)
         assertEquals(60, sleep.rem)
         assertEquals(110, sleep.deep)
@@ -71,7 +68,7 @@ class SleepSessionizerTest {
     @Test
     fun `session that ended yesterday does not leak into today`() {
         val sleep = summarize(
-            // позапрошлая ночь — закончилась 27-го, целевой день 28-й
+            // the night before last — it ended on the 27th, the target day is the 28th
             seg(SleepStage.LIGHT, "2026-07-26T23:00", "2026-07-27T07:00"), // 480
             seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T06:00"), // 420
         )
@@ -91,7 +88,7 @@ class SleepSessionizerTest {
     fun `duplicate samples from two sources do not double the night`() {
         val sleep = summarize(
             seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T06:00"),
-            seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T06:00"), // тот же интервал вторым источником
+            seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T06:00"), // the same interval from a second source
         )
         assertEquals(420, sleep.minutes)
         assertEquals(420, sleep.light)
@@ -100,12 +97,12 @@ class SleepSessionizerTest {
     @Test
     fun `watch phase wins over phone unspecified on the same stretch`() {
         val sleep = summarize(
-            seg(SleepStage.UNSPECIFIED, "2026-07-27T23:00", "2026-07-28T06:00"), // телефон: просто «спит»
-            seg(SleepStage.REM, "2026-07-28T01:00", "2026-07-28T02:00"), // часы: фаза поверх
+            seg(SleepStage.UNSPECIFIED, "2026-07-27T23:00", "2026-07-28T06:00"), // the phone: just "asleep"
+            seg(SleepStage.REM, "2026-07-28T01:00", "2026-07-28T02:00"), // the watch: a phase on top
         )
-        assertEquals(420, sleep.minutes) // время не удваивается
+        assertEquals(420, sleep.minutes) // the time is not doubled
         assertEquals(60, sleep.rem)
-        assertEquals(360, sleep.light) // неразмеченное идёт в light
+        assertEquals(360, sleep.light) // unlabelled sleep goes into light
     }
 
     @Test
@@ -147,23 +144,22 @@ class SleepSessionizerTest {
     fun `short gaps stay inside one session, a long gap splits it`() {
         val sleep = summarize(
             seg(SleepStage.LIGHT, "2026-07-27T23:00", "2026-07-28T02:00"), // 180
-            // 20 минут «дырки» в семплах — та же ночь
+            // a 20-minute gap in the samples — the same night
             seg(SleepStage.LIGHT, "2026-07-28T02:20", "2026-07-28T06:00"), // 220
         )
         assertEquals(400, sleep.minutes)
     }
 
-    // --- разбор имён фаз (голые строки iOS Shortcuts) ---
 
     @Test
     fun `stage names map the way HealthKit writes them`() {
         assertEquals(SleepStage.REM, SleepStage.of("REM"))
         assertEquals(SleepStage.REM, SleepStage.of("asleepREM"))
         assertEquals(SleepStage.DEEP, SleepStage.of("Deep"))
-        assertEquals(SleepStage.LIGHT, SleepStage.of("Core")) // маппинг §7: asleepCore = light
+        assertEquals(SleepStage.LIGHT, SleepStage.of("Core")) // mapping §7: asleepCore = light
         assertEquals(SleepStage.LIGHT, SleepStage.of("asleepCore"))
         assertEquals(SleepStage.AWAKE, SleepStage.of("Awake"))
-        assertEquals(SleepStage.UNSPECIFIED, SleepStage.of("Asleep")) // ночь без часов
+        assertEquals(SleepStage.UNSPECIFIED, SleepStage.of("Asleep")) // a night without a watch
     }
 
     @Test
@@ -175,7 +171,6 @@ class SleepSessionizerTest {
         assertNull(SleepStage.of(" "))
     }
 
-    // --- разбор дат ---
 
     @Test
     fun `timestamps parse with offset, without offset and with a space separator`() {

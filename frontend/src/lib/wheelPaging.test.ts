@@ -10,7 +10,7 @@ import {
   type WheelState,
 } from "./wheelPaging";
 
-/** Прогоняет серию событий (travel, now) и возвращает выданные шаги. */
+/** Runs a series of (travel, now) events and returns the steps produced. */
 function run(events: Array<[travel: number, now: number]>, start: WheelState = initialWheelState()) {
   const steps: number[] = [];
   let state = start;
@@ -22,7 +22,7 @@ function run(events: Array<[travel: number, now: number]>, start: WheelState = i
   return { steps, state };
 }
 
-/** Ровный поток мелких дельт тачпада: `total` пикселей за шаги по `delta`, каждые 16мс. */
+/** A steady stream of small trackpad deltas: `total` pixels in `delta` steps, every 16ms. */
 function glide(total: number, delta: number, from = 0): Array<[number, number]> {
   const events: Array<[number, number]> = [];
   const dir = Math.sign(total);
@@ -44,8 +44,8 @@ describe("wheelTravel — доминирующая ось в пикселях (P
   });
 
   it("строки и страницы (deltaMode 1/2) переводятся в пиксели, а не считаются единицами", () => {
-    // Firefox отдаёт колесо строками (3 за щелчок): без перевода три «пикселя» не дотянули бы
-    // даже до щелчка, и колесо в нём листало бы втрое туже, чем в Chrome.
+    // Firefox sends the wheel in lines (3 per click): unconverted, three "pixels" would not even
+    // reach one notch and the wheel would page three times more stiffly than in Chrome.
     expect(Math.abs(wheelTravel(0, 3, 1))).toBeGreaterThanOrEqual(WHEEL_NOTCH_PX);
     expect(Math.abs(wheelTravel(0, 1, 2))).toBeGreaterThanOrEqual(WHEEL_NOTCH_PX);
   });
@@ -55,12 +55,12 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
   it("щелчок колеса мыши — ровно одна неделя, без остатка", () => {
     expect(run([[100, 0]]).steps).toEqual([1]);
     expect(run([[-100, 0]]).steps).toEqual([-1]);
-    // Щелчок вдвое крупнее недели не даёт двух: у мыши промежуточных положений нет.
+    // A click twice a week's size does not give two: a mouse has no intermediate positions.
     expect(run([[WHEEL_STEP_PX * 2, 0]]).steps).toEqual([1]);
   });
 
   it("сила жеста слышна: короткое движение не листает, длинное листает дальше", () => {
-    // Порог — цена недели для мелких дельт. Ниже него окно стоит: это и есть «слабо».
+    // The threshold is a week's price for small deltas. Below it the window stands still.
     expect(run(glide(-WHEEL_STEP_PX * 0.6, -12)).steps).toEqual([]);
     const long = run(glide(-WHEEL_STEP_PX * 3, -12)).steps;
     expect(long.length).toBeGreaterThanOrEqual(2);
@@ -68,7 +68,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
   });
 
   it("остаток жеста переносится: две половины подряд дают неделю, как одно движение", () => {
-    // Иначе календарь «терял» пройденное на каждом шаге и тугел тем сильнее, чем мельче дельты.
+    // Otherwise the calendar "lost" the travel at every step and grew stiffer the smaller the deltas.
     const half = glide(-WHEEL_STEP_PX * 0.9, -9);
     const { state } = run(half);
     expect(Math.abs(state.acc)).toBeGreaterThan(0);
@@ -76,8 +76,8 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
   });
 
   it("инерционный хвост тачпада докатывает окно, а не глотается", () => {
-    // Хвост — продолжение жеста, и раньше он съедался целиком: размашистый свайп двигал окно
-    // ровно на неделю, сколько бы пикселей за ним ни прилетело.
+    // The tail is the gesture continuing, and it used to be swallowed whole: a broad swipe moved
+    // the window exactly one week however many pixels followed it.
     const tail: Array<[number, number]> = [];
     for (let t = 16, d = 30; t < 700; t += 16, d = Math.max(2, d * 0.93)) tail.push([-d, t]);
     expect(run([[-100, 0], ...tail]).steps.length).toBeGreaterThanOrEqual(3);
@@ -103,7 +103,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
   });
 
   it("очередь отложенного не растёт: жест кончился — окно встало", () => {
-    // Иначе снятые с тачпада пальцы оставляли бы календарь ехать по накопленному запасу.
+    // Otherwise fingers lifted off the trackpad left the calendar coasting on the accumulated travel.
     const flick: Array<[number, number]> = [];
     for (let i = 0; i < 12; i++) flick.push([-100, i * 10]);
     const { state } = run(flick);

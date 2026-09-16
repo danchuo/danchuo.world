@@ -8,28 +8,25 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Разбор ответа `currently-playing` (PRD §5.6). Поле `item` — СОЮЗ трека и эпизода, и половины
- * у них разные: у эпизода нет ни `artists`, ни `album`, у трека нет ни `show`, ни собственных
- * `images`. Отсутствующее поле обязано читаться как пустота, а не ронять разбор.
- *
- * Тест написан по следам живой поломки: поллер честно дождался эпизода и упал на
- * `Parameter specified as non-null is null: SpotifyTrack.<init>, parameter artists` — Jackson не
- * подставил котлиновский дефолт для ОТСУТСТВУЮЩЕГО поля, а передал null в non-null параметр.
- * Проверки на живых объектах этого поймать не могли: до конструктора DTO они не доходят.
- *
- * Маппер берём тот же, что у REST-клиента (инъекцией), — собственноручно собранный проверял бы
- * не ту конфигурацию, в которой поломка и случилась.
+ * Parsing the `currently-playing` reply (PRD §5.6). `item` is a UNION of a track and an episode
+ * with different halves, and a missing field must read as emptiness rather than sink the parse.
+ */
+
+/**
+ * Written after a live breakage: the poller reached an episode and died on `Parameter specified
+ * as non-null is null: SpotifyTrack.<init>, parameter artists`. Jackson passed null into a
+ * non-null parameter instead of applying the Kotlin default for an ABSENT field.
  */
 class SpotifyCurrentlyPlayingDeserializationTest {
 
     /**
-     * ГОЛЫЙ маппер, без котлиновского модуля, — намеренно самая строгая конфигурация.
-     * Инъекция CDI-маппера этот тест проходила: он дефолты применяет, а маппер REST-клиента,
-     * на котором поллер и упал, — нет. DTO обязаны разбираться при любом из них.
+     * A BARE mapper, no Kotlin module — deliberately the strictest configuration. The injected
+     * CDI mapper passes this test because it applies defaults; the REST client's, on which the
+     * poller died, does not. The DTOs must parse under either.
      */
     private val mapper = ObjectMapper()
 
-    /** Сокращённый, но дословный ответ Spotify: играет эпизод подкаста. */
+    /** A shortened but verbatim Spotify reply: a podcast episode is playing. */
     private val episodePayload = """
         {
           "is_playing": true,
@@ -70,7 +67,7 @@ class SpotifyCurrentlyPlayingDeserializationTest {
         }
     """.trimIndent()
 
-    /** Тот же эндпоинт, но играет музыка: теперь пусты `show` и `images`, а не `artists`. */
+    /** The same endpoint with music playing: now `show` and `images` are empty, not `artists`. */
     private val trackPayload = """
         {
           "is_playing": true,
@@ -107,7 +104,7 @@ class SpotifyCurrentlyPlayingDeserializationTest {
             "https://open.spotify.com/episode/6wKTmlx7n4NW3SakLdsrJL",
             item.externalUrls?.spotify,
         )
-        // Пустые половины союза — именно пустые, а не причина упасть.
+        // The union's empty halves are empty, not a reason to fail.
         assertTrue(item.artists.isNullOrEmpty())
         assertNull(item.album)
 
@@ -124,15 +121,15 @@ class SpotifyCurrentlyPlayingDeserializationTest {
         val item = requireNotNull(parsed.item)
         assertEquals("Rick Astley", item.artists?.firstOrNull()?.name)
         assertEquals("Whenever You Need Somebody", item.album?.name)
-        // У трека нет ни шоу, ни собственных картинок — обложка живёт в альбоме.
+        // A track has neither a show nor its own images — the cover lives on the album.
         assertNull(item.show)
         assertTrue(item.images.isNullOrEmpty())
     }
 
     @Test
     fun `nothing playing is a body-less 204, not an empty object`() {
-        // Формой ответа это не проверить — 204 приходит без тела и клиент отдаёт null.
-        // Здесь фиксируем соседний случай: пустой объект не должен ронять разбор.
+        // A 204 arrives with no body and the client returns null, so that cannot be checked by
+        // shape. Pinned here instead: an empty object must not sink the parse.
         val parsed = mapper.readValue("{}", SpotifyCurrentlyPlaying::class.java)
 
         assertNull(parsed.item)

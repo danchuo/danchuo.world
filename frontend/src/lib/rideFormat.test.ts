@@ -10,20 +10,20 @@ describe("formatKm", () => {
     expect(formatKm(42520)).toBe("42.5 км");
   });
   it("целое число километров пишется без нулевой дробной части", () => {
-    // «5.0 км» обещает точность, которой в числе нет, и тянет взгляд к нулю вместо пятёрки.
+    // A trailing ".0" promises precision the number does not have and pulls the eye to the zero.
     expect(formatKm(5000)).toBe("5 км");
     expect(formatKm(3000)).toBe("3 км");
-    // Округление до десятых может САМО дать целое — хвост снимается и тогда.
+    // Rounding to tenths can ITSELF produce a whole number — the tail is dropped then too.
     expect(formatKm(2998)).toBe("3 км");
     expect(formatKm(1040)).toBe("1 км");
-    // Ненулевая десятая остаётся на месте.
+    // A non-zero tenth stays.
     expect(formatKm(1050)).toBe("1.1 км");
   });
 });
 
 describe("formatDuration", () => {
   it("ниже часа — минуты", () => {
-    expect(formatDuration(1798)).toBe("30 мин"); // 29.97 мин → округление
+    expect(formatDuration(1798)).toBe("30 мин"); // 29.97 min → rounded
     expect(formatDuration(321)).toBe("5 мин");
   });
   it("от часа — часы и минуты", () => {
@@ -51,7 +51,7 @@ describe("formatRideCost", () => {
   ) => formatRideCost({ costKopecks, accessKopecks, coveredByTariffKopecks });
 
   it("доступ куплен ради поездки, сверху превышение — целиком и с разбором", () => {
-    // Час за 399 ₽ + 2 минуты превышения: витрина показывала одни 7 ₽ и врала.
+    // An hour for 399 ₽ plus 2 minutes over: the board used to show the 7 ₽ alone and lied.
     expect(cost(749, 39900)).toBe("406 ₽ (доступ 399 + 7 сверх)");
     expect(cost(1498, 4000)).toBe("55 ₽ (доступ 40 + 15 сверх)");
   });

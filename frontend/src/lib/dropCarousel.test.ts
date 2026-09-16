@@ -23,7 +23,7 @@ describe("dropCarousel — вид кадра как функция позици�
     const far = slotLook(R * 4, R);
     expect(edge.scale).toBeCloseTo(CAROUSEL_FAR_SCALE, 5);
     expect(edge.opacity).toBeCloseTo(CAROUSEL_FAR_OPACITY, 5);
-    // Дальний кадр не темнее и не мельче краевого: пол один, за радиусом спад кончился.
+    // A far frame is no darker or smaller than an edge one: one floor, the falloff ends at the radius.
     expect(far.scale).toBeCloseTo(CAROUSEL_FAR_SCALE, 5);
     expect(far.opacity).toBeCloseTo(CAROUSEL_FAR_OPACITY, 5);
   });
@@ -41,15 +41,15 @@ describe("dropCarousel — вид кадра как функция позици�
   });
 
   it("расфокус начинается СО ВТОРОГО соседа: центр и ближние кадры резкие", () => {
-    const pitch = CAROUSEL_SHARP_PX; // шаг ленты: слот + просвет
-    // Выбранный кадр и оба его соседа (второй и третий кадр окна) — резкие.
+    const pitch = CAROUSEL_SHARP_PX; // the ribbon's step: a slot plus the gap
+    // The selected frame and both its neighbours are sharp.
     expect(slotLook(0, R).blur).toBeCloseTo(0, 5);
     expect(slotLook(pitch, R).blur).toBeCloseTo(0, 5);
     expect(slotLook(-pitch, R).blur).toBeCloseTo(0, 5);
-    // Следующее кольцо (четвёртый и пятый кадр окна) — уже в полном расфокусе.
+    // The next ring is already fully out of focus.
     expect(slotLook(pitch * 2, R).blur).toBeCloseTo(CAROUSEL_FAR_BLUR_PX, 5);
     expect(slotLook(pitch * 4, R).blur).toBeCloseTo(CAROUSEL_FAR_BLUR_PX, 5);
-    // Между кольцами расфокус нарастает, а не включается ступенькой.
+    // Between rings the defocus grows rather than switching on as a step.
     const between = slotLook(pitch * 1.5, R).blur;
     expect(between).toBeGreaterThan(0);
     expect(between).toBeLessThan(CAROUSEL_FAR_BLUR_PX);

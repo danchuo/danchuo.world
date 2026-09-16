@@ -9,22 +9,9 @@ import world.danchuo.days.DayRecordService
 import java.time.Instant
 
 /**
- * Фоновая запись прослушанных подкастов (PRD §5.6, реестр B2). Внешний источник целиком в слайсе:
- * наружу уходят только сессии ([PodcastSession]) и производная отметка пункта.
- *
- * **Зачем свой поллер, когда now-playing уже опрашивается.** Тот опрос управляется зрителем:
- * просыпается на запрос борда и кэшируется на 20 секунд. Не открыл сайт — никто ничего не спросил,
- * и час прослушивания пропал. Логгеру нужен собственный такт, независимый от посетителей.
- *
- * **Почему опросом, а не готовой историей.** Её нет: `recently-played` подкасты не возвращает
- * («Currently doesn't support podcast episodes» — прямо в доках), а `resume_point` знает только
- * положение головки и флаг «дослушано», без времени и без «когда». Рассмотрено и отклонено:
- * ночная сверка по `resume_point` — она требует отдельного скоупа и обхода всех подписок, а
- * ответить «сколько минут сегодня» всё равно не может.
- *
- * **Сбой канала ничего не портит.** Сеть, протухший токен, неподключённый слайс — прогон просто
- * не пишет; следующая минута попробует снова. Пропущенный отсчёт стоит недобора в один интервал,
- * а не поломки: минуты считаются по дельте головки, а не по числу опросов ([PodcastListenMath]).
+ * Background recording of listened podcasts; only sessions and the derived mark leave the slice.
+ * It needs its own tick because the now-playing poll is driven by VIEWERS — nobody opens the
+ * board, an hour of listening is lost. Why polling and not a ready history: PRD §5.6.
  */
 @ApplicationScoped
 class PodcastPoller(
@@ -47,25 +34,25 @@ class PodcastPoller(
         if (!config.podcast().enabled() || !config.isConfigured()) return
         runCatching { pollOnce() }
             .onFailure {
-                // Не прошли OAuth — это нормальное состояние, а не поломка: молчим.
+                // No OAuth yet — a normal state, not a breakage: stay silent.
                 if (it !is SpotifyNotConnectedException) {
                     log.warn("spotify: опрос подкаста не удался (сеть/токен?): ${it.message}")
                 }
             }
     }
 
-    /** Один отсчёт. Возвращает зачтённые миллисекунды: 0 — пауза, музыка или ничего не играет. */
+    /** One sample. Returns credited milliseconds: 0 on a pause, on music, or on nothing playing. */
     fun pollOnce(): Long {
         val sample = sample() ?: return 0
         val credited = listens.record(sample, mskTime.today(), Instant.now())
-        // Проекция дня зависит от минут и карточек; сбрасываем её, только когда они сдвинулись.
+        // The day projection depends on minutes and cards; drop it only once they have moved.
         if (credited > 0) days.invalidateProjection()
         return credited
     }
 
-    /** Снять отсчёт с плеера; `null` — играет не подкаст либо ответ без нужных полей. */
+    /** Takes a sample off the player; `null` when it is not a podcast or fields are missing. */
     private fun sample(): EpisodeSample? {
-        // 204 (ничего не играет) ⇒ тело null. Пауза сюда доходит и даёт нулевую дельту сама.
+        // A 204 (nothing playing) means a null body. A pause reaches here and gives a zero delta.
         val current = api.currentlyPlaying(
             tokenService.bearer(),
             ADDITIONAL_TYPES,
@@ -82,8 +69,8 @@ class PodcastPoller(
             episodeName = item.name ?: return null,
             episodeUrl = item.externalUrls?.spotify,
             showId = show?.id,
-            // Название шоу — «автор» карточки; издателя плеер не отдаёт, и названия хватает.
-            // Без шоу эпизод не карточка — пропускаем отсчёт целиком.
+            // The show name is the card's author; the player returns no publisher and the name is
+            // enough. Without a show an episode is not a card — skip the sample entirely.
             showName = show?.name ?: return null,
             showUrl = show?.externalUrls?.spotify,
             imageUrl = item.images.smallestAtLeast(THUMB_MIN_PX) ?: show?.images.smallestAtLeast(THUMB_MIN_PX),
@@ -92,19 +79,19 @@ class PodcastPoller(
     }
 
     /**
-     * Самая маленькая обложка не мельче [minPx] — карточке нужен значок, а не полотно 640×640.
-     * Spotify отдаёт набор 640/300/64; берём 300, а 64 остаётся запасом, если крупных нет.
+     * The smallest cover no smaller than [minPx] — a card needs an icon, not a 640x640 canvas.
+     * Spotify serves 640/300/64; we take 300, leaving 64 as a fallback when no larger one exists.
      */
     private fun List<SpotifyImage>?.smallestAtLeast(minPx: Int): String? =
         orEmpty().filter { (it.width ?: 0) >= minPx }.minByOrNull { it.width ?: Int.MAX_VALUE }?.url
             ?: orEmpty().maxByOrNull { it.width ?: 0 }?.url
 
     private companion object {
-        /** Без `episode` в списке подкаст не приезжает вовсе (обратная совместимость Spotify). */
+        /** Without `episode` in the list a podcast does not arrive at all (Spotify compatibility). */
         const val ADDITIONAL_TYPES = "track,episode"
         const val EPISODE_TYPE = "episode"
 
-        /** Нижняя граница обложки карточки, px. */
+        /** Lower bound of the card cover, px. */
         const val THUMB_MIN_PX = 300
     }
 }

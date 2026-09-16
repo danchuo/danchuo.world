@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { moonLitPath, moonPhase } from "./moonPhase";
 
-// Опорные даты — астрономические новолуния и полнолуния. Допуск считается сутками цикла:
-// фаза берётся на полночь, а само событие приходится на любой час своих суток, поэтому
-// половину допуска съедает уже он. Полутора суток хватает, чтобы поймать и сбитую опорную
-// точку, и неверную длину месяца, — а точнее приближение и не обязано быть: глиф в полтора
-// десятка пикселей разницы в сутки не показывает.
+// The reference dates are astronomical new and full moons. The tolerance is counted in cycle days:
+// the phase is taken at midnight while the event falls on any hour of its day, which already eats
+// half of it. A day and a half catches both a wrong reference point and a wrong month length.
 const DAY = 1 / 29.530588853;
 const TOLERANCE = 1.5 * DAY;
 
@@ -38,8 +36,8 @@ describe("moonPhase", () => {
 
 describe("moonLitPath", () => {
   it("новолуние — контур нулевой площади, полнолуние — весь диск", () => {
-    // У обоих терминатор идёт по самому краю (полуось равна радиусу), и различает их только
-    // сторона выгиба: к свету — серпом, от света — горбом.
+    // In both the terminator runs along the very edge (the semi-axis equals the radius), and only
+    // the direction of the bulge tells them apart: towards the light a crescent, away a hump.
     expect(moonLitPath(0, 7)).toContain("A 7 7 0 0 0");
     expect(moonLitPath(0.5, 7)).toContain("A 7 7 0 0 1");
   });

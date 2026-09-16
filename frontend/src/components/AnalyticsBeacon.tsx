@@ -3,24 +3,19 @@
 import { useEffect } from "react";
 import { postBeacon, postInteractions, type ClickPayload } from "@/lib/api/client";
 
-/** Сколько кликов копим за визит максимум — зеркалит серверный `max-batch` (анти-абуз). */
+/** Most clicks kept per visit — mirrors the server's `max-batch` (anti-abuse). */
 const MAX_CLICKS = 50;
 
 /**
- * JS-бикон аналитики (PRD §5.11) — cookieless, без третьих сторон. Шлёт на визит:
- * - **load:** `fetch(keepalive)` при монтировании (краулеры без JS сюда не доходят — фильтр ботов);
- * - **dwell:** на `visibilitychange→hidden`/`pagehide` — `navigator.sendBeacon` с временем на
- *   странице (надёжнее при выгрузке), тем же `visitId` (сервер коррелирует с load-строкой);
- * - **клики (B2):** копит клики по тайлам борда (`[data-tile-id]`) с долей внутри плитки (0..1)
- *   и шлёт их **одним батчем** на уходе — потайловая хитмапа, стабильная через все вьюпорты.
- *
- * Куки не ставит; сырой IP и хэш считает сервер. Ничего не рендерит.
+ * The cookieless analytics beacon: a load ping on mount, a dwell ping via `sendBeacon` on the way
+ * out, and tile clicks batched into that same departure. It sets no cookies, leaves the hash to
+ * the server and renders nothing. PRD §5.11
  */
 export function AnalyticsBeacon() {
   useEffect(() => {
     const path = window.location.pathname;
-    // /admin* — приватный инструментарий владельца, не посетители: не трекаем вовсе
-    // (иначе клики владельца мусорят в аналитике и хитмапе). Публичная страница одна — `/`.
+    // /admin* is the owner's private tooling, not visitors: not tracked at all, or the owner's
+    // clicks would litter the analytics and the heatmap. There is one public page, `/`.
     if (path.startsWith("/admin")) return;
     const visitId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -32,9 +27,9 @@ export function AnalyticsBeacon() {
 
     postBeacon({ visitId, path, referrer: document.referrer || undefined });
 
-    // Клик: находим ближайший тайл-предок и считаем долю точки внутри его bounding box.
-    // Координаты — относительные (0..1), а не экранные пиксели: адаптивный bento ломал бы
-    // сырые px, а доля внутри тайла стабильна на любом вьюпорте/волне (PRD §5.11 B2).
+    // Click: find the nearest tile ancestor and take the point's fraction inside its box.
+    // Coordinates are relative (0..1), never screen pixels — an adaptive bento would break raw
+    // px, while a fraction inside a tile holds on any viewport or wave. PRD §5.11
     const onClick = (e: MouseEvent) => {
       if (clicks.length >= MAX_CLICKS) return;
       const target = e.target as Element | null;
@@ -60,7 +55,7 @@ export function AnalyticsBeacon() {
       const dwellMs = Math.round(performance.now() - startedAt);
       const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
       const body = JSON.stringify({ visitId, path, dwellMs });
-      // sendBeacon переживает выгрузку вкладки; тип Blob держим application/json под @Consumes.
+      // sendBeacon survives tab unload; the Blob type stays application/json for @Consumes.
       navigator.sendBeacon?.(
         `${base}/api/analytics/beacon`,
         new Blob([body], { type: "application/json" }),

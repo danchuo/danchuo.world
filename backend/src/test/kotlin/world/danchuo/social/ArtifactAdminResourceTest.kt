@@ -14,11 +14,9 @@ import java.io.File
 import javax.imageio.ImageIO
 
 /**
- * Заведение артефактов через /admin (PRD §5.8). До этого новый предмет означал миграцию —
- * то есть правку кода и раскатку.
- *
- * База в тестах общая, а соседние проверяют публичный список артефактов — поэтому всё
- * созданное здесь удаляется в [cleanUp], даже если тест упал на середине.
+ * Entering artifacts through /admin (PRD §5.8); before this a new item meant a migration. The DB
+ * is shared and neighbours check the public artifact list, so everything created here is removed
+ * in [cleanUp] even if a test dies halfway.
  */
 @QuarkusTest
 class ArtifactAdminResourceTest {
@@ -64,8 +62,8 @@ class ArtifactAdminResourceTest {
     }
 
     /**
-     * Порядок ленты — хроника, а не ручной список: старое слева. Заводим сперва поздний предмет,
-     * чтобы порядок вставки был обратен ожидаемому — иначе тест прошёл бы и на сортировке по id.
+     * The later item is entered first, so insertion order is the reverse of what is expected —
+     * otherwise the test would also pass on an accidental sort by id.
      */
     @Test
     fun `artifacts come oldest-first, whatever the order they were entered in`() {
@@ -90,7 +88,6 @@ class ArtifactAdminResourceTest {
             .body("imageUrl", notNullValue())
             .extract().jsonPath().getString("imageUrl")
 
-        // Картинка раздаётся публично, как медиа кадров дропа.
         given().get(url).then().statusCode(200).contentType("image/png")
     }
 
@@ -102,8 +99,8 @@ class ArtifactAdminResourceTest {
             .post("/api/ingest/artifacts/$id/image")
             .then().statusCode(200)
 
-        // Ключа LLM в тестах нет: ответ 200 с пустой подсказкой, а не ошибка —
-        // поле просто остаётся за человеком.
+        // No LLM key in tests: a 200 with an empty hint rather than an error — the field simply
+        // stays the human's.
         given().header("Authorization", "Bearer $token")
             .post("/api/ingest/artifacts/$id/hint")
             .then().statusCode(200)
@@ -120,7 +117,7 @@ class ArtifactAdminResourceTest {
             .body("error", equalTo("invalid_date"))
     }
 
-    // ── Помощники ──
+    // ── Helpers ──
 
     private fun create(name: String, hint: String? = null, date: String = "2026-02-03"): Long = given()
         .header("Authorization", "Bearer $token")
@@ -143,7 +140,6 @@ class ArtifactAdminResourceTest {
         }
         val file = File.createTempFile("artifact", ".png")
         ImageIO.write(img, "png", file)
-        // Проверка, что писалось непусто — иначе тест раздачи стал бы бессмысленным.
         check(ByteArrayOutputStream().also { ImageIO.write(img, "png", it) }.size() > 0)
         file.deleteOnExit()
         return file

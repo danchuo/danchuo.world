@@ -12,23 +12,16 @@ import { sleepPhases } from "./sleepPhases";
 import { useTileData } from "./useTileData";
 
 /**
- * Редакция «эхолот» (DESIGN §7.7, §10.1) — ночь как промер глубины во всю плитку.
- *
- * Строй взят у плитки последнего дропа: предмет падает в раму целиком, полей нет, подписи
- * «сон» нет, а весь текст лежит НА самой ночи в полосе прогрессивного блюра. Предметом здесь
- * работает сама ночь — готового кадра у сна нет, и рисовать её всё равно приходится.
- *
- * Переключатель — вся плитка, как вход в разворот у карты велобайка: второго жеста у плитки
- * нет, а пара миниатюр в конце строки с длительностью только показывает текущий вид. Режим
- * при этом не подменяет картинку, а пересортировывает те же бруски (см. [soundingGeometry]) —
- * площадь цвета сохраняется по построению.
+ * The "echo sounder" edition: a night as a depth survey filling the tile. It follows the drop
+ * tile's build — no margins, no label, all text lying ON the night in a blurred band. Switching
+ * modes re-sorts the same bars rather than swapping the picture. DESIGN §7.7, §10.1
  */
 export function SleepEcho({ date, stages }: { date: string; stages: SleepStagesView | null | undefined }) {
   const fetcher = useCallback((signal: AbortSignal) => getSleepNight(date, { signal }), [date]);
   const { phase, data } = useTileData(fetcher, `sleep-night:${date}`);
 
-  // Ночь по минутам — из кусков; их нет (часы отдали только итоги) ⇒ те же фазы без хронологии,
-  // и плитка честно остаётся в одном режиме вместо выдуманного порядка минут.
+  // The night by minutes comes from chunks; with none (the watch gave only totals) the same phases
+  // arrive without a chronology, and the tile honestly stays in one mode instead of inventing an order.
   const night = useMemo(
     () => echoNight(data?.band) ?? echoNightFromStages(stages),
     [data?.band, stages],
@@ -57,25 +50,15 @@ export function SleepEcho({ date, stages }: { date: string; stages: SleepStagesV
 }
 
 /**
- * Переключатель режима — пара миниатюр самих режимов, а не пара слов.
- *
- * Слова «сумма» и «по часам» называли то, чего зритель ещё не видел: понять их можно было,
- * только нажав и сравнив. Миниатюра показывает результат заранее — четыре бруска слева против
- * ступенчатого спуска ночи, — и ровно этот приём канонизирован как icon-only segmented control
- * (Apple HIG, Radix Themes): взаимоисключающие виды одного и того же, подсвечен текущий.
- *
- * Сегменты — не кнопки: кнопка тут вся плитка (§7.7), а вложенная кнопка в кнопке ещё и
- * невалидна. Поэтому пара целиком скрыта от скринридера, а жест называет `aria-label` плитки.
- *
- * Место пары — правый конец строки с длительностью, то есть нижний угол плитки. Строкой,
- * а не столбиком: в полосе она стоит в потоке и место себе отнимает сама, поэтому ни ряды
- * суммы, ни их подписи с ней столкнуться не могут — а угол рисунка возвращается рисунку.
+ * The mode switch: thumbnails OF the modes, not a pair of words. "Sum" and "by hours" named
+ * something the viewer had not seen yet, while a thumbnail shows the result in advance. The
+ * segments are NOT buttons — the whole tile is one — so the pair is hidden from screen readers.
  */
 function ModeSwitch({ timed }: { timed: boolean }) {
   return (
     <span className="sleep-echo__modes" data-testid="sleep-echo-modes" aria-hidden>
       <span className="sleep-echo__mode" data-on={!timed}>
-        {/* Сумма: четыре бруска от левого края, длина — масса фазы. */}
+        {/* The sum: four bars from the left edge, length is the phase's mass. */}
         <svg viewBox="0 0 16 12" className="sleep-echo__glyph">
           <rect x="0" y="1" width="3" height="1.6" rx="0.4" />
           <rect x="0" y="4" width="7" height="1.6" rx="0.4" />
@@ -84,7 +67,7 @@ function ModeSwitch({ timed }: { timed: boolean }) {
         </svg>
       </span>
       <span className="sleep-echo__mode" data-on={timed}>
-        {/* По часам: то же дно ночи ступенькой — спуск и подъём между горизонтами. */}
+        {/* By the clock: the same night floor as a step — a descent and a climb between horizons. */}
         <svg viewBox="0 0 16 12" className="sleep-echo__glyph">
           <polyline points="0,2 3,2 3,8 6,8 6,5 10,5 10,11 13,11 13,4 16,4" />
         </svg>
@@ -94,13 +77,9 @@ function ModeSwitch({ timed }: { timed: boolean }) {
 }
 
 /**
- * Луна над этой ночью — знак, которым плитка называет свой предмет. Слова «сон» у редакции нет
- * (§7.7), а промер глубины сам по себе про сон не говорит: без знака полоса начиналась прямо
- * с числа. Фаза при этом настоящая, из даты (см. [moonPhase]), — декор волны, который не врёт.
- *
- * Диск рисуется целиком и всегда, а поверх него — освещённая часть: тёмная сторона Луны это
- * не пустота, а сама Луна в тени, и без диска молодой серп в полтора десятка пикселей просто
- * терялся, а новолуние не рисовалось вовсе.
+ * The moon over this night, the sign by which the tile names its subject: the edition has no word
+ * "sleep", and a depth survey alone does not say it. The disc is always drawn whole with the lit
+ * part over it — the dark side is the moon in shadow, not emptiness, or a new moon vanishes.
  */
 function MoonMark({ date }: { date: string }) {
   const phase = moonPhase(date);
@@ -108,8 +87,8 @@ function MoonMark({ date }: { date: string }) {
   return (
     <svg className="sleep-echo__moon" viewBox="-8 -8 16 16" aria-hidden>
       <circle className="sleep-echo__moon-disc" r={MOON_R} />
-      {/* Убывающую Луну рисует тот же контур в зеркале: освещённый край переходит на левую
-          сторону диска, а форма серпа от этого не зависит. */}
+      {/* A waning moon is the same outline mirrored: the lit edge moves to the disc's left side,
+          and the crescent's shape does not depend on that. */}
       <path
         className="sleep-echo__moon-lit"
         d={moonLitPath(phase.cycle, MOON_R)}
@@ -131,11 +110,9 @@ function Sounding({
   times: { from: string; to: string } | null;
 }) {
   const [timed, setTimed] = useState(false);
-  // Градиенты обязаны быть уникальными НА ЭКЗЕМПЛЯР: борд держит в DOM обе раскладки сразу
-  // (бенто и мобильный стек, переключает их CSS), то есть плитка сна в документе всегда в двух
-  // копиях. С общим id `url(#…)` уводит на первое совпадение — а оно в скрытой раскладке, где
-  // краски нет, и бруски видимой копии рисовались нечем. Символы `useId` в ссылку-фрагмент
-  // не пускаем: id ещё и уезжает в `url()`.
+  // Gradients MUST be unique per instance: the board keeps both layouts in the DOM at once, so the
+  // sleep tile is always there twice. With a shared id, `url(#…)` finds the first match — in the
+  // hidden layout, where there is no paint — and the visible copy's bars had nothing to draw with.
   const uid = useId().replace(/[^a-z0-9]/gi, "");
   const paint = useCallback((stage: string) => `sleep-echo-${uid}-${stage}`, [uid]);
   const geometry = useMemo(() => echoGeometry(night), [night]);
@@ -146,29 +123,15 @@ function Sounding({
     return [{
       stage: lane.stage,
       minutes: night.totals[lane.stage],
-      // Позиция — по концу НАРИСОВАННОГО ряда, а число — из минут ночи: квота брусков
-      // округляет пропорции, и считать по ней время значило бы округлять и его.
+      // The position comes from the end of the DRAWN row while the number comes from the night's
+      // minutes: the bar quota rounds the proportions, and counting time by it would round that too.
       end: Math.max(0, ...columns.map((c) => c.x + c.shift + c.width)) / ECHO_VIEW.width,
       center: (geometry.floors[index] - barHeight / 2) / ECHO_VIEW.height,
     }];
   }), [geometry, night]);
-  // Легенда с долями — ТОЛЬКО для хронологии (§7.7): в сумме точные минуты стоят у своих
-  // рядов, и доля рядом с ними была бы тем же фактом, сказанным дважды. В хронологии подписи
-  // с рядов ушли, строка свободна, и доля — единственное, чего на рисунке не прочитать.
-  //
-  // Доли считает общий модуль фаз (одни проценты на все вёрстки виджета), а порядок здесь
-  // СВОЙ — по глубине, как легли горизонты: подпись стоит легендой к рисунку, и читать её
-  // в другом порядке, чем рисунок, значит заставлять зрителя сопоставлять по цвету.
-  //
-  // Пробуждений в этой строке нет: доли считаются от сна, а «не спал» не его часть (§7.7), —
-  // минуты среди процентов стояли единственным пунктом другой размерности и при этом самым
-  // длинным. Верхний горизонт называет сумма: там его минуты стоят у самого ряда. Строка же
-  // обязана ложиться в ОДНУ линию — её концы несут начало и конец ночи, и перенос уводил бы
-  // пробуждение под легенду (проверено в e2e).
-  //
-  // Имя фазы берётся ОТТУДА ЖЕ, откуда доля, и достаётся обоим режимам: у правого края ряда
-  // в сумме и в легенде хронологии стоит одно и то же слово. Разойдясь, они назвали бы один
-  // горизонт в двух режимах по-разному, и переключение читалось бы как смена данных.
+  // The percentage legend is ONLY for the chronology: in the sum view exact minutes already stand
+  // by their rows. Its order is BY DEPTH, matching how the horizons lie, or the reader would have
+  // to match legend to picture by colour. Wakings are absent — they are not part of sleep.
   const { legend, names } = useMemo(() => {
     const byKey = sleepPhases({
       rem: night.totals.rem,
@@ -188,10 +151,10 @@ function Sounding({
     });
     return { legend, names };
   }, [night]);
-  // Хронологии нет ⇒ показывать её нечем: плитка остаётся суммой и жестом не притворяется.
+  // No chronology ⇒ nothing to show it with: the tile stays a summary and does not fake a gesture.
   const time = night.timed && timed;
-  // Плитка-кнопка, только если жест что-то меняет: управление, которое ничего не делает,
-  // не должно выглядеть управлением (и ловить фокус).
+  // The tile is a button only when the gesture changes something: a control that does nothing must
+  // not look like a control, nor catch focus.
   const Root = night.timed ? "button" : "span";
 
   return (
@@ -207,15 +170,15 @@ function Sounding({
         <svg
           className="sleep-echo__sounding"
           viewBox={`0 0 ${ECHO_VIEW.width} ${ECHO_VIEW.height}`}
-          // Все фигуры промера — прямоугольники по осям, поэтому неравномерное растяжение их не
-          // портит, а плитке не нужен ни замер, ни ResizeObserver.
+          // Every shape in the sounding is an axis-aligned rectangle, so uneven stretching does not
+          // spoil them and the tile needs neither a measurement nor a ResizeObserver.
           preserveAspectRatio="none"
           aria-hidden
         >
           <defs>
-            {/* Столб набирает плотность с глубиной: у поверхности вода светлая, у дна густая.
-                `userSpaceOnUse` — намеренно: градиент общий на весь промер, поэтому мелкий
-                столб показывает только свой верхний, светлый кусок, а глубокий — весь спуск. */}
+            {/* A column gains density with depth: light water at the surface, thick at the floor.
+                `userSpaceOnUse` is deliberate — the gradient spans the whole sounding, so a
+                shallow column shows only its pale top and a deep one the whole descent. */}
             {Object.entries(STAGE_COLOR).map(([stage, color]) => (
               <linearGradient
                 key={stage}
@@ -232,7 +195,7 @@ function Sounding({
             ))}
           </defs>
 
-          {/* Горизонты глубин — тончайшая гравировка: без неё пустой уровень теряется совсем. */}
+          {/* Depth horizons, the finest engraving: without them an empty level is lost entirely. */}
           {geometry.floors.map((y) => (
             <line key={y} className="sleep-echo__floor" x1={0} x2={ECHO_VIEW.width} y1={y} y2={y} />
           ))}
@@ -249,8 +212,8 @@ function Sounding({
                 width={c.width}
                 height={c.height}
                 fill={`url(#${paint(c.stage)})`}
-                // Сумма — один трансформ на брусок: сдвиг на его ранг и сжатие ко дну своего
-                // горизонта. Геометрия при этом не трогается, поэтому переход играет CSS, а не rAF.
+                // The summary is one transform per bar: a shift by its rank and a squeeze to its
+                // horizon's floor. The geometry is untouched, so CSS plays the transition, not rAF.
                 style={time ? undefined : { transform: `translateX(${c.shift.toFixed(2)}px) scaleY(${c.squash.toFixed(4)})` }}
               />
             ))}
@@ -261,12 +224,9 @@ function Sounding({
         <span className="sleep-echo__durations" data-testid="sleep-echo-durations" aria-hidden={time}>
           {durations.map((d) => (
             <span key={d.stage} style={{ color: STAGE_COLOR[d.stage] }}>
-              {/* Длительность идёт СРАЗУ за своим рядом и красится в цвет фазы: цвет её и
-                  называет, поэтому слова «REM» при числе не нужно.
-                  Формат КОРОТКИЙ («3ч 53м»): число стоит между концом ряда и прижатым к краю
-                  именем, и в полной записи этот зазор съедался целиком — ряды приходилось
-                  укорачивать, чтобы подписи не наезжали друг на друга. Точность та же,
-                  а полная запись остаётся у скринридера и у длительности ночи в полосе. */}
+              {/* The duration follows its row IMMEDIATELY and takes the phase's colour, which is
+                  what names it — so no "REM" is needed beside the number. The format is SHORT
+                  because the full spelling ate the gap to the edge-pinned name. */}
               <span
                 className="sleep-echo__duration"
                 data-testid={`sleep-duration-${d.stage}`}
@@ -278,8 +238,8 @@ function Sounding({
               >
                 {formatSleepShort(d.minutes)}
               </span>
-              {/* Имя фазы — у правого края, тем же цветом, но тусклее числа: подпись работает
-                  легендой к ряду, а не данными, и первым в строке обязано читаться число. */}
+              {/* The phase name sits at the right edge, in the same colour but dimmer than the
+                  number: the label is a legend to the row, not data, and the number must read first. */}
               <span
                 className="sleep-echo__name"
                 data-testid={`sleep-name-${d.stage}`}
@@ -292,10 +252,9 @@ function Sounding({
         </span>
       </span>
 
-      {/* Полоса подписи: два прохода блюра ростом С ПЛИТКУ, открытые маской только снизу.
-          Ростом с плитку, а не с полосу, — выборка `backdrop-filter` зажимается краями бокса,
-          и слой ростом с полосу дал бы вдоль её верхней кромки светлый смаз (docs/pitfalls.md);
-          у слоя во всю плитку зажим приходится на её собственные края. */}
+      {/* The caption's strip: two blur passes the height OF THE TILE, masked open only at the
+          bottom. Full height because `backdrop-filter` sampling clamps at its box's edges, and a
+          strip-height layer would smear along its top edge (docs/pitfalls.md). */}
       <span className="sleep-echo__blur sleep-echo__blur--soft" aria-hidden />
       <span className="sleep-echo__blur sleep-echo__blur--deep" aria-hidden />
 
@@ -305,11 +264,9 @@ function Sounding({
           <span className="sleep-echo__total">{formatSleep(night.asleep)}</span>
           {night.timed && <ModeSwitch timed={time} />}
         </span>
-        {/* Вторая строка полосы — только в хронологии. «Лёг» и «встал» встают её КОНЦАМИ:
-            ось рисунка и полоса одной ширины, поэтому левый край строки и есть начало ночи,
-            а правый — пробуждение. Подписи концов при этом лежат на скриме полосы, а не на
-            брусках, — длинная фаза не может отнять у них место (стрелка снята как лишний знак).
-            В сумме оси времени нет, и рамка ночи с плитки уходит совсем. */}
+        {/* The strip's second line exists only in the chronology. "Asleep" and "awake" stand as
+            its ENDS: the drawing's axis and the strip share a width, so the line's left edge is
+            the night's start and its right edge the waking. The sum has no time axis at all. */}
         {time && (
           <span className="sleep-echo__phases">
             {times && <span className="sleep-echo__edge">{times.from}</span>}

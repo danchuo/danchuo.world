@@ -16,28 +16,19 @@ import {
 
 interface DropUploadFormProps {
   token: string;
-  /** Дроп загружен: родитель перечитывает список и открывает свежий дроп. */
+  /** The parent reloads the list and opens the uploaded drop. */
   onUploaded: (drop: AdminDropView) => Promise<void>;
-  /** Ошибка уходит наверх — строка ошибки в админке одна на весь экран. */
+  /** Send errors to the shared admin error row. */
   onError: (message: string) => void;
-  /** Открытый сейчас дроп: приглашение к поиску живёт, только пока это свежезалитый. */
+  /** Show the scan invitation only while the newly uploaded drop remains selected. */
   activeDropId: number | null;
-  /** Статус поиска артефактов по открытому дропу (он же свежий) — для счёта на кнопке. */
+  /** Current drop's scan progress for the button label. */
   artifactScan: ArtifactScanStatusView | null;
-  /** Запустить поиск всех предметов каталога по кадрам свежего дропа. */
+  /** Scan every catalog item in the uploaded drop. */
   onScanArtifacts: () => void;
 }
 
-/**
- * Форма нового фото-дропа: название + дата + zip (≈36 кадров). Состояние формы целиком
- * своё — снаружи нужен только токен и колбэк «загрузилось».
- *
- * После успешной заливки форма показывает, **что с дропом уже сделано, а что нет**: поворот
- * кадров проверяется сам (B9), а поиск артефактов — нет и не будет (вызов к платной модели на
- * каждый кадр, §5.12), поэтому там же стоит кнопка на прогон. Без этой строки свежий дроп
- * молча оставался непроверенным: единственная кнопка поиска жила в сетке кадров ниже, и по
- * интерфейсу нельзя было понять, запустится ли что-то само.
- */
+/** Orientation runs automatically; paid artifact scanning requires an explicit post-upload action. PRD §5.12. */
 export function DropUploadForm({
   token,
   onUploaded,
@@ -49,8 +40,8 @@ export function DropUploadForm({
   const [uploaded, setUploaded] = useState<AdminDropView | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(todayIso); // ленивый инициализатор: todayIso() не гоняем на каждый рендер
-  const [elapsed, setElapsed] = useState(0); // секунды с начала загрузки (честный таймер вместо прогресса)
+  const [date, setDate] = useState(todayIso); // lazy initialiser: todayIso() is not run per render
+  const [elapsed, setElapsed] = useState(0); // seconds since upload began (an honest timer, not a progress bar)
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const scanning = artifactScan?.state === "running";
@@ -99,7 +90,7 @@ export function DropUploadForm({
             style={{ ...fieldStyle, flex: "1 1 160px" }}
           />
         </div>
-        {/* Кнопка-лейбл открывает системный файл-пикер (нативно, без JS). Сам input скрыт. */}
+        {/* The label button opens the system file picker natively; the input itself is hidden. */}
         <div className="flex flex-wrap items-center gap-3">
           <label style={{ ...secondaryBtnStyle, display: "inline-block" }}>
             {file ? "выбрать другой zip" : "выбрать zip…"}
@@ -121,8 +112,8 @@ export function DropUploadForm({
           {!busy && notice && <span style={{ ...mono, color: "var(--text-secondary)" }}>{notice}</span>}
         </div>
 
-        {/* Честный таймер: реальное время = аплоад + форвард + ресайз ~36 кадров на сервере.
-            Долю аплоада не показываем — она вводит в заблуждение (локально «отправка» мгновенна). */}
+        {/* An honest timer: the real time is upload plus forward plus resizing on the server. An
+            upload percentage would mislead — locally "sending" is instant. */}
         {busy && (
           <span aria-live="polite" style={{ ...mono, color: "var(--text-secondary)" }}>
             загрузка и обработка на сервере… {elapsed}s (не закрывай вкладку)
@@ -131,8 +122,8 @@ export function DropUploadForm({
         <p style={mono}>zip с кадрами (JPEG/PNG, ≈36 шт). Большой архив грузится минутами. HEIC и не-картинки пропускаются.</p>
       </form>
 
-      {/* Блок живёт, только пока открыт именно свежезалитый дроп: статус прогона в админке
-          один и принадлежит ВЫБРАННОМУ дропу — на чужом он говорил бы не о том. */}
+      {/* This block lives only while the freshly uploaded drop is the open one: the admin has a
+          single scan status and it belongs to the SELECTED drop. */}
       {uploaded && uploaded.id === activeDropId && (
         <div
           className="mt-4 flex flex-wrap items-center gap-3 pt-4"

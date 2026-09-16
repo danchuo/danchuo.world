@@ -6,13 +6,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Канонические соглашения времени (PRD §4, CLAUDE.md).
- *
- * - [zone] — канонический часовой пояс (по умолчанию MSK). Все «дни», границы
- *   суток (полночь MSK) и агрегаты считаются здесь, независимо от tz сервера/гостя.
- * - [genesis] — генезис-дата danchuo.world: отсчёт данных, раньше неё — пусто.
- *
- * Значения — в `application.properties` под префиксом `danchuo.time`.
+ * Canonical time settings, held under `danchuo.time`: [zone] is the timezone (MSK) in which every
+ * day, midnight boundary and aggregate is computed regardless of the server's, and [genesis] is
+ * where the data starts — before it, everything is empty. PRD §4
  */
 @ConfigMapping(prefix = "danchuo.time")
 interface TimeConfig {
@@ -22,6 +18,5 @@ interface TimeConfig {
 
     fun genesis(): LocalDate
 
-    /** Разобранный [ZoneId] канонического пояса. */
     fun zoneId(): ZoneId = ZoneId.of(zone())
 }

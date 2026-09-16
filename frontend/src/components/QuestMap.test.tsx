@@ -26,7 +26,7 @@ describe("QuestMap", () => {
   it("рендерит 7 остановок маршрута, детур монстра и итог дня", () => {
     render(<QuestMap items={[]} monsterDrunk={false} />);
 
-    // пункты с target=2 дают две остановки (occurrence 1 и 2)
+    // items with target=2 give two stops (occurrence 1 and 2)
     for (const id of [
       "quest-stop-stretch-1",
       "quest-stop-podcasts-1",
@@ -39,19 +39,19 @@ describe("QuestMap", () => {
     ]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
-    // Итога дня «N/7» на карте нет: счёт читается самой тропой.
+    // There is no "N/7" day total on the map: the trail itself reads as the count.
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
   it("остановка done по счётчику ≥ occurrence; иначе pending (два состояния, без missed)", () => {
-    // чтение закрыто целиком (обе остановки), растяжка нет → растяжка «не сделано» = pending
+    // reading is fully closed (both stops), stretching is not → stretching is pending
     render(<QuestMap items={[item("reading", 2, 2), item("stretch", 0, 1)]} monsterDrunk={false} />);
 
     expect(screen.getByTestId("quest-stop-reading-1")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-reading-2")).toHaveAttribute("data-done", "true");
     const stretch = screen.getByTestId("quest-stop-stretch-1");
     expect(stretch).toHaveAttribute("data-done", "false");
-    // «пропущено» (missed) больше не выделяем — всё несделанное = pending
+    // "missed" is no longer singled out — everything undone is pending
     expect(stretch.getAttribute("class")).toContain("quest-stop--pending");
     expect(stretch.getAttribute("class")).not.toContain("quest-stop--missed");
     expect(screen.getByTestId("quest-stop-journal-1").getAttribute("class")).toContain(
@@ -68,10 +68,10 @@ describe("QuestMap", () => {
 
   it("дроби прогресса (для скинов со счётчиками): из данных пункта, фолбэк — по маршруту", () => {
     render(<QuestMap items={[item("podcasts", 1, 2)]} monsterDrunk={false} />);
-    // обе остановки пункта показывают общий прогресс пункта
+    // both stops of an item show the item's overall progress
     expect(screen.getByTestId("quest-frac-podcasts-1")).toHaveTextContent("1/2");
     expect(screen.getByTestId("quest-frac-podcasts-2")).toHaveTextContent("1/2");
-    // пункта нет в данных — target выводится из числа его остановок на маршруте
+    // the item is absent from the data — target is derived from its stop count on the route
     expect(screen.getByTestId("quest-frac-reading-1")).toHaveTextContent("0/2");
     expect(screen.getByTestId("quest-frac-stretch-1")).toHaveTextContent("0/1");
   });
@@ -81,9 +81,9 @@ describe("QuestMap", () => {
       <QuestMap items={[item("journal", 1, 1, undefined, 23)]} monsterDrunk={false} />,
     );
     expect(screen.getByTestId("quest-minutes-journal-1")).toHaveTextContent("23 мин");
-    // дробь `1/1` у бинарного пункта не сообщает ничего сверх кольца — её место и занимаем
+    // a `1/1` fraction on a binary item adds nothing to the ring, so its place is taken
     expect(screen.queryByTestId("quest-frac-journal-1")).not.toBeInTheDocument();
-    // соседние пункты не измеряются — у них дробь на месте
+    // neighbouring items are not measured — their fraction stays
     expect(screen.getByTestId("quest-frac-stretch-1")).toBeInTheDocument();
   });
 
@@ -109,7 +109,7 @@ describe("QuestMap", () => {
   it("все 7 остановок закрыты — маршрут в perfect-подсветке (монстр не обязателен)", () => {
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-map").getAttribute("class")).toContain("quest-map--perfect");
-    // Празднование живёт классом маршрута, а не цифрой: итога на карте больше нет.
+    // The celebration lives in the route's class rather than a number: there is no total any more.
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
@@ -138,8 +138,8 @@ describe("QuestMap", () => {
   });
 
   it("детур не притворяется пунктом дисциплины: у монстра свои состояния clean/drunk", () => {
-    // Регрессионный якорь полярности: выпитый монстр закрывал детур как «сделано» —
-    // кольцо и тропа красились как достижение, хотя достижением был чистый день.
+    // A regression anchor on polarity: a drunk monster used to close the detour as "done", so the
+    // ring and trail were painted as an achievement when the achievement was a clean day.
     const { rerender } = render(<QuestMap items={[]} monsterDrunk={true} />);
     let stop = screen.getByTestId("quest-stop-monster");
     expect(stop.getAttribute("class")).toContain("quest-stop--drunk");
@@ -148,20 +148,20 @@ describe("QuestMap", () => {
     rerender(<QuestMap items={[]} monsterDrunk={false} />);
     stop = screen.getByTestId("quest-stop-monster");
     expect(stop.getAttribute("class")).toContain("quest-stop--clean");
-    // «Не пил» — это не «ещё не дошёл»: серым пунктиром незакрытого пункта не рисуем.
+    // "Not drunk" is not "not reached yet": it is not drawn as an unclosed item's grey dashes.
     expect(stop.getAttribute("class")).not.toContain("quest-stop--pending");
   });
 
   it("к монстру не ведёт тропа: он стоит отдельно от маршрута, без стрелки", () => {
-    // Решение владельца: детур-ответвление снято совсем. Любая тропа к монстру говорила о
-    // нём как об этапе дня («сходил туда»), а раскрасить её было нечем — «пройденная»
-    // хвалила за выпитое, «непройденная» ругала за чистый день.
+    // The detour branch is gone entirely. Any trail to the monster spoke of it as a stage of the
+    // day, and there was no way to colour it: "walked" praised drinking, "not walked" scolded a
+    // clean day.
     const { rerender } = render(<QuestMap items={[]} monsterDrunk={true} />);
     expect(screen.queryByTestId("quest-seg-monster")).toBeNull();
 
     rerender(<QuestMap items={[]} monsterDrunk={false} />);
     expect(screen.queryByTestId("quest-seg-monster")).toBeNull();
-    // Сегментов ровно столько, сколько промежутков между 7 остановками маршрута.
+    // As many segments as there are gaps between the route's 7 stops.
     expect(document.querySelectorAll(".quest-seg")).toHaveLength(6);
   });
 
@@ -172,10 +172,10 @@ describe("QuestMap", () => {
 
   it("нет данных за день — монстр серый, как любая незакрытая остановка, и без вердикта", () => {
     render(<QuestMap items={[]} monsterDrunk={null} />);
-    // Подпись — просто «монстр», никакого глагола: отсутствие записи не выдаём за чистый день.
+    // The caption is just the noun, with no verb: no record is not passed off as a clean day.
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent(/^монстр$/);
     expect(screen.queryByTestId("quest-monster-verb")).toBeNull();
-    // Картинка — ровно как у остальных незакрытых пунктов маршрута.
+    // The picture is exactly that of the route's other unclosed items.
     const stop = screen.getByTestId("quest-stop-monster");
     expect(stop.getAttribute("class")).toContain("quest-stop--pending");
     expect(stop.getAttribute("class")).not.toContain("quest-stop--clean");
@@ -199,8 +199,8 @@ describe("QuestMap", () => {
   });
 
   it("описание карты всегда называет монстра — и чистый день тоже", () => {
-    // Раньше про чистый день карта молчала, и для скринридера «не пил» было неотличимо
-    // от «данных нет».
+    // The map used to say nothing about a clean day, so for a screen reader "not drunk" was
+    // indistinguishable from "no data".
     const { rerender } = render(<QuestMap items={[]} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-map")).toHaveAttribute(
       "aria-label",
@@ -215,11 +215,11 @@ describe("QuestMap", () => {
   });
 
   it("огонёк-стрик пункта: показывается от 2, по своей остановке (occurrence)", () => {
-    // подкасты: серия ≥1 семь дней, ≥2 три дня → у остановки 1 огонёк 7, у остановки 2 — 3
+    // podcasts: a run of ≥1 for seven days, ≥2 for three → stop 1 shows 7, stop 2 shows 3
     render(<QuestMap items={[item("podcasts", 2, 2, [7, 3])]} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-streak-podcasts-1")).toHaveTextContent("7");
     expect(screen.getByTestId("quest-streak-podcasts-2")).toHaveTextContent("3");
-    // тултип поясняет С ЧЕМ и сколько дней подряд (нативный SVG <title> = accessible-имя)
+    // the tooltip says WHAT and how many days running (a native SVG <title> is the accessible name)
     expect(screen.getByTestId("quest-streak-podcasts-1")).toHaveAttribute(
       "aria-label",
       "подкаст: 7 дней подряд",
@@ -233,9 +233,9 @@ describe("QuestMap", () => {
         monsterDrunk={false}
       />,
     );
-    // серия 1 — прячем
+    // a run of 1 is hidden
     expect(screen.queryByTestId("quest-streak-stretch-1")).toBeNull();
-    // occurrenceStreaks нет вовсе (старый ответ/фикстура) — тоже прячем, без падения
+    // no occurrenceStreaks at all (an old reply or fixture) — hidden too, without failing
     expect(screen.queryByTestId("quest-streak-journal-1")).toBeNull();
   });
 
@@ -244,12 +244,12 @@ describe("QuestMap", () => {
       <QuestMap items={[]} monsterDrunk={false} monsterCleanStreak={12} />,
     );
     expect(screen.getByTestId("quest-streak-monster")).toHaveTextContent("12");
-    // Формулировка та же, что в подписи детура и в сводке календаря — один словарь на факт.
+    // The same wording as the detour caption and the calendar summary — one vocabulary per fact.
     expect(screen.getByTestId("quest-streak-monster")).toHaveAttribute(
       "aria-label",
       "не пил монстр: 12 дней подряд",
     );
-    // Огонёк «чисто» горит зелёным — тем же цветом, что и вердикт под ним.
+    // The "clean" flame burns green, the same colour as the verdict beneath it.
     expect(screen.getByTestId("quest-streak-monster").getAttribute("class")).toContain(
       "quest-streak--clean",
     );
@@ -287,17 +287,17 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     expect(screen.getByText("Утро")).toBeInTheDocument();
     expect(screen.getByText("шоу Утро")).toBeInTheDocument();
-    // Часов начала на карточке нет: она отвечает «что это было, сколько
-    // его было и какой это был кусок», а не «во сколько я включил».
+    // There is no start time on the card: it answers "what it was, how much of it and which chunk",
+    // not "when I pressed play".
     const card = screen.getAllByTestId("quest-card")[0];
     expect(card).toHaveTextContent("47 мин");
     expect(card).toHaveTextContent("0 → 47 мин");
   });
 
   /**
-   * Обложка эпизода не приехала (CDN Spotify висит) — на её месте встаёт та же запасная плашка
-   * Spotify, что и в музыкальной плитке, а не глухой прямоугольник. Превью у остановки и
-   * карточка показывают отказ ОДИНАКОВО: это одна и та же обложка одного и того же эпизода.
+   * When an episode cover does not arrive (Spotify's CDN hangs), the same Spotify fallback plate
+   * as in the music tile stands in its place, not a blank rectangle. The stop's preview and the
+   * card show the refusal IDENTICALLY: it is one cover of one episode.
    */
   it("обложка эпизода не приехала ⇒ плашка Spotify и в карточке, и в превью у остановки", () => {
     vi.useFakeTimers();
@@ -318,8 +318,8 @@ describe("QuestMap — карточки прослушанных подкаст�
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 
     const card = screen.getAllByTestId("quest-card")[0];
-    // Одна строка — один цвет: «мин» неотделима от цифр, при которых стоит (решение
-    // владельца). Отдельного элемента под единицу поэтому нет — красить нечего врозь.
+    // One line, one colour: the unit is inseparable from the digits it stands with, so there is no
+    // separate element for it — nothing to colour apart.
     expect(card.querySelector(".quest-card__progress-value")).toHaveTextContent("0 → 47 мин");
     expect(card.querySelector(".quest-card__progress-unit")).toBeNull();
   });
@@ -344,9 +344,8 @@ describe("QuestMap — карточки прослушанных подкаст�
   });
 
   it("эпизод, взятый двумя заходами, различает карточки СВОИМ куском выпуска", () => {
-    // 80 минут одного эпизода: утром 0→45, вечером 45→80. Ради этого вторая строка и есть —
-    // одни минуты («45 мин» и «35 мин») не говорят, что вечером слушали продолжение, а не
-    // начало заново.
+    // 80 minutes of one episode: 0→45 in the morning, 45→80 in the evening. That is what the second
+    // line is for — bare minutes do not say the evening continued rather than restarted.
     render(
       <QuestMap
         items={withEpisodes([
@@ -357,17 +356,17 @@ describe("QuestMap — карточки прослушанных подкаст�
       />,
     );
 
-    // Проверяем внутри своих карточек: строка захода совпала с подписью под кружком, и поиск
-    // по всему документу нашёл бы обе.
+    // Checked inside their own cards: the sitting's line matches the caption under the circle, and
+    // a document-wide search would find both.
     const cards = screen.getAllByTestId("quest-card");
     expect(cards).toHaveLength(2);
     expect(cards[0]).toHaveTextContent("45 мин");
     expect(cards[0]).toHaveTextContent("0 → 45 мин");
     expect(cards[1]).toHaveTextContent("35 мин");
     expect(cards[1]).toHaveTextContent("45 → 80 мин");
-    // Итога эпизода за день на карточке больше нет — кусок отвечает на это сам.
+    // The episode's daily total is gone from the card — the chunk answers that itself.
     expect(screen.queryByText(/за день/)).toBeNull();
-    // И под самими кружками — минуты своего захода, а не все 80 под первым.
+    // And under the circles: each sitting's own minutes, not all 80 under the first.
     expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("45 мин");
     expect(screen.getByTestId("quest-minutes-podcasts-2")).toHaveTextContent("35 мин");
   });
@@ -384,8 +383,8 @@ describe("QuestMap — карточки прослушанных подкаст�
   it("карточки — последний слой карты, поверх монстра и всего остального", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 40)])} monsterDrunk />);
 
-    // В SVG нет z-index: кто нарисован позже, тот и сверху. Монстр идёт после остановок, и
-    // внутри своей остановки карточку перекрывал именно он.
+    // SVG has no z-index: whatever is drawn later is on top. The monster comes after the stops, and
+    // inside its own stop it was the one covering the card.
     const svg = document.querySelector("svg.quest-map")!;
     const nodes = Array.from(svg.children);
     const cards = nodes.findIndex((n) => n.classList.contains("quest-cards"));
@@ -401,15 +400,15 @@ describe("QuestMap — карточки прослушанных подкаст�
       <QuestMap items={withEpisodes([episode("Утро", 40), episode("Вечер", 40)])} monsterDrunk={false} />,
     );
 
-    // Остановки подкаста стоят на y=45 (верхний ряд) и y=160 (нижний). Сверху у первой места
-    // нет — карточка вылезала бы за viewBox и её срезало бы краем карты и датой в шапке.
+    // The podcast stops sit at y=45 (top row) and y=160 (bottom). There is no room above the first,
+    // so its card would leave the viewBox and be cut by the map's edge and the header date.
     const [first, second] = screen.getAllByTestId("quest-card").map((card) =>
       Number(card.querySelector("foreignObject")?.getAttribute("y")),
     );
 
     expect(first).toBeGreaterThan(45);
     expect(second).toBeLessThan(160);
-    // И обе — внутри viewBox по вертикали.
+    // And both are inside the viewBox vertically.
     expect(first).toBeGreaterThanOrEqual(0);
     expect(second).toBeGreaterThanOrEqual(0);
   });
@@ -430,7 +429,7 @@ describe("QuestMap — карточки прослушанных подкаст�
 
     expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("30 мин");
     expect(screen.getByTestId("quest-minutes-podcasts-2")).toHaveTextContent("28 мин");
-    // Сумма за сутки под кружками не показывается — она спорила бы с карточкой над ней.
+    // The day's sum is not shown under the circles — it would argue with the card above it.
     expect(screen.queryByText("62 мин")).toBeNull();
   });
 
@@ -448,7 +447,7 @@ describe("QuestMap — карточки прослушанных подкаст�
       />,
     );
 
-    // «12 мин» под незакрытым кружком отвечает, почему порог не взят.
+    // "12 min" under an unclosed circle answers why the threshold was not reached.
     expect(screen.getByTestId("quest-minutes-podcasts-1")).toHaveTextContent("12 мин");
     expect(screen.getByTestId("quest-frac-podcasts-2")).toHaveTextContent("0/2");
   });
@@ -484,22 +483,22 @@ describe("QuestMap — карточки прослушанных подкаст�
     );
 
     expect(screen.getByTestId("quest-episode-retell-1")).toBeInTheDocument();
-    // Источника текста у выпуска может не быть — тогда обещать окно нечем (§5.16.1).
+    // An episode may have no text source, and then there is no window to promise (§5.16.1).
     expect(screen.queryByTestId("quest-episode-retell-2")).toBeNull();
 
     await userEvent.click(screen.getByTestId("quest-episode-retell-1"));
-    // Окно ОДНО на книгу и на выпуск: тот же контур, тот же ответ — расходится только шапка.
+    // ONE window for a book and an episode: the same outline, the same answer, only the header differs.
     expect(screen.getByTestId("summary-modal")).toBeInTheDocument();
     expect(screen.getByTestId("summary-progress")).toHaveTextContent("прослушано за этот заход");
-    // Кусок — той же стрелкой, что проценты книги: окно отвечает на один вопрос одинаково.
+    // The chunk uses the same arrow as a book's percentages: one question, one answer shape.
     expect(screen.getByTestId("summary-progress")).toHaveTextContent("0 → 47 мин");
   });
 });
 
 /**
- * Указатель мыши. React синтезирует `onPointerEnter` из всплывающего `pointerover`, поэтому
- * наведение шлём именно им; `pointerType` в jsdom нет вовсе (PointerEvent не реализован), и
- * компонент трактует его отсутствие как мышь.
+ * A mouse pointer. React synthesises `onPointerEnter` from a bubbling `pointerover`, so hovering is
+ * sent as that; jsdom has no `pointerType` at all (no PointerEvent), and the component reads its
+ * absence as a mouse.
  */
 function hover(el: Element) {
   fireEvent.pointerOver(el);
@@ -507,7 +506,7 @@ function hover(el: Element) {
 function unhover(el: Element) {
   fireEvent.pointerOut(el, { relatedTarget: document.body });
 }
-/** Тап пальцем: `fireEvent` теряет `pointerType` (нет PointerEvent) — доклеиваем его руками. */
+/** A finger tap: `fireEvent` loses `pointerType` (no PointerEvent), so we glue it back on. */
 function tap(el: Element) {
   const ev = new Event("pointerdown", { bubbles: true, cancelable: true });
   Object.defineProperty(ev, "pointerType", { value: "touch" });
@@ -536,7 +535,7 @@ describe("QuestMap — превью обложки у остановки под�
       <QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />,
     );
     expect(screen.getByTestId("quest-preview-podcasts-1")).toBeInTheDocument();
-    // Второй остановке эпизода не досталось — карточки нет, и превью тоже.
+    // The episode's second stop got nothing — no card, and so no preview either.
     expect(screen.queryByTestId("quest-preview-podcasts-2")).toBeNull();
 
     rerender(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
@@ -552,14 +551,14 @@ describe("QuestMap — превью обложки у остановки под�
     const y = Number(fo.getAttribute("y"));
     const size = Number(fo.getAttribute("width"));
 
-    // Остановка подкаста №1 стоит в (140, 45), радиус диска 17.
+    // Podcast stop №1 sits at (140, 45) with a disc radius of 17.
     const [cx, cy] = [140, 45];
-    // Тело превью — выше и левее центра остановки.
+    // The preview's body is above and left of the stop's centre.
     expect(x + size).toBeLessThan(cx);
     expect(y + size).toBeLessThan(cy);
-    // Нижний-правый угол при этом уходит ПОД диск, а не касается его снаружи.
+    // Its bottom right corner goes UNDER the disc rather than touching it from outside.
     expect(Math.hypot(cx - (x + size), cy - (y + size))).toBeLessThan(17);
-    // И целиком внутри viewBox.
+    // And entirely inside the viewBox.
     expect(x).toBeGreaterThanOrEqual(0);
     expect(y).toBeGreaterThanOrEqual(0);
   });
@@ -578,7 +577,7 @@ describe("QuestMap — превью обложки у остановки под�
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
     const card = screen.getByTestId("quest-card");
 
-    // Остановка — переключатель линзы календаря; проход указателя по маршруту карточку не зовёт.
+    // A stop is the calendar lens's switch; a pointer crossing the route does not summon a card.
     hover(screen.getByTestId("quest-stop-podcasts-1"));
     expect(isOpen(card)).toBe(false);
 
@@ -597,7 +596,7 @@ describe("QuestMap — превью обложки у остановки под�
       expect(isOpen(card)).toBe(true);
 
       unhover(preview);
-      // Закрытие отложено: указателю надо успеть доехать до карточки со ссылками.
+      // Closing is delayed: the pointer needs time to reach the card and its links.
       expect(isOpen(card)).toBe(true);
       act(() => {
         vi.runAllTimers();
@@ -700,7 +699,7 @@ describe("QuestMap — линза календаря", () => {
     expect(focused.getAttribute("class")).toContain("quest-stop--focused");
     expect(focused).toHaveAttribute("aria-pressed", "true");
 
-    // первая остановка того же ПУНКТА — отдельная линза, не подсвечена
+    // the same ITEM's first stop is a separate lens and is not highlighted
     const sibling = screen.getByTestId("quest-stop-reading-1");
     expect(sibling).not.toHaveAttribute("data-focused");
     expect(sibling).toHaveAttribute("aria-pressed", "false");
@@ -732,9 +731,9 @@ describe("QuestMap — линза календаря", () => {
 });
 
 /**
- * Обложки книг у остановок чтения (§5.16). Механика общая с подкастами, поэтому здесь только
- * то, чем чтение от них ОТЛИЧАЕТСЯ: стороны у двух остановок разные, а карточка рассказывает
- * про пройденный кусок книги, а не про длительность эпизода.
+ * Book covers at reading stops (§5.16). The mechanics are shared with podcasts, so only the
+ * DIFFERENCES are here: the two stops take different sides, and the card tells about the chunk of
+ * the book covered rather than an episode's duration.
  */
 describe("QuestMap · чтение", () => {
   const book = (title: string, patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
@@ -755,7 +754,7 @@ describe("QuestMap · чтение", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     expect(screen.getByTestId("quest-preview-reading-1")).toBeInTheDocument();
-    // Второй остановке сессии не досталось — карточки нет, и превью тоже.
+    // The session's second stop got nothing — no card, and so no preview either.
     expect(screen.queryByTestId("quest-preview-reading-2")).toBeNull();
   });
 
@@ -769,7 +768,7 @@ describe("QuestMap · чтение", () => {
     const stopOf = (occurrence: number) =>
       screen.getByTestId(`quest-stop-reading-${occurrence}`).querySelector("circle")!;
 
-    // Слева: правый край картинки не заходит правее центра диска. Справа — зеркально.
+    // On the left: the picture's right edge does not pass the disc's centre. Mirrored on the right.
     const first = Number(boxOf(1).getAttribute("x")) + Number(boxOf(1).getAttribute("width"));
     expect(first).toBeLessThan(Number(stopOf(1).getAttribute("cx")));
     expect(Number(boxOf(2).getAttribute("x"))).toBeGreaterThan(Number(stopOf(2).getAttribute("cx")));
@@ -792,16 +791,14 @@ describe("QuestMap · чтение", () => {
     const long = widthOf("Хребты безумия и другие истории о невыразимом ужасе");
 
     expect(short).toBeLessThan(long);
-    // Потолок общий с карточкой подкаста: габариты двух пунктов расходиться не должны.
+    // The ceiling is shared with the podcast card: the two items' sizes must not diverge.
     expect(long).toBe(214);
   });
 
   it("ширину карточки книги оценивает по МОНОШИРИННОЙ доле — им набран весь её текст", () => {
-    // Оценка ширины обязана считать ту же гарнитуру, какой строка будет набрана: название и
-    // автор теперь моноширинные, как на карточке подкаста, а моноширинный знак шире.
-    // 20 знаков названия при кегле 11 и доле 0.7 em/знак = 154; плюс запас 4, поля 6×2,
-    // обложка 30 и зазор 6 => 206. По прежней пропорциональной доле (0.65) вышло бы 195 —
-    // на 11 единиц уже, и название поехало бы бегущей строкой там, где оно влезает.
+    // The width estimate must reckon with the face the line will be SET in: the title and author
+    // are now monospaced like the podcast card's, and a monospaced glyph is wider. With the old
+    // proportional ratio the estimate came out 11 units short and the title scrolled needlessly.
     render(
       <QuestMap items={withBooks([book("АБВГДЕЖЗИКЛМНОПРСТУФ")])} monsterDrunk={false} />,
     );
@@ -822,7 +819,8 @@ describe("QuestMap · чтение", () => {
     );
 
     expect(screen.getByTestId("quest-book-retell-1")).toBeInTheDocument();
-    // Пересказ считается фоном по тексту книги; пока его нет — обещать окно нечем (§5.16).
+    // The retelling is built in the background from the book's text; until it exists there is no
+    // window to promise (§5.16).
     expect(screen.queryByTestId("quest-book-retell-2")).toBeNull();
 
     await userEvent.click(screen.getByTestId("quest-book-retell-1"));
@@ -853,9 +851,9 @@ describe("QuestMap · чтение", () => {
     const cxOf = (occurrence: number) =>
       Number(screen.getByTestId(`quest-stop-reading-${occurrence}`).querySelector("circle")!.getAttribute("cx"));
 
-    // У первой остановки обложка слева — огонёк остаётся справа, как у всех.
+    // The first stop's cover is on the left, so the flame stays on the right, as everywhere.
     expect(xOf("quest-streak-reading-1")).toBeGreaterThan(cxOf(1));
-    // У второй обложка справа, и огонёк уступает ей место, а не прячется под ней.
+    // The second's cover is on the right, and the flame gives way rather than hiding under it.
     expect(xOf("quest-streak-reading-2")).toBeLessThan(cxOf(2));
   });
 
@@ -864,10 +862,10 @@ describe("QuestMap · чтение", () => {
 
     expect(screen.getByTestId("quest-book-title-1")).toHaveTextContent("Хребты безумия");
     expect(screen.getByText("35% → 42%")).toBeInTheDocument();
-    // Цифры подписаны словом — оно объясняет, что это за проценты.
+    // The digits are labelled with a word, which explains what the percentages are.
     expect(screen.getByText(/прочитано/)).toBeInTheDocument();
-    // Часов у чтения нет ни в каком виде: единственное известное нам время — момент синка
-    // полки, то есть конец захода с непредсказуемым лагом (см. `readingCard.ts`).
+    // Reading carries no clock at all: the only time we know is the shelf's sync, that is the end
+    // of a sitting with an unpredictable lag (see `readingCard.ts`).
     expect(screen.queryByText(/19:04/)).toBeNull();
     expect(screen.queryByText(/·/)).toBeNull();
   });
@@ -897,7 +895,7 @@ describe("QuestMap · чтение", () => {
       />,
     );
 
-    // Иначе подпись спорила бы с карточкой прямо над ней (та же оговорка, что у подкастов).
+    // Otherwise the caption would argue with the card right above it (as for podcasts).
     expect(screen.getByText("32 мин")).toBeInTheDocument();
     expect(screen.getByText("26 мин")).toBeInTheDocument();
     expect(screen.queryByText("58 мин")).toBeNull();

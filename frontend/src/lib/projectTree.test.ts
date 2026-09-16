@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { treeBranch } from "./projectTree";
 
 /**
- * Год — корень поддерева своей группы и связан с ним ГОРИЗОНТАЛЬЮ (DESIGN §7.8): ствол
- * начинается на уровне года и идёт вниз, выше него вертикали нет вовсе. Отсюда четыре вида.
+ * A year is the root of its group's subtree and is joined to it by a HORIZONTAL (DESIGN §7.8): the
+ * trunk starts at the year's level and goes down, with no vertical above it. Hence four kinds.
  */
 describe("treeBranch", () => {
   it("первая строка года — голова: ствол начинается от года и уходит вниз", () => {
@@ -18,14 +18,14 @@ describe("treeBranch", () => {
     expect(treeBranch(2, 3)).toBe("corner");
   });
 
-  /** Единственный проект года: вертикали взяться неоткуда — от года к строке одна прямая. */
+  /** A year's only project: there is no vertical to draw — one straight line from year to row. */
   it("единственный проект года — без ствола", () => {
     expect(treeBranch(0, 1)).toBe("only");
   });
 
-  // Угол считается по ВСЕЙ группе, а не по видимому окну (DESIGN §7.8): при прокрутке
-  // настоящий последний уезжает под срез, и видимые строки честно остаются тройниками —
-  // ровно это и означает «дерево продолжается за краем».
+  // The elbow is computed over the WHOLE group, not the visible window (DESIGN §7.8): while
+  // scrolling, the real last row goes under the cut and the visible rows honestly stay tees —
+  // which is exactly what "the tree continues past the edge" means.
   it("за пределами окна прокрутки угол остаётся у настоящего последнего", () => {
     expect(treeBranch(2, 5)).toBe("tee");
     expect(treeBranch(4, 5)).toBe("corner");

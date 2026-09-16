@@ -8,72 +8,44 @@ interface RideMapProps {
   startLon: number;
   finishLat: number;
   finishLon: number;
-  /** Активная волна — выбирает набор пиксельных пинов (RIDE_PINS). */
+  /** The active wave, which picks the set of pixel pins (RIDE_PINS). */
   wave?: string | null;
   /**
-   * Интерактивная карта: её водят, приближают и наводятся на пины (адрес станции подсказкой).
-   * Включается только там, где карта не обёрнута в кликабельную кнопку (модалка). В тайле
-   * остаётся `false` — карта статична (`pointer-events:none`), клик уходит на кнопку
-   * «открыть карту».
+   * An interactive map: it can be panned, zoomed and hovered for a station's address. Only enabled
+   * where the map is not wrapped in a clickable button. In the tile it stays `false` — the map is
+   * static and the click belongs to the "open the map" button.
    */
   interactivePins?: boolean;
-  /** Адрес старта — подсказка на старт-пине (только при `interactivePins`). */
+  /** Start address — a hint on the start pin, only with `interactivePins`. */
   startLabel?: string | null;
-  /** Адрес финиша — подсказка на финиш-пине (только при `interactivePins`). */
+  /** Finish address — a hint on the finish pin, only with `interactivePins`. */
   finishLabel?: string | null;
   /**
-   * Карта показала местность, а не пустой бокс. Нужно тому, кто ЖДЁТ карту, прежде чем что-то
-   * с ней делать: проявка (DESIGN §7.5) везёт карту из плитки в модалку, и стартовать полёт до
-   * первого кадра значило бы гнать через экран пустой прямоугольник. Не приходит вовсе, если
-   * карта так и не поднялась, — вызывающий обязан иметь план на этот случай (у проявки он свой:
-   * потолок ожидания в [useDropMorph]).
+   * The map is showing terrain, not an empty box. Needed by whoever WAITS for it: the develop
+   * transition carries the map from tile to modal, and starting the flight before the first frame
+   * would fly an empty rectangle across the screen. It never fires if the map failed to start.
    */
   onReady?: () => void;
   /**
-   * Сколько пикселей сверху карты занято чем-то поверх неё (полоса данных в редакции `map`).
-   * Кадрирование уводит маршрут из-под этой полосы: иначе длинная поездка уезжала бы стартовым
-   * пином под текст. Число приходит ЗАМЕРОМ полосы, а не константой: её высоту задаёт CSS
-   * (`--ride-band-*`), и второй копии этих пикселей в коде быть не должно.
+   * How many pixels at the top of the map are covered by something over it. Framing lifts the
+   * route out from under that band, or a long ride would push its start pin beneath the text. The
+   * number arrives MEASURED, not as a constant: CSS owns that height and must own it alone.
    */
   padTop?: number;
   className?: string;
 }
 
 /**
- * Мини-карта поездки Велобайк (PRD §9 B4, DESIGN §7.6). Геоданных только две точки — старт и
- * финиш (трека маршрута API не отдаёт), поэтому рисуем два маркера и **пунктирную дугу** между
- * ними — честно «связь A→B», не пройденный путь.
- *
- * Рисует **MapLibre GL** по векторному стилю. Растровые подложки (готовые картинки тайлов) под
- * Leaflet пройдены и сняты: бесплатных тёмных растровых канв без ключа по факту одна, её
- * приходилось досаживать CSS-фильтром, и карта выходила не тёмной, а затемнённой. Вектор решает
- * это в корне — стиль наш, а не «то единственное, что отдали без ключа».
- *
- * Маркеры зависят от волны: у волн из RIDE_PINS (напр. wave-01) — пиксельные пины-спрайты
- * (старт = велосипед, финиш = клетчатый флаг, DESIGN §12), извлечённые под скин; иначе — базовый
- * фолбэк из двух кружков (старт зелёный, финиш красный). Пин якорится острым кончиком в точку.
- *
- * Библиотека грузится динамически в эффекте (SSR-safe, только в браузере). Карта в ПЛИТКЕ
- * намеренно статична — там она виджет и целиком кнопка; в ОКНЕ (`interactivePins`) её водят
- * и приближают.
- *
- * Линия старт→финиш — **пологая пунктирная дуга** (квадратичная Безье), а не прямая: живее
- * читается и честно остаётся «связью A→B», не выдавая себя за пройденный маршрут (трека нет).
+ * The Velobike ride mini-map. There are only two points — start and finish, as the API gives no
+ * track — so it draws two markers and a DASHED ARC between them: honestly "A to B", not a path
+ * travelled. Rendered by MapLibre GL from a vector style. DESIGN §7.6
  */
 const ARC_COLOR = "#c2603f";
 
 /**
- * Пиксельные пины по волнам (DESIGN §12). На мини-карте пин крошечный (~34px), поэтому спрайты
- * нарочно **упрощены под размер** (optical sizing): сплошная капля + один жирный белый глиф
- * (старт = колесо-нод к велосипеду, финиш = клетчатый флаг), без внутреннего кружка и тонких
- * деталей — детальные версии (`*-detailed.png`) лежат рядом под будущую крупную карту. Размеры —
- * под аспект авторской сетки 15×19 (кончик капли — снизу-по-центру). `ride-pin-icon` в
- * `common.css` даёт `image-rendering: pixelated` (чёткие пиксели при масштабе).
- *
- * Размер пина НАМЕРЕННО оставлен фиксированным и не переведён на доли (DESIGN §8.1), хотя
- * остальной борд переведён: эти спрайты нарисованы именно под ~34px и упрощены под него.
- * Растянуть их вместе с картой — значит показать крупным планом упрощение, ради которого
- * они и рисовались. Пропорциональность тут решается подменой ассета, а не масштабом.
+ * Pixel pins per wave. On a mini-map a pin is tiny, so the sprites are deliberately SIMPLIFIED for
+ * that size; detailed versions wait beside them for a future large map. Their size stays FIXED
+ * rather than fractional — stretching them would show off the simplification. DESIGN §12
  */
 interface PinSpec {
   url: string;
@@ -88,54 +60,32 @@ const RIDE_PINS: Record<string, { start: PinSpec; finish: PinSpec }> = {
 };
 
 /**
- * Подложка карты — ОДНА на все волны, на плитку и на модалку. Разные стили в плитке и в окне
- * развалили бы проявку (§7.5): карта вылетает из плитки в окно и на полпути сменила бы шкуру.
- *
- * Светлая: волна вправе одеть вокруг карты что угодно, но сама карта читается тем лучше, чем
- * светлее её бумага, — дороги и подписи на ней видно без всматривания даже посреди тёмного
- * холста. Рассмотрено и отклонено: тёмный стиль под тёмную волну
- * (VersaTiles «eclipse») — чёрный фон с золотыми магистралями забирал внимание себе и оставлял
- * от города одни проспекты.
- *
- * Стиль — VersaTiles по данным OpenStreetMap: бесплатно, без ключа и без лимитов. И это не
- * мелочь: у 2ГИС, Яндекса и Google показ карты идёт по подписке за вызовы (у 2ГИС библиотека
- * MapGL бесплатна, а тайлы к ней — отдельная подписка; бесплатен только iframe-виджет, на
- * котором своей линии пути не нарисовать). CARTO, откуда подложка приезжала раньше, с 2025-го
- * отдаёт тайлы с водяным знаком «API KEY REQUIRED» (docs/pitfalls.md).
- *
- * «colorful» — тёплый светлый стиль (фон rgb(249,244,238)), близкий к бумаге волн 01/02.
+ * The map's base layer, ONE for every wave, tile and modal alike — different styles would tear the
+ * develop transition apart mid-flight. Light on purpose, and free of keys or limits: VersaTiles on
+ * OpenStreetMap data. A dark style was considered and rejected. DESIGN §7.6
  */
 const MAP_STYLE = "https://tiles.versatiles.org/assets/styles/colorful/style.json";
 
 /**
- * Докуда пускаем зум рукой в окне. Вектор рисуется из геометрии, поэтому предел ни во что не
- * упирается — число выбрано по смыслу: 19 это отдельный двор.
+ * How far manual zoom is allowed in the window. The vector is drawn from geometry, so the limit hits
+ * nothing technical — the number is chosen by meaning: 19 is a single courtyard.
  */
 const MAX_ZOOM = 19;
 
 /**
- * Потолок АВТОМАТИЧЕСКОГО кадрирования. Без него поездка «от подъезда до соседнего дома»
- * открывалась бы вплотную к асфальту: рамке из двух точек всё равно, насколько они близко.
+ * Ceiling for AUTOMATIC framing. Without it a ride "from the door to the next building" would open
+ * flat against the asphalt: a box around two points does not care how close they are.
  */
 const FIT_MAX_ZOOM = 16;
 
 /**
- * Адрес воркера MapLibre — и это не украшательство, а условие работы карты.
- *
- * Библиотека разбирает векторные тайлы в ВОРКЕРЕ, и с версии 6 его код лежит отдельными файлами,
- * причём сам воркер импортирует соседний **относительно себя**. Сборщику Next этот граф не виден:
- * он уносит в статику один файл под хэшированным именем, сосед остаётся в `node_modules`, импорт
- * даёт 404 — и воркер молча умирает. Выглядит это как «карта не работает»: фон стиля нарисован,
- * улиц нет, ни одного запроса за тайлами, событие `load` не наступает и ошибок в консоли ноль.
- *
- * Поэтому оба файла кладутся в статику сайта своими именами (`scripts/copy-maplibre-worker.mjs`,
- * хуки `predev`/`prebuild`) — и относительный импорт внутри воркера попадает туда, куда целился.
- * Адрес здесь и путь в том скрипте — одна и та же строка в двух местах; разъедутся — карта
- * погаснет ровно так же тихо (docs/pitfalls.md).
+ * The MapLibre worker's address, and a condition of the map working at all: the worker imports a
+ * sibling file RELATIVE TO ITSELF, which Next's bundler cannot see, so the import 404s and the
+ * worker dies silently — style background, no streets, no errors. See docs/pitfalls.md.
  */
 const WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
 
-/** Точки квадратичной кривой Безье от s к f с контрольной точкой, отведённой перпендикуляром. */
+/** Points of a quadratic Bézier from s to f, with the control point pushed out perpendicular. */
 function arcPoints(s: [number, number], f: [number, number]): [number, number][] {
   const k = 0.18;
   const mLat = (s[0] + f[0]) / 2;
@@ -154,7 +104,7 @@ function arcPoints(s: [number, number], f: [number, number]): [number, number][]
   return pts;
 }
 
-/** Ломаная пар `[lat, lon]` в GeoJSON — там координаты в обратном порядке (`[lon, lat]`). */
+/** A polyline of `[lat, lon]` pairs as GeoJSON, where coordinates run the other way (`[lon, lat]`). */
 function lineOf(points: [number, number][]) {
   return {
     type: "Feature" as const,
@@ -164,17 +114,9 @@ function lineOf(points: [number, number][]) {
 }
 
 /**
- * Кнопка «вернуть кадр» — третья в столбике зумера (только в окне, где карту вообще можно
- * увести). Карту подвинули пальцем или колесом — один жест возвращает её к кадрированию самой
- * поездки, тому же, с которого окно открылось; искать свой маршрут обратно вручную не приходится.
- *
- * Контрол самодельный: у MapLibre из коробки есть зумер, компас и полный экран, а «вернуть
- * кадр» знает только вызывающий — кадрирование считает [RideMap] по точкам поездки. Класс группы
- * взят у зумера (`maplibregl-ctrl-group`), поэтому кнопка одевается теми же токенами волны,
- * что и `+`/`−` (common.css), а не заводит себе второй вид.
- *
- * Возврат ЛЕТИТ (в отличие от пересчёта на ресайз, который мгновенный): прыжок с чужого куска
- * города на свой читался бы сменой карты, а полёт показывает, куда именно тебя вернули.
+ * The "reset view" button, third in the zoom stack and only in the modal, where the map can be
+ * moved at all. It is custom because only the caller knows the framing. The return FLIES, unlike
+ * the instant resize refit: a jump from a strange part of the city would read as a new map.
  */
 function resetViewControl(refit: (duration?: number) => void) {
   return {
@@ -186,9 +128,9 @@ function resetViewControl(refit: (duration?: number) => void) {
       button.className = "ride-map__reset";
       button.title = "Вернуть карту к поездке";
       button.setAttribute("aria-label", "Вернуть карту к поездке");
-      // Значок — прицел: рамка кадра с точкой поездки в центре. Рисуется `currentColor`,
-      // поэтому цвет берётся у кнопки и меняется вместе с волной (у родных кнопок зумера
-      // значок приезжает картинкой-маской, и волна перекрашивает его фильтром).
+      // The glyph is a reticle: a frame with the ride's point at its centre. Drawn in `currentColor`,
+      // so it takes the button's colour and follows the wave (the zoomer's native buttons get their
+      // glyph as a mask image, which a wave recolours with a filter).
       button.innerHTML =
         '<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">' +
         '<path d="M7.5 1.5v2M7.5 11.5v2M1.5 7.5h2M11.5 7.5h2" stroke="currentColor" ' +
@@ -218,15 +160,15 @@ export function RideMap({
 }: RideMapProps) {
   const ref = useRef<HTMLDivElement>(null);
   const interactive = !!interactivePins;
-  // Колбэк — через ссылку: он приходит из рендера вызывающего и меняет идентичность на каждом
-  // из них, а стоя в зависимостях эффекта, пересобирал бы карту целиком на ровном месте.
+  // The callback goes through a ref: it arrives from the caller's render and changes identity on each
+  // one, so standing in an effect's dependencies it would rebuild the whole map for nothing.
   const readyRef = useRef(onReady);
   readyRef.current = onReady;
-  // Резерв под полосой — тоже через ссылку: он меняется с каждым замером полосы, а стоя
-  // в зависимостях эффекта, пересобирал бы карту на каждое изменение размера окна.
+  // The reserve under the band goes through a ref too: it changes with every measurement of the band,
+  // and in an effect's dependencies it would rebuild the map on every window resize.
   const padTopRef = useRef(padTop);
   padTopRef.current = padTop;
-  /** Пересчёт кадрирования живой карты — публикуется эффектом сборки, зовётся снаружи. */
+  /** Refit of the live map's framing — published by the build effect, called from outside. */
   const refitRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -238,7 +180,7 @@ export function RideMap({
     let ro: ResizeObserver | null = null;
     let attribWatch: MutationObserver | null = null;
 
-    // Именованные экспорты, а не `default`: у maplibre-gl его нет.
+    // Named exports rather than `default`: maplibre-gl has none.
     import("maplibre-gl").then((maplibregl) => {
       if (cancelled || !ref.current) return;
       maplibregl.setWorkerUrl(WORKER_URL);
@@ -246,11 +188,9 @@ export function RideMap({
       const finish: [number, number] = [finishLat, finishLon];
       const pins = wave ? RIDE_PINS[wave] : undefined;
 
-      // Карта в ПЛИТКЕ статична — это виджет, а не атлас: она вся одна кнопка, и жест по ней
-      // обязан открывать окно, а не двигать подложку. В ОКНЕ наоборот: там карту водят и
-      // приближают, и вместе с этим появляются зумер и подпись поставщика —
-      // без атрибуции интерактивную карту показывать нельзя, а на плитке она была бы мусором
-      // в углу виджета.
+      // In the TILE the map is static — it is a widget, not an atlas, and the whole thing is one
+      // button. In the MODAL it pans and zooms, and the zoom control and provider attribution
+      // appear with that: an interactive map may not be shown without attribution.
       map = new maplibregl.Map({
         container: el,
         style: MAP_STYLE,
@@ -259,15 +199,13 @@ export function RideMap({
         maxZoom: MAX_ZOOM,
         interactive,
         attributionControl: interactive ? { compact: true } : false,
-        // Поворот и наклон выключены НАВСЕГДА, в обоих режимах: борд смотрит на карту сверху,
-        // как на схему, и накренившийся город читался бы сбоем, а не возможностью.
+        // Rotation and tilt are off FOREVER, in both modes: the board looks at the map from above,
+        // as at a diagram, and a tilted city would read as a fault rather than a feature.
         dragRotate: false,
         pitchWithRotate: false,
-        // ⚠️ `preserveDrawingBuffer` — без него карта на экране есть, а на СНИМКЕ пусто: по
-        // умолчанию WebGL сбрасывает буфер сразу после вывода кадра, и всё, что снимает страницу
-        // со стороны (визуальная регрессия Playwright, превью, скриншот браузером), получает
-        // прозрачный прямоугольник. Плата — держать кадр в памяти GPU; на двух маленьких картах
-        // это ничто. Антиалиасинг включаем заодно: без него косые улицы идут лесенкой.
+        // `preserveDrawingBuffer`: without it the map is on screen but blank in any SNAPSHOT —
+        // WebGL drops the buffer right after presenting a frame, so visual regression and browser
+        // screenshots get a transparent rectangle. Antialiasing goes with it, or streets stair-step.
         canvasContextAttributes: { preserveDrawingBuffer: true, antialias: true },
       });
       if (interactive) {
@@ -275,18 +213,9 @@ export function RideMap({
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
       }
 
-      // Подпись поставщика — СВЁРНУТА в кружок «i», и ссылки из неё уходят в новую вкладку
-      //. Оба поведения приходится доводить руками:
-      //   · `compact: true` у maplibre означает «есть кнопка сворачивания», а не «свёрнута»:
-      //     контрол создаётся сразу с классом `maplibregl-compact-show` и атрибутом `open`,
-      //     то есть развёрнутым, и схлопывается только на первое касание карты. На плитке-окне
-      //     это строка текста поверх города в момент открытия;
-      //   · ссылки приезжают HTML-строкой из самого стиля, без `target` — клик по
-      //     «OpenStreetMap contributors» уводил бы со страницы, а борд остаётся на месте.
-      // Наблюдатель нужен потому, что список источников пересобирается на каждое изменение
-      // стиля: без него свежая разметка приезжала бы снова развёрнутой и снова без `target`.
-      // Слушаем только состав детей — атрибуты правим сами, и ответ на собственную правку
-      // закольцевал бы наблюдателя.
+      // The provider attribution is COLLAPSED to an "i" and its links open in a new tab; both have
+      // to be forced. `compact: true` means "has a collapse button", not "is collapsed", and the
+      // links arrive as an HTML string from the style with no `target`. An observer redoes both.
       const attrib = el.querySelector(".maplibregl-ctrl-attrib");
       if (attrib) {
         const tame = () => {
@@ -309,24 +238,21 @@ export function RideMap({
         return b;
       };
 
-      // Кадрирование пересчитываем на КАЖДОЕ изменение размера контейнера, а не только при
-      // маунте (DESIGN §8.1). Зум — это «сколько метров в пикселе»: подобранный под один размер,
-      // он при росте контейнера оставляет тот же масштаб и просто показывает больше пустой карты
-      // вокруг — точки разъезжаются к центру и карта «отдаляется». Ровно это видно при
-      // уменьшении масштаба браузера и на большом мониторе. Повторный fitBounds держит
-      // одинаковое КАДРИРОВАНИЕ (точки занимают ту же долю карты) на любом размере.
+      // Framing is recomputed on EVERY container resize, not just on mount. Zoom means "metres per
+      // pixel": tuned for one size, a bigger container keeps the scale and merely shows more empty
+      // map, so the points drift together. A repeated fitBounds keeps the FRAMING constant. §8.1
       const refit = (duration = 0) => {
         if (!map) return;
         map.resize();
         const box = el.getBoundingClientRect();
         if (box.width < 40 || box.height < 40) return;
-        // Воздух вокруг маршрута — доля от кадра, а не пиксели: на плитке и в окне он должен
-        // читаться одинаково. Сверху добавляются полоса данных (`padTop`) и рост пина: пиксельный
-        // пин висит головой НАД точкой, и без запаса его срезала бы верхняя кромка.
+        // Air around the route is a share of the frame rather than pixels, so it reads the same on the
+        // tile and in the window. The data band (`padTop`) and the pin's height are added on top: a
+        // pixel pin hangs its head ABOVE its point and the top edge would cut it without the slack.
         const breathe = Math.min(box.width, box.height) * 0.14;
         const top = breathe + (padTopRef.current ?? 0) + (pins ? 34 : 0) + (interactive ? 18 : 0);
-        // Потолок отступов: кадрировать в отрицательный остаток нельзя, а на узкой плитке
-        // сумма запросто съела бы весь кадр.
+        // Ceiling on the padding: framing into a negative remainder is impossible, and on a narrow
+        // tile the sum could easily eat the whole frame.
         const capY = box.height * 0.4;
         const capX = box.width * 0.4;
         map.fitBounds(bounds(), {
@@ -349,7 +275,7 @@ export function RideMap({
           type: "line",
           source: "arc",
           layout: { "line-cap": "round", "line-join": "round" },
-          // Штрих задаётся в ТОЛЩИНАХ линии, а не в пикселях: 4/5 px при толщине 2.5 — это 1.6/2.
+          // The dash is given in LINE WIDTHS, not pixels: 4/5 px at a width of 2.5 means 1.6/2.
           paint: {
             "line-color": ARC_COLOR,
             "line-width": 2.5,
@@ -362,11 +288,9 @@ export function RideMap({
       });
 
       /**
-       * Маркер с подсказкой-адресом на наведение (только в интерактивном режиме и если адрес
-       * есть). `anchor` — чем именно узел стоит на точке: у пиксельного пина это острый кончик
-       * (`bottom`), у кружка-фолбэка его собственный центр (`center`).
-       * ⚠️ Сдвигать узел своим `transform` нельзя: карта пишет `transform` маркеру сама на
-       * каждом кадре и любой наш затрёт. Место задаётся только `anchor`/`offset`.
+       * A marker with an address tooltip on hover. `anchor` is what actually stands on the point —
+       * the pixel pin's sharp tip, or a fallback circle's centre. Shifting the node with our own
+       * `transform` is impossible: the map rewrites a marker's `transform` every frame.
        */
       const addMarker = (
         p: [number, number],
@@ -389,7 +313,7 @@ export function RideMap({
       };
 
       if (pins) {
-        // Пиксельные пины: якорь — острый кончик (снизу-по-центру), голова возвышается над точкой.
+        // Pixel pins: the anchor is the sharp tip (bottom centre) and the head rises above the point.
         const addPin = (p: [number, number], spec: PinSpec, label: string | null | undefined) => {
           const img = document.createElement("img");
           img.src = spec.url;
@@ -413,8 +337,8 @@ export function RideMap({
       }
 
       refitRef.current = refit;
-      // Контрол ставится ПОСЛЕ зумера и тоже слева сверху — контролы одного угла ложатся
-      // столбиком в порядке добавления, и «вернуть кадр» встаёт под `+`/`−`, как просили.
+      // The control is added AFTER the zoomer and also top-left: controls in one corner stack in the
+      // order they are added, so "reset the view" lands under `+`/`−`, as asked.
       if (interactive) map.addControl(resetViewControl(refit), "top-left");
       refit();
 
@@ -433,22 +357,22 @@ export function RideMap({
     };
   }, [startLat, startLon, finishLat, finishLon, wave, interactive, startLabel, finishLabel]);
 
-  // Полосу замерили (или она подросла) — перекадрируем уже собранную карту, не пересобирая её.
+  // The band has been measured (or has grown), so the assembled map is reframed without a rebuild.
   useEffect(() => {
     refitRef.current?.();
   }, [padTop]);
 
-  // isolation:isolate — собственный stacking context: внутренние z-index карты иначе «протекают»
-  // до корня и рисуются ПОВЕРХ модалок (z-50). Изоляция замыкает их внутри тайла, и любой
-  // fixed-оверлей остаётся выше карты.
+  // `isolation: isolate` gives a stacking context of its own: the map's internal z-indexes otherwise
+  // leak to the root and paint OVER modals (z-50). Isolation locks them inside the tile, so any fixed
+  // overlay stays above the map.
   return (
     <div
       ref={ref}
-      // `ride-map` — постоянная зацепка для скина волны. Место в раскладке остаётся за
-      // `className` вызывающего.
+      // `ride-map` is the permanent hook for a wave's skin. Placement in the layout stays with the
+      // caller's `className`.
       className={className ? `ride-map ${className}` : "ride-map"}
-      // pointer-events: в тайле none — карта статична, клик проходит сквозь неё к кнопке «открыть
-      // карту». В интерактивном режиме (модалка) auto — карту водят, а пины ловят наведение.
+      // pointer-events: `none` in the tile, where the map is static and a click passes through it to
+      // the "open the map" button; `auto` in the modal, where the map is dragged and pins catch hover.
       style={{
         width: "100%",
         height: "100%",

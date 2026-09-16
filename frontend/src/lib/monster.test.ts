@@ -13,12 +13,12 @@ describe("вердикт монстра", () => {
   });
 
   it("цвета — разные токены, а не два оттенка тревоги", () => {
-    // Регрессионный якорь: «не пил» когда-то шёл --accent, а на волне 01 это #e2604c —
-    // почти тот же тон, что --danger. Состояния различались одним словом.
+    // A regression anchor: "not drunk" once took --accent, which on wave 01 is nearly the same
+    // tone as --danger. The states differed by one word.
     expect(monsterVerdict(false).color).toContain("--accent-clean");
     expect(monsterVerdict(true).color).toContain("--danger");
-    // И зелёный не одолжен у чужой роли: --accent-code это канал вкладов GitHub,
-    // --success держит связи тропы (см. DESIGN §3.2).
+    // Nor is the green borrowed from another role: --accent-code is the GitHub channel and
+    // --success holds the trail's links (DESIGN §3.2).
     expect(monsterVerdict(false).color).not.toContain("--accent-code");
     expect(monsterVerdict(false).color).not.toContain("--success");
   });
@@ -29,8 +29,8 @@ describe("вердикт монстра", () => {
   });
 
   it("нет данных за день — вердикта НЕТ, а не «не пил» по умолчанию", () => {
-    // Дефолтное «не пил» выдавало отсутствие записи за факт: у будущего дня и у дырки
-    // в записи монстра никто не отмечал, а борд утверждал, что день был чистый.
+    // Defaulting to "not drunk" passed an absent record off as a fact: nobody marked the monster
+    // on a future day or a hole, while the board claimed the day was clean.
     const unknown = monsterVerdict(null);
     expect(unknown.tone).toBe("unknown");
     expect(unknown.verb).toBeNull();

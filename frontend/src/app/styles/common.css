@@ -2684,7 +2684,8 @@ button.sleep-echo {
 @media (prefers-reduced-motion: reduce) {
   .sleep-echo__col,
   .sleep-echo__trace,
-  .sleep-echo.is-timed .sleep-echo__trace {
+  .sleep-echo.is-timed .sleep-echo__trace,
+  .sleep-echo__mode {
     transition: none;
   }
 }
@@ -2790,31 +2791,59 @@ button.sleep-echo {
   white-space: nowrap;
   flex: 0 0 auto;
 }
-/* Слово режима — СОСТОЯНИЕ, а не кнопка: кнопка тут вся плитка. Пунктир под ним оставлен
-   ровно затем, чтобы это состояние читалось переключаемым. */
-.sleep-echo__mode {
-  font-family: var(--font-mono);
-  font-size: var(--fs-band-meta);
-  color: var(--accent);
-  line-height: 1.2;
-  white-space: nowrap;
+/* Переключатель режима — пара миниатюр самих режимов, а не пара слов (см. `ModeSwitch`):
+   каждая показывает рисунок, который получится, и подсвечена текущая. Сегменты — не кнопки,
+   кнопка тут вся плитка, поэтому и наведения у них своего нет: подсветку двигает состояние. */
+.sleep-echo__modes {
+  display: inline-flex;
+  align-self: center;
   flex: 0 0 auto;
-  border-bottom: 1px dotted currentColor;
+  gap: 1px;
+  padding: 1px;
+  border: 1px solid var(--border-tile);
+  border-radius: 5px;
+  /* Миниатюра — единственное содержимое сегмента, и собственная межстрочная высота инлайна
+     добавляла бы под ней пустую полоску, из-за которой пара не встаёт по центру строки. */
+  line-height: 0;
 }
-.sleep-echo__meta {
-  margin-left: auto;
-  /* Каждая строка — свой элемент, а не перенос через `<br>`: строки тут разные данные
-     («лёг–встал» и «не спал»), и любая из них может отсутствовать сама по себе. */
+.sleep-echo__mode {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  padding: 3px 4px;
+  border-radius: 3px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+  transition: color 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+.sleep-echo__mode[data-on="true"] {
+  color: var(--accent);
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.sleep-echo__glyph {
+  display: block;
+  width: 14px;
+  height: 10.5px;
+  fill: currentColor;
+}
+.sleep-echo__glyph polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* Рамка ночи — «лёг → встал». Стоит на строке той длительности, которую и задаёт: это одно
+   и то же число, сказанное дважды, и разносить их по разным строкам незачем. В хронологии
+   она заодно работает подписями концов оси. */
+.sleep-echo__times {
+  margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--fs-band-meta);
   line-height: 1.35;
   color: var(--text-tertiary);
   text-align: right;
   white-space: nowrap;
-  /* Место в строке уступает МЕТА-часть: усечённое «лёг–встал» всё ещё читается, усечённая
+  /* Место в строке уступает рамка: усечённое «лёг → встал» всё ещё читается, усечённая
      длительность ночи — нет. */
   flex: 0 1 auto;
   min-width: 0;
@@ -2825,7 +2854,7 @@ button.sleep-echo {
 .sleep-echo__phases {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.2em 0.9em;
+  gap: 0.2em 0.6em;
   font-family: var(--font-mono);
   font-size: var(--fs-band-meta);
   line-height: 1.25;

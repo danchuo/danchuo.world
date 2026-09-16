@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PhotoDropsTile } from "./PhotoDropsTile";
 
@@ -92,6 +92,11 @@ describe("PhotoDropsTile (компактная лента)", () => {
     const { container } = render(<PhotoDropsTile orientation="horizontal" />);
     await screen.findByText("Июльская плёнка");
 
+    // Обработчик колеса навешивает эффект, а пассивные эффекты React доезжают своей задачей:
+    // `findByText` ловит текст по мутации DOM и вправе вернуться РАНЬШЕ, чем полка начнёт
+    // слушать колесо. Пустой `act` дожидается этого явно — иначе тест ловит гонку и падает
+    // под нагрузкой (полка «не листается», scrollLeft остаётся нулём).
+    await act(async () => {});
     const shelf = container.querySelector("ul")!;
     // jsdom не считает раскладку — подставляем переполнение, чтобы полке было куда листаться.
     Object.defineProperty(shelf, "scrollWidth", { configurable: true, value: 500 });

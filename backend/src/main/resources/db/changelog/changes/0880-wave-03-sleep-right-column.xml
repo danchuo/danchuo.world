@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: «эхолот» переезжает в правую колонку — под Spotify и над переключателем волн
+      (DESIGN §10.2). Колонки 31..40 (ширина музыкальной плитки), строки 11..16.
+
+      Строки выбраны так, чтобы воздух остался ТРЕКОМ, а не зазором сетки: музыка кончается
+      на 9-й, переключатель начинается на 18-й, и пустые треки 10 и 17 держат полосы сверху
+      и снизу. Строка 17 под промер не берётся намеренно — иначе сон упёрся бы в переключатель
+      через один четырёхпиксельный gap, тогда как у всех соседей на борде между плитками
+      лежит целый трек.
+
+      Пропорция становится более лежачей (около 2.1 против прежних 1.45): промер размечен
+      на спуск слева направо, и лишняя ширина ему в плюс, а высоту у полосы подписи
+      возвращает её собственная редакция.
+    -->
+    <changeSet id="0880-wave-03-sleep-right-column" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,sleep}',
+  (layout->'tiles'->'sleep') || '{"col": 31, "row": 11, "colSpan": 10, "rowSpan": 6}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,sleep}',
+  (layout->'tiles'->'sleep') || '{"col": 19, "row": 12, "colSpan": 8, "rowSpan": 7}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

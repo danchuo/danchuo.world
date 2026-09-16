@@ -2348,6 +2348,11 @@ body {
 :root {
   --fs-band-title: clamp(11px, calc(6.5px + 1.745cqw), 28px);
   --fs-band-meta: clamp(9px, calc(5.5px + 1.475cqw), 24px);
+  /* Доминанта полосы сна — крупнее её заголовочной ступени примерно вполтора: длительность
+     ночи держит плитку одна, остальное в полосе при ней уточнение (§7.7). Доля от ширины,
+     а не пиксели, — но опора у неё живая: плитка сна на волне 03 сузилась, и коэффициент
+     подобран так, чтобы число на ней осталось того же размера, что до сужения. */
+  --fs-sleep-total: clamp(17px, calc(8px + 3.4cqw), 40px);
 }
 .t-drop-vars {
   --fs-drop-title: var(--fs-band-title);
@@ -2605,8 +2610,9 @@ body {
    прогрессивного блюра — тот же приём, что у подписи кадра (`.drop-frame__band`) и у данных
    поездки на карте (`.ride-frame__band`).
 
-   Переключатель режима — вся плитка целиком (см. `.sleep-echo` ниже): ссылка в углу спорила
-   бы с рисунком, а второго жеста у плитки нет. Геометрия столбов при этом НЕ меняется —
+   Переключатель режима — вся плитка целиком (см. `.sleep-echo` ниже): второго жеста у неё
+   нет, а пара миниатюр в конце строки с длительностью лишь показывает текущий вид, не
+   притворяясь плашкой управления. Геометрия столбов при этом НЕ меняется —
    сумма это `transform` на тех же столбах (см. `sleepEcho.ts`), поэтому переход между
    режимами играет CSS, а не покадровый пересчёт, и площадь цвета сохраняется по построению. */
 .sleep-card--echo {
@@ -2614,12 +2620,29 @@ body {
   padding: 0;
 }
 .sleep-echo {
+  --sleep-plot-lift: 4%;
+  --sleep-mode-gap: 2px;
+  --sleep-duration-gap: 8px;
+  /* Ряды суммы растягиваются НА ОДИН МАСШТАБ: пропорции фаз между собой — то, ради чего сумма
+     и нарисована, поэтому тянутся все четыре или ни один. Рост упирается в `limit` — долю
+     ширины, за которой длинному ряду уже не хватит места на подпись и угловой переключатель. */
+  --sleep-summary-grow: 1.2;
+  /* Потолок считан от того, что стоит СПРАВА от ряда: зазор, длительность и прижатое к краю
+     имя фазы. Худший случай — ночь из одной фазы («11ч 57м» при имени в четыре знака):
+     на опорной ширине плитки ему остаётся ровно эта доля. Поднять потолок — и подпись
+     самого длинного ряда наедет на имя. */
+  --sleep-summary-limit: 0.68;
+  --sleep-summary-scale: min(var(--sleep-summary-grow), calc(var(--sleep-summary-limit) / var(--sleep-summary-extent, 1)));
   /* Геометрия полосы подписи объявлена ЗДЕСЬ, а не на самой полосе: от этих же чисел
      считаются маски блюра, а слои блюра лежат снаружи полосы (см. ниже) и её высоту узнать
      не могут. `--sleep-band-solid` — плотная зона от нижнего края, `--sleep-band-feather` —
      длина растушёвки над ней. */
   --sleep-band-solid: 26px;
   --sleep-band-feather: 34px;
+  /* Боковой отступ полосы. Одно число на полосу и на имена фаз у правого края: разойдясь,
+     они перестают стоять в одну вертикаль, и легенда рядов съезжает относительно легенды
+     хронологии — той же легенды, только в полосе. */
+  --sleep-band-inset: 14px;
   /* Контейнер размера для кеглей полосы (`--fs-band-*`, §8.1): без него `cqw` считается от
      вьюпорта и подпись на маленькой плитке выходит во весь экран. */
   container-type: inline-size;
@@ -2639,6 +2662,54 @@ body {
 }
 button.sleep-echo {
   cursor: pointer;
+}
+button.sleep-echo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.sleep-echo__plot {
+  position: absolute;
+  inset: 0;
+  transform: translateY(calc(-1 * var(--sleep-plot-lift)));
+  pointer-events: none;
+}
+.sleep-echo__columns {
+  transform: scaleX(var(--sleep-summary-scale));
+  transform-origin: 0 0;
+  transition: transform var(--sleep-echo-ms, 720ms) var(--sleep-echo-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+.sleep-echo.is-timed .sleep-echo__columns {
+  transform: scaleX(1);
+}
+.sleep-echo__durations {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 160ms ease var(--sleep-echo-ms, 720ms), visibility 0s linear var(--sleep-echo-ms, 720ms);
+}
+.sleep-echo.is-timed .sleep-echo__durations {
+  opacity: 0;
+  visibility: hidden;
+  transition: none;
+}
+.sleep-echo__duration,
+.sleep-echo__name {
+  position: absolute;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  line-height: 1.25;
+  /* Цвет фазы приезжает от обёртки ряда (см. `Sounding`) — и числу, и имени он один. */
+  color: currentColor;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Имя фазы прижато к краю плитки, а не идёт за числом: у четырёх рядов разной длины имена,
+   выстроенные в столбик, читаются легендой, а разбросанные за числами — четырьмя подписями. */
+.sleep-echo__name {
+  right: var(--sleep-band-inset);
+  /* Тусклее числа: в строке первым обязано читаться число, имя при нём — подпись. В хронологии
+     тот же цвет идёт в полную силу — там он в легенде работает данными. */
+  opacity: 0.55;
 }
 .sleep-echo__sounding {
   position: absolute;
@@ -2683,6 +2754,8 @@ button.sleep-echo {
 }
 @media (prefers-reduced-motion: reduce) {
   .sleep-echo__col,
+  .sleep-echo__columns,
+  .sleep-echo__durations,
   .sleep-echo__trace,
   .sleep-echo.is-timed .sleep-echo__trace,
   .sleep-echo__mode {
@@ -2704,7 +2777,7 @@ button.sleep-echo {
   gap: 0.3em;
   /* Верх полосы над подписью; ниже растушёвки блюр и скрим уже полные. Высота полосы
      = растушёвка + сама подпись, поэтому длинная подпись углубляет её сама, без замеров. */
-  padding: var(--sleep-band-feather) 14px 12px;
+  padding: var(--sleep-band-feather) var(--sleep-band-inset) 12px;
   pointer-events: none;
 }
 /* Скрим под текстом — псевдоэлементом НАД слоями блюра и под содержимым полосы. Тихий:
@@ -2785,23 +2858,51 @@ button.sleep-echo {
 /* Длительность ночи — единственный крупный знак на плитке: на вопрос «как я спал» отвечает
    она, а фазы при ней уточнение. Не переносится и не ужимается. */
 .sleep-echo__total {
-  font-size: var(--fs-band-title);
+  /* Своя ступень кегля, крупнее полосы: на вопрос «как я спал» отвечает это число, и в полосе
+     оно обязано читаться первым, а не наравне с рамкой ночи и фазами. */
+  font-size: var(--fs-sleep-total);
   color: var(--text-primary);
   line-height: 1.2;
   white-space: nowrap;
   flex: 0 0 auto;
 }
-/* Переключатель режима — пара миниатюр самих режимов, а не пара слов (см. `ModeSwitch`):
-   каждая показывает рисунок, который получится, и подсвечена текущая. Сегменты — не кнопки,
-   кнопка тут вся плитка, поэтому и наведения у них своего нет: подсветку двигает состояние. */
-.sleep-echo__modes {
-  display: inline-flex;
+/* Луна над ночью — знак предмета в начале полосы (см. `MoonMark`): слова «сон» у редакции
+   нет, и до знака полоса начиналась прямо с числа. Размер привязан к самому числу, а не задан
+   пикселями: знак стоит при нём и обязан меняться вместе с ним. */
+.sleep-echo__moon {
+  display: block;
+  width: calc(var(--fs-sleep-total) * 0.86);
+  height: calc(var(--fs-sleep-total) * 0.86);
   align-self: center;
   flex: 0 0 auto;
-  gap: 1px;
-  padding: 1px;
-  border: 1px solid var(--border-tile);
-  border-radius: 5px;
+  overflow: visible;
+}
+/* Тёмная сторона — сама Луна в тени, а не пустота: без диска молодой серп на этом размере
+   терялся, а новолуние не рисовалось вовсе. */
+.sleep-echo__moon-disc {
+  fill: var(--text-tertiary);
+  opacity: 0.18;
+}
+.sleep-echo__moon-lit {
+  fill: var(--text-secondary);
+  opacity: 0.9;
+}
+
+/* Переключатель режима — пара миниатюр самих режимов, а не пара слов (см. `ModeSwitch`):
+   каждая показывает рисунок, который получится, и подсвечена текущая. Сегменты — не кнопки,
+   кнопка тут вся плитка, поэтому и наведения у них своего нет: подсветку двигает состояние.
+   Рамки и плашки у пары нет намеренно: в полосе она стоит на том же скриме, что и цифры,
+   и текущий вид называет только акцентный цвет. */
+.sleep-echo__modes {
+  /* Пара стоит В ПОТОКЕ полосы, правым концом строки с длительностью, то есть в нижнем углу
+     плитки. Так она отнимает место у полосы, а не у рисунка: угол промера свободен, подписи
+     рядов идут до самого края, и столкнуться с миниатюрами им уже нечем. Строкой, потому что
+     в полосе свободна именно ширина — высота полосы равна высоте своей подписи. */
+  margin-left: auto;
+  align-self: center;
+  display: inline-flex;
+  gap: var(--sleep-mode-gap);
+  flex: 0 0 auto;
   /* Миниатюра — единственное содержимое сегмента, и собственная межстрочная высота инлайна
      добавляла бы под ней пустую полоску, из-за которой пара не встаёт по центру строки. */
   line-height: 0;
@@ -2809,15 +2910,18 @@ button.sleep-echo {
 .sleep-echo__mode {
   display: flex;
   padding: 3px 4px;
-  border-radius: 3px;
   color: var(--text-tertiary);
-  opacity: 0.5;
-  transition: color 160ms ease, background-color 160ms ease, opacity 160ms ease;
+  opacity: 0.65;
+  transition: color 160ms ease, opacity 160ms ease;
 }
 .sleep-echo__mode[data-on="true"] {
   color: var(--accent);
   opacity: 1;
-  background-color: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+@media (hover: hover) {
+  .sleep-echo__modes:hover .sleep-echo__mode {
+    opacity: 1;
+  }
 }
 .sleep-echo__glyph {
   display: block;
@@ -2832,28 +2936,15 @@ button.sleep-echo {
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* Рамка ночи — «лёг → встал». Стоит на строке той длительности, которую и задаёт: это одно
-   и то же число, сказанное дважды, и разносить их по разным строкам незачем. В хронологии
-   она заодно работает подписями концов оси. */
-.sleep-echo__times {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-band-meta);
-  line-height: 1.35;
-  color: var(--text-tertiary);
-  text-align: right;
-  white-space: nowrap;
-  /* Место в строке уступает рамка: усечённое «лёг → встал» всё ещё читается, усечённая
-     длительность ночи — нет. */
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-}
-/* Доли фаз — они же вечная легенда: цвет подписи и есть цвет горизонта, поэтому отдельной
-   легенды у промера нет вовсе и её место досталось рисунку. */
+/* Вторая строка полосы — легенда хронологии, и она же несёт концы оси. Цвет пункта и есть
+   цвет горизонта, поэтому отдельной легенды у промера нет вовсе. */
 .sleep-echo__phases {
   display: flex;
-  flex-wrap: wrap;
+  /* Строка обязана быть ОДНОЙ: её концы — начало и конец ночи, и перенос ронял пробуждение
+     под легенду, то есть на другой уровень, чем начало. Поэтому в ней ровно три доли, а
+     пробуждения из неё убраны (см. `Sounding`); что строка укладывается, проверяет e2e. */
+  flex-wrap: nowrap;
+  align-items: baseline;
   gap: 0.2em 0.6em;
   font-family: var(--font-mono);
   font-size: var(--fs-band-meta);
@@ -2861,6 +2952,19 @@ button.sleep-echo {
 }
 .sleep-echo__phase {
   white-space: nowrap;
+}
+/* «Лёг» и «встал» — концы оси, а не строка со стрелкой: ось рисунка и полоса одной ширины,
+   поэтому левый край строки и есть начало ночи, а правый — пробуждение. Тише легенды: рамку
+   ночи спрашивают вторым вопросом, после «сколько». */
+.sleep-echo__edge {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+.sleep-echo__edge[data-side="to"] {
+  /* Правый конец прижат к краю: между ним и легендой ось, а не пробел. */
+  margin-left: auto;
 }
 
 /* ── Редакция ленты дропов `carousel` — карусель архива (DESIGN §7.5) ────────────────────

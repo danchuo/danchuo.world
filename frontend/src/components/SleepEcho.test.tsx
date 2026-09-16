@@ -100,21 +100,71 @@ describe("SleepTile — редакция «эхолот»", () => {
 
     expect(screen.queryByText("сон")).not.toBeInTheDocument();
     expect(screen.queryByTestId("night-legend")).not.toBeInTheDocument();
-    // Доли фаз и есть легенда — цвет подписи совпадает с цветом горизонта.
-    expect(screen.getByText(/REM/)).toBeInTheDocument();
-    expect(screen.getByText(/CORE/)).toBeInTheDocument();
-    expect(screen.getByText(/DEEP/)).toBeInTheDocument();
+    // Имя фазы стоит у правого края своего ряда и зовётся так же, как в легенде хронологии:
+    // разойдясь, они назвали бы один горизонт в двух режимах по-разному.
+    expect(screen.getByTestId("sleep-name-rem")).toHaveTextContent("REM");
+    expect(screen.getByTestId("sleep-name-light")).toHaveTextContent("CORE");
+    expect(screen.getByTestId("sleep-name-deep")).toHaveTextContent("DEEP");
+    expect(screen.getByTestId("sleep-name-awake")).toHaveTextContent("не спал");
   });
 
-  it("показывает длительность ночи и когда она началась и кончилась", async () => {
+  it("в сумме нет ни долей, ни рамки ночи — они приходят с хронологией", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-05"));
     await mount("2026-08-05");
 
     expect(screen.getByText("1 ч 50 мин")).toBeInTheDocument();
-    expect(screen.getByText("23:00 → 01:00")).toBeInTheDocument();
-    // Пробуждения — четвёртый пункт легенды, а не сноска в углу: верхний горизонт нарисован
-    // и обязан быть назван, как три остальных.
-    expect(screen.getByText("не спал 10м")).toHaveClass("sleep-echo__phase");
+    // Оси времени в сумме нет, и называть её концы нечем: рамка ночи уходит с плитки совсем.
+    expect(screen.queryByText("23:00")).not.toBeInTheDocument();
+    expect(screen.queryByText("01:00")).not.toBeInTheDocument();
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+
+    const tile = screen.getByRole("button", { pressed: false });
+    await userEvent.click(tile);
+
+    // В хронологии подписи с рядов ушли — строка освободилась под доли, а её концы называют
+    // начало и конец ночи (стрелки между ними нет).
+    expect(screen.getByText("23:00")).toHaveClass("sleep-echo__edge");
+    expect(screen.getByText("01:00")).toHaveClass("sleep-echo__edge");
+    expect(screen.queryByText("23:00 → 01:00")).not.toBeInTheDocument();
+    // Долей ровно три, и «не спал» среди них нет: проценты считаются от сна, а пробуждения
+    // не его часть. Минуты в этой строке были пунктом другой размерности и притом самым
+    // длинным — из-за него строка переносилась и роняла конец ночи под легенду.
+    expect(screen.getAllByText(/%$/).map((n) => n.textContent)).toEqual([
+      "REM 18%",
+      "CORE 55%",
+      "DEEP 27%",
+    ]);
+    expect(screen.queryByText(/не спал \d/)).not.toBeInTheDocument();
+    // Верхний горизонт называет сумма — там его имя стоит у самого ряда.
+    expect(screen.getByTestId("sleep-name-awake")).toHaveTextContent("не спал");
+  });
+
+  it("полоса начинается луной этой ночи, а кончается переключателем", async () => {
+    getSleepNightMock.mockResolvedValue(night("2024-01-18"));
+    await mount("2024-01-18");
+
+    // Знак предмета и переключатель стоят в ОДНОЙ строке с длительностью: слева знак, справа
+    // пара миниатюр, то есть в нижнем углу плитки. Углы им при этом не назначены — место они
+    // отнимают у полосы, а не у рисунка, и наехать на подписи рядов не могут.
+    const head = document.querySelector(".sleep-echo__head")!;
+    expect(head.firstElementChild).toHaveClass("sleep-echo__moon");
+    expect(head.lastElementChild).toHaveClass("sleep-echo__modes");
+    // Фаза настоящая, из даты (первая четверть 18 января 2024). Освещённый край — всегда
+    // полуокружность радиуса знака, а терминатор — эллипс с полуосью по проекции круга
+    // на свет: у четверти она почти нулевая, и диск делится почти прямой.
+    const lit = head.querySelector(".sleep-echo__moon-lit")!;
+    const terminator = lit.getAttribute("d")!.match(/^M 0 -6 A 6 6 0 0 1 0 6 A ([\d.]+) 6 0 0 0 0 -6 Z$/);
+    expect(terminator).not.toBeNull();
+    expect(Number(terminator![1])).toBeLessThan(1.5);
+    // Растущая Луна рисуется без зеркала: освещён правый край диска.
+    expect(lit).not.toHaveAttribute("transform");
+  });
+
+  it("убывающую луну рисует тот же контур в зеркале", async () => {
+    getSleepNightMock.mockResolvedValue(night("2024-02-02"));
+    await mount("2024-02-02");
+
+    expect(document.querySelector(".sleep-echo__moon-lit")).toHaveAttribute("transform", "scale(-1 1)");
   });
 
   it("переключатель показывает оба режима миниатюрами, а не называет их словами", async () => {
@@ -135,6 +185,70 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(columns()).toHaveLength(64);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("sleep-echo-modes")).not.toBeInTheDocument();
+  });
+
+  it("показывает точные минуты каждой фазы и скрывает их в хронологии", async () => {
+    getSleepNightMock.mockResolvedValue(night("2026-08-11"));
+    await mount("2026-08-11");
+
+    // Формат короткий: число стоит между концом ряда и прижатым к краю именем фазы, и полная
+    // запись съедала этот зазор целиком. Полная остаётся у скринридера и у длительности ночи.
+    expect(screen.getByTestId("sleep-duration-awake")).toHaveTextContent("10м");
+    expect(screen.getByTestId("sleep-duration-rem")).toHaveTextContent("20м");
+    expect(screen.getByTestId("sleep-duration-light")).toHaveTextContent("1ч");
+    expect(screen.getByTestId("sleep-duration-deep")).toHaveTextContent("30м");
+    expect(screen.getByTestId("sleep-duration-deep")).toHaveAttribute("aria-label", "DEEP: 30 мин");
+    const labels = screen.getByTestId("sleep-echo-durations");
+    expect(labels).toHaveAttribute("aria-hidden", "false");
+
+    const tile = screen.getByRole("button", { pressed: false });
+    tile.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(tile).toHaveAttribute("aria-pressed", "true");
+    expect(labels).toHaveAttribute("aria-hidden", "true");
+    await userEvent.keyboard(" ");
+    expect(tile).toHaveAttribute("aria-pressed", "false");
+    expect(labels).toHaveAttribute("aria-hidden", "false");
+    expect(screen.getByTestId("sleep-duration-light")).toHaveTextContent("1ч");
+  });
+
+  it("две копии плитки в документе не делят градиенты", async () => {
+    getSleepNightMock.mockResolvedValue(night("2026-08-13"));
+    render(
+      <>
+        <SleepTile day={day("2026-08-13")} state="loaded" edition="echo" />
+        <SleepTile day={day("2026-08-13")} state="loaded" edition="echo" />
+      </>,
+    );
+    await waitFor(() => expect(columns()).toHaveLength(128));
+
+    // Борд держит в DOM обе раскладки сразу (бенто и мобильный стек), то есть плитка сна
+    // всегда в двух копиях. Краска обязана лежать в СВОЕЙ копии: с общим id `url(#…)` уводит
+    // на первое совпадение — в скрытую раскладку, откуда браузер краску не берёт, и бруски
+    // видимой копии рисуются нечем (DESIGN §7.7).
+    const svgs = Array.from(document.querySelectorAll("svg.sleep-echo__sounding"));
+    expect(svgs).toHaveLength(2);
+    const ids = svgs.map((svg) => {
+      const fill = svg.querySelector(".sleep-echo__col")!.getAttribute("fill")!;
+      const id = fill.replace(/^url\(#/, "").replace(/\)$/, "");
+      expect(svg.querySelector(`#${id}`)).not.toBeNull();
+      return id;
+    });
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("без хронологии подписывает длительность из итогов и пропускает отсутствующие фазы", async () => {
+    getSleepNightMock.mockResolvedValue({ date: "2026-08-12", axisStartHour: 18, band: null });
+    render(<SleepTile day={day("2026-08-12", {
+      sleepMinutes: 717,
+      sleepStages: { light: 717, deep: 0, rem: null, awake: 0 },
+    })} state="loaded" edition="echo" />);
+
+    expect(await screen.findByTestId("sleep-duration-light")).toHaveTextContent("11ч 57м");
+    expect(screen.queryByTestId("sleep-duration-awake")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-duration-rem")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-duration-deep")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("сбой запроса ночи не гасит плитку — сумма приезжает из итогов дня", async () => {

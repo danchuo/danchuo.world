@@ -1,14 +1,7 @@
 /**
- * Подпись ссылки проекта — путь репозитория (PRD §5.7). Бэк отдаёт сырой `url`; показывать
- * его целиком незачем: схема (`https://`) не несёт смысла и съедает половину узкой строки.
- *
- * Обрезаем шум — схему, `www.` и хвостовой слэш. Сверх того у GitHub снимается и ХОСТ, если
- * под ним осталась пара `владелец/репо`: `danchuo/proxemics` — собственное имя репозитория,
- * которым его зовёт и сам GitHub, и `gh repo view`, а `github.com/` перед ним — адресный шум,
- * из-за которого строка читается сайтом проекта, а не именем его кода.
- *
- * У прочих хостов и у голого профиля (`github.com/dontyouo`) хост ОСТАЁТСЯ: без пары
- * `владелец/репо` одинокое имя не говорит ни о сервисе, ни о том, что это вообще код.
+ * A project link's caption: the repository path. The scheme and `www.` are noise that eats half a
+ * narrow row. On GitHub the HOST goes too when an owner/repo pair remains — that pair is the
+ * repository's own name. Elsewhere the host STAYS, or a lone name says nothing. PRD §5.7
  */
 export function repoLabel(url: string | null | undefined): string | null {
   const raw = url?.trim();

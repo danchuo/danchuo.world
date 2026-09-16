@@ -7,20 +7,9 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Шифрование чужого токена at-rest (PRD §8): AES-256-GCM под ключом слайса.
- *
- * Ящик общий на все внешние источники и живёт в ядре, хотя сами токены — дело слайсов:
- * ключ у каждого источника свой и приезжает параметром, а вот сама схема шифрования
- * размножаться по слайсам не должна. Копия криптокода — худший из возможных copy-paste:
- * правка (смена режима, длины IV, порядка полей) обязана быть ровно в одном месте.
- *
- * Формат хранимой строки — `Base64(IV ‖ ciphertext+tag)`. IV случайный на КАЖДОЕ шифрование:
- * при фиксированном IV повтор того же секрета даёт тот же шифротекст, и по базе видно, что
- * токен не менялся. GCM-тег даёт аутентификацию — порча шифротекста роняет расшифровку,
- * а не возвращает мусор под видом токена.
- *
- * ⚠️ Ключ разбирается ЛЕНИВО: слайс без кред обязан подниматься «не сконфигурированным»,
- * а не падать на старте (`isConfigured()` у конфигов источников).
+ * At-rest encryption of a foreign token: AES-256-GCM, stored as `Base64(IV || ciphertext+tag)`
+ * with a RANDOM IV per encryption — a fixed one would make an unchanged token visibly unchanged
+ * in the DB. The key is parsed LAZILY: a slice without credentials must still boot. PRD §8
  */
 class SecretBox(private val base64Key: String) {
 

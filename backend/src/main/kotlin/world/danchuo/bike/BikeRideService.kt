@@ -7,18 +7,12 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-/** Итог приёма пачки поездок: сколько новых добавлено и сколько обновлено (для логов поллера/ingest). */
 data class UpsertResult(val created: Int, val updated: Int)
 
 /**
- * Доменная логика истории поездок Велобайка (PRD §9 B4). Точка, где сырьё внешнего API
- * ([RentItem]) превращается в нашу модель ([Ride]) и идемпотентно ложится в БД. Канал доставки
- * развязан: и фоновый [VelobikePoller], и ручной push-ingest зовут [upsert] — поэтому смена
- * способа доставки (поллинг ⇄ push из браузера) не трогает ни схему, ни проекции.
- *
- * Идемпотентность — по [Ride.externalId] (id аренды Велобайка): повтор той же поездки обновляет
- * строку, дубля не создаёт (как ingest дня по дате, §5.4). Адреса станций приходят только из
- * детального `getPopulatedRent`, поэтому при обновлении **не затираем** уже сохранённый адрес null'ом.
+ * Where the external API's raw shape ([RentItem]) becomes our [Ride]. Idempotency is by
+ * [Ride.externalId], so a repeat updates the row instead of duplicating it. Station addresses
+ * arrive only from the detailed call, so an update must NEVER null out a stored one. PRD §9 B4
  */
 @ApplicationScoped
 class BikeRideService(
@@ -29,8 +23,8 @@ class BikeRideService(
 ) {
 
     /**
-     * Идемпотентно записать пачку поездок. Незавершённые/без времён — пропускаем (в историю
-     * попадают только состоявшиеся поездки). Возвращает счётчик новых/обновлённых.
+     * Idempotently writes a batch of rides. Unfinished ones, and ones without times, are skipped:
+     * only rides that actually happened enter the history. Returns the new/updated counters.
      */
     @Transactional
     fun upsert(items: List<RentItem>): UpsertResult {
@@ -54,10 +48,9 @@ class BikeRideService(
     }
 
     /**
-     * Идемпотентно записать покупки тарифов (страница `purchases/history`). Из смешанной истории
-     * берём только `TARIFF` (см. [TariffMapper.isTariffPurchase]) — `RENTAL` это списания за
-     * поездки, уже есть в истории поездок. Идемпотентность — по id платежа. Покупка «Доступа» — это
-     * вход в тариф (платный старт или пакет минут), без неё цена поездки неполная ([TariffAttribution]).
+     * Idempotently writes tariff purchases, taking only `TARIFF` rows out of the mixed history —
+     * `RENTAL` rows are ride charges we already hold. An "access" purchase is the entry into a
+     * tariff, and without it a ride's price is incomplete ([TariffAttribution]).
      */
     @Transactional
     fun upsertTariffs(items: List<PurchaseItem>): UpsertResult {
@@ -80,41 +73,34 @@ class BikeRideService(
     }
 
     /**
-     * Публичная лента: поездки **текущего календарного года** (MSK), новые сверху. Велосезон
-     * жмётся к лету, поэтому осью выдачи выбран год, а не число последних. Если в этом году ещё
-     * ни одной поездки (зима/начало года) — показываем **одну** самую свежую (последняя прошлого
-     * сезона), чтобы тайл не пустовал. Хранятся все запушенные; пусто до первого ingest — штатно.
-     *
-     * Деньги в проекции раскладываются [TariffAttribution]: купленный ради поездки «Доступ» +
-     * то, что натикало сверх него, — цена поездки не сводится к одной лишь `cost`.
+     * Public feed: rides of the current calendar year (MSK), newest first — the season hugs
+     * summer, so the axis is the year rather than a count. With no ride yet this year, the single
+     * latest one is shown so the tile is not empty. Money is split by [TariffAttribution].
      */
     fun publicList(): List<RideView> {
         val startOfYear = LocalDate.now(clock).withDayOfYear(1)
         val thisYear = rides.listFrom(startOfYear)
         val chosen = thisYear.ifEmpty { listOfNotNull(rides.latest()) }
-        // Деньги считаем по ВСЕЙ истории, а не по видимому куску: доступ мог купить сосед по пакету,
-        // оставшийся за границей года, — иначе поездка присвоила бы себе чужую покупку.
+        // Money is counted over the WHOLE history, not the visible slice: the access may have been
+        // bought by a package neighbour outside the year, and the ride would claim someone else's.
         val money = TariffAttribution.attribute(rides.listOrderedDesc(), tariffs.listOrderedDesc())
-        // Координаты станций по адресу — рисуем пины по станции вместо сырого GPS (заброс в Шереметьево).
         val stationCoords = stations.foundCoords()
         return chosen.map { toView(it, money, stationCoords) }
     }
 
 
     /**
-     * Сводка за текущий календарный месяц (MSK) для шапки модалки поездок. Считает число поездок и
-     * суммарные минуты по поездкам этого месяца, а деньги — как **реально уплаченные за месяц**:
-     * платные поездки (`cost > 0`) плюс покупки тарифов ([BikeTariff]), сделанные в этом месяце, —
-     * каждая покупка учтена один раз (ground truth), поэтому бесплатные поездки «в рамках тарифа»
-     * не задваивают сумму (см. [RideMonthSummaryView]). Нет поездок в месяце ⇒ `rides == 0`.
+     * Summary of the current calendar month (MSK). Money is what was ACTUALLY PAID that month —
+     * paid rides plus this month's tariff purchases, each counted exactly once — so free rides
+     * under one package never multiply the sum. PRD §7 (RideMonthSummaryView)
      */
     fun monthSummary(): RideMonthSummaryView {
         val zone = clock.zone
         val monthStart = LocalDate.now(clock).withDayOfMonth(1)
         val nextMonthStart = monthStart.plusMonths(1)
         val monthRides = rides.listFrom(monthStart).filter { it.rideDate.isBefore(nextMonthStart) }
-        // Деньги = прямые списания за платные поездки + покупки тарифов-пакетов этого месяца (по одной
-        // за реальную запись о покупке — так 4 бесплатные поездки под одним пакетом не дают 4×399).
+        // Money = direct charges for paid rides + this month's package purchases, one per real
+        // purchase record — so four free rides under one package do not bill 4x.
         val paidKopecks = monthRides.sumOf { (it.costKopecks ?: 0).coerceAtLeast(0).toLong() }
         val tariffKopecks = tariffs.listOrderedDesc()
             .filter { it.purchasedAt.atZone(zone).toLocalDate().let { d -> !d.isBefore(monthStart) && d.isBefore(nextMonthStart) } }
@@ -127,7 +113,7 @@ class BikeRideService(
         )
     }
 
-    /** Агрегат истории для тайла-сводки — по ВСЕЙ истории (не только по видимому текущему году). */
+    /** History aggregate for the summary tile — over the WHOLE history, not the visible year. */
     fun stats(): RideStatsView {
         val all = rides.listOrderedDesc()
         if (all.isEmpty()) return RideStatsView(0, 0, 0, 0, 0, null, null)
@@ -147,7 +133,7 @@ class BikeRideService(
         money: Map<Long, RideMoney>,
         stationCoords: Map<String, Pair<Double, Double>>,
     ): RideView {
-        // Точка станции (по адресу) надёжнее сырого GPS велосипеда — предпочитаем её, GPS = фолбэк.
+        // The station point (by address) beats the bike's raw GPS; GPS is the fallback.
         val start = r.startAddress?.let { stationCoords[it] }
         val finish = r.finishAddress?.let { stationCoords[it] }
         val paid = money[r.externalId] ?: RideMoney(null, null)

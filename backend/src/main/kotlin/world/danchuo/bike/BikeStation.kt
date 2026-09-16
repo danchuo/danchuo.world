@@ -9,17 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Кэш координат станции-парковки Велобайка по её адресу (PRD §9 B4 — исправление точек поездки).
- *
- * Зачем: карта поездки рисует пины по **сырому GPS велосипеда** (`*BikeGeoPosition`), который в
- * Москве регулярно «улетает» (частый заброс в Шереметьево). Адрес станции при этом надёжный
- * (приходит из `getPopulatedRent`), но координат станции Велобайк наружу не отдаёт (API парковок —
- * `403` для роли CLIENT). Поэтому надёжный адрес **геокодим** (OSM Nominatim) в координаты один раз
- * на адрес и кэшируем здесь; карта затем рисует по станции, а GPS остаётся фолбэком (см.
- * [StationGeocoder] и [BikeRideService.publicList]).
- *
- * Одна строка на уникальный адрес. [found] = удалось ли геокодировать: `false` помечает, что адрес
- * уже пробовали и матча нет — чтобы не долбить геокодер повторно. Идемпотентность — по [address].
+ * Cache of a Velobike station's coordinates, keyed by its address, one row per address. [found]
+ * false marks an address already tried without a match, so the geocoder is never hammered again.
+ * Why we geocode at all instead of trusting the bike's GPS: PRD §7 (BikeStation).
  */
 @Entity
 @Table(name = "bike_station")
@@ -28,18 +20,18 @@ class BikeStation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
-    /** Адрес станции как пришёл от Велобайка (ключ кэша) — напр. «метро Кунцевская (Арбатско-Покровская)». */
+    /** Station address exactly as Velobike sent it — the cache key. */
     @Column(name = "address", nullable = false, unique = true)
     lateinit var address: String
 
-    /** Координаты станции (из геокодера); null, если [found] = false. */
+    /** Station coordinates from the geocoder; null when [found] is false. */
     @Column(name = "lat")
     var lat: Double? = null
 
     @Column(name = "lon")
     var lon: Double? = null
 
-    /** Удалось ли геокодировать адрес. false ⇒ уже пробовали, матча нет (не ретраим). */
+    /** Whether the address geocoded. false means we already tried and found no match — no retry. */
     @Column(name = "found", nullable = false)
     var found: Boolean = false
 

@@ -11,20 +11,19 @@ import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
 
 /**
- * Юниты алгоритма определения ориентации (B9). Вместо сети — фейковый [LlmClient], который
- * «видит» картинку по-настоящему: декодирует JPEG и отвечает YES, когда красная полоса-маркер
- * сверху (= кадр «стоит правильно»). Так проверяется и геометрия поворотов [FilmImaging.rotate],
- * и логика решения, включая симуляцию замеренной слабости модели (ложный YES на «вверх ногами»).
+ * Units of the orientation algorithm. Instead of the network, a fake [LlmClient] that really
+ * "sees": it decodes the JPEG and answers YES when the red marker stripe is on top. That covers
+ * the rotation geometry of [FilmImaging.rotate] and the decision, weak model included.
  */
 class OrientationDeciderTest {
 
     private enum class Edge { TOP, RIGHT, BOTTOM, LEFT }
 
-    /** Фейк-модель: верификатор по положению красного края; управляемые режимы деградации. */
+    /** Fake model: a verifier keyed on where the red edge is, with switchable degradation modes. */
     private class EdgeLlm(
-        /** Симуляция слабости из фазы 0: на перевёрнутом варианте тоже отвечает YES. */
+        /** The measured weakness: it answers YES on the upside-down variant too. */
         var confusedBy180: Boolean = false,
-        /** Тай-брейк сломан: «перевёрнуто? — YES» про любой вариант. */
+        /** The tie-break is broken: "upside down? — YES" about any variant. */
         var tieBreakBroken: Boolean = false,
         var available: Boolean = true,
     ) : LlmClient {
@@ -122,9 +121,9 @@ class OrientationDeciderTest {
         assertEquals(40 to 20, flipped.width to flipped.height)
     }
 
-    // ── Маркерные картинки ──
+    // ── Marker images ──
 
-    /** JPEG 40×20: синий фон, красная полоса на [edge] — маркер «где верх сцены». */
+    /** JPEG 40×20: a blue field with a red stripe on [edge], marking where the scene's top is. */
     private fun jpeg(edge: Edge): ByteArray {
         val img = BufferedImage(40, 20, BufferedImage.TYPE_INT_RGB)
         val g = img.createGraphics()
@@ -144,7 +143,7 @@ class OrientationDeciderTest {
     }
 
     private companion object {
-        /** Какой край картинки самый красный (устойчиво к JPEG-артефактам — берётся максимум). */
+        /** Which edge is reddest; the maximum is taken, which survives JPEG artefacts. */
         fun redEdge(bytes: ByteArray): Edge {
             val img = ImageIO.read(ByteArrayInputStream(bytes))
             fun redness(xs: IntRange, ys: IntRange): Int = xs.sumOf { x ->

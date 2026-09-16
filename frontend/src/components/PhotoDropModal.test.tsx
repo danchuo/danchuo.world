@@ -6,7 +6,7 @@ vi.mock("@/lib/api/client", () => ({ getDrop: vi.fn() }));
 import { getDrop } from "@/lib/api/client";
 const getDropMock = vi.mocked(getDrop);
 
-// restore — не косметика: подмена `matchMedia` в одном кейсе иначе делает «тачем» весь файл.
+// restore is not cosmetic: stubbing `matchMedia` in one case would otherwise make the whole file touch.
 afterEach(() => {
   vi.clearAllMocks();
   vi.restoreAllMocks();
@@ -22,28 +22,26 @@ describe("PhotoDropModal — blur-up загрузка", () => {
       <PhotoDropModal dropId={1} title="Плёнка" monthLabel="июль 2026" onClose={() => {}} />,
     );
 
-    // Дождаться загрузки кадров.
     await waitFor(() => expect(container.querySelector(".blur-up-full")).not.toBeNull());
 
     const thumb = container.querySelector<HTMLImageElement>(".blur-up-thumb")!;
     const full = container.querySelector<HTMLImageElement>(".blur-up-full")!;
 
-    // thumb — сразу виден (blur), полный ещё не загружен (скрыт).
+    // The thumb shows at once (blurred); the full frame is not loaded yet and stays hidden.
     expect(thumb).toHaveAttribute("src", "/api/film-media/1/0/thumb");
     expect(full).toHaveAttribute("src", "/api/film-media/1/0/web");
     expect(full).toHaveAttribute("loading", "lazy");
     expect(full.dataset.loaded).toBe("false");
 
-    // Полный кадр догрузился — проступает поверх.
+    // The full frame finished loading and comes through on top.
     fireEvent.load(full);
     expect(full.dataset.loaded).toBe("true");
   });
 
   it("thumb остаётся непрозрачной подложкой — фон не мелькает в кросс-фейде", async () => {
-    // Регрессионный якорь на «розовый проскок»: раньше thumb гасили одновременно с проявлением
-    // полного кадра, и на середине перехода сквозь оба полупрозрачных слоя мелькал фон тайла.
-    // thumb НЕ должен получать механизм затухания (ни data-атрибута, ни inline opacity:0)
-    // ни до, ни после загрузки полного кадра.
+    // A regression anchor on the "pink flash": the thumb used to fade out as the full frame faded
+    // in, and mid-transition the tile's background showed through both translucent layers. The
+    // thumb must get no fading mechanism at all, before or after the full frame loads.
     getDropMock.mockResolvedValue([
       { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 300, height: 400 },
     ]);
@@ -59,9 +57,9 @@ describe("PhotoDropModal — blur-up загрузка", () => {
       expect(thumb.style.opacity === "" || thumb.style.opacity === "1").toBe(true);
     };
 
-    notFaded(); // до загрузки
+    notFaded(); // before loading
     fireEvent.load(full);
-    notFaded(); // и после — подложка остаётся плотной
+    notFaded(); // and after — the backing stays opaque
   });
 
   it("пустой дроп → «пока нет кадров»", async () => {
@@ -92,7 +90,7 @@ describe("PhotoDropModal — кадр на весь экран", () => {
 
     const lightbox = screen.getByRole("dialog", { name: "кадр 1 из 2" });
     expect(lightbox).toBeInTheDocument();
-    // Показываем именно тот кадр, по которому кликнули, и в полном размере (web, не thumb).
+    // We show the frame that was clicked, at full size (web, not thumb).
     expect(container.querySelector(".lightbox-photo")).toHaveAttribute(
       "src",
       "/api/film-media/1/0/web",
@@ -106,23 +104,22 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(container.querySelector(".lightbox-photo")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
-    // Набор кадров на месте.
     expect(screen.getAllByRole("button", { name: /открыть кадр/ })).toHaveLength(2);
 
-    // Второй Esc — уже про саму галерею.
+    // The second Esc is about the gallery itself.
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("системное «Назад» закрывает сперва кадр, потом галерею — а не уводит с сайта", async () => {
-    // Главный жест отмены на телефоне. Пока открытые окна не попадали в историю, «Назад»
-    // на андроиде уводил с сайта целиком: браузеру нечего было отменять.
+    // The main cancel gesture on a phone. While open overlays were absent from history, Back on
+    // Android navigated off the site entirely: the browser had nothing to undo.
     vi.spyOn(window.history, "back").mockImplementation(() => {});
     window.history.replaceState(null, "");
     const onClose = vi.fn();
     const { container } = await openFirst(onClose);
 
-    // Браузер снимает верхнюю запись истории и отдаёт состояние той, что под ней.
+    // The browser drops the top history entry and hands back the state of the one below.
     fireEvent(window, new PopStateEvent("popstate", { state: { danchuoOverlay: 1 } }));
     expect(container.querySelector(".lightbox-photo")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -147,7 +144,7 @@ describe("PhotoDropModal — кадр на весь экран", () => {
   });
 
   it("клик по самой картинке кадр не закрывает", async () => {
-    // Промах мимо фона не должен стоить просмотра — закрытие это решение (фон/✕/Esc).
+    // A miss past the backdrop must not cost the viewing — closing is a decision (backdrop/✕/Esc).
     const { container } = await openFirst();
     fireEvent.click(container.querySelector(".lightbox-photo")!);
     expect(container.querySelector(".lightbox-photo")).not.toBeNull();
@@ -181,8 +178,8 @@ describe("PhotoDropModal — подсветка артефактов (§5.12)", 
     await waitFor(() => expect(container.querySelector(".artifact-box")).not.toBeNull());
     const box = container.querySelector<HTMLElement>(".artifact-box")!;
 
-    // Доли переживают любой размер рендера — множитель задаёт вёрстка, а не бэкенд.
-    // Рамка шире находки на запас 15% с каждой стороны: 0.25..0.75 ⇒ 0.175..0.825.
+    // Fractions survive any render size — the multiplier is layout's, not the backend's. The box
+    // is wider than the finding by 15% on each side: 0.25..0.75 ⇒ 0.175..0.825.
     expect(box.style.left).toBe("17.5%");
     expect(box.style.top).toBe("2.5%");
     expect(box.style.width).toBe("65%");
@@ -232,7 +229,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     },
   ];
 
-  /** Курсор в долях кадра: в jsdom размеров нет, поэтому рамку кадра задаём сами. */
+  /** The cursor in fractions of the frame: jsdom has no sizes, so we set the frame's box ourselves. */
   const hoverAt = (frame: HTMLElement, x: number, y: number) => {
     frame.getBoundingClientRect = () =>
       ({ left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
@@ -262,11 +259,11 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(cards).toHaveLength(1);
     expect(cards[0]).toHaveTextContent("Очки");
     expect(cards[0].querySelector("img")).toHaveAttribute("src", "/api/artifact-media/6");
-    // Подсказка привязана к своей рамке, а не к кадру: находок бывает несколько.
+    // The hint binds to its own box rather than the frame: there can be several findings.
     expect(cards[0].parentElement).toHaveClass("artifact-box");
   });
 
-  /** Тач-устройство: у указателя нет ховера. В jsdom `matches` всегда false — подменяем. */
+  /** A touch device: the pointer has no hover. `matches` is always false in jsdom, so we stub it. */
   const pretendTouch = () => {
     vi.spyOn(window, "matchMedia").mockImplementation(
       (query: string) =>
@@ -292,12 +289,12 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   };
 
   it("на телефоне полноэкранный кадр подписывает находки сразу — без наведения", async () => {
-    // Тач-флоу (§7.5): ховера на телефоне нет, а тап по кадру уже занят открытием на весь
-    // экран. Поэтому объясняет находку сам полноэкранный кадр: рамки те же, но карточки видны
-    // без жеста. Довод «постоянные подписи — шум» тут не работает: кадр ровно один, не 36.
+    // The touch flow (§7.5): there is no hover on a phone, and a tap on the frame is already taken
+    // by opening fullscreen. So the fullscreen frame explains the finding itself — same boxes, but
+    // the cards visible without a gesture. There is exactly one frame here, not 36.
     pretendTouch();
     const lightbox = await openLightbox();
-    // Ни одного mouseMove не было — карточки обеих находок всё равно на месте.
+    // Not one mouseMove happened, and both findings' cards are there anyway.
     expect(lightbox.querySelectorAll(".artifact-box")).toHaveLength(2);
     expect(lightbox.querySelectorAll(".artifact-card")).toHaveLength(2);
     expect(lightbox).toHaveTextContent("Очки");
@@ -305,16 +302,16 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   });
 
   it("на компьютере полноэкранный кадр не несёт ни рамок, ни карточек", async () => {
-    // Решение владельца: мышью находку показывает наведение в самой галерее, поэтому в полном
-    // экране объяснять нечего — а рамки поверх снимка мешают смотреть сам снимок.
+    // With a mouse the finding is shown by hovering in the gallery itself, so fullscreen has
+    // nothing to explain — and boxes over the shot get in the way of looking at it.
     const lightbox = await openLightbox();
     expect(lightbox.querySelectorAll(".artifact-box")).toHaveLength(0);
     expect(lightbox.querySelectorAll(".artifact-card")).toHaveLength(0);
   });
 
   it("рамки в полноэкранном кадре не перехватывают закрытие по фону", async () => {
-    // Рамка лежит поверх картинки; если бы она ловила указатель, промах мимо предмета
-    // закрывал бы просмотр (клик по картинке закрывать не должен — регрессионный якорь).
+    // The box lies over the picture; if it caught the pointer, a miss past the item would close
+    // the viewing (a click on the picture must not close it — a regression anchor).
     getDropMock.mockResolvedValue(twoFinds);
     const { container } = render(
       <PhotoDropModal dropId={1} title="Плёнка" monthLabel={null} onClose={() => {}} />,
@@ -326,8 +323,9 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   });
 
   it("вытянутый предмет с разрешением ложится в карточке набок", async () => {
-    // Ракетка нарисована стоймя, а слот карточки лежачий: без поворота предмет вырождается
-    // в нитку. Флаг `rotatable` тут тот же, что в ленте, — карточка обязана его уважать.
+    // A racket is drawn upright while the card's slot is landscape: without rotation the item
+    // degenerates into a thread. The `rotatable` flag here is the marquee's, and the card must
+    // respect it.
     getDropMock.mockResolvedValue([
       {
         imageUrl: "/api/film-media/1/0/web",
@@ -355,7 +353,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     hoverAt(view.container.querySelector<HTMLElement>(".drop-frame")!, 0.5, 0.5);
 
     const img = view.container.querySelector<HTMLImageElement>(".artifact-card__img")!;
-    // До onLoad пропорция неизвестна — предмет рисуется как есть.
+    // Before onLoad the proportion is unknown, so the item is drawn as is.
     expect(img).not.toHaveClass("artifact-card__img--tilted");
 
     Object.defineProperty(img, "naturalWidth", { value: 619, configurable: true });
@@ -365,7 +363,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   });
 
   it("без разрешения предмет в карточке не поворачивается", async () => {
-    const view = await renderFrame(); // очки: rotatable не задан
+    const view = await renderFrame(); // sunglasses: rotatable is not set
     hoverAt(view.container.querySelector<HTMLElement>(".drop-frame")!, 0.1, 0.1);
     const img = view.container.querySelector<HTMLImageElement>(".artifact-card__img")!;
     Object.defineProperty(img, "naturalWidth", { value: 619, configurable: true });
@@ -391,8 +389,8 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   });
 
   it("на пересечении верхняя плашка — та, на которую навели ПОЗЖЕ", async () => {
-    // Иначе порядок диктует разметка: одна и та же плашка всегда сверху, и подвести мышь
-    // к нижней находке нельзя вовсе — её карточку не увидеть.
+    // Otherwise the markup dictates the order: the same plate is always on top, and the lower
+    // finding cannot be reached by mouse at all — its card is never seen.
     const { container, frame } = await renderFrame();
 
     const zOf = (name: string) =>
@@ -401,12 +399,12 @@ describe("PhotoDropModal — подсказка о предмете по нав�
           .find((c) => c.textContent === name)!.style.zIndex,
       );
 
-    // Сперва только футболка, затем въезжаем в пересечение ⇒ очки пришли позже.
+    // First the shirt alone, then into the overlap ⇒ the sunglasses arrived later.
     hoverAt(frame, 0.8, 0.8);
     hoverAt(frame, 0.3, 0.3);
     expect(zOf("Очки")).toBeGreaterThan(zOf("Футболка"));
 
-    // Тем же курсором в обратном порядке — сверху уже футболка.
+    // The same cursor in reverse order — now the shirt is on top.
     fireEvent.mouseLeave(frame);
     hoverAt(frame, 0.1, 0.1);
     hoverAt(frame, 0.3, 0.3);
@@ -428,8 +426,8 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   });
 
   it("имя предмета доступно скринридеру и без наведения", async () => {
-    // Подсказка живёт по ховеру, а ховера у скринридера нет — имя обязано быть в разметке
-    // всегда, иначе находка для него просто не существует.
+    // The hint lives on hover and a screen reader has no hover, so the name must always be in the
+    // markup, or the finding simply does not exist for it.
     await renderFrame();
     expect(screen.getByText("Очки")).toBeInTheDocument();
     expect(screen.getByText("Футболка")).toBeInTheDocument();
@@ -448,10 +446,9 @@ describe("PhotoDropModal — подпись артефакта не обреза
   ];
 
   it("клипует картинку, а не весь кадр — ореола нет, подписи есть куда выйти", async () => {
-    // Регрессионный якорь на два бага сразу. Клип со всего кадра снимали, чтобы подпись не
-    // срезалась, — и получили ореол: filter: blur() расплывается ЗА границы элемента, и клип
-    // был единственным, что его держало. Ответ — клипует ровно то, что размывается: обёртка
-    // картинок. Сам кадр не клипует, поэтому подпись вправе выйти за него целиком.
+    // A regression anchor on two bugs at once. Dropping the clip from the whole frame kept the
+    // caption from being trimmed and gave a halo instead: filter: blur() spreads BEYOND the
+    // element, and the clip was all that held it. Now only the picture wrapper clips.
     getDropMock.mockResolvedValue(frameWith({ x0: 0.1, y0: 0.8, x1: 0.5, y1: 0.98 }));
 
     const { container } = render(
@@ -468,9 +465,9 @@ describe("PhotoDropModal — подпись артефакта не обреза
   });
 
   it("рамке не назначается потолок ширины подписи — имя предмета видно целиком", async () => {
-    // Узкая рамка у правого края — худший случай: раньше подпись упиралась в край кадра и
-    // усекалась многоточием («2YK Su…»), потому что кадр клипует. Теперь клипует только
-    // картинка, и подпись выходит за кадр целиком — потолок ей больше не нужен.
+    // A narrow box at the right edge is the worst case: the caption used to hit the frame's edge
+    // and ellipsise, because the frame clipped. Now only the picture clips and the caption may
+    // leave the frame entirely, so it needs no ceiling.
     const raw = { x0: 0.65, y0: 0.1, x1: 0.85, y1: 0.4 };
     getDropMock.mockResolvedValue(frameWith(raw));
 
@@ -486,10 +483,9 @@ describe("PhotoDropModal — подпись артефакта не обреза
 });
 
 /**
- * Прокрутить кадры отрисовки, пока проявка не начнётся. Ждём СОБЫТИЯ, а не заранее известного
- * числа кадров: шов принимает замер, только когда размер галереи устоялся, и число кадров до
- * этого — его внутреннее дело. Тест, знающий это число, ломается от каждой правки шва, ничего
- * при этом не проверяя.
+ * Advance paint frames until the developing animation starts. We wait for the EVENT rather than a
+ * known frame count: the seam accepts its measurement only once the gallery's size settles, and a
+ * test that knows that number breaks on every edit of the seam while checking nothing.
  */
 async function untilMorph(scene: HTMLElement, state: string, maxFrames = 12): Promise<void> {
   for (let i = 0; i < maxFrames && scene.dataset.morph !== state; i += 1) {
@@ -498,10 +494,9 @@ async function untilMorph(scene: HTMLElement, state: string, maxFrames = 12): Pr
 }
 
 /**
- * Сделать картинки «готовыми к отрисовке»: проявка ждёт не появления кадра в разметке, а
- * декодированных пикселей (см. [useDropMorph] — иначе полёт стартует ровно в тот момент, когда
- * браузер берётся декодировать снимок, и первую треть пути не рисует). В jsdom картинки не
- * грузятся никогда, поэтому готовность проставляем руками — иначе морф не сыграет вовсе.
+ * Make the pictures "ready to paint": the animation waits for decoded pixels rather than the
+ * frame appearing in markup (see [useDropMorph]), or the flight starts just as the browser begins
+ * decoding. Pictures never load in jsdom, so readiness is set by hand.
  */
 function imagesPaintable(): () => void {
   const proto = HTMLImageElement.prototype as unknown as Record<string, unknown>;
@@ -523,8 +518,8 @@ describe("PhotoDropModal — кадры с плитки", () => {
   };
 
   it("открывается на кадрах плитки, не дожидаясь своего запроса", () => {
-    // Плитка уже тянула `getDrop(id)` ради собственной раскладки — галерее незачем показывать
-    // лоадер поверх тех же данных. Сеть здесь не отвечает вовсе.
+    // The tile already fetched `getDrop(id)` for its own layout, so the gallery need not show a
+    // loader over the same data. The network never answers here.
     getDropMock.mockReturnValue(new Promise(() => {}));
 
     const { container } = render(
@@ -537,10 +532,9 @@ describe("PhotoDropModal — кадры с плитки", () => {
 
   it("проявка стартует не раньше, чем стартовый кадр отрисован", async () => {
     const restoreImages = imagesPaintable();
-    // Кадр обязан ПОБЫТЬ на месте плитки хотя бы один отрисованный кадр, и только потом ехать.
-    // Иначе таймлайн перехода стартует до первой отрисовки галереи, а она тяжёлая (декод
-    // снимка и ленты миниатюр): пока браузер занят, время идёт, и на первом же показанном
-    // кадре анимация уже почти доиграна — галерея «открывается мгновенно».
+    // The frame must SIT at the tile's place for at least one painted frame before moving. Start
+    // the timeline before the gallery's first paint and the heavy work (decoding the shot and the
+    // thumbnail strip) eats it: the animation is nearly over by the first frame the viewer sees.
     document.documentElement.style.setProperty("--drop-morph", "1");
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
       left: 0,
@@ -565,8 +559,8 @@ describe("PhotoDropModal — кадры с плитки", () => {
     );
     const scene = container.querySelector<HTMLElement>(".drop-scene")!;
 
-    // Стартовый кадр ставится не мгновенно: шов сперва дожидается, пока размер галереи
-    // перестанет меняться, — иначе кадр «выезжал» бы из почти конечного размера.
+    // The starting frame is not placed instantly: the seam first waits for the gallery's size to
+    // stop changing, or the frame would "fly out" from an almost final size.
     await untilMorph(scene, "from");
     expect(scene.dataset.morph).toBe("from");
 
@@ -579,9 +573,9 @@ describe("PhotoDropModal — кадры с плитки", () => {
   });
 
   /**
-   * Регрессионный якорь к замеру на живом стеке: полёт, начатый до готовности картинок,
-   * первую треть пути просто не рисуется (17–20 кадров из 27 с провалами до 115мс), и
-   * раскрытие среза приезжает ступенями. Поэтому «кадр есть в разметке» — не повод лететь.
+   * A regression anchor to a measurement on the live stack: a flight begun before the pictures are
+   * ready simply does not paint for its first third (17–20 frames of 27, with gaps up to 115ms),
+   * so "the frame is in the markup" is no reason to fly.
    */
   it("не летит, пока картинки кадра не готовы к отрисовке", async () => {
     getDropMock.mockReturnValue(new Promise(() => {}));
@@ -603,8 +597,8 @@ describe("PhotoDropModal — кадры с плитки", () => {
     );
     const scene = container.querySelector<HTMLElement>(".drop-scene")!;
 
-    // Картинок в jsdom нет и не будет — значит, шов обязан держать сцену в ожидании, а не
-    // отпускать полёт над недекодированным кадром.
+    // There are no pictures in jsdom and never will be, so the seam must hold the scene waiting
+    // rather than release a flight over an undecoded frame.
     await untilMorph(scene, "in");
     expect(scene.dataset.morph).toBe("wait");
 
@@ -614,9 +608,9 @@ describe("PhotoDropModal — кадры с плитки", () => {
 
   it("галерея снимается не в момент посадки, а после досадки", async () => {
     const restoreImages = imagesPaintable();
-    // Кадр доезжает до плитки за `--drop-morph-out-ms`, и там его отличие от плитки — полоса
-    // блюра с подписью. Снять его ровно в этот миг значит проявить их рывком; вместо этого он
-    // ещё `--drop-morph-settle-ms` растворяется, уже неподвижный.
+    // The frame reaches the tile in `--drop-morph-out-ms`, and there its only difference from the
+    // tile is the blur band with the caption. Removing it at that instant would reveal them with a
+    // jerk; instead it dissolves for `--drop-morph-settle-ms` more, already still.
     const root = document.documentElement.style;
     root.setProperty("--drop-morph", "1");
     root.setProperty("--drop-morph-out-ms", "300ms");
@@ -649,10 +643,10 @@ describe("PhotoDropModal — кадры с плитки", () => {
     vi.useFakeTimers();
     fireEvent.click(scene);
     expect(scene.dataset.morph).toBe("out");
-    // Кадр ещё едет.
+    // The frame is still travelling.
     await act(async () => void vi.advanceTimersByTime(299));
     expect(onClose).not.toHaveBeenCalled();
-    // Приехал — но галерея на месте, идёт досадка.
+    // Arrived — but the gallery is still there, settling.
     await act(async () => void vi.advanceTimersByTime(1));
     expect(onClose).not.toHaveBeenCalled();
     await act(async () => void vi.advanceTimersByTime(200));
@@ -667,8 +661,8 @@ describe("PhotoDropModal — кадры с плитки", () => {
   });
 
   it("волна не просила проявки — галерея закрывается сразу, без ожидания анимации", () => {
-    // Опт-ина `--drop-morph` нет (см. [useDropMorph]) ⇒ обратного хода нет, и `onClose`
-    // обязан сработать в тот же тик: иначе галерея зависла бы на пустом таймере.
+    // There is no `--drop-morph` opt-in (see [useDropMorph]) ⇒ no return flight, and `onClose`
+    // must fire in the same tick, or the gallery would hang on an empty timer.
     getDropMock.mockReturnValue(new Promise(() => {}));
     const onClose = vi.fn();
 

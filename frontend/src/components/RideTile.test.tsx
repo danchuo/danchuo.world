@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RideView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getRides: vi.fn() }));
-// Карта и модалка — заглушки (карта client-only; модалку проверяем отдельно). Заглушка карты
-// повторяет главное в её жизненном цикле: на смену волны карта ПЕРЕСОБИРАЕТСЯ (пины волны
-// приезжают в стиль), и «готова» она снова только через такт — как настоящая, ждущая тайлы.
+// The map and the modal are stubbed (the map is client-only). The map stub repeats the key part
+// of its lifecycle: on a wave change the map is REBUILT (the wave's pins arrive in the style) and
+// is "ready" again only a tick later, like the real one waiting for tiles.
 vi.mock("./RideMap", () => ({
   RideMap: ({ wave, onReady }: { wave?: string | null; onReady?: () => void }) => {
     useEffect(() => {
@@ -68,9 +68,9 @@ describe("RideTile — входы в модалку поездок", () => {
   });
 
   it("бокс мини-карты зацеплен за .ride-map-box — свою высоту ему даёт CSS", async () => {
-    // Leaflet рисует в контейнер `height: 100%`, а тот считает проценты от бокса-кнопки. В бенто
-    // высота кнопки приходит от тайла, в мобильном стеке её нет вовсе ⇒ карта инициализируется в
-    // нулевую высоту и не видна. Пиксели проверяет `app/styles/stackHeights.test.ts`.
+    // The map draws into a `height: 100%` container, which takes its percentage from the button's
+    // box. In bento that height comes from the tile, in the mobile stack there is none ⇒ the map
+    // initialises into zero height. The pixels are checked by `app/styles/stackHeights.test.ts`.
     getRidesMock.mockResolvedValue([base({ id: 10 })]);
     render(<RideTile />);
 
@@ -108,7 +108,7 @@ describe("RideTile — редакция `map` (карта во всю плитк
     const card = await screen.findByRole("button", { name: "Открыть карту поездок" });
     expect(card).toHaveClass("ride-frame");
     expect(screen.getByTestId("ride-map")).toBeInTheDocument();
-    // «предыдущие» в этой редакции нет вовсе — нажатие в любую точку и есть вход в модалку.
+    // This edition has no "previous" button at all — a press anywhere IS the way into the modal.
     expect(screen.queryByRole("button", { name: "Предыдущие поездки" })).toBeNull();
     expect(screen.getAllByRole("button")).toHaveLength(1);
 
@@ -120,9 +120,8 @@ describe("RideTile — редакция `map` (карта во всю плитк
     getRidesMock.mockResolvedValue([base({ id: 10, distanceMeters: 6900, durationSeconds: 2640 })]);
     render(<RideTile edition="map" />);
 
-    // Километры отдельным узлом — они и есть заголовок полосы; «когда» и длительность живут
-    // ОДНОЙ строкой при них (тот же строй, что у подписи кадра в плитке дропа). Слова
-    // «последняя» в подписи нет: место в полосе уходит данным, а не пометке.
+    // The kilometres are their own node and act as the strip's heading; "when" and the duration
+    // live on ONE line beside them, in the same order as a drop frame's caption.
     expect(await screen.findByText("6.9 км")).toHaveClass("ride-frame__km");
     const meta = screen.getByText(/44 мин/);
     expect(meta).toHaveClass("ride-frame__meta");
@@ -147,8 +146,8 @@ describe("RideTile — редакция `map` (карта во всю плитк
 });
 
 /**
- * Плитка-карта появляется ВМЕСТЕ с картой — и на перезагрузке, и на смене волны: полоса данных
- * на прогрессивном блюре, висящая над пустым местом, читается сбоем, а не загрузкой.
+ * The map tile appears TOGETHER with its map, on a reload and on a wave change alike: a data strip
+ * on progressive blur hanging over an empty space reads as a failure, not as loading.
  */
 describe("RideTile — редакция `map` ждёт карту", () => {
   it("смена волны снова гасит плитку: описание не выходит на экран раньше города", async () => {
@@ -160,7 +159,7 @@ describe("RideTile — редакция `map` ждёт карту", () => {
     await waitFor(() => expect(tile()).toHaveClass("is-ready"));
 
     rerender(<RideTile edition="map" wave="wave-02" />);
-    // Карта новой волны ещё не собралась — готовность прежней ей не наследуется.
+    // The new wave's map has not assembled yet — the previous one's readiness is not inherited.
     expect(tile()).not.toHaveClass("is-ready");
     await waitFor(() => expect(tile()).toHaveClass("is-ready"));
   });

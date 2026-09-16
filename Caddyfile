@@ -1,56 +1,59 @@
-# danchuo.world — edge: TLS (Let's Encrypt auto) + reverse proxy (PRD §8, M0).
-# Routing mirrors the same-origin architecture: /api/* goes STRAIGHT to Quarkus (bypassing
-# Next, so photo-drop zip uploads never hit a proxy body limit), everything else to Next.js.
-# This file is synced to the VPS by the deploy workflow — edit it here, not on the server.
-#
-# The edge is also where abuse is stopped, because it is the only place that can. Measured on
-# production (Aug 2026): Next.js SSR of `/` runs flat to ~65 rps, bends at 80 and saturates at
-# ~100, while `/api/film-media` holds 250 rps at p50 163ms. A 1300 rps flood of plain `GET /`
-# therefore never reached the backend at all — it drowned the single Node process, and Caddy
-# logged 605k `dial tcp frontend:3000: i/o timeout` in twenty minutes. Hence, below: per-client
-# rate limits, a short-lived cache on the page render, and a bounded upstream pool.
-# Requires the custom image built from caddy/Dockerfile (rate_limit + cache modules).
+# danchuo.world — edge: TLS (Let's Encrypt auto) + reverse proxy (PRD §8).
+# Routing mirrors the same-origin architecture: /api/* goes STRAIGHT to Quarkus, bypassing Next so
+# photo-drop zip uploads never hit a proxy body limit; everything else goes to Next.js.
+
+# This file is synced to the VPS by the deploy workflow — edit it here, not on the server. It needs
+# the custom image built from caddy/Dockerfile, which adds the rate_limit and cache modules.
+
+# The edge is where abuse is stopped, because it is the only place that can. Measured in production:
+# Next.js SSR of `/` runs flat to ~65 rps and saturates at ~100, while `/api/film-media` holds 250 rps
+# at p50 163ms.
+
+# So a 1300 rps flood of plain `GET /` never reached the backend at all — it drowned the single Node
+# process, and Caddy logged 605k `dial tcp frontend:3000: i/o timeout` in twenty minutes. Hence, below:
+# per-client rate limits, a short-lived cache on the page render, and a bounded upstream pool.
 {
-	# Both are plugin directives, absent from Caddy's built-in ordering — place them explicitly.
-	# rate_limit first so a refused request costs nothing downstream; cache next, so a served
+	# Both are plugin directives, absent from Caddy's built-in ordering, so they are placed explicitly.
+	# rate_limit comes first, so a refused request costs nothing downstream; cache next, so a served
 	# hit still counts against the limiter above it.
 	order rate_limit before basic_auth
 	order cache after rate_limit
 
-	# Caddy's OWN logs (startup, TLS, errors). Note this is not the access log — a `log` block
-	# in global options configures the default logger, and access logging is a separate,
-	# per-site directive. Getting that wrong is silent: the config is valid, Caddy is chatty
-	# at startup, and yet not one request is ever recorded.
+	# Caddy's OWN logs (startup, TLS, errors). ⚠️ This is NOT the access log: a `log` block in global
+	# options configures the default logger, while access logging is a separate per-site directive.
+
+	# Getting that wrong is silent — the config is valid, Caddy is chatty at startup, and yet not one
+	# request is ever recorded.
 	log default {
 		output stdout
 		format json
 
-		# The limiter writes an info line per refused request ("rate limit exceeded"). One
-		# 600 rps flood produced 26k of them — the same wall of noise that made reading the
-		# August incident so painful. Every refusal already appears in the access log below
-		# as a 429, with the client and path attached, so this is pure duplication.
+		# The limiter writes an info line per refused request, and one 600 rps flood produced 26k of
+		# them. Every refusal already appears in the access log below as a 429 with client and path
+		# attached, so this is pure duplication.
 		exclude http.handlers.rate_limit
 	}
 
 	cache {
-		# Short on purpose. The page is per-request dynamic (`cookies()` in app/page.tsx makes
-		# the route permanently dynamic and Next answers `no-store`), so this is not a content
-		# cache — it is a burst absorber. Ten seconds turns any flood into ~0.1 rps of real
-		# rendering while a normal visitor still never sees stale data worth noticing.
+		# Short on purpose. The page is per-request dynamic (`cookies()` in app/page.tsx makes the
+		# route permanently dynamic and Next answers `no-store`), so this is not a content cache but
+		# a burst absorber: ten seconds turns any flood into ~0.1 rps of real rendering.
 		ttl 10s
 
-		# `bypass` = ignore RFC cacheability of the response. Required precisely because Next
-		# sends `Cache-Control: private, no-store` on the dynamic route; without this the cache
-		# would sit in the path and never store a thing.
+		# `bypass` means ignore the RFC cacheability of the response. Required precisely because Next
+		# sends `Cache-Control: private, no-store` on the dynamic route; without it the cache would
+		# sit in the path and never store a thing.
 		mode bypass
 
 		allowed_http_verbs GET HEAD
 
 		key {
-			# The wave cookie is the ONLY thing that varies `/` between visitors (DESIGN §2.6),
-			# so it has to be part of the key — otherwise one visitor previewing wave-02 would
-			# serve their palette to everyone for the next ten seconds. Visitors without the
-			# cookie (effectively everybody) all share a single entry, which is the whole point.
+			# The wave cookie is the ONLY thing that varies `/` between visitors (DESIGN §2.6), so it
+			# has to be part of the key — otherwise one visitor previewing wave-02 would serve their
+			# palette to everyone for the next ten seconds.
+
+			# Visitors without the cookie, which is effectively everybody, all share a single entry,
+			# and that is the whole point of the cache.
 			template "{http.request.method} {http.request.host}{http.request.uri.path}?{http.request.uri.query} wave={http.request.cookie.danchuo_wave}"
 		}
 	}
@@ -59,9 +62,10 @@
 danchuo.world {
 	encode zstd gzip
 
-	# THE access log — one line per request, with client, path, status and duration. It has to
-	# live inside the site block; the global `log` above does not produce it. Until this line
-	# existed there was no record of traffic at all, and the August incident had to be
+	# THE access log — one line per request with client, path, status and duration. It has to live
+	# inside the site block, because the global `log` above does not produce it.
+
+	# Until this line existed there was no record of traffic at all, and one incident had to be
 	# reconstructed from proxy failures alone: we could see what broke, never what arrived.
 	log {
 		output stdout
@@ -71,8 +75,9 @@ danchuo.world {
 	handle /api/* {
 		# Frames and the rest of the API are counted separately, mirroring the split inside
 		# RateLimitFilter — a gallery is ~36 image GETs and must not spend the API allowance.
-		# The `api` zone explicitly excludes frames, or a frame request would be charged twice
-		# and silently capped at the lower of the two.
+
+		# The `api` zone explicitly excludes frames, or a frame request would be charged twice and
+		# silently capped at the lower of the two limits.
 		rate_limit {
 			zone film {
 				match {
@@ -93,34 +98,38 @@ danchuo.world {
 		}
 
 		reverse_proxy backend:8080 {
-			# THE invariant behind RateLimitFilter.INTERNAL_HEADER: the backend treats this
-			# header as proof that a request came from the frontend server over the compose
-			# network and skips rate limiting entirely. Stripping it here is what makes that
-			# safe — public traffic can never carry it, no matter what a client sends.
+			# THE invariant behind RateLimitFilter.INTERNAL_HEADER: the backend treats this header as
+			# proof that a request came from the frontend server over the compose network and skips
+			# rate limiting entirely.
+
+			# Stripping it here is what makes that safe — public traffic can never carry it, no matter
+			# what a client sends.
 			header_up -X-Danchuo-Internal
 		}
 	}
 
-	# Anx Reader sync target (PRD §5.16). The prefix is deliberately NOT stripped: PROPFIND
-	# replies carry absolute hrefs, so the WebDAV server is configured with the same /dav
-	# prefix and must keep seeing it. Auth is basic auth inside the WebDAV server itself.
-	#
-	# Bare /dav must be matched too, not just /dav/*: Anx probes the base URL exactly as the
-	# owner typed it, and /dav/* alone lets that probe fall through to Next.js, which answers
-	# HTML 404 (or a 308 to the slashless path) — the client then reports a failed sync test.
-	#
-	# Deliberately NOT rate limited: this is the owner's phone pushing a book database on a
-	# schedule, already behind basic auth, and a throttled sync fails silently on the device.
+	# Anx Reader sync target (PRD §5.16). The prefix is deliberately NOT stripped: PROPFIND replies
+	# carry absolute hrefs, so the WebDAV server is configured with the same /dav prefix and must keep
+	# seeing it. Auth is basic auth inside the WebDAV server itself.
+
+	# Bare /dav must be matched too, not just /dav/*: Anx probes the base URL exactly as the owner
+	# typed it, and /dav/* alone lets that probe fall through to Next.js, which answers HTML 404 — the
+	# client then reports a failed sync test.
+
+	# Deliberately NOT rate limited: this is the owner's phone pushing a book database on a schedule,
+	# already behind basic auth, and a throttled sync fails silently on the device.
 	@dav path /dav /dav/*
 	handle @dav {
 		reverse_proxy webdav:6065
 	}
 
 	handle {
-		# Two zones because one page view is one document but roughly thirty asset requests —
-		# a single shared budget would either throttle real visitors on their first load or be
-		# too loose to matter. 60 documents/min is far past any human reloading by hand, and
-		# leaves an attacker 1 rps against a frontend that serves 65.
+		# Two zones because one page view is one document but roughly thirty asset requests, and a
+		# single shared budget would either throttle real visitors on their first load or be too loose
+		# to matter.
+
+		# 60 documents/min is far past any human reloading by hand, and leaves an attacker 1 rps
+		# against a frontend that serves 65.
 		rate_limit {
 			zone assets {
 				match {
@@ -143,11 +152,13 @@ danchuo.world {
 		cache
 
 		reverse_proxy frontend:3000 {
-			# Last line of defence, and the one that turns an outage back into slowness. Next
-			# is a single Node process: measured capacity is ~100 rps at ~120ms, i.e. about a
-			# dozen requests in flight. Unbounded, Caddy opens a connection per request until
-			# Node's accept queue overflows and every dial times out — which is exactly what
-			# the August incident looked like from the outside. Bounded, the excess waits here.
+			# Last line of defence, and the one that turns an outage back into slowness. Next is a
+			# single Node process with a measured capacity of ~100 rps at ~120ms, i.e. about a dozen
+			# requests in flight.
+
+			# Unbounded, Caddy opens a connection per request until Node's accept queue overflows and
+			# every dial times out — which is exactly what the outage looked like from outside.
+			# Bounded, the excess waits here.
 			transport http {
 				max_conns_per_host 48
 			}

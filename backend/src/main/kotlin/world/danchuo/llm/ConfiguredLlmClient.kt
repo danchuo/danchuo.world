@@ -7,20 +7,9 @@ import org.jboss.logging.Logger
 import java.util.Optional
 
 /**
- * The one bean callers inject: picks the provider named by `danchuo.llm.provider` and forwards.
- *
- * The implementations are deliberately `@Typed` to their own class, so this is the only bean of
- * type [LlmClient] — otherwise every injection point would be an ambiguous resolution. Selection
- * is a runtime property rather than a build profile because the key, not the code, is what
- * changes when we move between providers.
- *
- * An unknown provider name falls back to Groq with a warning: a typo in an env var must not take
- * the site down, and the fallback is the historical default.
- *
- * Это же единственное место, где разведены **полосы** ([LlmLane]): основная идёт в настроенного
- * провайдера, бесплатная — в своего, названного отдельными свойствами `danchuo.llm.free-*`.
- * Полосы разведены здесь, а не парой бинов на каждую, потому что различие между ними — это
- * ровно провайдер + модель + температура, то есть аргументы вызова, а не другое поведение.
+ * The one bean callers inject: it picks the provider named by `danchuo.llm.provider`, and an
+ * unknown name warns and falls back to Groq rather than taking the site down. Lanes ([LlmLane])
+ * are split here rather than by a bean each — a lane is only call arguments.
  */
 @ApplicationScoped
 class ConfiguredLlmClient(
@@ -42,7 +31,7 @@ class ConfiguredLlmClient(
     private val isGemini: Boolean
         get() = provider.trim().equals(GEMINI, ignoreCase = true)
 
-    /** Провайдер бесплатной полосы выбирается своим свойством: он не обязан совпадать с основным. */
+    /** The free lane picks its provider by its own property; it need not match the primary. */
     private val freeDelegate: LlmTextProvider
         get() = if (freeProvider.trim().equals(GEMINI, ignoreCase = true)) gemini else groq
 
@@ -60,9 +49,9 @@ class ConfiguredLlmClient(
         delegate.completeText(systemPrompt, userPrompt)
 
     /**
-     * Полоса выбирает провайдера и модель ([LlmLane]). У бесплатной ещё и своя температура:
-     * работа в ней фактическая (пересказ по тексту книги), а тёплые 0.7 основной полосы там
-     * только вредят — модель начинает досочинять то, чего в выдержке не было.
+     * The lane picks provider and model ([LlmLane]), and the free one also its own temperature:
+     * its work is factual, and the primary lane's warmer setting makes the model invent what
+     * the excerpt never said.
      */
     override fun completeText(systemPrompt: String, userPrompt: String, lane: LlmLane): String? =
         when (lane) {
@@ -80,9 +69,9 @@ class ConfiguredLlmClient(
         }
 
     /**
-     * Расшифровка идёт к Groq независимо от полосы: у Gemini её в нашем контракте нет, а
-     * бесплатный лимит на аудиосекунды у Groq щедрее, чем нужно фону (7200 в час против ~720
-     * на заход). Полоса остаётся в подписи, чтобы вызывающий называл цену вслух.
+     * Transcription always goes to Groq whatever the lane: Gemini has none in our contract, and
+     * Groq's free audio-second quota is far above what the background needs. The lane stays in
+     * the signature so the caller still names the cost out loud.
      */
     override fun transcribe(audio: LlmAudio, lane: LlmLane): String? = transcription.transcribe(audio)
 
@@ -103,7 +92,7 @@ class ConfiguredLlmClient(
         const val GROQ = "groq"
         const val GEMINI = "gemini"
 
-        /** Фактическая работа фоновой полосы: пересказывать текст, а не сочинять поверх него. */
+        /** The background lane retells the text; it does not invent on top of it. */
         const val FREE_TEMPERATURE = 0.3
     }
 }

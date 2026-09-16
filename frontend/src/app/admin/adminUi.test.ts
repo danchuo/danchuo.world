@@ -16,7 +16,7 @@ const run = (patch: Partial<ArtifactScanRunView>): ArtifactScanRunView => ({
 
 describe("artifactRunLabel — сводка прогона по архиву (§5.12)", () => {
   it("на ходу считает дропы, а не только кадры", () => {
-    // На двухстах кадрах счётчик кадров движется незаметно — «дроп 3 из 6» читается сразу.
+    // Across two hundred frames the frame counter moves imperceptibly; "drop 3 of 6" reads at once.
     const label = artifactRunLabel(run({ dropsDone: 2, checked: 70, found: 4 }));
     expect(label).toContain("дроп 3 из 6");
     expect(label).toContain("70/216");
@@ -29,8 +29,8 @@ describe("artifactRunLabel — сводка прогона по архиву (§
   });
 
   it("прогон, где всё пропущено и ничего не найдено, называет причину", () => {
-    // Главный кейс: молчащий провайдер выглядит как успешный пустой прогон. Разница
-    // видна только здесь, поэтому строка прямо указывает, где копать.
+    // The main case: a silent provider looks exactly like a successful empty run. The difference
+    // shows only here, so the label says outright where to dig.
     const label = artifactRunLabel(run({ state: "done", checked: 0, skipped: 216 }));
     expect(label).toContain("модель не отвечала");
     expect(label).toContain("DANCHUO_LLM_PROVIDER");

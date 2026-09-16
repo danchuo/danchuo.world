@@ -10,12 +10,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Оркестрация проверки поворота кадров фото-дропа (B9, PRD §9 п.13): фоновые прогоны по дропу,
- * применение вердикта [OrientationDecider] к хранилищу и БД, ручной поворот из админки.
- *
- * Прогоны идут в один фоновый поток (executor на один воркер) — дропы строго по очереди,
- * общий рейт-лимит провайдера; статус прогона админка поллит по [status]. Кадр с недоступной
- * LLM остаётся непроверенным (`skipped`) и подхватится следующим прогоном.
+ * Orchestrates the frame-orientation check: background runs in a single worker, so drops go
+ * strictly in turn under the provider's shared rate limit, applying [OrientationDecider]'s verdict
+ * to storage and DB. A frame whose LLM was unavailable stays unchecked for the next run. PRD §9
  */
 @ApplicationScoped
 class FilmOrientationService(
@@ -32,7 +29,7 @@ class FilmOrientationService(
         Thread(r, "film-orientation").apply { isDaemon = true }
     }
 
-    /** Последний прогон по дропу (running/done/failed); история не нужна — только текущий статус. */
+    /** The drop's last pass (running/done/failed); no history is kept, only the current status. */
     private val jobs = ConcurrentHashMap<Long, OrientationJob>()
 
     @PreDestroy
@@ -40,11 +37,11 @@ class FilmOrientationService(
         executor.shutdownNow()
     }
 
-    // ── Публичное API слайса ──
+    // -- Public slice API --
 
     /**
-     * Запустить фоновую проверку всех непроверенных кадров дропа. Идемпотентно: уже бегущий
-     * прогон не дублируется (возвращается его статус). `null` — дроп не найден.
+     * Starts the background check of a drop's unchecked frames. Idempotent: a running pass is not
+     * duplicated, its status is returned instead. `null` when the drop is not found.
      */
     fun start(dropId: Long): OrientationStatusView? {
         drops.findById(dropId) ?: return null
@@ -65,10 +62,10 @@ class FilmOrientationService(
         return job.view()
     }
 
-    /** Бежит ли сейчас прогон по дропу — гейт для мутаций кадров (ручной поворот/удаление). */
+    /** Whether a pass is running for the drop — the gate for frame mutations. */
     fun isRunning(dropId: Long): Boolean = jobs[dropId]?.state == "running"
 
-    /** Статус проверки дропа: бегущий/последний прогон, а без него — срез по БД. `null` — нет дропа. */
+    /** Check status: the running or last pass, else a snapshot off the DB. `null` when no drop. */
     fun status(dropId: Long): OrientationStatusView? {
         drops.findById(dropId) ?: return null
         jobs[dropId]?.let { return it.view() }
@@ -83,15 +80,15 @@ class FilmOrientationService(
     }
 
     /**
-     * Ручной поворот кадра из админки (override ошибки LLM). Бросает [IllegalStateException],
-     * если по дропу бежит прогон (иначе гонка за одни байты), [IllegalArgumentException] —
-     * кадр не из этого дропа. `false` — дроп/кадр не найден.
+     * Manual frame rotation from the admin UI (an override of the LLM). Throws
+     * [IllegalStateException] while a pass is running on the drop, since they would race for the
+     * same bytes, and [IllegalArgumentException] when the frame is not this drop's.
      */
     fun rotateManually(dropId: Long, photoId: Long, rotation: FrameRotation): Boolean {
         check(jobs[dropId]?.state != "running") { "orientation_running" }
-        // Валидация — в короткой транзакции, чтобы сущность кадра не осела в сессии запроса:
-        // запись идёт отдельной транзакцией, и ответ ресурса (свежий список кадров) иначе
-        // прочитал бы дообротный снимок из L1-кэша сессии.
+        // Validation runs in a short transaction so the frame entity does not settle in the
+        // request session: the write is a separate transaction, and the reply would otherwise
+        // read a pre-rotation snapshot out of the L1 session cache.
         val key = tx {
             if (drops.findById(dropId) == null) return@tx null
             val photo = photos.findById(photoId) ?: return@tx null
@@ -101,7 +98,7 @@ class FilmOrientationService(
         return rotateStored(photoId, key, rotation, applied = "manual")
     }
 
-    // ── Фоновый прогон ──
+    // -- Background pass --
 
     private fun run(dropId: Long, job: OrientationJob) {
         try {
@@ -124,7 +121,7 @@ class FilmOrientationService(
     }
 
     private fun processFrame(photoId: Long, job: OrientationJob) {
-        // Свежий срез: кадр могли удалить/повернуть вручную, пока прогон стоял в очереди.
+        // A fresh snapshot: the frame may have been deleted or rotated while the pass queued.
         val key = tx {
             photos.findById(photoId)?.takeIf { it.orientationCheckedAt == null }?.storageKey
         } ?: return
@@ -154,11 +151,12 @@ class FilmOrientationService(
         }
     }
 
-    // ── Применение ──
+    // -- Applying --
 
     /**
-     * Повернуть сохранённые web+thumb и зафиксировать итог в БД. Байты пишутся до отметки:
-     * упади процесс между ними — следующий прогон увидит уже прямой кадр и просто пометит его.
+     * Rotates the stored web and thumb variants and records the result. Bytes are written before
+     * the mark: should the process die between them, the next pass sees an upright frame and
+     * simply marks it.
      */
     private fun rotateStored(photoId: Long, key: String, rotation: FrameRotation, applied: String): Boolean {
         val web = storage.get(key, PhotoVariant.WEB)?.let { imaging.rotate(it, rotation) }
@@ -192,7 +190,7 @@ class FilmOrientationService(
 
     private fun <T> tx(block: () -> T): T = QuarkusTransaction.requiringNew().call(block)
 
-    /** Счётчики бегущего прогона (читаются поллингом статуса из админки). */
+    /** Counters of the running pass (read by the admin UI's status polling). */
     private class OrientationJob(val total: Int) {
         val checked = AtomicInteger()
         val rotated = AtomicInteger()

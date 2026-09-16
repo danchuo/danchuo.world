@@ -39,9 +39,9 @@ describe("InstagramPeek", () => {
   });
 
   /**
-   * Лайк и закладка ведут на сам пост: адреса, который ставит лайк или кладёт в закладки по
-   * переходу, у Instagram нет (см. врез в `lib/instagram.ts`). Обещать кнопкой больше, чем
-   * платформа умеет, нельзя — поэтому проверяем именно пост, а не выдуманный адрес.
+   * Like and bookmark lead to the post itself: Instagram has no address that likes or bookmarks on
+   * navigation (see the note in `lib/instagram.ts`). A button must not promise more than the
+   * platform can do.
    */
   it("лайк и закладка ведут на пост, комментарий — в комментарии", () => {
     render(<InstagramPeek post={post()} />);
@@ -64,8 +64,8 @@ describe("InstagramPeek", () => {
   });
 
   /**
-   * Карточка живёт в портале и помечена `aria-hidden` (см. HoverTip): фокус внутрь неё уводил бы
-   * табуляцию в конец документа, мимо самой марки. Поэтому все органы карточки — мышиные.
+   * The card lives in a portal and is marked `aria-hidden` (see HoverTip), so focus inside it
+   * would take tabbing to the end of the document, past the mark itself.
    */
   it("органы карточки из табуляции исключены", () => {
     const { container } = render(<InstagramPeek post={post()} />);
@@ -97,7 +97,7 @@ describe("InstagramPeek", () => {
     expect(screen.getByText("20 ч назад")).toBeInTheDocument();
   });
 
-  /** Тип медиа — не содержимое поста: подпись «несколько кадров» повторяла то, что и так видно. */
+  /** The media type is not the post's content: the caption repeated what is already visible. */
   it("не подписывает тип медиа под ником", () => {
     render(<InstagramPeek post={post({ mediaType: "CAROUSEL_ALBUM" })} />);
     expect(screen.queryByText("несколько кадров")).not.toBeInTheDocument();

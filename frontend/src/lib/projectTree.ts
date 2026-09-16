@@ -1,27 +1,17 @@
 /**
- * Ветки дерева для списка проектов — редакция «консоль» (DESIGN §7.8).
- *
- * Год стоит слева и связан со своим поддеревом ГОРИЗОНТАЛЬЮ: линия идёт от года к стволу,
- * ствол начинается ровно на её уровне и уходит вниз. Выше года вертикали нет — дерево не
- * тянется к верху плитки, а начинается там, где написан год. Отсюда четыре вида ветки.
- *
- * Угол считаем по ВСЕЙ группе, а не по видимому окну: при прокрутке настоящий последний
- * уезжает под срез, и видимые строки честно остаются тройниками — именно это и значит «дерево
- * продолжается за краем». Подгонять угол под нижнюю видимую строку нельзя: она не последняя,
- * и угол соврал бы, что список кончился.
- *
- * Отдаём ВИД ветки, а не глиф: рисует её CSS линиями (`.project-branch`), потому что
- * box-drawing-знаков в подмножестве моношрифта борда нет — см. docs/pitfalls.md.
+ * Tree branches for the console edition. The year sits left and joins its subtree by a HORIZONTAL
+ * line; there is no vertical above it. The corner is computed over the WHOLE group, not the visible
+ * window — fitting it to the last visible row would claim the list had ended. DESIGN §7.8
  */
 
 /**
- * `head` — первая из нескольких: ствол начинается на уровне года и уходит вниз;
- * `tee` — тройник, ствол проходит насквозь; `corner` — угол, ствол обрывается на середине;
- * `only` — единственная в группе: ствола нет вовсе, от года к строке идёт одна прямая.
+ * `head` — first of several: the trunk starts at the year's level and goes down; `tee` — the trunk
+ * passes through; `corner` — the trunk stops halfway; `only` — the sole row in its group, with no
+ * trunk at all and one straight line from the year.
  */
 export type BranchKind = "head" | "tee" | "corner" | "only";
 
-/** Вид ветки для строки `index` из `total` СВОЕГО ГОДА. Чистая функция — ни DOM, ни данных. */
+/** The branch kind for row `index` of `total` IN ITS OWN YEAR. Pure: no DOM, no data. */
 export function treeBranch(index: number, total: number): BranchKind {
   if (total === 1) return "only";
   if (index === 0) return "head";

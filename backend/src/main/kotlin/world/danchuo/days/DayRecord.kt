@@ -8,22 +8,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Запись одного дня (PRD §7) — ось данных danchuo.world. Ключ — [date] (LocalDate
- * в каноне MSK), уникален; модель строится вокруг дня (плитка «Сегодня», календарь).
- *
- * **Null ≠ 0 (PRD §5.4).** Все статы здоровья nullable: `null` = «нет данных»,
- * `0` = реальный ноль (0 шагов — валидно). Не схлопывать в 0 на уровне модели.
- *
- * Запись наполняется несколькими слайсами через [DayRecordService] (единая точка
- * инвариантов — генезис-гард, `updatedAt`):
- * - `health` → шаги, сон и его фазы (`ingest/health`);
- * - `checklist` → имя дня (`ingest/daily`).
- *
- * Монстра запись дня НЕ несёт: «пил / не пил» живёт отметкой пункта `monster`
- * в `checklist_entry` (§5.6) — там же, где считается его прогресс.
- *
- * Колонок «на будущее» тут нет: `screen_time/reading_progress/day_photo` прожили год
- * незаполненными и сняты (§9). Заведём, когда появится канал, который в них пишет.
+ * One day, the data axis of the project: keyed by the unique MSK [date] and filled by several
+ * slices through [DayRecordService] (genesis guard, `updatedAt`). NULL IS NOT 0 — every health
+ * stat is nullable and 0 steps is a real zero, never collapse it in the model. PRD §5.4, §7
  */
 @Entity
 @Table(name = "day_record")
@@ -33,15 +20,15 @@ class DayRecord {
     @Column(nullable = false)
     lateinit var date: LocalDate
 
-    /** Имя дня (§5.2/§5.6): задаётся/правится задним числом; нет имени — `null`. */
+    /** Day name (§5.2/§5.6): set or edited after the fact; `null` when unnamed. */
     @Column(name = "title")
     var title: String? = null
 
-    // ── Apple Health (§5.4): nullable; null = нет данных, 0 = реальный ноль ──
+    // -- Apple Health (§5.4): nullable; null = no data, 0 = a real zero --
     @Column(name = "steps")
     var steps: Int? = null
 
-    /** Сон относится ко **дню пробуждения** (PRD §4). */
+    /** Sleep belongs to the DAY OF WAKING UP (PRD §4). */
     @Column(name = "sleep_minutes")
     var sleepMinutes: Int? = null
 
@@ -58,18 +45,17 @@ class DayRecord {
     var sleepAwakeMinutes: Int? = null
 
     /**
-     * Измеренные минуты в приложении «Журнал» за **вечернее окно** дня (PRD §5.6).
-     * `null` = «не мерили» (ручная отметка или день до появления канала) — это не ноль.
-     * Отметка пункта живёт в `checklist_entry`: здесь измерение, там решение.
+     * Measured "Journal" app minutes over the day's EVENING window (PRD §5.6). `null` means "not
+     * measured" (a manual mark, or a day predating the channel) — which is not a zero. The item's
+     * mark lives in `checklist_entry`: the measurement here, the decision there.
      */
     @Column(name = "journal_minutes")
     var journalMinutes: Int? = null
 
     /**
-     * Вклады GitHub за день (PRD §5.4): коммиты + PR + ревью + issue, как их считает сам
-     * календарь профиля. `null` = «день не собирали», `0` = «собрали, вкладов не было» —
-     * различие здесь рабочее, нулевых дней много. Корзину дня назначает GitHub, мы её не
-     * пересчитываем (см. врез про границу суток в §5.4).
+     * GitHub contributions for the day, as the profile calendar itself counts them (commits, PRs,
+     * reviews, issues). `null` = the day was not collected, `0` = collected and empty, and the
+     * difference is working — zero days are many. GitHub assigns the bucket, not us. PRD §5.4
      */
     @Column(name = "contributions")
     var contributions: Int? = null

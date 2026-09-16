@@ -10,15 +10,12 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.LocalDate
 
-/** Источник тренировки. Пока единственный — Apple Health (push с iOS-шортката). */
 enum class WorkoutSource { APPLE_HEALTH }
 
 /**
- * Одна тренировка дня (PRD §5.4, §7) — N к [world.danchuo.days.DayRecord] **по дате**
- * (плоская связь `date`, без JPA-отношения: слайсы расцеплены). Тренировка не каждый
- * день — это норма; за дату их может быть 0..N.
- *
- * [activeEnergyKcal]/[distanceMeters] nullable: метрика могла не прийти (§5.4, null ≠ 0).
+ * One workout of a day, linked to it by DATE (a flat `date`, no JPA relation, as slices stay
+ * decoupled). Not every day has one, and that is normal — a date holds 0..N.
+ * [activeEnergyKcal]/[distanceMeters] are nullable: the metric may not have arrived. PRD §5.4
  */
 @Entity
 @Table(name = "workout")

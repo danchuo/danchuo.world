@@ -3,44 +3,30 @@ package world.danchuo.spotify
 import java.time.Instant
 
 /**
- * Чистая арифметика прослушанного времени подкаста (PRD §5.6).
- *
- * Spotify не отдаёт историю эпизодов: `recently-played` подкасты не возвращает, а `resume_point`
- * знает только «дослушано / на какой секунде остановился» — без времени и без «когда». Поэтому
- * историю пишем сами, опрашивая `currently-playing` (см. [PodcastPoller]).
- *
- * Ключ к точности — считать **дельту головки** (`progress_ms`), а не число опросов:
- * - **пауза** — головка стоит, дельта нулевая, ничего не капает. Отдельная ветка по `is_playing`
- *   не нужна;
- * - **перемотка вперёд** — головка прыгает дальше, чем прошло времени. Кламп по реальному
- *   времени не даёт промотанной рекламе засчитаться прослушанной;
- * - **перемотка назад** — дельта отрицательная, приносит ноль, но сессию не рвёт: следующие
- *   шаги считаются как обычно (переслушанный кусок — честно прослушанное время).
- *
- * Замер на живой сессии (15 отсчётов раз в минуту): за 845 с реального времени головка прошла
- * ровно 845 с. Дрейфа нет — запаса на рассинхрон закладывать не нужно.
+ * Pure arithmetic of podcast listening time. The key to accuracy is counting the PLAYHEAD DELTA
+ * rather than the number of polls: a pause yields nothing on its own, a skip forward is clamped by
+ * real time, and a rewind brings zero without breaking the session. Measured drift: none. §5.6
  */
 object PodcastListenMath {
 
     /**
-     * Насколько близко к началу эпизода должен стоять первый семпл сессии, чтобы засчитать его
-     * целиком: один интервал опроса. Больше — значит эпизод продолжили с середины.
+     * How close to an episode's start the session's first sample must be for the whole of it to
+     * count: one poll interval. Further means the episode was resumed from the middle.
      */
     const val START_TOLERANCE_MS = 60_000L
 
     /**
-     * Зачёт за первый семпл сессии. Опрос мог застать эпизод уже начавшимся, и эту фору хочется
-     * вернуть — но только когда эпизод включён С НАЧАЛА. Продолжение вчерашнего с 20-й минуты
-     * пришло бы сюда с `progressMs` = 20 минут, и засчитать их значило бы приписать себе то,
-     * что слушал вчера (или не слушал вовсе).
+     * Credit for a session's first sample. The poll may have caught the episode already running
+     * and that head start is worth recovering — but ONLY when the episode began at zero. Resuming
+     * yesterday's from minute 20 would otherwise claim time listened to on another day.
      */
     fun openingCredit(progressMs: Long, toleranceMs: Long = START_TOLERANCE_MS): Long =
         if (progressMs in 0..toleranceMs) progressMs else 0
 
     /**
-     * Зачёт между двумя соседними опросами ОДНОГО эпизода: сколько головка прошла, но не больше,
-     * чем прошло реального времени. Оба слагаемых неположительными не бывают — пауза, перемотка
-     * назад и семплы с одинаковой меткой времени дают ноль.
+     * Credit between two adjacent polls of ONE episode: how far the playhead moved, but no more
+     * than the real time elapsed. Neither term is ever negative — a pause, a rewind and two
+     * samples with the same timestamp all give zero.
      */
     fun tickCredit(
         previousProgressMs: Long,

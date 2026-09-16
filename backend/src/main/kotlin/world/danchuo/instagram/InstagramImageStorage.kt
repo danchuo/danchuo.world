@@ -5,20 +5,14 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Байты картинок Instagram: кадр поста и аватар владельца (PRD §5.17).
- *
- * ⚠️ **Существует ровно потому, что ссылки Instagram живут часами.** `media_url` и
- * `profile_picture_url` — подписанные URL с зашитым сроком: отдай мы их фронту, карточка
- * встала бы на 403 «URL signature expired» в тот же день. Снятые байты — не кэш ради
- * скорости, а единственный способ показать пост дольше нескольких часов.
- *
- * Лежит в подкаталоге хранилища фото-дропов — как картинки артефактов: в проде это уже
- * смонтированный том, и заводить ради двух файлов второй — лишний шаг в деплое.
+ * Bytes of the Instagram images — the post frame and the owner's avatar. It exists because the
+ * source's signed URLs expire within hours, so these bytes are not a cache for speed but the only
+ * way to show a post for longer than that. They sit beside the drop images. PRD §5.17
  */
 @ApplicationScoped
 class InstagramImageStorage(private val config: InstagramConfig) {
 
-    /** Что за картинка. Файлов ровно два — пост и аватар, оба перезаписываются на месте. */
+    /** Which image. There are exactly two files, post and avatar, both overwritten in place. */
     enum class Kind(val fileName: String) {
         POST("post"),
         AVATAR("avatar"),
@@ -35,11 +29,9 @@ class InstagramImageStorage(private val config: InstagramConfig) {
         fileOf(kind).takeIf { Files.isRegularFile(it) }?.let { Files.readAllBytes(it) }
 
     /**
-     * Публичный адрес картинки — под ним её раздаёт [InstagramMediaResource].
-     *
-     * Имя файла от содержимого не зависит, поэтому новый пост оставил бы URL прежним и браузер
-     * честно показывал бы кэшированную копию. Отсюда версия `?v=` от времени файла — тот же
-     * приём, что у картинок артефактов и перевёрнутых кадров.
+     * Public address of an image, which [InstagramMediaResource] serves it under. The file name
+     * does not depend on content, so a new post would keep the old URL and a browser would
+     * honestly show the cached copy — hence the `?v=` version taken from the file's timestamp.
      */
     fun urlOf(kind: Kind): String? {
         val file = fileOf(kind).takeIf { Files.isRegularFile(it) } ?: return null

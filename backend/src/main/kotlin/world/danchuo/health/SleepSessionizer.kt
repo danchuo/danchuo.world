@@ -9,12 +9,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeParseException
 
 /**
- * Фаза одного куска сна. HealthKit пишет ночь не одной записью, а пачкой кусков-фаз;
- * имена приходят голыми строками с iOS (`REM` / `Deep` / `Core` / `Awake` / `Asleep`).
- *
- * [UNSPECIFIED] — «спит, фаза неизвестна»: так iPhone размечает ночь без часов. В итог
- * идёт как light (рисовать отдельную «неизвестную» полосу нечем), но при разборе
- * перекрытий уступает любой явной фазе — часы точнее телефона.
+ * The phase of one sleep segment; names arrive as bare strings from iOS (`REM`, `Deep`, `Core`,
+ * `Awake`, `Asleep`). [UNSPECIFIED] means "asleep, phase unknown" — how an iPhone marks a night
+ * without a watch. It counts as light but yields to any explicit phase when overlaps are resolved.
  */
 enum class SleepStage {
     REM,
@@ -24,11 +21,11 @@ enum class SleepStage {
     UNSPECIFIED,
     ;
 
-    /** Явная фаза бьёт неразмеченный сон на том же отрезке времени. */
+    /** An explicit phase beats unlabelled sleep over the same stretch of time. */
     internal val priority: Int get() = if (this == UNSPECIFIED) 0 else 1
 
     companion object {
-        /** Разбор имени фазы; `null` = «не сон» (`In Bed`) или незнакомое имя — такой кусок пропускаем. */
+        /** Parses a phase name; `null` means not sleep (`In Bed`) or unknown — such a chunk is skipped. */
         fun of(raw: String?): SleepStage? = when (raw?.filter { it.isLetter() }?.lowercase()) {
             "rem", "asleeprem" -> REM
             "deep", "asleepdeep" -> DEEP
@@ -40,32 +37,25 @@ enum class SleepStage {
     }
 }
 
-/** Кусок сна как пришёл с ingest'а: фаза + границы (уже разобранные в моменты времени). */
+/** A sleep chunk as ingest sent it: phase plus bounds, already parsed into instants. */
 data class SleepSegment(val stage: SleepStage, val start: Instant, val end: Instant)
 
 /**
- * Сборка ночи из сырых кусков сна (PRD §5.4, §4).
- *
- * Зачем это на бэке, а не в шорткате. Сон принадлежит **дню пробуждения**, а куски ночи лежат
- * по обе стороны полуночи. Любой фильтр шортката по одной границе семпла режет ночь: `Start Date
- * is today` теряет вечернее начало целиком, `End Date is today` — куски, закончившиеся до полуночи
- * (уснул 23:20 ⇒ ночь показывалась «с 00:00»). Поэтому шорткат больше не считает: он отдаёт всё
- * подряд за широкое окно, а день выбирается здесь — **по концу сессии**. Ширина окна перестаёт
- * быть настройкой: лишнее просто отбрасывается.
- *
- * Попутно снимаются две грабли шортката: дубли источников (Shortcuts не дедуплицирует семплы —
- * ночь удваивалась) и ночь без часов одним семплом `Asleep` (мимо всех веток If ⇒ ноль).
+ * Assembles a night out of raw segments, choosing the day BY SESSION END. This lives on the
+ * backend because sleep belongs to the waking day while its pieces straddle midnight, and any
+ * shortcut filter on a single sample boundary cuts the night short. PRD §5.4, §4
  */
 object SleepSessionizer {
 
-    /** Разрыв, с которого начинается новая сессия сна. Дырки в семплах внутри ночи короче. */
+    /** The gap that starts a new sleep session. Sample holes inside one night are shorter. */
     private val SESSION_GAP: Duration = Duration.ofMinutes(60)
 
     private val NONE = SleepInput(null, null, null, null, null)
 
     /**
-     * Длительность и фазы сна, из которого проснулись в [wakeDate] (день считается в [zone]).
-     * Сессии, закончившиеся в другой день, отбрасываются; ночь без сна ⇒ «нет данных» (§5.4).
+     * Duration and phases of the sleep someone woke from on [wakeDate] (the day is taken in
+     * [zone]). Sessions ending on another day are dropped; a night without sleep means "no
+     * data" (§5.4).
      */
     fun summarize(segments: List<SleepSegment>, wakeDate: LocalDate, zone: ZoneId): SleepInput {
         val ofWakeDate = sessionsEndingOn(segments, wakeDate, zone).flatten()
@@ -77,16 +67,16 @@ object SleepSessionizer {
         val light = minutes((seconds[SleepStage.LIGHT] ?: 0) + (seconds[SleepStage.UNSPECIFIED] ?: 0))
         val awake = minutes(seconds[SleepStage.AWAKE])
 
-        // `Awake` в сон не входит — так же считает Apple «Time Asleep». Сумма фаз = длительность
-        // по построению: округляем один раз, каждую фазу, и складываем уже округлённое.
+        // `Awake` is not sleep, as Apple's "Time Asleep" also counts. Phases sum to the duration
+        // by construction: round once, per phase, and add the rounded values.
         val asleep = rem + deep + light
         return if (asleep == 0) NONE else SleepInput(asleep, rem, deep, light, awake)
     }
 
     /**
-     * Разбор момента времени из строки шортката. Основная форма — ISO со смещением
-     * (`2026-07-27T23:20:00+03:00`); без смещения читаем в [zone], пробел вместо `T` терпим.
-     * Всё остальное — `null`: молча угадывать формат времени опаснее, чем ответить 400.
+     * Parses an instant from the shortcut's string. The main form is ISO with an offset; without
+     * one we read it in [zone], and a space instead of `T` is tolerated. Everything else is
+     * `null`: silently guessing a time format is more dangerous than answering 400.
      */
     fun parseInstant(raw: String?, zone: ZoneId): Instant? {
         val text = raw?.trim()?.replace(' ', 'T')?.takeIf { it.isNotEmpty() } ?: return null
@@ -102,8 +92,8 @@ object SleepSessionizer {
     }
 
     /**
-     * Сессии, ЗАКОНЧИВШИЕСЯ в [wakeDate] — то, что по правилу §4 и есть сон этого дня.
-     * Их может быть больше одной: дневной сон — такая же сессия того же дня.
+     * Sessions that ENDED on [wakeDate] — which, by the rule in §4, is that day's sleep. There may
+     * be more than one: a daytime nap is just as much a session of the same day.
      */
     internal fun sessionsEndingOn(
         segments: List<SleepSegment>,
@@ -114,12 +104,9 @@ object SleepSessionizer {
     }
 
     /**
-     * Куски, разложенные во времени без перекрытий. Время режется границами всех кусков, и
-     * каждый элементарный отрезок достаётся ровно одной фазе (явная бьёт
-     * [SleepStage.UNSPECIFIED], равные — по порядку объявления): поэтому ни дубли источников,
-     * ни разметка часов поверх записи телефона не удлиняют ночь сверх реально проведённого
-     * времени. Соседние куски одной фазы склеиваются; **дырка в семплах дыркой и остаётся** —
-     * полоса ночи (I-23) обязана показать провал, а не замазать его.
+     * Segments laid out in time without overlap: time is cut by every boundary and each slice goes
+     * to exactly one phase (an explicit one beats [SleepStage.UNSPECIFIED]), so duplicate sources
+     * cannot lengthen a night. Equal phases merge; A GAP IN SAMPLES STAYS A GAP — the band shows it.
      */
     internal fun flatten(segments: List<SleepSegment>): List<SleepSegment> {
         val valid = segments.filter { it.end.isAfter(it.start) }
@@ -142,7 +129,7 @@ object SleepSessionizer {
         return out
     }
 
-    /** Куски, разложенные по сессиям: новая начинается там, где разрыв больше [SESSION_GAP]. */
+    /** Chunks grouped into sessions: a new one starts where the gap exceeds [SESSION_GAP]. */
     private fun sessions(segments: List<SleepSegment>): List<List<SleepSegment>> {
         val valid = segments.filter { it.end.isAfter(it.start) }.sortedBy { it.start }
         val sessions = mutableListOf<MutableList<SleepSegment>>()
@@ -159,7 +146,7 @@ object SleepSessionizer {
         return sessions
     }
 
-    /** Секунды по фазам: разложенная во времени ночь ([flatten]), сложенная по фазам. */
+    /** Seconds per phase: the night laid out in time ([flatten]), folded by phase. */
     private fun secondsByStage(segments: List<SleepSegment>): Map<SleepStage, Long> {
         val totals = mutableMapOf<SleepStage, Long>()
         flatten(segments).forEach { part ->

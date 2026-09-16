@@ -7,23 +7,19 @@ import java.time.Clock
 import java.time.LocalDate
 
 /**
- * Единая точка канонического времени MSK (PRD §4, CLAUDE.md).
- *
- * Слайсы инжектят этот бин (или произведённый [Clock]) вместо `LocalDate.now()` /
- * `Clock.systemDefaultZone()`, чтобы «день» везде считался в каноне, а не в tz сервера.
- * Напоминание по семантике: сон относится ко дню пробуждения; будущие дни — пустые.
+ * The single source of canonical MSK time. Slices inject this bean (or the [Clock] it produces)
+ * instead of `LocalDate.now()`, so a "day" is the canon everywhere rather than the server's
+ * timezone. Sleep belongs to the day of waking; future days are empty. PRD §4
  */
 @ApplicationScoped
 class MskTime(private val time: TimeConfig) {
 
-    /** Канонический [Clock] (пояс из [TimeConfig]) — для инъекции в слайсы и тесты. */
     @Produces
     @Singleton
     fun clock(): Clock = Clock.system(time.zoneId())
 
-    /** Сегодняшний день в каноне MSK. */
     fun today(): LocalDate = LocalDate.now(time.zoneId())
 
-    /** Генезис-дата: раньше неё данных нет. */
+    /** Genesis date: nothing exists before it. */
     val genesis: LocalDate get() = time.genesis()
 }

@@ -3,17 +3,9 @@ package world.danchuo.instagram
 import io.quarkus.runtime.annotations.RegisterForReflection
 
 /**
- * Последний пост для борда (PRD §5.17) — ровно то, что рисует карточка, и ничего сверх.
- *
- * ⚠️ [imageUrl] — НАШ адрес ([InstagramImageStorage]), а не ссылка Instagram: подписанная
- * ссылка источника протухает за часы. [likes] и [comments] — `null`, когда владелец спрятал
- * счётчики: это законное состояние поста, карточка просто не рисует строку.
- *
- * ⚠️ [RegisterForReflection] ОБЯЗАТЕЛЕН: класс уезжает наружу только внутри `Response.ok(...)`,
- * а сборка native ходит по сигнатурам ресурсов и полезную нагрузку за `Response` не видит —
- * геттеры вырезаются, и Jackson отдаёт `{}` с кодом 200. На JVM (дев, тесты, локальный стек)
- * всё сериализуется честно, поэтому промах доезжает до прода целым и тестом не ловится
- * (docs/pitfalls.md).
+ * The latest post as the card draws it, nothing beyond. [imageUrl] is OUR address rather than
+ * Instagram's expiring one, and [likes]/[comments] are null when the owner hid the counters.
+ * [RegisterForReflection] is MANDATORY here — see docs/pitfalls.md for what native-image does.
  */
 @RegisterForReflection
 data class InstagramPostView(
@@ -25,7 +17,7 @@ data class InstagramPostView(
     val avatarUrl: String?,
     val likes: Int?,
     val comments: Int?,
-    /** ISO-8601 UTC — относительное «2 дня назад» считает фронт, как у остальных плиток. */
+    /** ISO-8601 UTC — the relative "2 days ago" is the frontend's job, as on the other tiles. */
     val postedAt: String,
 )
 

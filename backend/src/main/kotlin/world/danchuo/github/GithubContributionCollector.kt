@@ -11,18 +11,9 @@ import world.danchuo.days.DayRecordService
 import java.time.LocalDate
 
 /**
- * Фоновый сбор вкладов GitHub в дни (PRD §5.4, реестр I-01). Внешний источник целиком в
- * слайсе: наружу из него уходит только заполненное поле `DayRecord.contributions`.
- *
- * Один заход забирает **год клеток разом** — поэтому первый же прогон дозаполняет всю
- * прошлую историю (как погода из реестра), и чипу не нужно ждать, пока накопятся дни.
- * Писать при этом каждый раз все триста строк не надо: [ContributionWriteFilter] оставляет
- * только изменившееся.
- *
- * **Сбой канала ничего не стирает.** Сеть, страница ошибки, поехавшая разметка — всё это
- * даёт пустой разбор, и тогда прогон просто не пишет (та же доктрина, что «пустой прогон
- * Health не стирает ночь»): «не смогли достать» и «вкладов не было» по данным неразличимы,
- * а первое случается чаще.
+ * Background collection of GitHub contributions into days; only `DayRecord.contributions` leaves
+ * the slice. One pass takes a YEAR of cells, so the very first run backfills history, and
+ * [ContributionWriteFilter] narrows it to what changed. AN EMPTY PARSE WRITES NOTHING. PRD §5.15
  */
 @ApplicationScoped
 class GithubContributionCollector(
@@ -42,7 +33,7 @@ class GithubContributionCollector(
             .onFailure { log.warn("github: сбор вкладов не удался (сеть/разметка?): ${it.message}") }
     }
 
-    /** Один проход: страница → разбор → запись изменившихся дней. Возвращает число записанных. */
+    /** One pass: page, parse, write the changed days. Returns how many were written. */
     @Transactional
     fun collectOnce(): Int {
         val html = api.contributions(config.username(), config.userAgent())
@@ -62,7 +53,7 @@ class GithubContributionCollector(
         return pending.size
     }
 
-    /** Что уже лежит в этих днях: `дата → вклады` (`null` = день есть, вклады не собирали). */
+    /** What those days already hold: `date -> contributions` (`null` = day exists, never collected). */
     private fun stored(dates: Set<LocalDate>): Map<LocalDate, Int?> {
         if (dates.isEmpty()) return emptyMap()
         return repo.listByDateRange(dates.min(), dates.max())

@@ -3,18 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RideMap } from "./RideMap";
 
 /**
- * Кадрирование мини-карты (DESIGN §8.1). Зум — это «сколько метров в пикселе»: подобранный под
- * один размер контейнера, при росте он оставляет тот же масштаб и просто показывает больше
- * пустоты вокруг — точки съезжаются к центру, карта «отдаляется». Раньше `fitBounds` звался
- * только при маунте, поэтому уменьшение масштаба браузера и большой монитор давали ровно этот
- * эффект. Тест держит контракт «перефитить на каждое изменение размера».
+ * Framing the mini map (DESIGN §8.1). Zoom is "how many metres per pixel": fitted to one container
+ * size, it keeps that scale as the container grows and simply shows more emptiness, so the points
+ * converge. The contract is to refit on EVERY size change, not only on mount.
  */
 const fitBounds = vi.fn();
 const resize = vi.fn();
-/** Опции, с которыми собрали карту, — на них держится и выбор подложки, и режим жестов. */
+/** The options the map was built with: both the basemap choice and the gesture mode rest on them. */
 const mapOptions = vi.fn();
 const addControl = vi.fn();
-/** Адрес воркера — без него карта не разбирает тайлы вовсе, поэтому он тоже под тестом. */
+/** The worker's address — without it the map parses no tiles at all, so it is under test too. */
 const setWorkerUrl = vi.fn();
 
 vi.mock("maplibre-gl/dist/maplibre-gl.css", () => ({}));
@@ -23,9 +21,9 @@ vi.mock("maplibre-gl", () => {
   class Map {
     constructor(options: unknown) {
       mapOptions(options);
-      // Настоящая maplibre создаёт подпись поставщика прямо в конструкторе и оставляет её
-      // РАЗВЁРНУТОЙ (`maplibregl-compact-show` + `open`), а ссылки приезжают HTML-строкой из
-      // стиля, без `target`. Мок повторяет ровно это — иначе проверять было бы нечего.
+      // The real maplibre creates the provider attribution in the constructor and leaves it
+      // EXPANDED, with links arriving as an HTML string from the style and no `target`. The mock
+      // repeats exactly that — otherwise there would be nothing to check.
       const o = options as { container?: HTMLElement; attributionControl?: unknown };
       if (o.container && o.attributionControl) {
         const attrib = document.createElement("details");
@@ -46,8 +44,8 @@ vi.mock("maplibre-gl", () => {
     setLayoutProperty = () => {};
     getSource = () => undefined;
     remove = () => {};
-    // Стиль в тестах не грузится, поэтому `load` не наступает никогда: слои и `onReady` живут
-    // в его обработчике, и всё, что тест проверяет, происходит ДО него.
+    // The style does not load in tests, so `load` never fires: the layers and `onReady` live in
+    // its handler, and everything this test checks happens BEFORE it.
     once = () => {};
     touchZoomRotate = { disableRotation: () => {} };
   }
@@ -69,7 +67,7 @@ vi.mock("maplibre-gl", () => {
   return { ...api, default: api };
 });
 
-/** Захватываем колбэк наблюдателя, чтобы дёрнуть «контейнер изменился» вручную. */
+/** Capture the observer's callback so "the container changed" can be fired by hand. */
 let fireResize: (() => void) | null = null;
 
 beforeEach(() => {
@@ -79,7 +77,7 @@ beforeEach(() => {
   addControl.mockClear();
   setWorkerUrl.mockClear();
   fireResize = null;
-  // jsdom меряет всё нулём, а карта не кадрируется в нулевой бокс — подкладываем размер.
+  // jsdom measures everything as zero, and a map cannot frame into a zero box — we supply a size.
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
     width: 400,
     height: 300,
@@ -121,15 +119,15 @@ describe("RideMap — кадрирование", () => {
     await vi.waitFor(() => expect(fitBounds).toHaveBeenCalledTimes(1));
     fireResize?.();
     expect(fitBounds).toHaveBeenCalledTimes(2);
-    // Пересчёт размеров ОБЯЗАН идти перед подгонкой: иначе карта считает по устаревшему боксу.
+    // The resize MUST come before the fit, or the map computes from a stale box.
     expect(resize).toHaveBeenCalled();
   });
 });
 
 /**
- * Карта в плитке и карта в окне — один компонент, но разные предметы: там виджет и целиком
- * кнопка, здесь карта, которую водят и приближают. Разводит их единственный
- * проп `interactivePins` — тест держит весь набор следствий.
+ * The map in a tile and the map in a window are one component but different objects: there a
+ * widget that is entirely a button, here a map that is panned and zoomed. The single prop
+ * `interactivePins` separates them, and this test holds the whole set of consequences.
  */
 describe("RideMap — жесты", () => {
   it("в плитке карта статична: жест уходит на кнопку, а не двигает подложку", async () => {
@@ -137,14 +135,14 @@ describe("RideMap — жесты", () => {
     await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
     const o = mapOptions.mock.calls[0][0] as Record<string, unknown>;
     expect(o.interactive).toBe(false);
-    // Атрибуция в углу крошечного виджета была бы мусором; в окне она обязательна.
+    // Attribution in the corner of a tiny widget would be noise; in the window it is required.
     expect(o.attributionControl).toBe(false);
     expect(addControl).not.toHaveBeenCalled();
   });
 
   it("подпись поставщика свёрнута в «i» и уходит в новую вкладку", async () => {
-    // maplibre отдаёт подпись развёрнутой строкой поверх карты в момент открытия окна, а её
-    // ссылки уводили бы со страницы. Оба поведения правит сам компонент.
+    // maplibre serves the attribution expanded over the map as the window opens, and its links
+    // would navigate away from the page. The component fixes both behaviours.
     const { container } = render(<RideMap {...coords} interactivePins />);
     const attrib = await vi.waitFor(() => {
       const node = container.querySelector(".maplibregl-ctrl-attrib");
@@ -153,7 +151,7 @@ describe("RideMap — жесты", () => {
     });
     expect(attrib.classList.contains("maplibregl-compact-show")).toBe(false);
     expect(attrib.hasAttribute("open")).toBe(false);
-    // Сам кружок «i» остаётся: атрибуцию прячут, а не убирают.
+    // The "i" circle itself stays: the attribution is collapsed, not removed.
     expect(attrib.classList.contains("maplibregl-compact")).toBe(true);
     const link = attrib.querySelector("a")!;
     expect(link.target).toBe("_blank");
@@ -167,8 +165,8 @@ describe("RideMap — жесты", () => {
       expect(node).not.toBeNull();
       return node!;
     });
-    // Список источников maplibre перерисовывает на каждое изменение стиля — свежая разметка
-    // приезжает снова развёрнутой и снова без `target`.
+    // maplibre redraws the source list on every style change — the fresh markup arrives expanded
+    // again and again without `target`.
     attrib.classList.add("maplibregl-compact-show");
     attrib.setAttribute("open", "");
     attrib.innerHTML = '<div><a href="https://www.openstreetmap.org/copyright">OSM</a></div>';
@@ -184,7 +182,7 @@ describe("RideMap — жесты", () => {
     const o = mapOptions.mock.calls[0][0] as Record<string, unknown>;
     expect(o.interactive).toBe(true);
     expect(o.attributionControl).not.toBe(false);
-    // Зумер — рядом с жестом: колесо есть не у всех, а кнопки есть всегда.
+    // The zoomer stands beside the gesture: not everyone has a wheel, everyone has buttons.
     expect(addControl).toHaveBeenCalled();
   });
 
@@ -198,9 +196,9 @@ describe("RideMap — жесты", () => {
 });
 
 /**
- * Подложка — ОДНА на все волны и светлая (DESIGN §7.6): на светлой бумаге дороги и подписи
- * видно без всматривания, какой бы ни была волна вокруг карты. Тёмный стиль под тёмную волну
- * пройден и снят — он забирал внимание себе.
+ * The basemap is ONE for all waves and light (DESIGN §7.6): on light paper the roads and labels
+ * are legible without peering, whatever the wave around the map. A dark style under a dark wave
+ * was tried and dropped — it took the attention for itself.
  */
 describe("RideMap — подложка", () => {
   it("подложка светлая и не зависит от волны", async () => {
@@ -215,8 +213,8 @@ describe("RideMap — подложка", () => {
 });
 
 /**
- * Кнопка «вернуть кадр» под зумером: карту в окне водят руками, и вернуться к самой поездке
- * должно быть одним жестом. В плитке карта статична — там нет ни зумера, ни возврата.
+ * The "restore framing" button under the zoomer: a map in a window is panned by hand, and getting
+ * back to the ride itself should be one gesture. In the tile the map is static and has neither.
  */
 describe("RideMap — возврат кадра", () => {
   it("в окне контролов два (зумер и возврат), в плитке — ни одного", async () => {
@@ -243,9 +241,9 @@ describe("RideMap — возврат кадра", () => {
 });
 
 /**
- * Воркер MapLibre — условие работы карты, а не деталь: без него карта рисует фон стиля и
- * останавливается, молча и без ошибок в консоли (docs/pitfalls.md). Адрес должен указывать
- * в статику сайта, куда его кладёт `scripts/copy-maplibre-worker.mjs`.
+ * The MapLibre worker is a condition of the map working, not a detail: without it the map draws
+ * the style's background and stops, silently and with no console error (docs/pitfalls.md). The
+ * address must point into the site's statics, where `scripts/copy-maplibre-worker.mjs` puts it.
  */
 describe("RideMap — воркер", () => {
   it("карта получает адрес воркера из статики сайта", async () => {

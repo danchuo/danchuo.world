@@ -3,14 +3,9 @@ import { bookForStop, progressLabel } from "./readingCard";
 import type { ReadingBookView } from "./api/types";
 
 /**
- * Формулы карточки прочитанного (PRD §5.16).
- *
- * Главное, что здесь проверяется, — разница между «ноль» и «не знаем». Читалка не хранит
- * истории прогресса, поэтому начало захода известно не всегда, и подставлять туда ноль нельзя:
- * книга, приехавшая к нам уже начатой, получила бы чужие проценты.
- *
- * Часов у карточки книги нет вовсе, и проверять тут нечего: `startedAt` в данных остался, но
- * это отметка НАШЕГО такта опроса, а не время владельца (см. `readingCard.ts`).
+ * Formulas of the reading card (PRD §5.16). The main thing checked here is the difference between
+ * zero and "we do not know": the reader keeps no progress history, so a sitting's start is not
+ * always known, and substituting zero would credit a book that arrived already started.
  */
 
 const book = (patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
@@ -33,7 +28,8 @@ describe("bookForStop", () => {
   });
 
   it("оставляет остановку без карточки, когда сессий меньше, чем отметок", () => {
-    // Час в присест: обе остановки закрыты, а рассказать о втором заходе нечего — его не было.
+    // An hour in one sitting closes both stops, but there is nothing to tell about a second
+    // sitting — there was none.
     expect(bookForStop([book()], 2)).toBeNull();
     expect(bookForStop(undefined, 1)).toBeNull();
   });
@@ -49,7 +45,7 @@ describe("progressLabel", () => {
   });
 
   it("без известного начала показывает только достигнутое", () => {
-    // Стрелка из ниоткуда («→ 42%») не отвечает ни на один вопрос.
+    // An arrow out of nowhere answers no question at all.
     expect(progressLabel(book({ startPercent: null }))).toBe("42%");
   });
 

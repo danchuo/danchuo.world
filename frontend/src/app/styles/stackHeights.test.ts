@@ -2,10 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Путь от корня проекта: под jsdom `import.meta.url` не файловый, fileURLToPath на нём падает.
+// A path from the project root: under jsdom `import.meta.url` is not a file URL and fileURLToPath fails.
 const css = readFileSync(resolve(process.cwd(), "src/app/styles/common.css"), "utf8");
 
-/** Тело правила по точному селектору (первое вхождение). */
 function ruleBody(selector: string): string {
   const at = css.indexOf(`\n${selector} {`);
   expect(at, `правило ${selector} не найдено в common.css`).toBeGreaterThan(-1);
@@ -15,18 +14,14 @@ function ruleBody(selector: string): string {
 }
 
 /**
- * Собственная высота блоков, которым её не даёт родитель (DESIGN §8).
- *
- * В бенто борд прибит к вьюпорту и каждый тайл получает `height: 100%` — «сколько осталось»
- * там определено, и `flex: 1` внутри честно раскрывается. В мобильном СТЕКЕ у тайла высоты нет
- * (она по контенту), поэтому блок, вся высота которого выведена из родителя, схлопывается в
- * ноль: контент есть в DOM, но не виден. Так молча пропадали мозаика последнего дропа, список
- * недавних треков, мини-карта поездки и сцена выходного — jsdom геометрию не считает, а
- * мобильные Playwright-эталоны сняли поломку как норму.
- *
- * Отсюда контракт: у каждого такого блока в CSS есть СВОЯ высота (`aspect-ratio` или
- * `min-height`) — она работает ровно там, где родитель молчит, и уступает flex-раскладке,
- * когда высота у родителя есть. Первым это правило получил `.quest-map` (карта-тропа).
+ * Own height for blocks whose parent does not give them one (DESIGN §8). In bento the board is
+ * pinned to the viewport and every tile gets `height: 100%`; in the mobile STACK a tile's height
+ * comes from content, so a block deriving its height from the parent collapses to zero.
+ */
+
+/**
+ * Hence the contract: every such block carries its OWN height in CSS (`aspect-ratio` or
+ * `min-height`), which works exactly where the parent is silent and yields to flex when it is not.
  */
 describe("собственная высота блоков в мобильном стеке (DESIGN §8)", () => {
   const intrinsic = /aspect-ratio|min-height/;
@@ -43,29 +38,21 @@ describe("собственная высота блоков в мобильном
   });
 
   it("min-height подпорка ограничена стеком — в бенто она бы не уступила flex-раскладке", () => {
-    // `aspect-ratio` действует только при неопределённом размере и потому безвреден в бенто.
-    // `min-height` не уступает никому: он перебивает `min-h-0` на самом элементе (правило вне
-    // @layer сильнее утилит), список переставал сжиматься и свисал ниже края плитки — нижнюю
-    // строку срезал сам край. Поэтому подпорка на min-height обязана быть под `.board-stack`.
+    // `aspect-ratio` only acts on an undefined size and is therefore harmless in bento.
+    // `min-height` yields to nobody: it beat `min-h-0` on the element itself, the list stopped
+    // shrinking and hung past the tile's edge. So it must live under `.board-stack`.
     const globalMinHeight = /\n\.music-recent \{/;
     expect(css).not.toMatch(globalMinHeight);
   });
 });
 
 /**
- * Собственная высота у блоков ВОЛНЫ — тот же контракт §8, но материал волны знает только скин.
- *
- * Базовый слой закрывает то, что рисуют все волны разом. А волна вправе перекроить блок так,
- * что своей высоты у него не останется вовсе: Obscura стелет обложку абсолютным квадратом
- * (`.music-art`), PRIME рисует карту волны абсолютными слоями. В бенто высоту им даёт плитка,
- * в стеке — никто, и виджет схлопывается в горизонтальную полоску (замечание владельца с
- * телефона: «виджет спотифая горизонтальный», «переключатель слишком сжат по высоте»).
- *
- * Поэтому правило «своя высота там, где родитель молчит» распространяется и на скины: блок
- * волны, нарисованный абсолютными слоями, обязан получить свою высоту под `.board-stack`.
+ * The same §8 contract for WAVE material. A wave may redraw a block so that no height of its own
+ * is left — a cover laid out as an absolute square, a map painted in absolute layers. In bento the
+ * tile gives them height, in the stack nobody does, and the widget collapses to a strip.
  */
 describe("собственная высота блоков волны в мобильном стеке (DESIGN §8, §10.2)", () => {
-  /** Правило (селекторы + тело), чей селектор упоминает `.board-stack`. Комментарии не в счёт. */
+  /** The rule (selectors plus body) whose selector mentions `.board-stack`. Comments do not count. */
   function stackRule(wave: string): string {
     const waveCss = readFileSync(resolve(process.cwd(), `src/app/styles/waves/${wave}.css`), "utf8");
     const match = waveCss.replace(/\/\*[\s\S]*?\*\//g, "").match(/[^{}]*\.board-stack[^{}]*\{[^}]*\}/);

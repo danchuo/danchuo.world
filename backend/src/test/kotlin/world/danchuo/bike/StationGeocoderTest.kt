@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Чистые хелперы геокодера станций (без сети/БД): подготовка адреса к геокодингу и разбор ответа
- * Nominatim. Сам фоновый тик ([StationGeocoder.tick]) — внешний Nominatim + БД, здесь не гоняем.
+ * Pure station-geocoder helpers, no network or DB: address preparation and parsing of the
+ * Nominatim reply. The background tick itself hits Nominatim and the DB and is not run here.
  */
 class StationGeocoderTest {
 
@@ -36,8 +36,8 @@ class StationGeocoderTest {
 
     @Test
     fun `адрес-заглушка «просто город» распознаётся (велосипед вне станции)`() {
-        // PWA отдаёт литеральную «Москву», когда велосипед оставлен не на именованной станции —
-        // геокодить такое нельзя: центроид города перекроет точный GPS.
+        // The PWA returns a bare city name when the bike was left off a named station.
+        // Geocoding that is forbidden: the city centroid would override the exact GPS.
         assertTrue(StationGeocoder.isCityPlaceholder("Москва"))
         assertTrue(StationGeocoder.isCityPlaceholder("  Москва  "))
         assertTrue(StationGeocoder.isCityPlaceholder("Зеленоград"))

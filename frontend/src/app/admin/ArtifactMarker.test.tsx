@@ -39,7 +39,7 @@ const PHOTO: AdminPhotoView = {
   artifacts: [],
 };
 
-/** Размер кадра в jsdom нулевой — задаём его сами, иначе доли не из чего считать. */
+/** A frame has zero size in jsdom, so we set it: otherwise there is nothing to take fractions of. */
 const FRAME = 200;
 
 function renderMarker(photo: AdminPhotoView = PHOTO) {
@@ -73,8 +73,8 @@ function renderMarker(photo: AdminPhotoView = PHOTO) {
 }
 
 /**
- * Событие указателя с координатами. `fireEvent.pointerDown` тут не годится: в jsdom нет
- * `PointerEvent`, и клики уезжают без `clientX` — рамка считалась бы из NaN.
+ * A pointer event with coordinates. `fireEvent.pointerDown` will not do: jsdom has no
+ * `PointerEvent`, clicks arrive without `clientX`, and the box would be computed from NaN.
  */
 function pointer(target: Window | HTMLElement, type: string, [x, y]: [number, number]) {
   fireEvent(
@@ -83,7 +83,7 @@ function pointer(target: Window | HTMLElement, type: string, [x, y]: [number, nu
   );
 }
 
-/** Протяжка мышью по кадру в долях кадра: нажали, повели, отпустили. */
+/** A mouse drag across the frame, in fractions of the frame. */
 function drag(frame: HTMLElement, from: [number, number], to: [number, number]) {
   pointer(frame, "pointerdown", from);
   pointer(window, "pointermove", to);
@@ -108,15 +108,15 @@ describe("ArtifactMarker — ручная разметка артефактов 
       x1: 0.6,
       y1: 0.8,
     });
-    // Свежие кадры возвращаются наверх — чипы находок и разметчик показывают одно и то же.
+    // Fresh frames come back up, so the finding chips and the marker show the same thing.
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
   it("крошечная протяжка сохраняется не мельче минимума", async () => {
     const { frame } = renderMarker();
     fireEvent.click(screen.getByRole("radio", { name: "Очки" }));
-    // Очки на общем плане мышью аккуратно не обвести — и не нужно: рамка отвечает на вопрос
-    // «куда смотреть», а меньше минимума она на него не отвечает.
+    // Sunglasses in a wide shot cannot be traced neatly by mouse, and need not be: a box answers
+    // "where to look", and below the minimum it stops answering that.
     drag(frame, [0.5, 0.5], [0.53, 0.52]);
 
     await waitFor(() => expect(saveArtifactBox).toHaveBeenCalled());
@@ -129,7 +129,7 @@ describe("ArtifactMarker — ручная разметка артефактов 
     const { frame } = renderMarker();
     drag(frame, [0.2, 0.2], [0.7, 0.7]);
     expect(saveArtifactBox).not.toHaveBeenCalled();
-    // И объясняет, чего не хватает — молчание тут читалось бы как поломка.
+    // And it says what is missing — silence here would read as breakage.
     expect(screen.getByText(/выбери предмет/)).toBeInTheDocument();
   });
 
@@ -150,7 +150,7 @@ describe("ArtifactMarker — ручная разметка артефактов 
     const boxes = container.querySelectorAll(".marker-box");
     expect(boxes).toHaveLength(1);
     expect(boxes[0]).toHaveTextContent("Футболка");
-    // Рамка стоит долями кадра, а не пикселями: кадр рендерится в произвольном размере.
+    // The box is placed in fractions of the frame, not pixels: the frame renders at any size.
     expect((boxes[0] as HTMLElement).style.left).toBe("10%");
     expect((boxes[0] as HTMLElement).style.width).toBe("40%");
   });

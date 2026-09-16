@@ -9,12 +9,9 @@ import jakarta.persistence.Table
 import java.time.LocalDate
 
 /**
- * Отметка пункта дисциплины за день (PRD §5.6, §7). Прогресс — одно число [count]
- * в диапазоне `0..target` пункта; фронт рендерит «count/target».
- *
- * Уникальна по (date, item_id) — идемпотентность ingest: повтор за дату обновляет
- * ту же строку (upsert), а не плодит дубли. Связь с пунктом — по [itemId] (плоский
- * FK, без JPA-отношения).
+ * One discipline mark for a day: progress is a single [count] inside the item's `0..target`.
+ * Unique by (date, item_id), which is what makes ingest idempotent — a repeat updates that row
+ * instead of adding another. PRD §5.6, §7
  */
 @Entity
 @Table(name = "checklist_entry")
@@ -33,10 +30,9 @@ class ChecklistEntry {
     var count: Int = 0
 
     /**
-     * Кто владеет отметкой: [MANUAL] — ручной ввод шорткатом, [DERIVED] — производный канал
-     * (минуты «Журнала», поллер подкастов). Ручной ввод перекрывает производный всегда, а
-     * производный правит только СВОЮ строку — иначе поллер, дописывающий минуты весь день,
-     * затирал бы присланное с телефона.
+     * Who owns the mark: [MANUAL] (the shortcut) always outranks [DERIVED] (journal minutes,
+     * podcast poller), and a derived channel may rewrite only its OWN row — otherwise the poller
+     * topping up minutes all day would erase what was sent from the phone. PRD §5.6
      */
     @Column(nullable = false, length = 16)
     var source: String = MANUAL

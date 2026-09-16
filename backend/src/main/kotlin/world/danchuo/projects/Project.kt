@@ -8,12 +8,9 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 
 /**
- * Проект с привязкой к временно́му промежутку (PRD §5.7, §7) — data-driven сущность.
- *
- * Наполняется сидом/API; новый проект = запись, без релиза. Диапазон хранится числами
- * (год + квартал начала/конца); человекочитаемую форму «Q3 2025 — наст.» собирает фронт.
- * [endYear]/[endQuarter] = `null` ⇒ «по настоящее». [url] опционален: есть ⇒ название
- * кликабельно, нет ⇒ просто текст (не «мёртвая» ссылка).
+ * A project bound to a time span, data-driven: a new one is a row, not a release. The range is
+ * stored as numbers (start and end year plus quarter) and the readable form is assembled by the
+ * frontend; a `null` end means "to date". [url] is optional — no dead links. PRD §5.7, §7
  */
 @Entity
 @Table(name = "project")
@@ -26,10 +23,9 @@ class Project {
     var iconUrl: String? = null
 
     /**
-     * Объёмная планета проекта — файл 3D-модели (`.glb`/`.gltf`, DESIGN §12.5). Живёт ОТДЕЛЬНО
-     * от [iconUrl], а не вместо него: плоский спрайт остаётся у проекта навсегда, потому что
-     * носить объём вправе не всякая волна (старые волны показывают спрайт). Что надеть,
-     * решает волна раскладкой, а не эта запись; `null` ⇒ объёмной версии у проекта нет.
+     * The project's 3D planet (`.glb`/`.gltf`). It lives BESIDE [iconUrl] rather than replacing
+     * it, because the flat sprite stays forever — not every wave may wear volume, and which one
+     * is worn is decided by the wave's layout, not this row. `null` = no 3D version. DESIGN §12.5
      */
     @Column(name = "model_url")
     var modelUrl: String? = null
@@ -43,25 +39,25 @@ class Project {
     @Column(name = "start_year", nullable = false)
     var startYear: Int = 0
 
-    /** Квартал начала (1–4); `null`, если только год. */
+    /** Starting quarter (1-4); `null` when only the year is known. */
     @Column(name = "start_quarter")
     var startQuarter: Int? = null
 
-    /** Год конца; `null` (+ [endQuarter] null) = «по настоящее». */
+    /** End year; `null` (with [endQuarter] null) means "to the present". */
     @Column(name = "end_year")
     var endYear: Int? = null
 
     @Column(name = "end_quarter")
     var endQuarter: Int? = null
 
-    /** Ссылка, которую блок ПОКАЗЫВАЕТ строкой (путь репозитория/сайта). */
+    /** The link the block SHOWS as text (the repository or site path). */
     @Column
     var url: String? = null
 
     /**
-     * «Дом» проекта — куда ведёт сам предмет (название и картинка), если это НЕ то место,
-     * путь которого показан строкой: у proxemics код лежит в репозитории, а сам проект живёт
-     * ботом в телеграме. `null` ⇒ дома отдельно нет, и предмет ведёт туда же, куда путь.
+     * The project's "home" — where the item itself (name and picture) leads, when that is NOT the
+     * place whose path is shown as text: proxemics keeps its code in a repository while the
+     * project lives as a Telegram bot. `null` means the item leads where the path does.
      */
     @Column(name = "home_url")
     var homeUrl: String? = null

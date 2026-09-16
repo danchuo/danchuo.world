@@ -7,12 +7,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Единственная строка с OAuth-кредами Spotify (PRD §M3): refresh-токен **шифрованно**
- * ([world.danchuo.spotify.SpotifyCrypto]). Один аккаунт-владелец ⇒ синглтон-строка с
- * фиксированным [id] = [SINGLETON_ID]; повторный OAuth перезаписывает её (upsert).
- *
- * Access-токен здесь не храним: он короткоживущий, держится в Caffeine-кэше и
- * перевыпускается из refresh по требованию ([SpotifyTokenService]).
+ * The single row holding Spotify's OAuth credentials, with the refresh token encrypted at rest.
+ * One owner account, so a fixed [id] that a repeat OAuth overwrites. The access token is not kept
+ * here: it is short-lived, cached in memory and reissued from refresh on demand. PRD §8
  */
 @Entity
 @Table(name = "spotify_token")
@@ -20,11 +17,11 @@ class SpotifyToken {
     @Id
     var id: Long = SINGLETON_ID
 
-    /** Refresh-токен, зашифрованный AES-GCM (Base64(IV‖ct), §8). */
+    /** Refresh token encrypted with AES-GCM (Base64(IV||ct), §8). */
     @Column(name = "encrypted_refresh_token", nullable = false, columnDefinition = "TEXT")
     lateinit var encryptedRefreshToken: String
 
-    /** Выданные при авторизации скоупы — для диагностики рассинхрона прав. */
+    /** Scopes granted at authorization — for diagnosing a permissions mismatch. */
     @Column(name = "scope", nullable = false)
     lateinit var scope: String
 
@@ -32,7 +29,7 @@ class SpotifyToken {
     var updatedAt: Instant = Instant.EPOCH
 
     companion object {
-        /** Владелец один — строка одна. */
+        /** One owner means one row. */
         const val SINGLETON_ID = 1L
     }
 }

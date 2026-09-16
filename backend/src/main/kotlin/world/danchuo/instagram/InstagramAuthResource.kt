@@ -11,24 +11,14 @@ import world.danchuo.core.oauth.OneTimeOAuthState
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/** CSRF-`state` OAuth Instagram — свой на слайс (см. [OneTimeOAuthState]). */
+/** Instagram OAuth CSRF `state` — one per slice (see [OneTimeOAuthState]). */
 @ApplicationScoped
 class InstagramOAuthState : OneTimeOAuthState()
 
 /**
- * Разовый OAuth Instagram (PRD §5.17). Поток личный и редкий, устроен как у Spotify:
- *
- * 1. `GET /api/ingest/instagram/authorize` (за bearer-токеном записи) — отдаёт ссылку согласия
- *    со свежим одноразовым `state`. Владелец открывает её в браузере и подтверждает доступ.
- * 2. Instagram редиректит на `GET /api/instagram/callback?code=&state=`.
- *
- * ⚠️ **Redirect URI обязан быть https** — петлевой `http://127.0.0.1` Instagram не принимает
- * (Spotify принимал). Поэтому подключение проходят на боевом домене, а токен при желании
- * переносят в локальную БД.
- *
- * Корни ресурсов специфичны (`/api/ingest/instagram`, `/api/instagram/callback`), чтобы не
- * пересекаться с [InstagramResource] (`/api/instagram`): JAX-RS выбирает самый длинный
- * совпавший корень и к менее специфичному не откатывается.
+ * One-off Instagram OAuth, shaped like Spotify's: authorize hands back a consent link carrying a
+ * fresh one-time `state`, and the callback completes it. The redirect URI MUST be https — the
+ * loopback address is refused. Resource roots are specific so JAX-RS cannot mismatch. PRD §5.17
  */
 @Path("/api/ingest/instagram")
 class InstagramAuthResource(
@@ -65,8 +55,8 @@ class InstagramAuthResource(
 }
 
 /**
- * Публичный callback OAuth: Instagram редиректит сюда браузер после согласия. Путь публичный
- * (браузер не шлёт bearer) — защита сверкой одноразового `state`.
+ * Public OAuth callback: Instagram redirects the browser here after consent. The path is public
+ * (a browser sends no bearer) and is protected by checking the one-time `state`.
  */
 @Path("/api/instagram/callback")
 class InstagramCallbackResource(
@@ -82,13 +72,13 @@ class InstagramCallbackResource(
         @QueryParam("error") error: String?,
     ): Response {
         if (error != null) return page(Response.Status.BAD_REQUEST, "Instagram отказал: $error")
-        // state гасим всегда (одноразовый) — даже если дальше отвалимся.
+        // The state is always burned (it is one-time), even if we fail further down.
         if (!oauthState.consume(state)) return page(Response.Status.BAD_REQUEST, "Неверный или истёкший state.")
         if (code.isNullOrBlank()) return page(Response.Status.BAD_REQUEST, "Instagram не вернул code.")
 
         return try {
-            // Код одноразовый и живёт минуты: повторять этот же запрос бессмысленно,
-            // при ошибке начинают с authorize заново.
+            // The code is one-time and lives minutes: repeating this request is pointless, and
+            // after an error you start again from authorize.
             tokenService.exchangeCode(code)
             page(Response.Status.OK, "Instagram подключён. Можно закрыть вкладку.")
         } catch (e: Exception) {

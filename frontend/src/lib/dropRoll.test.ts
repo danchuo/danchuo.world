@@ -232,7 +232,8 @@ describe("swipeStep — перетаскивание кадра пальцем",
   });
 
   it("накопленное движение через порог стоит один кадр, остаток переносится", () => {
-    // 20 уже лежало в накопителе, пришло ещё 40 — порог перейдён вправо, значит назад по ленте.
+    // 20 was already accumulated and another 40 arrived — the threshold is crossed to the right,
+    // which means back along the reel.
     const step = swipeStep(40, 20);
     expect(step.dir).toBe(-1);
     expect(step.acc).toBe(60 - SWIPE_NOTCH);
@@ -252,7 +253,7 @@ describe("swipeStep — перетаскивание кадра пальцем",
 
 describe("centerScroll — ячейка в середине окна", () => {
   it("ставит ячейку по центру окна", () => {
-    // Слот 78px в окне 246px: над ним и под ним остаётся по 84px — слот ровно в середине.
+    // A 78px slot in a 246px window: 84px remain above and below — the slot is exactly centred.
     expect(centerScroll(168, 78, 246, 1000)).toBe(84);
   });
 
@@ -261,7 +262,7 @@ describe("centerScroll — ячейка в середине окна", () => {
   });
 
   it("первая ячейка стоит по центру запасом — прокрутка нулевая, а не отрицательная", () => {
-    // Боковой запас (`stripPadding`) уже поставил первую ячейку по центру: offset = 84.
+    // The side padding (`stripPadding`) already centred the first cell: offset = 84.
     expect(centerScroll(84, 78, 246, 1000)).toBe(0);
   });
 
@@ -271,7 +272,7 @@ describe("centerScroll — ячейка в середине окна", () => {
 });
 
 describe("frameWheelStep — шаг плитки «последний дроп» трекпадом", () => {
-  /** Провести пальцами: события по [dx] каждые [everyMs], начиная через [afterMs] после шага. */
+  /** Drag with fingers: events of [dx] every [everyMs], starting [afterMs] after the step. */
   function drag(dx: number, count: number, everyMs: number, afterMs: number) {
     let acc = 0;
     let since = afterMs;
@@ -289,16 +290,16 @@ describe("frameWheelStep — шаг плитки «последний дроп»
   }
 
   it("непрерывный жест листает НЕ один кадр — ради этого правило и переписано", () => {
-    // Ровно жалоба: ведёшь пальцами не отрываясь, а кадр меняется единожды. Секунда
-    // уверенного движения обязана дать несколько кадров.
+    // The complaint exactly: you drag without lifting and the frame changes once. A second of
+    // confident movement must give several frames.
     const steps = drag(20, 120, 8, FRAME_STEP_COOLDOWN_MS);
     expect(steps).toBeGreaterThan(1);
   });
 
   /**
-   * Мах по трекпаду с инерцией, как его шлёт macOS: короткий разгон и длинный затухающий
-   * хвост — около секунды событий каждые ~16мс, дельта падает геометрически. Суммарный путь
-   * такого маха огромен (сотни пикселей), но ЖЕСТ один.
+   * A trackpad flick with inertia as macOS sends it: a short burst and a long decaying tail —
+   * about a second of events every ~16ms, the delta falling geometrically. Its total travel is
+   * huge (hundreds of pixels) but the GESTURE is one.
    */
   function flick(peak: number, decay: number, count: number, everyMs: number) {
     let acc = 0;
@@ -317,9 +318,9 @@ describe("frameWheelStep — шаг плитки «последний дроп»
   }
 
   it("один мах с инерцией стоит ОДНОГО кадра, а не двух", () => {
-    // Жалоба владельца: за одно пролистывание тачпадом плитка успевает сменить два снимка.
-    // Виноват не разгон, а хвост: он переживает остывание, и следующее окно докатывается
-    // инерцией, которой человек уже не управляет.
+    // The owner's complaint: one trackpad flick changed two frames. The culprit is not the burst
+    // but the tail: it outlives the cooldown, and the next window rolls in on inertia the person
+    // no longer controls.
     expect(flick(50, 0.94, 60, 16)).toBe(1);
   });
 
@@ -331,8 +332,8 @@ describe("frameWheelStep — шаг плитки «последний дроп»
   });
 
   it("пока шаг не остыл, путь не копится вовсе — хвост инерции не строчит кадрами", () => {
-    // Инерция после маха приходит тем же потоком событий; будь она зачтена, короткий мах
-    // пролистывал бы дроп целиком — с этого и начинался прежний замок.
+    // Inertia after a flick arrives in the same stream of events; counted, a short flick would
+    // page through the whole drop — which is where the earlier lock started.
     const hot = frameWheelStep(400, 0, 0, FRAME_STEP_COOLDOWN_MS - 1);
     expect(hot.dir).toBe(0);
     expect(hot.acc).toBe(0);
@@ -346,13 +347,13 @@ describe("frameWheelStep — шаг плитки «последний дроп»
   it("разворот жеста обнуляет накопленное: передумавшему досчитывать нечего", () => {
     const half = frameWheelStep(60, 0, 0, 9999);
     expect(half.acc).toBe(60);
-    // Пошли в другую сторону — прежние 60px не должны помогать набрать порог назад.
+    // Direction reversed — the previous 60px must not help reach the threshold backwards.
     expect(frameWheelStep(-30, 0, half.acc, 9999)).toEqual({ dir: 0, acc: -30 });
   });
 
   it("дельта в строках (Firefox) переводится в пиксели, иначе порог недостижим", () => {
-    // Одно и то же число значит РАЗНОЕ в двух режимах. Величину берём от самого порога,
-    // а не константой: подогнанное под порог число молча ломается вместе с ним.
+    // The same number means DIFFERENT things in the two modes. It is derived from the threshold
+    // rather than hardcoded: a number tuned to it breaks silently when it changes.
     const lines = FRAME_WHEEL_TRAVEL_PX / 2;
     expect(frameWheelStep(lines, 1, 0, 9999).dir).toBe(1);
     expect(frameWheelStep(lines, 0, 0, 9999).dir).toBe(0);

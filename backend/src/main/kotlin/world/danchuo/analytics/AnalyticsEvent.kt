@@ -10,16 +10,12 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
 
-/** Тип устройства посетителя — выводится из User-Agent (PRD §7). */
+/** Visitor device type, derived from the User-Agent (PRD §7). */
 enum class DeviceType { MOBILE, TABLET, DESKTOP }
 
 /**
- * Сырое событие посещения (PRD §5.11, §7) — своё решение в Postgres, без третьих сторон,
- * cookieless. **Сырой IP не хранится**: только суточный хэш [visitorDayHash]
- * (`sha256(ip+ua+соль+дата)`, соль ротируется ежедневно) — уник считается по нему.
- *
- * [dwellMs] доезжает добивкой бикона (`visibilitychange`/выгрузка) — коррелируем с load-строкой
- * по служебному [visitId]. Боты помечаются [isBot] и исключаются из сводки (сырьё хранится §5.11).
+ * A raw visit event. The raw IP is NEVER stored — only [visitorDayHash], which is what uniques
+ * are counted by. Bot rows are kept as raw material but excluded from the summary. PRD §5.11
  */
 @Entity
 @Table(name = "analytics_event")
@@ -44,14 +40,14 @@ class AnalyticsEvent {
     @Column
     var referrer: String? = null
 
-    /** Время на странице (мс) из бикона; `null` до прихода добивки. */
+    /** Time on page (ms) from the beacon; `null` until the follow-up arrives. */
     @Column(name = "dwell_ms")
     var dwellMs: Int? = null
 
     @Column(name = "is_bot", nullable = false)
     var isBot: Boolean = false
 
-    /** Служебная корреляция load↔dwell одной сессии-визита (клиентский UUID). */
+    /** Internal load-to-dwell correlation for one visit session (client-side UUID). */
     @Column(name = "visit_id")
     var visitId: String? = null
 }

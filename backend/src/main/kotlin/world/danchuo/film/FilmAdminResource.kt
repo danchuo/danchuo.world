@@ -18,22 +18,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
 /**
- * Управление фото-дропами через /admin (B1, PRD §5.12, §9 п.8). Живёт под `/api/ingest/…` ⇒
- * закрыто bearer-токеном сквозным [IngestAuthFilter] (правится только владельцем). Канал на
- * ~36 кадров за раз — zip (iOS-шорткатом столько файлов не залить, см. §9 п.7).
- *
- * - `POST /api/ingest/drops` (multipart) — загрузить дроп: zip + title + date.
- * - `GET /api/ingest/drops` — список дропов для управления.
- * - `GET /api/ingest/drops/{id}/photos` — кадры с id + thumb для выбора обложки.
- * - `PUT /api/ingest/drops/{id}/cover` — пометить кадр обложкой.
- * - `DELETE /api/ingest/drops/{id}` — удалить дроп (кадры + файлы).
- * - `DELETE /api/ingest/drops/{id}/photos/{photoId}` — удалить один кадр (неудачный).
- * - `POST /api/ingest/drops/{id}/orientation` — запустить LLM-проверку поворота кадров (B9).
- * - `GET /api/ingest/drops/{id}/orientation` — статус проверки (поллинг из админки).
- * - `POST /api/ingest/drops/{id}/photos/{photoId}/rotate` — ручной поворот кадра (override).
- * - `POST /api/ingest/drops/{id}/artifacts` — искать артефакты на кадрах (`?recheck=true`).
- * - `GET /api/ingest/drops/{id}/artifacts` — статус поиска (поллинг из админки).
- * - `PUT|DELETE /api/ingest/drops/{id}/photos/{photoId}/artifacts/{artifactId}` — рамка руками.
+ * Drop management from /admin: upload, cover, delete, orientation check, manual rotation and
+ * artifact boxes. It lives under the ingest paths, so [IngestAuthFilter] closes it behind the
+ * bearer. The upload channel is a zip — iOS shortcuts cannot post ~36 files. PRD §5.12, §9
  */
 @Path("/api/ingest/drops")
 class FilmAdminResource(
@@ -63,12 +50,12 @@ class FilmAdminResource(
         }
 
         val result = film.upload(zip.uploadedFile(), cleanTitle, droppedOn)
-        // B9: свежезалитый дроп сразу уходит на фоновую проверку поворота (аплоад не ждёт).
+        // B9: a freshly uploaded drop goes straight to the background orientation check.
         if (autoCheck) orientation.start(result.drop.id)
         return Response.status(Response.Status.CREATED).entity(result).build()
     }
 
-    // ── Проверка поворота (B9) ──
+    // -- Orientation check (B9) --
 
     @POST
     @Path("/{id}/orientation")
@@ -86,7 +73,7 @@ class FilmAdminResource(
         return Response.ok(status).build()
     }
 
-    /** Ручной поворот кадра; в ответ — обновлённый список кадров (свежие thumb-URL с `?v=`). */
+    /** Manual frame rotation; replies with the updated frame list (fresh thumb URLs with `?v=`). */
     @POST
     @Path("/{id}/photos/{photoId}/rotate")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -108,11 +95,11 @@ class FilmAdminResource(
         }
     }
 
-    // ── Поиск артефактов на кадрах (§5.12) ──
+    // -- Artifact search on frames (§5.12) --
 
     /**
-     * Запустить поиск по дропу. `?recheck=true` — пройти и уже проверенные кадры (после правки
-     * описаний артефактов). Прогон только ручной: каждый кадр — обращение к платной модели.
+     * Starts the search over a drop. `?recheck=true` also revisits checked frames, after artifact
+     * descriptions changed. The pass is manual only: every frame is a paid model call.
      */
     @POST
     @Path("/{id}/artifacts")
@@ -133,7 +120,7 @@ class FilmAdminResource(
         return Response.ok(status).build()
     }
 
-    /** Поставить/подвинуть рамку руками — она становится главнее находки модели. */
+    /** Places or moves a box by hand — it then outranks the model's finding. */
     @PUT
     @Path("/{id}/photos/{photoId}/artifacts/{artifactId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -148,7 +135,6 @@ class FilmAdminResource(
         else Response.ok(film.adminPhotos(id)).build()
     }
 
-    /** Убрать рамку (ошибка модели или передумали). */
     @DELETE
     @Path("/{id}/photos/{photoId}/artifacts/{artifactId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -195,7 +181,7 @@ class FilmAdminResource(
         }
     }
 
-    /** Удалить один кадр дропа (override владельца — неудачный кадр). Ответ — свежий список кадров. */
+    /** Deletes one frame of a drop (owner override for a bad shot). Replies with the frame list. */
     @DELETE
     @Path("/{id}/photos/{photoId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -223,8 +209,8 @@ class FilmAdminResource(
         Response.status(Response.Status.NOT_FOUND).entity(mapOf("error" to "drop_not_found", "id" to id)).build()
 }
 
-/** Тело `PUT /cover`: id кадра, который станет обложкой. */
+/** Body of `PUT /cover`: the id of the frame that becomes the cover. */
 data class CoverRequest(val photoId: Long = 0)
 
-/** Тело `POST /rotate` (B9): код поворота — `cw90` / `ccw90` / `r180`. */
+/** Body of `POST /rotate` (B9): the rotation code `cw90` / `ccw90` / `r180`. */
 data class RotateRequest(val rotation: String? = null)

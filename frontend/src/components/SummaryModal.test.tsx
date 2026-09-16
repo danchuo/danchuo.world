@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SummaryView } from "@/lib/api/types";
 import type { SummarySubject } from "@/lib/summarySubject";
 
-// Пересказ окно тянет с бэка лениво (`getSummary`) — мокаем клиент.
+// The window fetches the retelling lazily (`getSummary`), so the client is mocked.
 const getSummary = vi.fn<() => Promise<SummaryView>>(() =>
   Promise.resolve({
     bullets: ["Пауль уходит в пустыню.", "Появляется червь."],
@@ -21,16 +21,9 @@ vi.mock("@/lib/api/client", () => ({
 import { SummaryModal } from "./SummaryModal";
 
 /**
- * Окно «что было в этом куске» (PRD §5.16.1).
- *
- * Проверяем то, ради чего оно существует и чем отличается от соседних модалок:
- * - **шапка и кусок видны сразу**, ещё до того как приедет текст: они у карточки уже есть,
- *   и держать окно пустым ради загрузки нечего (DESIGN §7);
- * - **пункты и итог** приезжают и рисуются раздельно — итог не шестой пункт;
- * - **сбой не притворяется пересказом**: не собралось — так и написано;
- * - **окно одно на книгу и на выпуск**: тот же контур, тот же запрос, отличается только вид
- *   в пути — иначе два похожих окна разошлись бы при первой правке одного из них;
- * - закрытие по `Esc` — общий контур модалок борда.
+ * The "what was in this chunk" window (PRD §5.16.1). Pinned here: the header and the chunk show
+ * at once, before the text arrives; bullets and the takeaway are rendered apart; a failure does
+ * not pretend to be a retelling; and ONE window serves a book and an episode alike.
  */
 describe("SummaryModal", () => {
   const book = (patch: Partial<SummarySubject> = {}): SummarySubject => ({
@@ -85,7 +78,7 @@ describe("SummaryModal", () => {
     expect(screen.getByText("Hidden Brain")).toBeInTheDocument();
     expect(screen.getByTestId("summary-progress")).toHaveTextContent("35 из 48 мин");
     expect(requested).toEqual([["podcast", 42]]);
-    // Ответ читается так же — окно про предмет ничего не знает сверх шапки.
+    // The answer reads the same — the window knows nothing of the subject beyond its header.
     expect(await screen.findByText("Пауль уходит в пустыню.")).toBeInTheDocument();
   });
 
@@ -98,15 +91,15 @@ describe("SummaryModal", () => {
   });
 
   it("ответ без пунктов не роняет окно, а читается как «не собрался»", async () => {
-    // Так native-образ отдавал ответ, у которого DTO не помечен @RegisterForReflection:
-    // код 200, тело `{}`. Прежняя версия шла в `bullets.map` и валила клиентским исключением
-    // ВЕСЬ борд — Next уносит страницу в error-экран, а не только это окно.
+    // This is how the native image served a reply whose DTO lacked @RegisterForReflection: a 200
+    // with the body `{}`. The old version went into `bullets.map` and took down the WHOLE board
+    // with a client exception — Next replaces the page, not just this window.
     getSummary.mockResolvedValueOnce({} as never);
 
     render(<SummaryModal subject={book()} onClose={() => {}} />);
 
     expect(await screen.findByText("пересказ не собрался")).toBeInTheDocument();
-    // Шапка на месте: окно живо, а не заменено экраном ошибки.
+    // The header is there: the window is alive rather than replaced by an error screen.
     expect(screen.getByText("Дюна")).toBeInTheDocument();
   });
 

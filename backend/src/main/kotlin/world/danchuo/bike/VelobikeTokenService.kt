@@ -11,21 +11,13 @@ import org.eclipse.microprofile.rest.client.inject.RestClient
 import java.time.Instant
 import java.util.Base64
 
-/** Слайс не прошёл SMS-логин — refresh-токена в БД нет (PRD §9 B4). */
+/** The slice never completed the SMS login — no refresh token in the DB (PRD §9 B4). */
 class VelobikeNotConnectedException : RuntimeException("velobike_not_connected")
 
 /**
- * Жизненный цикл токенов Велобайка (PRD §9 B4, §8).
- *
- * - [requestCode] / [authenticate] — SMS-логин владельца (один раз в ~6 мес, пока живёт refresh):
- *   код → токены; refresh-токен кладётся в БД ШИФРОВАННО ([VelobikeCrypto]).
- * - [bearer] — валидный `Bearer <access>`: держит access в памяти до истечения (читаем `exp`
- *   из JWT) и перевыпускает из refresh по требованию. Access (24ч) не персистится — только refresh.
- *
- * ⚠️ Обмен refresh→access реверсом **не подтверждён** (рефреш не попал в HAR): путь и формат —
- * наиболее вероятный OAuth (JSON `{refresh_token}`), вынесены в конфиг ([VelobikeConfig.refreshPath]),
- * чтобы поправить без пересборки, когда снимем точный вызов. И весь серверный контур упирается в
- * Qrator (§13) — поедет только через резидентный прокси.
+ * Velobike token lifecycle: SMS login stores the refresh token encrypted, [bearer] keeps the 24h
+ * access token in memory and reissues it from refresh. The refresh-to-access path is UNCONFIRMED
+ * (never captured), so it is config ([VelobikeConfig.refreshPath]), not code. PRD §9 B4, §13
  */
 @ApplicationScoped
 class VelobikeTokenService(
@@ -44,13 +36,13 @@ class VelobikeTokenService(
 
     fun isConnected(): Boolean = tokens.current() != null
 
-    /** Запросить SMS-код на телефон владельца (из конфига). */
+    /** Request an SMS code to the owner's phone (from config). */
     fun requestCode(): VelobikeCodeResponse {
         val phone = config.phone().orElseThrow { IllegalStateException("danchuo.bike.phone не задан") }
         return client.requestCode(phone, config.appVersion(), config.source(), LANG)
     }
 
-    /** Логин по коду из SMS: меняем на токены, refresh кладём шифрованно. Сбрасываем кэш access. */
+    /** Login by SMS code: exchange for tokens, store the refresh encrypted, drop the access cache. */
     @Transactional
     fun authenticate(code: String) {
         val phone = config.phone().orElseThrow { IllegalStateException("danchuo.bike.phone не задан") }
@@ -63,7 +55,7 @@ class VelobikeTokenService(
         cached = res.access_token?.let { CachedAccess("Bearer $it", expiryOf(it)) }
     }
 
-    /** Валидный `Bearer <access>`; перевыпускает из refresh, если кэш пуст/протух (double-check под локом). */
+    /** A valid `Bearer <access>`, reissued from the refresh when the cache is empty or stale. */
     fun bearer(): String {
         cached?.let { if (Instant.now().isBefore(it.expiresAt)) return it.value }
         synchronized(lock) {
@@ -79,7 +71,7 @@ class VelobikeTokenService(
         val refresh = crypto.decrypt(row.encryptedRefreshToken)
         val res = exchangeRefresh(refresh)
         val access = res.access_token ?: error("Велобайк не вернул access_token при рефреше")
-        // Если refresh ротировался — перешифровываем и храним новый.
+        // If the refresh rotated, re-encrypt and store the new one.
         res.refresh_token?.let { rotated ->
             QuarkusTransaction.requiringNew().run {
                 tokens.save(crypto.encrypt(rotated), row.externalId)
@@ -89,8 +81,9 @@ class VelobikeTokenService(
     }
 
     /**
-     * Программный обмен refresh→access по конфиг-пути ([VelobikeConfig.refreshPath]). Вынесен из
-     * MP-RestClient-интерфейса, потому что путь не подтверждён и должен правиться без пересборки.
+     * Refresh-to-access exchange over the configured path ([VelobikeConfig.refreshPath]). Kept out
+     * of the MP RestClient interface because that path is unconfirmed and must be fixable without
+     * a rebuild.
      */
     private fun exchangeRefresh(refreshToken: String): VelobikeAuthResponse {
         val target = ClientBuilder.newClient()
@@ -110,18 +103,18 @@ class VelobikeTokenService(
         }
     }
 
-    /** `external_id` из payload JWT (для диагностики). */
+    /** `external_id` from the JWT payload (diagnostics). */
     private fun externalIdFrom(jwt: String?): String? =
         jwt?.let { payloadField(it, "external_id") }
 
-    /** Истечение access из `exp` JWT с запасом [SKEW_SECONDS]; фолбэк — короткий TTL. */
+    /** Access expiry from the JWT `exp` less [SKEW_SECONDS]; falls back to a short TTL. */
     private fun expiryOf(jwt: String): Instant {
         val exp = payloadField(jwt, "exp")?.toLongOrNull()
         return if (exp != null) Instant.ofEpochSecond(exp).minusSeconds(SKEW_SECONDS)
         else Instant.now().plusSeconds(DEFAULT_TTL_SECONDS - SKEW_SECONDS)
     }
 
-    /** Достаёт строковое/числовое поле из payload (вторая часть) JWT без проверки подписи. */
+    /** Pulls a string or numeric field out of the JWT payload without verifying the signature. */
     private fun payloadField(jwt: String, field: String): String? = runCatching {
         val payload = jwt.split(".")[1]
         val json = String(Base64.getUrlDecoder().decode(payload.padBase64()), Charsets.UTF_8)

@@ -1,29 +1,20 @@
 /**
- * Темы/волны (PRD §5.9, DESIGN §10): токены живут в БД (JSONB), фронт инжектит их в `:root`.
- *
- * Два пути:
- * - **SSR-инжект (без вспышки):** `fetchActiveTheme` тянет активную волну на сервере,
- *   `serializeTokensToCss` превращает её токены в `:root{…}`; layout кладёт это `<style>` в `<head>`.
- *   Сбой ⇒ `null` ⇒ остаёмся на дефолтах `globals.css` (graceful degradation).
- * - **Клиентский своп (переключатель):** `applyThemeTokens` пишет токены в `:root` без
- *   перезагрузки — смена отображаемой волны (DESIGN §2.6) без правок компонентов.
- *
- * Ключи токенов хранятся без префикса `--` (его добавляем здесь). Шрифты в токенах не лежат —
- * их подставляет `next/font`, поэтому `--font-*` не трогаем.
+ * Themes and waves: tokens live in the DB and the frontend injects them into `:root`. Two paths —
+ * an SSR inject that avoids any flash, and a client swap for the switcher. Token keys are stored
+ * WITHOUT the `--` prefix, and fonts are never among them: `next/font` supplies those. DESIGN §10
  */
 
 import { cache } from "react";
 import type { ThemeView } from "./api/types";
 
 /**
- * Next data-cache TTL for SSR theme fetches. Themes change rarely (a wave release / owner's
- * switch), while every page view costs 1-2 backend GETs from the single frontend-server IP —
- * without caching, a burst of reloads trips the backend rate limiter and SSR degrades to the
- * default wave (no `data-wave`, no pressed swatch).
+ * Next data-cache TTL for SSR theme fetches. Themes change rarely, while every page view costs one
+ * or two backend GETs from the single frontend-server IP — uncached, a burst of reloads trips the
+ * rate limiter and SSR degrades to the default wave.
  */
 const THEME_REVALIDATE_SECONDS = 30;
 
-/** `{ "bg-page": "#faf1eb" }` → `:root{--bg-page:#faf1eb;…}` (одна строка, для `<style>`). */
+/** `{ "bg-page": "#faf1eb" }` → `:root{--bg-page:#faf1eb;…}`, one line, for a `<style>` tag. */
 export function serializeTokensToCss(tokens: Record<string, string>): string {
   const body = Object.entries(tokens)
     .map(([k, v]) => `--${k}:${v};`)
@@ -32,13 +23,9 @@ export function serializeTokensToCss(tokens: Record<string, string>): string {
 }
 
 /**
- * Активная волна для SSR (токены + layout). Возвращает `null` при любой ошибке (бэк недоступен,
- * нет активной волны) — фронт остаётся на дефолтах (`globals.css` + `layout.ts`). `revalidate`:
- * Next data cache serves reloads without hitting the backend each time — an F5 storm no longer
- * drains the backend rate-limit bucket (which used to degrade SSR to the default wave); an
- * owner's active-wave change still shows up within THEME_REVALIDATE_SECONDS without a rebuild.
- * `cache()` дедуплицирует вызов в пределах одного запроса — root-layout (токены) и page
- * (layout) бьют эндпоинт один раз.
+ * The active wave for SSR, tokens and layout. Any failure returns `null` and the frontend stays on
+ * its defaults. The data cache keeps an F5 storm from draining the backend's bucket, while
+ * `cache()` dedupes the call within one request so layout and page hit the endpoint once.
  */
 export const fetchActiveTheme = cache(
   async (): Promise<ThemeView | null> => fetchBackendJson<ThemeView>("/api/theme/active"),
@@ -54,10 +41,9 @@ const fetchThemes = cache(
 );
 
 /**
- * Wave to render for this request: the visitor's preference from the cookie (see
- * `waveCookie.ts`) on top of the owner's active wave. The key is checked against the list of
- * released waves — an unknown/stale cookie is silently ignored (falls back to active).
- * `cache()` dedupes by identical key between root layout and page.
+ * The wave to render for this request: the visitor's cookie preference on top of the owner's active
+ * wave. The key is checked against the released list, so an unknown or stale cookie is silently
+ * ignored. `cache()` dedupes by identical key between root layout and page.
  */
 export const fetchDisplayTheme = cache(async (preferredKey: string | null): Promise<ThemeView | null> => {
   if (preferredKey) {
@@ -67,7 +53,7 @@ export const fetchDisplayTheme = cache(async (preferredKey: string | null): Prom
   return fetchActiveTheme();
 });
 
-/** Клиентский своп: пишет токены волны в `:root` (переключатель волн, DESIGN §2.6). */
+/** Client-side swap: writes a wave's tokens into `:root` (the wave switcher, DESIGN §2.6). */
 export function applyThemeTokens(tokens: Record<string, string>): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -77,20 +63,16 @@ export function applyThemeTokens(tokens: Record<string, string>): void {
 }
 
 /**
- * Метка «запрос пришёл изнутри compose-сети». Бэкенд по ней **не считает** запрос в бакет
- * рейтлимитера (`RateLimitFilter.INTERNAL_HEADER`): SSR ходит к нему без `X-Forwarded-For`,
- * то есть весь серверный рендер иначе делит один общий лимит на всех посетителей сразу.
- *
- * Безопасность держится на инварианте: **edge срезает этот заголовок с публичного трафика**
- * (`header_up -X-Danchuo-Internal` в `Caddyfile`), поэтому снаружи его не подделать. Меняешь
- * имя — меняй в обоих местах.
+ * Marks a request as coming from inside the compose network, which keeps the backend from counting
+ * it against a rate-limit bucket — SSR arrives with no `X-Forwarded-For` and would otherwise share
+ * one bucket for every visitor. The edge STRIPS this header from public traffic; rename both.
  */
 export const INTERNAL_HEADER = "X-Danchuo-Internal";
 
 /**
- * Общий шов SSR-запроса к бэку: доверенный заголовок + кэш данных Next + мягкая деградация.
- * Любая осечка (бэк лежит, не-200, битый JSON) — это `null`, а не исключение: борд остаётся
- * на дефолтах `globals.css` / `layout.ts`, а не падает целиком.
+ * Shared seam for an SSR request to the backend: the trusted header, Next's data cache and soft
+ * degradation. Any slip (backend down, non-200, broken JSON) becomes `null` rather than an exception,
+ * so the board stays on the defaults of `globals.css` and `layout.ts` instead of falling over.
  */
 export async function fetchBackendJson<T>(path: string): Promise<T | null> {
   try {
@@ -106,8 +88,8 @@ export async function fetchBackendJson<T>(path: string): Promise<T | null> {
 }
 
 /**
- * Абсолютная база API для server-side fetch. Внутри Docker фронт-сервер ходит к бэку по
- * внутреннему адресу (`API_INTERNAL_URL`); иначе — публичная база; иначе — локальный дев.
+ * Absolute API base for a server-side fetch. Inside Docker the frontend server reaches the backend by
+ * its internal address (`API_INTERNAL_URL`); failing that the public base; failing that local dev.
  */
 function serverApiBase(): string {
   return (

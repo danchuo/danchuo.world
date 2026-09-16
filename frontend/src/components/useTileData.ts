@@ -10,10 +10,9 @@ interface TileState<T> {
   data: T | null;
   stale: boolean;
   /**
-   * Сеть ответила (успехом или сбоем) — то есть показанное уже НЕ сменится само. Копия из
-   * кэша показывается до ответа (`settled: false`), и тайлу, которому важнее один спокойный
-   * кадр, чем мгновенная копия (последний дроп), это даёт право подождать: успех — свежие
-   * данные, сбой (рейтлимит после серии F5) — копия, но в обоих случаях один раз.
+   * The network has answered, success or failure, so what is shown will not change by itself. A
+   * cached copy shows before that, which lets a tile that would rather have one calm frame than an
+   * instant copy wait for it — fresh data on success, the copy on failure, but once either way.
    */
   settled: boolean;
 }
@@ -38,14 +37,9 @@ function tileReducer<T>(state: TileState<T>, action: TileAction<T>): TileState<T
 }
 
 /**
- * Общий шов загрузки данных тайла (DESIGN §7 — независимые per-tile состояния, без общего
- * спиннера). Тянет источник на маунте с `AbortController`, отдаёт фазу + данные + `retry`.
- * Пустоту (`empty`) решает сам тайл по содержимому — здесь только loading/error/loaded.
- *
- * `cacheKey` включает stale-while-revalidate: на маунте тайл сразу показывает последнюю удачную
- * копию из `localStorage` (если есть), а сетевой ответ её обновляет. Если запрос не прошёл
- * (например, мягкий рейтлимит после серии F5), копия остаётся на экране (`stale`), а не обнуляется
- * в ошибку — борд не «мигает пустым». Без копии поведение прежнее: loading → error с «повторить».
+ * The shared data-loading seam for a tile: fetches on mount with an `AbortController` and returns
+ * phase, data and `retry`. Emptiness is the tile's own call. `cacheKey` turns on
+ * stale-while-revalidate, so a failed request keeps the last good copy instead of blanking. §7
  */
 export function useTileData<T>(
   fetcher: (signal: AbortSignal) => Promise<T>,
@@ -66,15 +60,15 @@ export function useTileData<T>(
   });
   const [nonce, setNonce] = useState(0);
 
-  // fetcher приходит как стрелка из рендера тайла — оборачиваем в стабильный колбэк по nonce,
-  // чтобы повтор (retry) перезапускал эффект, но обычный ре-рендер тайла — нет.
+  // The fetcher arrives as an arrow from the tile's render, so it is wrapped in a callback stable
+  // per nonce: a retry restarts the effect, an ordinary re-render of the tile does not.
   const run = useCallback((signal: AbortSignal) => fetcher(signal), [nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const ctrl = new AbortController();
 
-    // Сидируем из кэша синхронно в эффекте (клиент-only — без рассинхрона гидрации): копия
-    // видна мгновенно, без вспышки лоадера, пока ревалидируем по сети.
+    // Seeded from the cache synchronously inside the effect (client-only, so no hydration
+    // mismatch): the copy shows instantly, with no flash of a loader, while we revalidate.
     const cached = cacheKey ? readCache<T>(cacheKey) : null;
     if (cached !== null) dispatch({ type: "seeded", data: cached });
     else dispatch({ type: "loading" });
@@ -87,7 +81,7 @@ export function useTileData<T>(
       })
       .catch(() => {
         if (ctrl.signal.aborted) return;
-        // Есть копия (своя или из кэша) — оставляем её показанной, а не обнуляем в ошибку.
+        // With a copy (our own or cached) we keep it shown rather than blanking it into an error.
         dispatch({ type: "failed", hasCopy: cached !== null });
       });
     return () => ctrl.abort();

@@ -1,37 +1,21 @@
 /**
- * Раскладка кадров в модалке фото-дропа (DESIGN §7.5) — чистый расчёт, отдельно от компонента:
- * `PhotoDropModal.tsx` должен экспортировать только компоненты, иначе Fast Refresh не сохраняет
- * состояние при правке файла.
- *
- * Кадр занимает целое число клеток базовой сетки: лежачий 3×2, стоячий 2×3. Шесть клеток у обоих —
- * отсюда равный вес ориентаций, которого не давали ни прежние CSS-колонки (там ширина кадра равна
- * ширине колонки при любой ориентации), ни justified-ряды (те равняют высоту, а при равной высоте
- * площадь идёт за пропорцией: замер на живом дропе — лежачий крупнее стоячего в 2.53 раза).
- *
- * **Порядок — по колонкам сверху вниз:** первый кадр сверху слева, второй под ним.
- * Поэтому место каждому кадру считается тут и задаётся явно —
- * автопоток грида укладывает построчно, и плёнка читалась бы поперёк.
- *
- * **Дырку занимает следующий подходящий кадр.** Стоячий кадр уже лежачего на клетку, поэтому
- * рядом с ним остаётся щель; если такие щели складываются, в мозаике появляется пустая колонка.
- * Укладчик ищет кадру **первое свободное место в порядке чтения** (левее и выше — раньше), а не
- * пришивает его к концу колонки, — поэтому щель занимает ближайший кадр, которому она подходит,
- * а пустота уезжает дальше по раскладке. Наложений при этом не бывает по построению: место
- * считается по занятости клеток, и кадр встаёт только туда, где свободны все его клетки.
+ * Layout of frames in the drop modal — a pure calculation kept out of the component, which must
+ * export only components or Fast Refresh loses state. A frame takes whole grid cells, six either
+ * way, so orientations weigh the same; order runs down COLUMNS and gaps are filled. DESIGN §7.5
  */
 
-/** Клеток по ширине сетки: 12 = четыре лежачих кадра в ряд, узкая 6 = два. */
+/** Cells across the grid: 12 gives four landscape frames per row, a narrow 6 gives two. */
 export const MOSAIC_UNITS = 12;
 export const MOSAIC_UNITS_NARROW = 6;
-/** Ниже этой ширины окна четыре кадра в ряд дают кадр мельче тач-таргета. */
+/** Below this window width four frames per row make a frame smaller than a touch target. */
 export const MOSAIC_NARROW_PX = 520;
 
-/** Лежачий кадр 3×2, стоячий 2×3 — оба по шесть клеток. */
+/** A landscape frame is 3×2 and a portrait one 2×3 — both six cells. */
 const LAND = { w: 3, h: 2 };
 const PORT = { w: 2, h: 3 };
 
 export interface MosaicCell {
-  /** Клетка левого верхнего угла, от нуля. */
+  /** Cell of the top-left corner, from zero. */
   col: number;
   row: number;
   w: number;
@@ -39,16 +23,16 @@ export interface MosaicCell {
 }
 
 /**
- * Разложить кадры по сетке шириной [units] клеток. [portraits] — ориентация каждого кадра в
- * порядке съёмки (`true` — стоячий); порядок сохраняется, раскладка кадры не переставляет —
- * меняется только место, куда каждый из них садится.
+ * Lay the frames out on a grid [units] cells wide. [portraits] is each frame's orientation in the
+ * order they were shot (`true` is portrait); that order is preserved and the layout never reorders
+ * them — only where each one sits changes.
  */
 export function columnMajorMosaic(portraits: boolean[], units: number): MosaicCell[] {
   if (portraits.length === 0 || units < LAND.w) return [];
 
-  // Идеальная высота: столько клеток заняли бы кадры, лёгши без единой щели. Раскладка стартует
-  // с неё и растёт по клетке, только когда очередному кадру места не нашлось нигде, — так
-  // мозаика не вытягивается в длинную колонку и не оставляет заведомо лишних рядов.
+  // The ideal height: how many cells the frames would take lying with not one gap. The layout starts
+  // there and grows by a cell only when a frame found no room anywhere, so the mosaic neither stretches
+  // into a long column nor leaves rows that are plainly surplus.
   let limit = Math.ceil((portraits.length * LAND.w * LAND.h) / units);
   const taken: boolean[][] = [];
 
@@ -74,8 +58,8 @@ export function columnMajorMosaic(portraits: boolean[], units: number): MosaicCe
   for (const portrait of portraits) {
     const { w, h } = portrait ? PORT : LAND;
     let placed: MosaicCell | null = null;
-    // Порядок поиска — порядок чтения: сперва левее, потом выше. Отсюда и «второй кадр под
-    // первым»: соседняя колонка идёт в дело, только когда в текущей места не осталось.
+    // The search order is reading order: left first, then up. Hence "the second frame under the first" —
+    // a neighbouring column comes into play only once the current one has no room left.
     while (!placed) {
       for (let col = 0; col + w <= units && !placed; col++) {
         for (let row = 0; row + h <= limit; row++) {

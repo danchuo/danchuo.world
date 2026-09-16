@@ -4,8 +4,8 @@ import jakarta.enterprise.context.ApplicationScoped
 import world.danchuo.core.oauth.OneTimeOAuthState
 
 /**
- * CSRF-`state` one-time OAuth Spotify (PRD §M3) — свой на слайс: общий бин на два источника
- * затирал бы чужую начатую авторизацию ([OneTimeOAuthState]).
+ * One-time OAuth CSRF `state` for Spotify — one per slice: a bean shared between two sources
+ * would wipe the other's authorization in progress ([OneTimeOAuthState]).
  */
 @ApplicationScoped
 class SpotifyOAuthState : OneTimeOAuthState()

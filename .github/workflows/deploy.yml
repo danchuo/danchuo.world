@@ -1,30 +1,22 @@
 name: Deploy
 
-# ══════════════════════════════════════════════════════════════════════════════════════
-#  Pipeline: every merge/push to main ships to production in three gated stages.
-#
-#   ┌──────────────────────┐     ┌──────────────────────┐     ┌──────────────────┐
-#   │ 1. build-backend     │ ──> │ 2. smoke-test        │ ──> │ 3. deploy        │
-#   │    (native → ghcr)   │     │ run THE images:      │     │ ssh → pull,      │
-#   │    build-frontend    │     │ health + REAL photo  │     │ restart, health  │
-#   │    (next → ghcr)     │     │ upload through AWT   │     │                  │
-#   └──────────────────────┘     └──────────────────────┘     └──────────────────┘
-#
+#  Pipeline: every merge/push to main ships to production in three gated stages —
+#    build-backend and build-frontend (native and next → ghcr) → smoke-test on THOSE images
+#    (health plus a REAL photo upload) → deploy over ssh (pull, restart, health).
+
 #  • The native compile runs HERE because the VPS is too small for it (needs 6-8 GB).
 #  • Tests are deliberately NOT run here — pr-build.yml gates them on the PR.
-#  • The smoke stage exists because "native image built" ≠ "native image runs": GraalVM
-#    strips code it can't reach statically, and those failures only surface at runtime.
-#    The riskiest path in this app is java.awt/ImageIO (film slice, quarkus-awt), so the
-#    smoke uploads a real zip through the full resize pipeline — not just a health ping.
-# ══════════════════════════════════════════════════════════════════════════════════════
+
+#  • The smoke stage exists because "native image built" ≠ "native image runs": GraalVM strips
+#    code it cannot reach statically, and those failures surface only at runtime. The riskiest
+#    path here is java.awt/ImageIO (film slice), so the smoke uploads a real zip end to end.
 
 on:
   push:
     branches: [ main ]
-  # Ручной запуск с вкладки Actions. Нужен, когда автозапуск по пушу не состоялся:
-  # прогон, поставленный в очередь во время аварии Actions, зависает в queued навсегда,
-  # rerun на него не действует («This workflow is already running»), а других способов
-  # перезапустить деплой без пустого коммита в main нет.
+  # Manual start from the Actions tab, needed when the push trigger did not fire: a run queued
+  # during an Actions outage hangs in `queued` forever and rerun has no effect on it
+  # ("This workflow is already running"), leaving no other way to redeploy without an empty commit.
   workflow_dispatch:
 
 # Serialize deploys: a second push waits for the running deploy instead of racing it.
@@ -49,9 +41,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # native-image wants ~6 GB heap and the standard runner has ~8 GB RAM total.
+
       # The swap is a safety net so heap + Gradle + dockerd can't trip the OOM killer.
-      # NB: swapfile лежит на /mnt (временный диск раннера), а не на корне — место под
-      # buildkit оно не отъедает, см. следующий шаг.
+      # NB: the swapfile lives on /mnt (the runner's temporary disk) rather than the root, so it
+      # takes no space from buildkit — see the next step.
       - name: Add swap for the native build
         run: |
           sudo swapoff -a
@@ -61,31 +54,32 @@ jobs:
           sudo swapon /mnt/swapfile
           free -h
 
-      # ⚠️ Корень раннера — узкое место этого джоба, и он падал именно здесь:
-      # `ResourceExhausted: write /var/lib/buildkit/.../ingest/...: no space left on device`
-      # (прогон 625a13a). Состояние buildkit живёт на корневом диске, а у ubuntu-latest там
-      # свободно ВСЕГО 4.9 ГБ (замер в логе) — на нативную сборку (GraalVM + Gradle-
-      # зависимости + бинарник) с выгрузкой слоёв в кэш этого не хватает.
-      #
-      # Сносим ДВА самых тяжёлых каталога, а не всё подряд. Шаг идёт на КАЖДОЙ сборке
-      # бэкенда, в том числе на тех (а это почти все), где всё берётся из кэша и диск не
-      # нужен вовсе, — значит его цена платится всегда, и держать её стоит низкой. Замер
-      # первой версии, сносившей семь путей плюс `docker image prune`: 71с и 181с на двух
-      # прогонах, при том что прун дал всего 1.8 ГБ из 27. Обход мелких каталогов стоил
-      # непропорционально много времени, поэтому мелочь и прун убраны.
-      #
-      # Снос — своим `rm`, а не сторонним экшеном: тут нечего переиспользовать, зато чужой
-      # экшен в цепочке деплоя — это ещё одна пара рук с доступом к нашим секретам.
-      # `df` печатается до и после НАМЕРЕННО: если джоб снова упрётся в диск, первым
-      # вопросом будет «а сколько его было», и ответ должен лежать в логе. По той же
-      # причине печатается длительность: следующий разговор про «почему сборка дольше»
-      # должен начинаться с числа, а не с раскопок по меткам времени.
+      # ⚠️ The runner's root disk is this job's bottleneck, and it failed here:
+      # `ResourceExhausted: write /var/lib/buildkit/.../ingest/...: no space left on device`.
+      # buildkit's state lives on the root disk, where ubuntu-latest leaves ONLY 4.9 GB free —
+
+      # not enough for a native build plus exporting layers to cache.
+
+      # Only the TWO heaviest directories are removed, not everything. This step runs on EVERY
+      # backend build, including the majority that come straight from cache and need no disk at
+      # all, so its cost is always paid and should stay low.
+
+      # Measured: the first version removed seven paths plus `docker image prune` and took 71s and
+      # 181s on two runs, while the prune freed just 1.8 GB of 27. Walking small directories cost
+      # disproportionately, so the small fry and the prune are gone.
+
+      # Removal uses a plain `rm` rather than a third-party action: there is nothing to reuse here,
+      # while someone else's action in the deploy chain is another pair of hands on our secrets.
+
+      # `df` is printed before and after DELIBERATELY: if this job hits the disk again, the first
+      # question will be how much there was, and the answer belongs in the log. The duration is
+      # printed for the same reason — the next "why is the build slower" starts from a number.
       - name: Free up runner disk
         run: |
           df -h /
           start=$(date +%s)
-          # android ~9-14 ГБ, CodeQL ~5 ГБ — вдвоём уводят с 4.9 ГБ на ~20 ГБ, и этого
-          # хватает с запасом: не влезал раньше остаток от 4.9, а не от двадцати.
+          # android ~9-14 GB and CodeQL ~5 GB together take 4.9 GB up to ~20 GB, which is ample:
+          # what did not fit before was the remainder of 4.9, not of twenty.
           sudo rm -rf /usr/local/lib/android /opt/hostedtoolcache/CodeQL
           echo "cleanup took $(( $(date +%s) - start ))s"
           df -h /
@@ -99,21 +93,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # The sha tag is the rollback handle (docs/deploy.md §5).
-      #
-      # ⚠️ `mode=max` обязателен, и это не «на всякий случай». Кэшируется вся builder-стадия,
-      # включая слой самого нативного компайла, — а он зависит только от `backend/`, который
-      # меняется редко. Поэтому деплой ФРОНТОВОЙ правки не компилирует бэкенд заново, а берёт
-      # его слой из кэша: `build-backend` укладывается в ~35с–1.5мин вместо полного компайла.
-      #
-      # Пробовали `mode=min`, чтобы сэкономить диск (прогон 05c222b) — **рассмотрено и
-      # отклонено**: экспорт кэша сжался до нуля слоёв, кэш перестал обновляться вовсе, и
-      # первое же изменение в `backend/` оставило бы каждый последующий деплой без этого
-      # слоя. Место под экспорт даёт шаг «Free up runner disk» выше (4.9 ГБ → ~20 ГБ), его
-      # для этого и хватает.
-      #
-      # NB: прежний комментарий здесь утверждал, что нативный компайл «всё равно
-      # пересобирается каждый прогон». Это неверно — он пересобирается, только когда
-      # меняется `backend/`; на том утверждении и построили неудачный `mode=min`.
+
+      # ⚠️ `mode=max` is mandatory, not a precaution. The whole builder stage is cached, including
+      # the native compile layer, and that layer depends only on `backend/`, which changes rarely —
+
+      # so deploying a FRONTEND change reuses it and `build-backend` finishes in ~35s to 1.5min.
+
+      # Rejected: `mode=min`, tried to save disk — the cache export shrank to zero layers and stopped
+      # updating at all, so the first change in `backend/` would have left every later deploy without
+      # that layer. Space for the export comes from "Free up runner disk" above.
       - uses: docker/build-push-action@v6
         with:
           context: backend
@@ -146,6 +134,7 @@ jobs:
 
       # Build args are baked at build time (Next rewrites + prerendered robots/sitemap/OG):
       # API_PROXY_TARGET is the SSR-side fallback proxy target inside the compose network;
+
       # browser /api/* traffic is routed by Caddy straight to the backend.
       - uses: docker/build-push-action@v6
         with:
@@ -161,9 +150,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
 
   # ── Stage 1c: build the edge image (caddy + rate limiter + cache) ─────────────────────
-  # Small and cheap next to the other two, but it has to exist before deploy: the Caddyfile
-  # uses directives stock caddy:2 cannot even parse, so both the validation step and the
-  # running edge need this image.
+  # Small and cheap next to the other two, but it has to exist before deploy: the Caddyfile uses
+  # directives stock caddy:2 cannot parse, so validation and the running edge both need it.
   build-caddy:
     runs-on: ubuntu-latest
     permissions:
@@ -191,18 +179,18 @@ jobs:
           cache-to: type=gha,mode=max,scope=caddy
 
   # ── Stage 1d: the Caddyfile must parse against the image that will serve it ───────────
-  # Runs here rather than on the VPS so a broken edge config fails the build in a minute,
-  # before anything is pulled. The on-server validation stays as well — it is the one that
-  # proves the file which actually landed there is good.
+  # Runs here rather than on the VPS, so a broken edge config fails the build in a minute, before
+  # anything is pulled. The on-server validation stays too — that one proves the landed file good.
   validate-edge-config:
     needs: build-caddy
     runs-on: ubuntu-latest
     permissions:
-      # `contents: read` is NOT optional here, and its absence does not look like a
-      # permissions problem: declaring a `permissions:` block drops every scope you leave
-      # out, so checkout loses read access and GitHub reports the private repo as
-      # "Repository not found" — a 404 standing in for a 403. Any job in this file that
-      # checks out the repo needs this line; smoke-test omits it only because it never does.
+      # `contents: read` is NOT optional here, and its absence does not look like a permissions
+      # problem: declaring a `permissions:` block drops every scope left out, so checkout loses read
+      # access and GitHub reports the private repo as "Repository not found", a 404 for a 403.
+
+      # Any job in this file that checks out the repo needs this line; smoke-test omits it only
+      # because it never checks out.
       contents: read
       packages: read
     steps:
@@ -259,10 +247,9 @@ jobs:
           done
           echo "::error::smoke: backend never became ready"; docker logs app; exit 1
 
-      # THE native-image test that a health ping can't give: a real photo-drop upload runs
-      # zip → ImageIO decode → AWT resize → JPEG encode → disk → DB, i.e. every JNI library
-      # quarkus-awt bundled. If GraalVM stripped or mispacked any of it, this fails here —
-      # not in production.
+      # THE native-image test a health ping cannot give: a real photo-drop upload runs zip → ImageIO
+      # decode → AWT resize → JPEG encode → disk → DB, i.e. every JNI library quarkus-awt bundled.
+      # If GraalVM stripped or mispacked any of it, this fails here rather than in production.
       - name: Upload a photo drop through the full imaging pipeline
         run: |
           # 1×1 PNG, base64 — deterministic test frames without extra tooling on the runner.
@@ -351,12 +338,13 @@ jobs:
             cd /opt/danchuoworld
             export TAG=${{ github.sha }}
 
-            # Pin the rolled-out tag in .env, which compose reads on its own. Without it the
-            # images resolve as ${TAG:-latest}, so ANY hand-run `docker compose up -d` on this
-            # box (restarting one service, poking at the edge) silently rolls production back to
-            # whatever `:latest` is cached on disk — and that copy is ancient, because deploys
-            # only ever pull the sha tag. This is not hypothetical: a manual restart of caddy
-            # once dragged the backend back fifteen releases, and nothing anywhere said so.
+            # Pin the rolled-out tag in .env, which compose reads on its own. Without it the images
+            # resolve as ${TAG:-latest}, so ANY hand-run `docker compose up -d` on this box silently
+            # rolls production back to whatever `:latest` is cached on disk.
+
+            # That cached copy is ancient, because deploys only ever pull the sha tag. Not
+            # hypothetical: a manual restart of caddy once dragged the backend back fifteen
+            # releases, and nothing anywhere said so.
             sed -i '/^TAG=/d' .env
             echo "TAG=${TAG}" >> .env
 
@@ -365,24 +353,26 @@ jobs:
 
             # The Caddyfile is bind-mounted as a single FILE, and that mount is pinned to the
             # inode: scp replaces the file (new inode), the running container keeps the old one.
-            # So the edge kept serving a config nobody could see anymore — and `caddy reload`
-            # did NOT help, because it re-reads the path INSIDE the container and gets the stale
-            # file, which is still valid and reloads green. Only recreating the container
-            # re-resolves the mount. Validate first in a throwaway container so a broken
-            # Caddyfile fails the deploy instead of taking the edge down on restart.
-            #
-            # Validate with OUR image, not caddy:2 — the config uses rate_limit and cache,
-            # which stock Caddy cannot parse, so validating against caddy:2 would now fail
-            # every deploy on a perfectly good file.
+
+            # So the edge kept serving a config nobody could see any more, and `caddy reload` did
+            # NOT help: it re-reads the path INSIDE the container, gets the stale file, and that
+            # file is still valid and reloads green. Only recreating the container re-resolves it.
+
+            # Validation therefore runs first in a throwaway container, so a broken Caddyfile fails
+            # the deploy instead of taking the edge down on restart.
+
+            # Validate with OUR image, not caddy:2 — the config uses rate_limit and cache, which
+            # stock Caddy cannot parse, so validating against caddy:2 would fail every deploy on a
+            # perfectly good file.
             docker run --rm -v /opt/danchuoworld/Caddyfile:/etc/caddy/Caddyfile:ro \
               ghcr.io/danchuo/danchuo.world/caddy:${TAG} \
               caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
-            # Every service whose config arrives as a bind-mounted file has to be recreated for
-            # the same reason — webdav.yml is the other one. Recreating unconditionally is the
-            # cheap, boring guarantee: a second of downtime on a personal site beats a config
-            # that looks deployed and isn't. Rule for anything added later: bind-mount a config
-            # file, recreate that service here too.
+            # Every service whose config arrives as a bind-mounted file has to be recreated for the
+            # same reason, and webdav.yml is the other one. Recreating unconditionally is the cheap,
+            # boring guarantee: a second of downtime beats a config that looks deployed and is not.
+
+            # Rule for anything added later: bind-mount a config file, recreate that service here too.
             docker compose -f docker-compose.prod.yml up -d --force-recreate caddy webdav
 
             # Backend health via its loopback port (8081; 8080 belongs to proxemics).
@@ -404,13 +394,13 @@ jobs:
               && echo "site answers over HTTPS" \
               || echo "::warning::https://danchuo.world not reachable yet (DNS/certificate still settling?)"
 
-            # Edge gate, and deliberately a HARD one. It probes the exact URL typed into Anx
-            # Reader — no trailing slash, no credentials — which must come back 401 from the
-            # WebDAV server. Anything else (404/308 with HTML) means the request reached Next.js
-            # instead, and the owner's phone answers "failed to create test directory".
-            # This is the check that turns a silently stale edge into a red deploy: the whole
-            # class of bug here is a rollout that reports success while serving the old config,
-            # so the last word belongs to a request that only passes on the new one.
+            # Edge gate, deliberately a HARD one. It probes the exact URL typed into Anx Reader — no
+            # trailing slash, no credentials — which must come back 401 from the WebDAV server, since
+            # anything else means the request reached Next.js and the phone reports a failed sync.
+
+            # This is the check that turns a silently stale edge into a red deploy: the bug class
+            # here is a rollout that reports success while serving the old config, so the last word
+            # belongs to a request that only passes on the new one.
             dav=""
             for i in $(seq 1 5); do
               code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
@@ -432,10 +422,11 @@ jobs:
             echo "deployed $TAG"
 
   # ── Stage 4: record the rollout as a GitHub Release ────────────────────────────────────
-  # One lightweight release per successful production rollout. The payload is the pair of
-  # GHCR image links pinned to the commit sha — that sha tag is the rollback handle
-  # (docs/deploy.md §5). Sources are not attached: GitHub links the source archive to the
-  # tag automatically, and the images already pin the exact commit.
+  # One lightweight release per successful production rollout. The payload is the pair of GHCR image
+  # links pinned to the commit sha, and that sha tag is the rollback handle (docs/deploy.md §5).
+
+  # Sources are not attached: GitHub links the source archive to the tag automatically, and the
+  # images already pin the exact commit.
   release:
     needs: deploy
     runs-on: ubuntu-latest

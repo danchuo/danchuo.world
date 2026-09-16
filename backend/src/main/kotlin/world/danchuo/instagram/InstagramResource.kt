@@ -7,10 +7,9 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичное чтение последнего поста (PRD §5.17): `GET /api/instagram/latest`.
- *
- * Аккаунт не подключён или пост ещё не забран — **204**, а не 404 и не пустой объект: плитка
- * должна отличать «показывать нечего» от поломки и молча не рисовать карточку (DESIGN §7).
+ * Public read of the latest post (PRD §5.17): `GET /api/instagram/latest`. An unconnected account
+ * or an unfetched post answers 204, not 404 and not an empty object: the tile must tell "nothing
+ * to show" from a breakage and quietly draw no card (DESIGN §7).
  */
 @Path("/api/instagram")
 class InstagramResource(

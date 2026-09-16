@@ -9,10 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Кадр фото-дропа (PRD §5.12, §7). [width]/[height] — размеры web-варианта (после EXIF-поворота)
- * для justified-композиции на клиенте без догадок об ориентации. [dropId] — плоский FK на
- * [FilmDrop]. Сами байты лежат в [PhotoStorage] под ключом `"{dropId}/{sortOrder}"`; URL-ы
- * вариантов (web/thumb) генерятся из ключа, поэтому путь в БД не хранится (B1).
+ * One frame of a photo drop. [width]/[height] are the web variant's size AFTER EXIF rotation, so
+ * the client composes without guessing orientation. The bytes live in [PhotoStorage] under the key
+ * `"{dropId}/{sortOrder}"`, and variant URLs derive from it, so no path is stored. PRD §5.12
  */
 @Entity
 @Table(name = "film_photo")
@@ -33,29 +32,28 @@ class FilmPhoto {
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0
 
-    /** Кадр проверен на поворот (LLM или вручную) — повторный прогон его не трогает (B9). */
+    /** The frame is orientation-checked (by LLM or by hand) — a re-run skips it (B9). */
     @Column(name = "orientation_checked_at")
     var orientationCheckedAt: Instant? = null
 
-    /** Итог проверки поворота: `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual` (B9). */
+    /** Orientation result: `none`/`cw90`/`ccw90`/`r180`/`ambiguous`/`manual` (B9). */
     @Column(name = "orientation_applied")
     var orientationApplied: String? = null
 
     /**
-     * Байты web+thumb реально перезаписаны поворотом; версия для cache-bust `?v=` в URL —
-     * `/api/film-media` кэшируется как неизменяемый (B9).
+     * The web and thumb bytes were actually rewritten by a rotation; this version feeds the `?v=`
+     * cache-bust in the URL, since `/api/film-media` is cached as immutable (B9).
      */
     @Column(name = "rotated_at")
     var rotatedAt: Instant? = null
 
     /**
-     * Кадр проверен на артефакты — повторный прогон его пропускает (как [orientationCheckedAt]).
-     * Сбой провайдера отметку **не** ставит: «не смогли проверить» и «проверили, ничего нет» —
-     * разные состояния, и смешать их значит записать простой Gemini как отсутствие артефактов.
+     * The frame is artifact-checked, and a re-run skips it (as with [orientationCheckedAt]). A
+     * provider failure does NOT set it: "could not check" and "checked, nothing there" are
+     * different states, and merging them records an outage as an absence of artifacts.
      */
     @Column(name = "artifacts_checked_at")
     var artifactsCheckedAt: Instant? = null
 
-    /** Стабильный ключ кадра в [PhotoStorage]: `"{dropId}/{sortOrder}"`. */
     val storageKey: String get() = "$dropId/$sortOrder"
 }

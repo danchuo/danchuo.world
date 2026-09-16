@@ -45,7 +45,7 @@ describe("dayWeight", () => {
   });
 
   it("пустой канал тянет вес вниз, а не выпадает из среднего", () => {
-    // Только вклады, и те полные: четверть веса, а не полный вес.
+    // Contributions alone, and full ones at that: a quarter of the weight, not all of it.
     expect(dayWeight(day({ contributions: CODE_FULL }))).toBeCloseTo(0.25, 5);
   });
 
@@ -59,7 +59,7 @@ describe("dayWeight", () => {
   });
 
   it("честный ноль в канале — это ноль, а не отсутствие данных", () => {
-    // `0` и `null` весят одинаково, но различие живо в `hasData` и в метке пропуска (§5).
+    // `0` and `null` weigh the same, but the difference lives on in `hasData` and the gap mark (§5).
     expect(dayWeight(day({ contributions: 0 }))).toBe(0);
   });
 
@@ -67,7 +67,7 @@ describe("dayWeight", () => {
     const w = dayWeight(
       day({ disciplineCounts: { stretch: 1, reading: 0, podcasts: 0, office: 0 } }),
     );
-    // Один пункт из четырёх = 0.25 канала = 0.0625 веса.
+    // One item of four = 0.25 of a channel = 0.0625 of the weight.
     expect(w).toBeCloseTo(0.0625, 5);
   });
 

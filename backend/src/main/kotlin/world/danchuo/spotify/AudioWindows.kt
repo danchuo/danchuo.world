@@ -1,45 +1,25 @@
 package world.danchuo.spotify
 
-/** Кусок файла, который надо скачать: включительные байтовые границы для заголовка `Range`. */
+/** A file chunk to download: inclusive byte bounds for the `Range` header. */
 data class ByteWindow(val from: Long, val to: Long) {
 
-    /** Значение заголовка `Range` — ровно в том виде, в каком его понимает раздача подкастов. */
+    /** The `Range` header value, exactly as podcast hosting understands it. */
     fun header(): String = "bytes=$from-$to"
 
     val length: Long get() = to - from + 1
 }
 
 /**
- * Куда резать аудио выпуска, чтобы расшифровать прослушанный кусок (PRD §5.16.1).
- *
- * **Режем ДО расшифровки, а не после.** Минута речи — 767 знаков (замерено на расшифровке
- * Hidden Brain), то есть часовой заход даёт 46 тысяч знаков против потолка выдержки в 12 тысяч.
- * Расшифровать час целиком значило бы заплатить аудиосекундами за текст, который тут же
- * выбросит нарезка окон ([world.danchuo.summary.SummaryWindows]). Четыре окна по три минуты
- * стоят 720 аудиосекунд при бесплатном лимите 7200 в час и отвечают на тот же вопрос.
- *
- * **Смещение считается ДОЛЕЙ от размера файла, а не миллисекундами.** У шоу с динамической
- * вставкой рекламы длительность в RSS расходится со Spotify (у Huberman замерено 7707 с против
- * 7692.5 с), и абсолютные миллисекунды копили бы этот дрейф к концу выпуска. Доля от реального
- * размера гасит его: реклама вставлена в тот же файл, которым мы и меряем.
- *
- * **Почему это вообще работает без ffmpeg.** Все шесть проверенных фидов отдают CBR mp3
- * (96–320 kbps), поэтому байт и время связаны линейно, а срез с произвольного байта остаётся
- * валидным потоком: декодер ресинхронизируется на первом же заголовке фрейма (замер: 137–381
- * байт, расхождение по длине — 0.02 с на минуту).
+ * Where to cut an episode's audio so the listened passage can be transcribed. Audio is cut BEFORE
+ * transcription, offsets are fractions of FILE SIZE rather than milliseconds, and no ffmpeg is
+ * needed. All three decisions, with the measurements behind them: PRD §5.16.1.
  */
 object AudioWindows {
 
     /**
-     * Байтовые окна прослушанного куска `[from, to]` (доли 0..1 от файла).
-     *
-     * Кусок короче суммарного бюджета берётся ЦЕЛИКОМ одним окном: рвать три минуты на четыре
-     * обрывка незачем, а связная речь пересказывается лучше. Длинный режется [count] окнами по
-     * [windowMs] каждое, равномерно по всей длине, и последнее упирается в конец куска — место,
-     * где владелец выключил, самое памятное, и молчать про него нельзя.
-     *
-     * Пустой, вывернутый или неизмеримый кусок (нет размера, нет длительности) даёт пустой
-     * список: резать нечего — значит и пересказа не будет.
+     * Byte windows of the listened passage (fractions 0..1 of the file). A passage shorter than
+     * the whole budget is taken WHOLE — connected speech summarises better. A long one is cut into
+     * [count] windows with the last pinned to the end, the most memorable spot. Empty list = no cut.
      */
     fun windows(
         totalBytes: Long,
@@ -59,7 +39,7 @@ object AudioWindows {
         val windowBytes = (windowMs.toDouble() / durationMs * totalBytes).toLong().coerceAtLeast(1)
         if (stretch <= windowBytes * count) return listOf(ByteWindow(start, end - 1))
 
-        // Шаг между началами окон: первое от начала куска, последнее — впритык к его концу.
+        // Step between window starts: the first from the chunk's start, the last flush to its end.
         val step = (stretch - windowBytes) / (count - 1)
         return (0 until count).map { i ->
             val at = if (i == count - 1) end - windowBytes else start + i * step

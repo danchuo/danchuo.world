@@ -10,9 +10,8 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 /**
- * Контракт истории покупок Велобайка (`/api/purchases/history`) зафиксирован на анонимизированной
- * фикстуре. Проверяем: страница парсится; хранятся ТОЛЬКО покупки тарифов (`TARIFF`), а списания
- * за поездки (`RENTAL`) отсеиваются; поля и минуты маппятся из `orderItems`. Без БД (чистый юнит).
+ * The purchase-history contract (`/api/purchases/history`) pinned on an anonymised fixture: only
+ * `TARIFF` purchases are stored, `RENTAL` charges are dropped, minutes map from `orderItems`.
  */
 class TariffMappingTest {
 
@@ -38,7 +37,7 @@ class TariffMappingTest {
         val tariff = page.content.first { it.idPurchase == 2715716L }
         val rental = page.content.first { it.idPurchase == 2716277L }
         assertTrue(TariffMapper.isTariffPurchase(tariff))
-        assertFalse(TariffMapper.isTariffPurchase(rental)) // списание за поездку — не храним
+        assertFalse(TariffMapper.isTariffPurchase(rental)) // a ride charge is not stored
     }
 
     @Test
@@ -63,7 +62,7 @@ class TariffMappingTest {
         assertNull(tariff.minutes)
     }
 
-    // --- Привязка «Доступа» к поездке и покрытия к остальным (TariffAttribution) ---
+    // --- Access purchases bound to a ride, coverage to the rest (TariffAttribution) ---
 
     private fun purchase(id: String, at: Instant, kopecks: Int, name: String) = BikeTariff().apply {
         externalId = id
@@ -84,14 +83,14 @@ class TariffMappingTest {
 
     @Test
     fun `доступ куплен ради поездки — её и оплачивает`() {
-        // Реальная картина: «Доступ Пакет 60 минут» покупается за секунды до старта поездки.
+        // What really happens: the access package is bought seconds before the ride starts.
         val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
         val r = ride(1, t0.plusSeconds(6), 749, "Пакет 60 минут")
 
         val money = TariffAttribution.attribute(listOf(r), listOf(buy))[1L]!!
 
-        assertEquals(39900, money.accessKopecks) // 399 ₽ доступа — деньги ЭТОЙ поездки
-        assertNull(money.coveredByTariffKopecks) // она сама купила доступ, «в рамках» тут не о чем
+        assertEquals(39900, money.accessKopecks) // the 399 ₽ access is THIS ride's money
+        assertNull(money.coveredByTariffKopecks) // it bought the access itself, so "covered" is moot
     }
 
     @Test
@@ -99,15 +98,15 @@ class TariffMappingTest {
         val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
         val first = ride(1, t0.plusSeconds(6), 0, "Пакет 60 минут")
         val second = ride(2, t0.plusSeconds(4000), 0, "Пакет 60 минут")
-        val third = ride(3, t0.plusSeconds(20000), 15400, "Пакет 60 минут") // вылез за пакет
+        val third = ride(3, t0.plusSeconds(20000), 15400, "Пакет 60 минут") // ran past the package
 
         val money = TariffAttribution.attribute(listOf(first, second, third), listOf(buy))
 
         assertEquals(39900, money[1L]!!.accessKopecks)
-        assertNull(money[2L]!!.accessKopecks) // второй раз те же 399 ₽ не берём
+        assertNull(money[2L]!!.accessKopecks) // the same 399 ₽ is not taken a second time
         assertEquals(39900, money[2L]!!.coveredByTariffKopecks)
         assertNull(money[3L]!!.accessKopecks)
-        assertEquals(39900, money[3L]!!.coveredByTariffKopecks) // превышение сверх пакета
+        assertEquals(39900, money[3L]!!.coveredByTariffKopecks) // the overage past the package
     }
 
     @Test
@@ -117,7 +116,7 @@ class TariffMappingTest {
 
         val money = TariffAttribution.attribute(listOf(r), listOf(buy))[1L]!!
 
-        assertEquals(4000, money.accessKopecks) // 40 ₽ платного старта — их и не хватало в витрине
+        assertEquals(4000, money.accessKopecks) // the 40 ₽ paid start — what the board was missing
         assertNull(money.coveredByTariffKopecks)
     }
 
@@ -134,7 +133,7 @@ class TariffMappingTest {
 
     @Test
     fun `купленный и не откатанный доступ ни к какой поездке не привязывается`() {
-        // Доступ куплен, поездки в окне нет: следующая поминутная — только через трое суток.
+        // Access bought, no ride in the window: the next per-minute ride is three days later.
         val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
         val far = ride(1, t0.plusSeconds(3 * 24 * 3600), 0, "Поминутный")
 
@@ -147,7 +146,7 @@ class TariffMappingTest {
     fun `поминутный доступ следующие поездки не покрывает — включённых минут в нём нет`() {
         val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
         val own = ride(1, t0.plusSeconds(8), 1498, "Поминутный")
-        val next = ride(2, t0.plusSeconds(7200), 0, "Поминутный") // своей покупки в истории нет
+        val next = ride(2, t0.plusSeconds(7200), 0, "Поминутный") // it has no purchase of its own
 
         val money = TariffAttribution.attribute(listOf(own, next), listOf(buy))
 

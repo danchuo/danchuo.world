@@ -21,7 +21,7 @@ describe("is3dArtifact", () => {
 
 describe("fitDistance", () => {
   it("ставит камеру так, что шар радиуса r вписан в вертикальный угол обзора", () => {
-    // При fov 60° полуугол 30°, sin 0.5 ⇒ дистанция вдвое больше радиуса.
+    // At a 60° fov the half-angle is 30°, sin 0.5 ⇒ the distance is twice the radius.
     expect(fitDistance(1, 60, 1)).toBeCloseTo(2, 6);
     expect(fitDistance(2, 60, 1)).toBeCloseTo(4, 6);
   });
@@ -36,7 +36,7 @@ describe("fitDistance", () => {
 });
 
 describe("nextSpin", () => {
-  /** Проигрывает [ms] миллисекунд кадрами по 16мс — так, как их отдаёт rAF. */
+  /** Plays [ms] milliseconds as 16ms frames, the way rAF delivers them. */
   const play = (ms: number, rpm: number) => {
     let angle = 0;
     for (let t = 0; t < ms; t += 16) angle = nextSpin(angle, 16, rpm);
@@ -55,7 +55,7 @@ describe("nextSpin", () => {
   });
 
   it("кадр-выброс (вкладку увели и вернули) не проматывает предмет рывком", () => {
-    // Пауза на 5 минут не должна отдаваться скачком: шаг обрезан потолком кадра.
+    // A five-minute pause must not be paid back in a jump: the step is capped per frame.
     expect(nextSpin(0, 300_000, 6)).toBeCloseTo(nextSpin(0, 100, 6), 6);
   });
 });
@@ -73,9 +73,9 @@ describe("createFrameClock", () => {
   });
 
   it("⚠️ регрессия: продолжение цикла не обнуляет отсчёт", () => {
-    // Так и было: `tick` продолжал цикл через ту же функцию, что его запускает, а она сбрасывала
-    // отсчёт. Шаг выходил нулевым каждый кадр — предмет рисовался под одним углом и выглядел
-    // неподвижным. Обнуление здесь возможно только через `reset`, то есть по КОНЦУ цикла.
+    // This is what happened: `tick` continued the loop through the same function that starts it,
+    // and that reset the count. The step came out zero every frame and the item looked still.
+    // Resetting is possible only through `reset`, that is at the END of a cycle.
     const clock = createFrameClock();
     clock.step(1000);
     for (let i = 1; i <= 5; i++) expect(clock.step(1000 + i * 16)).toBe(16);
@@ -85,7 +85,7 @@ describe("createFrameClock", () => {
     const clock = createFrameClock();
     clock.step(1000);
     clock.reset();
-    // Курсор ушёл и вернулся через полторы минуты — пауза не отдаётся скачком.
+    // The cursor left and came back a minute and a half later — the pause is not paid in a jump.
     expect(clock.step(90_000)).toBe(0);
   });
 });
@@ -94,26 +94,25 @@ describe("rewindSpin", () => {
   const TURN = 2 * Math.PI;
 
   it("отматывает назад с той же скоростью, что крутил вперёд", () => {
-    // Секунда вперёд и секунда назад при одной скорости возвращают предмет ровно туда же.
+    // A second forward and a second back at one speed return the item to exactly where it was.
     const forward = nextSpin(0, 100, 6);
     expect(rewindSpin(forward, 100, 6)).toBeCloseTo(0, 9);
   });
 
   it("круг с хвостом отматывается ТОЛЬКО хвостом", () => {
-    // Предмет провернулся на 1.1 оборота: назад он должен пройти 0.1, а не 1.1 —
-    // целые обороты в положении предмета неразличимы, и отматывать их значит гонять
-    // его вхолостую.
-    const spun = 1.1 * TURN % TURN; // ровно то, что хранит угол: дробная часть
+    // The item turned 1.1 revolutions: back it must travel 0.1, not 1.1 — whole turns are
+    // indistinguishable in its pose, and rewinding them would spin it for nothing.
+    const spun = 1.1 * TURN % TURN; // exactly what the angle stores: the fractional part
     expect(spun).toBeCloseTo(0.1 * TURN, 9);
-    // За время, которого хватает на 0.1 оборота, он доходит до начала (с точностью
-    // до плавающей точки — накопленный эпсилон стоит максимум одного лишнего кадра).
+    // In the time enough for 0.1 of a turn it reaches the start (to floating-point precision —
+    // the accumulated epsilon costs at most one extra frame).
     expect(rewindSpin(spun, 100, 60)).toBeCloseTo(0, 12);
   });
 
   it("доходит до начального положения и там останавливается намертво", () => {
     expect(rewindSpin(0.02, 100, 60)).toBe(0);
     expect(rewindSpin(0, 100, 60)).toBe(0);
-    // Ниже нуля не проваливается: назад — это ДО начала, а не мимо него.
+    // It does not fall below zero: back means UP TO the start, not past it.
     expect(rewindSpin(0.001, 5000, 60)).toBe(0);
   });
 
@@ -130,9 +129,9 @@ describe("rewindSpin", () => {
       back = rewindSpin(back, 16, 9);
       frames++;
     }
-    // Упор жёсткий: назад предмет приходит В НОЛЬ, а не «около нуля».
+    // The stop is hard: the item arrives AT zero, not "near zero".
     expect(back).toBe(0);
-    // Столько же кадров, сколько крутился, плюс не больше одного на добор эпсилона.
+    // As many frames as it spun, plus at most one to make up the epsilon.
     expect(frames).toBeGreaterThanOrEqual(40);
     expect(frames).toBeLessThanOrEqual(41);
   });

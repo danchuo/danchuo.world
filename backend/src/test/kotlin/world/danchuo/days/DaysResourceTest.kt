@@ -17,22 +17,15 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * `GET /api/days*` (PRD §5.4/§5.6, §12 M2): публичное чтение, агрегат дня и сводки
- * календаря, пустые дни как валидная проекция, генезис-гард, формат дат.
- *
- * Даты — относительные к «сегодня» MSK: ingest/daily принимает только окно
- * [сегодня − 31, сегодня] (§5.6). Смещения не пересекаются с DailyIngestResourceTest
- * (он занимает −1…−3 и −31) — тест-классы делят одну БД в прогоне. Само «сегодня»
- * делится с ним (там оно только в 401/422, которые ничего не пишут), поэтому стрик за
- * сегодня проверяется **дельтой**, а не абсолютным числом: что лежит на −1…−3, зависит
- * от порядка классов.
- *
- * ⚠️ **За собой класс прибирает — иначе он бомба замедленного действия.** Заливает он
- * скользящее окно последних тридцати дней, а соседи (например [HealthIngestResourceTest])
- * держат ФИКСИРОВАННЫЕ даты и проверяют на них отсутствие данных. Пока календарь не свёл
- * их вместе, всё зелено; в тот день, когда «сегодня минус пятнадцать» совпадает с чужой
- * фиксированной датой, у соседа внезапно появляются семь часов сна — и падает он, а не мы.
- * Ровно это и случилось 15.08.2026 с днём 2026-07-31.
+ * `GET /api/days*` (PRD §5.4/§5.6): public reads, the day aggregate and calendar summaries,
+ * empty days as a valid projection, the genesis guard, date formats. Dates are relative to MSK
+ * today, offsets chosen not to collide with DailyIngestResourceTest — one DB per run.
+ */
+
+/**
+ * ⚠️ The class MUST clean up after itself. It seeds a sliding window of the last thirty days,
+ * while neighbours ([HealthIngestResourceTest]) pin FIXED dates and assert there is no data on
+ * them. The day the two meet, the neighbour fails, not us — as on 2026-08-15 for 2026-07-31.
  */
 @QuarkusTest
 class DaysResourceTest {
@@ -51,9 +44,8 @@ class DaysResourceTest {
     private val today: LocalDate = LocalDate.now(ZoneId.of("Europe/Moscow"))
 
     /**
-     * Убрать за собой скользящее окно. Каждый тест класса заливает то, что сам же и читает,
-     * поэтому чистить можно после каждого — а вот НЕ чистить нельзя: залитые дни живут в тех
-     * же таблицах, что фиксированные даты соседей (см. доккоммент выше).
+     * Drop the sliding window. Skipping this is what breaks neighbours: seeded days live in the
+     * same tables as their fixed dates (see the class doc above).
      */
     @AfterEach
     fun cleanup() {
@@ -64,7 +56,7 @@ class DaysResourceTest {
         }
     }
 
-    /** Залить день через публичные ingest-швы (как делает телефон), чтобы было что читать. */
+    /** Seed a day through the public ingest seams (as the phone does), so there is something to read. */
     private fun seedDay(date: String, title: String, steps: Int, monster: String) {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":$steps,"sleepMinutes":420,"sleepStages":{"rem":90,"deep":60,"light":250,"awake":20}}""")
@@ -74,7 +66,7 @@ class DaysResourceTest {
             .post("/api/ingest/daily").then().statusCode(200)
     }
 
-    /** «Чистый» день: reading 2/2, stretch 1/1, монстр НЕ пит (для инверсного стрика). */
+    /** A "clean" day: reading 2/2, stretch 1/1, monster NOT drunk (for the inverse streak). */
     private fun seedCleanDay(date: String) {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":7000,"sleepMinutes":420}""")
@@ -89,7 +81,7 @@ class DaysResourceTest {
         val date = today.minusDays(6)
         seedDay("$date", "хороший день", 8200, "mango-loco")
 
-        given().get("/api/days/$date") // без токена — чтение публично
+        given().get("/api/days/$date") // no token — reads are public
             .then().statusCode(200)
             .body("date", equalTo("$date"))
             .body("title", equalTo("хороший день"))
@@ -97,7 +89,7 @@ class DaysResourceTest {
             .body("health.steps", equalTo(8200))
             .body("health.sleepStages.rem", equalTo(90))
             .body("monsterDrunk", equalTo(true))
-            // дисциплина — дробями: reading закрыт 2/2
+            // discipline as fractions: reading closed 2/2
             .body("discipline.find { it.key == 'reading' }.count", equalTo(2))
             .body("discipline.find { it.key == 'reading' }.target", equalTo(2))
             .body("discipline.key", hasItem("monster"))
@@ -105,30 +97,29 @@ class DaysResourceTest {
 
     @Test
     fun `discipline streak skips weekends but monster clean streak counts every day`() {
-        // Непрерывный «чистый» блок из 7 дней [−21 … −15]; перед ним (−22) пусто — стена серии.
-        // Дисциплина ВЫХОДНЫЕ ПЕРЕШАГИВАЕТ (не считает), монстр считает КАЖДЫЙ день — вот разница.
-        // Смещения −21…−15 свободны (другие тесты берут −1..−3, −6, −10, −12, −31).
+        // A solid "clean" block of 7 days [−21 … −15], with −22 empty as the wall of the run.
+        // Discipline STEPS OVER weekends, the monster counts EVERY day — that is the difference.
         val anchor = today.minusDays(15)
         val blockStart = today.minusDays(21)
         var d = blockStart
         while (!d.isAfter(anchor)) { seedCleanDay("$d"); d = d.plusDays(1) }
 
-        // Ожидаемая дисциплина = число БУДНИХ дней блока (выходные для стрика прозрачны).
+        // Expected discipline = the number of WEEKDAYS in the block (weekends are transparent).
         val expectedDiscipline = generateSequence(blockStart) { if (it < anchor) it.plusDays(1) else null }
             .count { it.dayOfWeek != DayOfWeek.SATURDAY && it.dayOfWeek != DayOfWeek.SUNDAY }
 
-        given().get("/api/days/$anchor") // прошлый день ⇒ серия считается по сам-день включительно
+        given().get("/api/days/$anchor") // a past day ⇒ the run counts that day inclusive
             .then().statusCode(200)
-            // reading (target 2 → две остановки): обе серии = число будних дней блока
+            // reading (target 2 → two stops): both runs equal the block's weekday count
             .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[0]", equalTo(expectedDiscipline))
             .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[1]", equalTo(expectedDiscipline))
-            // stretch (одна остановка): та же будничная серия
+            // stretch (one stop): the same weekday run
             .body("discipline.find { it.key == 'stretch' }.occurrenceStreaks[0]", equalTo(expectedDiscipline))
-            // монстр не пит все 7 дней, до блока запись пуста ⇒ инверсный стрик «чисто» = 7 (выходные тоже)
+            // not drunk on all 7 days, nothing before the block ⇒ inverse "clean" streak = 7 (weekends included)
             .body("monsterCleanStreak", equalTo(7))
     }
 
-    /** Только автоматический health-ingest: запись за день есть, но монстра никто не отмечал. */
+    /** Automatic health ingest only: the day has a record, but nobody marked the monster. */
     private fun seedHealthOnlyDay(date: String) {
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":5100}""")
@@ -137,8 +128,8 @@ class DaysResourceTest {
 
     @Test
     fun `a day nobody reported breaks the clean streak, it is not a clean day`() {
-        // Health-ingest приезжает сам по расписанию — наличие записи не значит «не пил».
-        // Блок: −29 чист, −28 чист, −27 только health (никто не отмечал), −26 чист; −30 пусто.
+        // Health ingest arrives on its own schedule, so a record does not mean "not drunk".
+        // Block: −29 clean, −28 clean, −27 health only (nobody marked), −26 clean; −30 empty.
         seedCleanDay("${today.minusDays(29)}")
         seedCleanDay("${today.minusDays(28)}")
         seedHealthOnlyDay("${today.minusDays(27)}")
@@ -146,21 +137,21 @@ class DaysResourceTest {
 
         given().get("/api/days/${today.minusDays(26)}")
             .then().statusCode(200)
-            // считается только сам −26: неотмеченный −27 обрывает серию, а не продолжает её
+            // only −26 counts: the unmarked −27 breaks the run rather than continuing it
             .body("monsterCleanStreak", equalTo(1))
     }
 
     @Test
     fun `today without a monster report does not add to the clean streak — the report does`() {
-        // Ровно жалоба владельца: авто-health за сегодня приехал, шорткат ещё нет — и стрик
-        // уже вырос на день вперёд. Проверяем дельту, а не абсолют: история до сегодня общая
-        // с другими тест-классами, а правило звучит про «+1 за сегодня».
+        // The owner's exact complaint: auto-health for today arrived, the shortcut has not, and the
+        // streak already grew a day. Checked as a DELTA — history before today is shared with
+        // other test classes, and the rule is about the "+1 for today".
         seedHealthOnlyDay("$today")
 
         val beforeReport = given().get("/api/days/$today")
             .then().statusCode(200).extract().path<Int>("monsterCleanStreak")
 
-        // Интерактивный шорткат без монстра — честное «не пил» за сегодня.
+        // The interactive shortcut with no monster — an honest "not drunk" for today.
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$today","title":"чистый","items":{"stretch":1}}""")
             .post("/api/ingest/daily").then().statusCode(200)
@@ -172,8 +163,8 @@ class DaysResourceTest {
 
     @Test
     fun `an unreported day is null, not a clean false`() {
-        // Только health-ingest: запись за день ЕСТЬ (hasData=true), но дисциплину и монстра
-        // никто не отмечал. Это НЕ «не пил» — на борде такой день обязан быть серым.
+        // Health ingest only: the day HAS a record (hasData=true) but nobody marked discipline or
+        // the monster. That is NOT "not drunk" — such a day must render grey on the board.
         val healthOnly = today.minusDays(24)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$healthOnly","steps":4200}""")
@@ -184,7 +175,7 @@ class DaysResourceTest {
             .body("hasData", equalTo(true))
             .body("monsterDrunk", nullValue())
 
-        // Тот же день после интерактивного шортката без монстра — уже честное «не пил».
+        // The same day after the interactive shortcut with no monster — now an honest "not drunk".
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$healthOnly","title":"чистый","items":{"stretch":1}}""")
             .post("/api/ingest/daily").then().statusCode(200)
@@ -210,12 +201,12 @@ class DaysResourceTest {
             .body("hasData", equalTo(false))
             .body("title", nullValue())
             .body("health.steps", nullValue())
-            // пустого дня никто не отмечал — «не пил» тут утверждать нечем
+            // nobody marked an empty day — there is nothing here to claim "not drunk" with
             .body("monsterDrunk", nullValue())
-            // каркас дисциплины присутствует с прогрессом 0
+            // the discipline skeleton is present with progress 0
             .body("discipline.size()", greaterThan(0))
             .body("discipline.find { it.key == 'reading' }.count", equalTo(0))
-            // будущий/пустой день серий не даёт
+            // a future or empty day yields no runs
             .body("discipline.find { it.key == 'reading' }.occurrenceStreaks[0]", equalTo(0))
             .body("monsterCleanStreak", equalTo(0))
     }
@@ -228,12 +219,11 @@ class DaysResourceTest {
 
         given().get("/api/days?from=$empty&to=${today.minusDays(8)}")
             .then().statusCode(200)
-            .body("size()", equalTo(5)) // непрерывная сетка [from, to] включительно
+            .body("size()", equalTo(5)) // a continuous grid over [from, to], inclusive
             .body("find { it.date == '$seeded' }.hasData", equalTo(true))
             .body("find { it.date == '$seeded' }.monsterDrunk", equalTo(true))
-            // Свёртки «N из M закрыто» в сводке БОЛЬШЕ НЕТ: её единственным потребителем была
-            // лента холста волны 03, и та от дробей отказалась (см. DaySummary). Линза считает
-            // по disciplineCounts — это проверяет тест ниже.
+            // The "N of M closed" rollup is GONE from the summary: its only consumer was the
+            // wave-03 canvas ribbon, which dropped fractions. The lens counts by disciplineCounts.
             .body("find { it.date == '$seeded' }.disciplineDone", nullValue())
             .body("find { it.date == '$seeded' }.disciplineTotal", nullValue())
             .body("find { it.date == '$empty' }.hasData", equalTo(false))
@@ -241,24 +231,24 @@ class DaysResourceTest {
 
     @Test
     fun `range summaries carry per-item counts for the calendar lens`() {
-        // Линза календаря (§5.3): клик по остановке карты подсвечивает дни, где пункт закрыт.
-        // Сводка обязана нести СЧЁТЧИК по каждому активному пункту — порог остановки это
-        // `count >= occurrence`, а не «пункт выполнен целиком».
+        // The calendar lens (§5.3) highlights days where an item is closed, so the summary must
+        // carry a COUNTER per active item: a stop's threshold is `count >= occurrence`, not
+        // "the item is fully done".
         val seeded = today.minusDays(9)
         seedDay("$seeded", "линза", 5000, "mango-loco")
 
         given().get("/api/days?from=$seeded&to=$seeded")
             .then().statusCode(200)
-            // seedDay заливает reading=2, stretch=1 (см. выше)
+            // seedDay seeds reading=2, stretch=1 (see above)
             .body("[0].disciplineCounts.reading", equalTo(2))
             .body("[0].disciplineCounts.stretch", equalTo(1))
-            // Активный пункт без отметок присутствует нулём: «не сделал» отличимо от «нет пункта».
+            // An active item with no marks is present as zero: "not done" differs from "no such item".
             .body("[0].disciplineCounts.journal", equalTo(0))
     }
 
     /**
-     * Вклады GitHub (§5.15) доезжают до сводки календаря, и `0` при этом остаётся нулём —
-     * именно на нём держится различие «собрали, вкладов не было» / «не собирали» (`null`).
+     * GitHub contributions (§5.15) reach the calendar summary, and `0` stays zero: the whole
+     * distinction "collected, none happened" vs "not collected" (`null`) rests on it.
      */
     @Test
     fun `summary carries github contributions, measured zero included`() {
@@ -276,8 +266,8 @@ class DaysResourceTest {
     }
 
     /**
-     * Сбор вкладов **не двигает индикатор свежести** (§8): лампа отвечает на «когда с телефона
-     * приезжали данные», а фоновый сборщик, ходящий наружу сам, держал бы её вечно на «только что».
+     * Collecting contributions does NOT move the freshness lamp (§8): the lamp answers "when did
+     * data last arrive from the phone", and a background collector would hold it at "just now".
      */
     @Test
     fun `collecting contributions does not touch the freshness lamp`() {
@@ -315,7 +305,7 @@ class DaysResourceTest {
     }
 
     private companion object {
-        /** Насколько глубоко назад класс заливает дни (самый дальний сид — «сегодня − 29»). */
+        /** How far back the class seeds (the furthest seed is "today − 29"). */
         const val SEEDED_WINDOW_DAYS = 40L
     }
 }

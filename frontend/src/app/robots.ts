@@ -1,9 +1,6 @@
 import type { MetadataRoute } from "next";
 
-/**
- * robots.txt (PRD §12 M5). Контент публичен на чтение (PRD §3) — индексировать можно;
- * закрываем только `/api/*` (это данные для фронта, не страницы). Sitemap — абсолютным URL.
- */
+/** Allow public pages; exclude API data and use an absolute sitemap URL. PRD §12. */
 const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
 
 export default function robots(): MetadataRoute.Robots {

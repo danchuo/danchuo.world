@@ -8,22 +8,9 @@ import world.danchuo.days.DayRecordService
 import java.time.Instant
 
 /**
- * Фоновый забор прочитанного с полки Anx Reader (PRD §5.16). Внешний источник целиком в слайсе:
- * наружу уходят только сессии ([ReadingSession]) и производная отметка пункта «Чтение».
- *
- * **Почему опрос файла, а не приём с телефона.** Публичного API у читалки нет вовсе, и канал
- * наружу у неё ровно один — WebDAV-синк, который выгружает базу целиком. Зато выгружает он её
- * САМ, когда приложение уходит в фон (свернули, заблокировали телефон, закрыли) — из книги для
- * этого выходить не надо. Поэтому опрос редкий (5 минут): файл меняется пару раз в сутки, а
- * минуты внутри него посчитаны читалкой и никуда не денутся.
- *
- * **Отсюда же разница с подкастами.** Там дельту головки меряем мы, и пропущенный опрос —
- * это недобор минут навсегда. Здесь опрос лишь забирает уже посчитанное: пропустили такт,
- * пролежал бэкенд сутки, приехал офлайновый день недельной давности — следующий же проход
- * вберёт всё, потому что зачёт считается разницей с записанным, а не по числу опросов.
- *
- * **Сбой канала ничего не портит.** Нет полки, недописан PUT, сменилась схема читалки — прогон
- * просто не пишет; следующий попробует снова.
+ * Background pull of reading from the Anx shelf; only sessions and the derived mark leave the
+ * slice. A missed tick loses nothing — unlike podcasts, the minutes are already counted inside
+ * the file and credit is the difference against what is recorded. Why a poll at all: PRD §5.16.
  */
 @ApplicationScoped
 class ReadingPoller(
@@ -47,12 +34,12 @@ class ReadingPoller(
             .onFailure { log.warn("reading: полку прочитать не удалось: ${it.message}") }
     }
 
-    /** Один проход. Возвращает зачтённые секунды: 0 — полка не менялась либо её нет. */
+    /** One pass. Returns the credited seconds: 0 when the shelf has not changed or is absent. */
     fun pollOnce(): Int {
-        // Полки ещё нет — телефон не синкался ни разу. Это нормальное состояние, а не поломка.
+        // No shelf yet — the phone has never synced. That is a normal state, not a breakage.
         val snapshot = shelf.snapshot() ?: return 0
         val credited = reading.absorb(snapshot, mskTime.today(), Instant.now())
-        // Проекция дня зависит от минут и карточек; сбрасываем её, только когда они сдвинулись.
+        // The day projection depends on minutes and cards; drop it only once they have moved.
         if (credited > 0) days.invalidateProjection()
         return credited
     }

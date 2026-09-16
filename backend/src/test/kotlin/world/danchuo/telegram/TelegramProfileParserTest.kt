@@ -5,24 +5,19 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
- * Разбор публичной страницы `t.me/{username}` (PRD §5.18).
- *
- * Канал — **HTML, а не API**: открытого эндпоинта «дай карточку пользователя» у Telegram нет
- * (Bot API отдаёт только тех, кто написал боту, а MTProto требует заведённого приложения и
- * сессии). Страница-визитка отдаёт имя, статус и аватар анониму и без ключа — тем же способом,
- * что фрагмент календаря вкладов GitHub.
- *
- * Читаем **og-разметку**, а не саму вёрстку: превью-теги живут ради чужих превьюшек (мессенджеры,
- * поисковики), поэтому меняются реже классов, которыми страница рисует себя. Исключение одно —
- * `@ник` из `tgme_page_extra`: в og его нет вовсе.
- *
- * Контракт деградации тот же, что у вкладов: **не понял — не отдал**. `null` наверх означает
- * «показывать нечего», и карточка просто не появляется — вместо правдоподобной визитки с пустым
- * именем.
+ * Parsing the public `t.me/{username}` page (PRD §5.18). The channel is HTML, not an API: the
+ * card page serves name, status and avatar to an anonymous visitor, like GitHub's contribution
+ * fragment. We read the OG tags, which change less often than the page's own classes.
+ */
+
+/**
+ * The degradation contract matches contributions: what we do not understand we do not return.
+ * A `null` means "nothing to show" and the card simply does not appear, rather than a plausible
+ * profile with an empty name.
  */
 class TelegramProfileParserTest {
 
-    /** Живая страница `t.me/danchuo`, снятая 14.09.2026 — только то, что читает разбор. */
+    /** The live `t.me/danchuo` page taken on 2026-09-14 — only what the parser reads. */
     private fun page(
         title: String = "Данила",
         description: String? = "keep",
@@ -49,8 +44,8 @@ class TelegramProfileParserTest {
     }
 
     /**
-     * `og:title` и `twitter:title` лежат рядом и несут одно и то же — берём именно og:
-     * иначе порядок тегов на странице решал бы, чьё значение доедет.
+     * `og:title` and `twitter:title` sit side by side carrying the same thing; we take og, or the
+     * order of tags on the page would decide whose value arrives.
      */
     @Test
     fun `берёт og-теги, а не соседние twitter`() {
@@ -58,7 +53,7 @@ class TelegramProfileParserTest {
         assertEquals("Данила", TelegramProfileParser.parse(html, "danchuo")?.name)
     }
 
-    /** Пустой статус — законное состояние аккаунта: визитка рисуется, строки просто нет. */
+    /** An empty status is a legitimate account state: the card renders, just without that line. */
     @Test
     fun `аккаунт без статуса остаётся визиткой`() {
         val profile = TelegramProfileParser.parse(page(description = null), "danchuo")!!
@@ -66,15 +61,15 @@ class TelegramProfileParserTest {
         assertEquals("Данила", profile.name)
     }
 
-    /** Аватара может не быть (пустой профиль) — имя и ник карточку уже наполняют. */
+    /** There may be no avatar (an empty profile) — the name and handle already fill the card. */
     @Test
     fun `аккаунт без аватара остаётся визиткой`() {
         assertNull(TelegramProfileParser.parse(page(image = null), "danchuo")?.avatarUrl)
     }
 
     /**
-     * Ника в og-разметке нет вовсе, поэтому он читается из вёрстки. Уедет и она — остаётся
-     * тот, по которому мы ходили: он заведомо верен, ведь страницу отдали именно по нему.
+     * The handle is absent from the OG markup, so it comes from the page body. If that moves too,
+     * the handle we navigated by is certainly right — the page was served for it.
      */
     @Test
     fun `ник без собаки, а при поехавшей вёрстке — тот, по которому ходили`() {
@@ -82,7 +77,7 @@ class TelegramProfileParserTest {
         assertEquals("danchuo", TelegramProfileParser.parse(page(extra = null), "danchuo")?.username)
     }
 
-    /** Имя приезжает экранированным — в карточке должны стоять настоящие символы. */
+    /** The name arrives escaped — the card must show the real characters. */
     @Test
     fun `разэкранирует html-сущности в имени и статусе`() {
         val profile = TelegramProfileParser.parse(
@@ -94,9 +89,8 @@ class TelegramProfileParserTest {
     }
 
     /**
-     * Несуществующий ник Telegram отдаёт страницей-заглушкой БЕЗ `og:title` — визитки из неё
-     * не собрать. Так же выглядит и любой другой сбой канала: страница ошибки, редирект,
-     * поехавшая разметка.
+     * A non-existent handle returns a stub page with no `og:title`, and so does any other channel
+     * failure: an error page, a redirect, moved markup.
      */
     @Test
     fun `страница без имени не даёт визитки вовсе`() {

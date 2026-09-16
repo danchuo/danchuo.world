@@ -4,7 +4,7 @@ import type { NowPlayingView, RecentTrackView, TrackView } from "@/lib/api/types
 import { MusicTile } from "./MusicTile";
 import { collapseConsecutiveRecent } from "@/lib/recentTracks";
 
-// Музыка тянет данные сама — мокаем JSON-клиент.
+// Music fetches its own data — the JSON client is mocked.
 vi.mock("@/lib/api/client", () => ({
   getNowPlaying: vi.fn(),
   getRecent: vi.fn(),
@@ -35,7 +35,7 @@ function recentOf(over: Partial<TrackView>, playedAt: string): RecentTrackView {
   return { track: track(over), playedAt };
 }
 
-/** Пять недавних треков — столько запрашивает плитка, когда ничего не играет. */
+/** Five recent tracks — as many as the tile asks for when nothing is playing. */
 function fiveRecent(): RecentTrackView[] {
   return ["A", "B", "C", "D", "E"].map((t, i) =>
     recentOf({ title: t, url: `u:${t}` }, `2026-06-18T10:0${5 - i}:00Z`),
@@ -45,9 +45,9 @@ function fiveRecent(): RecentTrackView[] {
 const restore: Array<() => void> = [];
 
 /**
- * Геометрия списка недавних: в jsdom всё по нулям, а подгонка [useFitOverflow] решает как раз
- * по ней. Задаём высоту списка и строк сами — так проверяется само правило, а не «в тестах
- * ничего не прячем». Строки идут встык, индекс берётся из позиции в родителе.
+ * Geometry of the recent list: everything is zero in jsdom, and [useFitOverflow] decides by
+ * exactly that. Setting the list and row heights here checks the rule itself rather than "nothing
+ * is hidden in tests". Rows are flush, and the index comes from the position in the parent.
  */
 function stubRowGeometry({
   listHeight,
@@ -56,7 +56,7 @@ function stubRowGeometry({
 }: {
   listHeight: number;
   rowHeight: number;
-  /** Низ клипующего предка (колонка плитки): ниже него содержимое просто срезается. */
+  /** The clipping ancestor's bottom (the tile's column): below it content is simply cut off. */
   clipBottom?: number;
 }) {
   let h = rowHeight;
@@ -76,8 +76,8 @@ function stubRowGeometry({
   const rect = (top: number, bottom: number) =>
     ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON: () => "" }) as DOMRect;
 
-  // Обе геометрии живут на Element.prototype (не на HTMLElement) — иначе подмена шла бы
-  // мимо, а восстановление падало на undefined-дескрипторе.
+  // Both geometries live on Element.prototype, not HTMLElement — otherwise the stub would miss
+  // and the restore would fail on an undefined descriptor.
   const bcr = Object.getOwnPropertyDescriptor(Element.prototype, "getBoundingClientRect")!;
   const ch = Object.getOwnPropertyDescriptor(Element.prototype, "clientHeight")!;
   restore.push(
@@ -92,8 +92,8 @@ function stubRowGeometry({
         const i = Array.prototype.indexOf.call(this.parentElement.children, this);
         return rect(i * h, (i + 1) * h);
       }
-      // Сам список — всегда своей высоты: он тоже несёт `overflow-hidden`, и без этой
-      // проверки раньше клипа тест «проходил» из-за подмены его собственного низа.
+      // The list is always its own height: it carries `overflow-hidden` too, and without this
+      // check the pre-clip test "passed" because its own bottom had been stubbed.
       if (this.tagName === "UL") return rect(0, listHeight);
       if (clipBottom !== undefined && this instanceof HTMLElement && this.className.includes("overflow-hidden")) {
         return rect(0, clipBottom);
@@ -146,7 +146,7 @@ describe("collapseConsecutiveRecent", () => {
     ];
     const out = collapseConsecutiveRecent(list);
     expect(out.map((r) => r.track.url)).toEqual(["u:a", "u:b", "u:a"]);
-    // Сохраняем первый (самый свежий) элемент серии.
+    // The first (freshest) item of the run is kept.
     expect(out[0].playedAt).toBe("t6");
   });
 
@@ -156,7 +156,7 @@ describe("collapseConsecutiveRecent", () => {
       recentOf({ title: "Same", url: null, artists: [{ name: "Y", url: null }] }, "t2"),
       recentOf({ title: "Same", url: null, artists: [{ name: "Y", url: null }] }, "t1"),
     ];
-    // Первые два — разные артисты ⇒ остаются; последние два одинаковы ⇒ схлопнулись.
+    // The first two are different artists ⇒ kept; the last two are the same ⇒ collapsed.
     expect(collapseConsecutiveRecent(list).map((r) => r.track.artists[0]?.name)).toEqual(["X", "Y"]);
   });
 
@@ -176,13 +176,12 @@ describe("MusicTile", () => {
     expect(await screen.findByTestId("now-playing")).toBeInTheDocument();
     expect(screen.getByText("Strobe")).toBeInTheDocument();
     expect(screen.getByText("сейчас играет")).toBeInTheDocument();
-    // Атрибуция-ссылки ведут на Spotify: и трек, и исполнитель.
+    // Attribution links lead to Spotify, for the track and the artist alike.
     expect(screen.getByText("Strobe").closest("a")).toHaveAttribute("href", now.track!.url);
     expect(screen.getByText("deadmau5").closest("a")).toHaveAttribute(
       "href",
       "https://open.spotify.com/artist/d",
     );
-    // Альбом — тоже ссылка-атрибуция.
     expect(screen.getByText("For Lack of a Better Name").closest("a")).toHaveAttribute(
       "href",
       "https://open.spotify.com/album/a",
@@ -190,10 +189,9 @@ describe("MusicTile", () => {
   });
 
   it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
-    // Здесь это било чаще всего: ширина едет на КАЖДОЙ смене трека. Карточка несёт
-    // filter: drop-shadow (свой композитный слой), WebKit не подчищает освобождённую
-    // сжатием область, и каждый кадр перегона оставлял полосу тени — под плиткой в Safari
-    // копилась гребёнка (docs/pitfalls.md).
+    // This hit hardest here: the width moves on EVERY track change. The card carries
+    // filter: drop-shadow, WebKit does not clean the area freed by shrinking, and every frame of
+    // the animation left a stripe of shadow (docs/pitfalls.md).
     getNowPlayingMock.mockResolvedValue(nowView({ progressMs: 1000 }));
     getRecentMock.mockResolvedValue([]);
 
@@ -280,8 +278,7 @@ describe("MusicTile", () => {
   });
 
   it("ряд недавнего несёт давность прослушивания и альбом — по ним волна строит очередь", async () => {
-    // Метка относительная, поэтому «сейчас» в тесте фиксируем: иначе тест стареет вместе
-    // с системными часами.
+    // The label is relative, so "now" is frozen in the test: otherwise it ages with the system clock.
     vi.useFakeTimers();
     vi.setSystemTime(Date.parse("2026-06-18T10:14:00Z"));
     restore.push(() => vi.useRealTimers());
@@ -296,8 +293,8 @@ describe("MusicTile", () => {
     const row = await vi.waitFor(() => screen.getByTestId("recent-track"));
     expect(row.querySelector(".recent-ago")).toHaveTextContent("14 мин");
     expect(row.querySelector(".recent-album")).toHaveTextContent("Random Album Title");
-    // Обложка ряда — материал для волны; в разметке она есть при любой волне (скин её
-    // включает или прячет), поэтому проверяем именно наличие картинки.
+    // A row's cover is material for the wave: it is in the markup under any wave (the skin shows
+    // or hides it), so what is checked is the picture's presence.
     expect(row.querySelector(".recent-cover img")).toHaveAttribute("src", "/cover.png");
   });
 
@@ -312,9 +309,9 @@ describe("MusicTile", () => {
   });
 
   it("трек, не влезающий по высоте, гасится целиком — обрезанной строки не бывает", async () => {
-    // Возврат старой беды: нижний трек «срезался на половине» краем виджета, и полстроки букв
-    // читались как мусор. В jsdom геометрия нулевая, поэтому задаём её сами: список 100px,
-    // строка 30px ⇒ влезают три (запас FIT_MARGIN), остальные обязаны быть погашены.
+    // The old trouble returning: the bottom track was "cut in half" by the widget's edge and half
+    // a line of letters read as noise. Geometry is zero in jsdom, so we set it: a 100px list and
+    // 30px rows ⇒ three fit (with FIT_MARGIN), the rest must be hidden.
     stubRowGeometry({ listHeight: 100, rowHeight: 30 });
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue(fiveRecent());
@@ -328,10 +325,9 @@ describe("MusicTile", () => {
   });
 
   it("список, смонтированный заново (трек доиграл, пока вкладка была в фоне), подгоняется заново", async () => {
-    // Возврат беды владельца: после долгого отсутствия во вкладке виден четвёртый трек,
-    // обрезанный низом плитки. Пока играл трек, списка на экране не было; трек доиграл,
-    // список смонтировался заново с ТЕМ ЖЕ составом — и подгонка, привязанная к составу,
-    // не перезапускалась: все пять строк оставались видимыми, лишние резал край.
+    // The owner's complaint returning: after a long time away the fourth track is visible, clipped
+    // by the tile's bottom. The list remounted with the SAME contents, and the fit, keyed on
+    // contents, never re-ran — all five rows stayed visible and the edge cut the extras.
     stubRowGeometry({ listHeight: 100, rowHeight: 30 });
     getNowPlayingMock.mockResolvedValue(nowView());
     getRecentMock.mockResolvedValue(fiveRecent());
@@ -345,7 +341,7 @@ describe("MusicTile", () => {
       expect(await screen.findByTestId("now-playing")).toBeInTheDocument();
       expect(screen.queryAllByTestId("recent-track")).toHaveLength(0);
 
-      // Вкладка ушла в фон, трек доиграл; возврат приносит «ничего не играет».
+      // The tab went to the background, the track finished; returning brings "nothing is playing".
       getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
       await act(async () => setVisibility("hidden"));
       await act(async () => setVisibility("visible"));
@@ -361,9 +357,9 @@ describe("MusicTile", () => {
   });
 
   it("список, свисающий ниже края плитки, режется по КРАЮ ПЛИТКИ, а не по своему низу", async () => {
-    // Замер на живом борде: колонка плитки кончалась на 119.6px, а список (его min-height
-    // задан ради мобильного стека) висел до 150.3 — то есть на 30px ниже видимого края.
-    // Подгонка мерила свой низ, считала, что всё влезло, и нижнюю строку срезала сама плитка.
+    // Measured on the live board: the tile's column ended at 119.6px while the list (its
+    // min-height set for the mobile stack) hung to 150.3 — 30px below the visible edge. The fit
+    // measured its own bottom, thought everything fitted, and the tile cut the bottom row.
     stubRowGeometry({ listHeight: 100, rowHeight: 20, clipBottom: 62 });
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue(fiveRecent());
@@ -371,15 +367,15 @@ describe("MusicTile", () => {
     render(<MusicTile />);
 
     const rows = await screen.findAllByTestId("recent-track");
-    // Клип на 62 ⇒ с запасом влезают две строки (40 ≤ 56), третья (60) уже нет.
+    // A clip at 62 ⇒ two rows fit with margin (40 ≤ 56), the third (60) does not.
     await waitFor(() => expect(rows[2].style.visibility).toBe("hidden"));
     expect(rows.slice(0, 2).map((r) => r.style.visibility)).toEqual(["", ""]);
   });
 
   it("строки, подросшие после загрузки шрифта, пересчитываются", async () => {
-    // Замер идёт по метрикам ТОГО шрифта, что нарисован сейчас: пока веб-шрифт не приехал,
-    // строки меряются фолбэком и все влезают. Приехал — строки подросли, и без пересчёта
-    // нижняя остаётся наполовину за краем (ровно то, что видно на проде, а не в jsdom).
+    // Measuring follows the metrics of the font drawn RIGHT NOW: before the web font arrives rows
+    // are measured in the fallback and all fit. Once it arrives rows grow, and without a recount
+    // the bottom one stays half past the edge.
     const geometry = stubRowGeometry({ listHeight: 100, rowHeight: 18 });
     let fontsReady: () => void = () => {};
     Object.defineProperty(document, "fonts", {
@@ -392,23 +388,22 @@ describe("MusicTile", () => {
     render(<MusicTile />);
 
     const rows = await screen.findAllByTestId("recent-track");
-    // Фолбэк-шрифт: 5 × 18 = 90 ≤ 96 — влезают все.
+    // Fallback font: 5 × 18 = 90 ≤ 96 — all of them fit.
     await waitFor(() => expect(rows[4].style.visibility).toBe(""));
 
-    geometry.setRowHeight(25); // веб-шрифт приехал, строки выросли
+    geometry.setRowHeight(25); // the web font arrived and the rows grew
     await act(async () => {
       fontsReady();
       await Promise.resolve();
     });
-    // 4-я строка кончается на 100 — за пределами списка; гасим её и всё, что ниже.
+    // The 4th row ends at 100, past the list: hide it and everything below.
     await waitFor(() => expect(rows[3].style.visibility).toBe("hidden"));
   });
 
   it("список недавних лежит в обёртке .music-recent — свою высоту ей даёт CSS", async () => {
-    // Список позиционирован absolute inset-0 (чтобы его clientHeight равнялся доступному месту,
-    // а не контенту), поэтому вся высота обёртки приходит от родителя. В мобильном стеке родитель
-    // её не даёт ⇒ обёртка нулевая, треки есть в DOM, но не видны — «виджет без наполнения».
-    // Пиксели проверяет CSS-контракт `app/styles/stackHeights.test.ts`.
+    // The list is positioned absolute inset-0 so its clientHeight equals the available room rather
+    // than the content, which means the wrapper's whole height comes from the parent. In the
+    // mobile stack the parent gives none ⇒ tracks are in the DOM but invisible (§8).
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue([
       { track: track({ title: "Ghosts 'n' Stuff" }), playedAt: "2026-06-18T10:00:00Z" },
@@ -434,15 +429,15 @@ describe("MusicTile", () => {
       expect(await screen.findByTestId("now-playing")).toBeInTheDocument();
       const baseline = getNowPlayingMock.mock.calls.length;
 
-      // Скрытие вкладки само по себе запрос не шлёт (поллинг останавливается).
+      // Hiding the tab sends no request by itself (polling stops).
       await act(async () => setVisibility("hidden"));
       expect(getNowPlayingMock.mock.calls.length).toBe(baseline);
 
-      // Возврат на вкладку — немедленный опрос now-playing (PRD §5.5).
+      // Returning to the tab polls now-playing immediately (PRD §5.5).
       await act(async () => setVisibility("visible"));
       expect(getNowPlayingMock.mock.calls.length).toBe(baseline + 1);
     } finally {
-      // Возвращаем прототипный геттер jsdom, чтобы не протечь в соседние тесты.
+      // Restore jsdom's prototype getter so it does not leak into neighbouring tests.
       delete (document as unknown as Record<string, unknown>).visibilityState;
     }
   });

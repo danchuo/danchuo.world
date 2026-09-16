@@ -32,64 +32,58 @@ import { WaveSwitcher } from "./WaveSwitcher";
 type Status = "loading" | "error" | "loaded";
 
 /**
- * Окно календаря — целые недели вокруг сегодня (PRD §5.3): две прошлые + текущая + следующая.
- * Считаем неделями, а не «±N дней»: сетка календаря — это ряды пн→вс, и окно с произвольного
- * дня давало рваный первый ряд, где прошлая неделя видна наполовину.
+ * The calendar window as whole weeks around today: two past, the current one and the next. Counted
+ * in weeks rather than days, because the calendar's grid is Monday-to-Sunday rows and a window
+ * from an arbitrary day left a ragged first row with half a week showing. PRD §5.3
  */
 const WEEKS_BEFORE = 2;
 const WEEKS_AFTER = 1;
 
 /**
- * Вперёд окно редакции «поле» не заходит вовсе (DESIGN §5.2).
- *
- * Будущая неделя занимала целую строку сетки под то, чего не может быть: данных за будущее не
- * бывает, и строка оставалась пустой всегда. Следующая неделя остаётся доступной шагом вперёд —
- * она уезжает в кромку, а кромка рисуется только у сдвинутого окна.
+ * The "field" edition's window does not reach forward at all: a future week held a whole grid row
+ * for something that cannot exist. The next week stays reachable by stepping — it lives in the
+ * edge, and the edge is only drawn for a shifted window. DESIGN §5.2
  */
 const FIELD_WEEKS_AFTER = 0;
 
 /**
- * Глубина холста волны (§10.2) — две последние недели, и **всегда они**, независимо от того,
- * куда отлистан календарь.
- *
- * Холст рисуется данными борда, и сперва он читал то же окно, что сетка календаря. Но окно
- * календаря — состояние ОДНОГО виджета, а холст лежит под всеми: шаг листания перекрашивал
- * всю страницу, будто сменилась волна. Свой диапазон стоит одного запроса за сессию и снимает
- * это сцепление в корне: подпирать холст чужим состоянием больше нечем.
+ * Depth of the wave's backdrop — the last two weeks, ALWAYS those, wherever the calendar is
+ * scrolled. It first read the calendar's window, but that is ONE widget's state while the backdrop
+ * lies under everything: a step repainted the whole page as if the wave had changed. DESIGN §10.2
  */
 const BACKDROP_DAYS = 14;
 
 
-/** Данные/хендлеры борда, прокидываемые в каждый тайл. */
+/** The board's data and handlers, passed down into every tile. */
 interface BoardData {
   day: DayView | null;
   dayStatus: Status;
   summaries: DaySummary[];
-  /** Диапазон холста волны (§10.2) — последние две недели, независимо от окна календаря. */
+  /** The wave backdrop's range (§10.2) — the last two weeks, whatever the calendar shows. */
   backdropDays: DaySummary[];
   rangeStatus: Status;
   selected: string;
   today: string;
-  /** История дней для спарклайна статов [сегодня−(STATS_HISTORY−1), сегодня] (§7.4). */
+  /** Day history for the stats sparkline, ending today (§7.4). */
   statsHistory: DaySummary[];
   statsStatus: Status;
   selectDay: (date: string) => void;
-  /** Забрать день в календарь: выбрать его и переставить окно так, чтобы он попал в сетку. */
+  /** Take a day into the calendar: select it and move the window so it lands in the grid. */
   focusDay: (date: string) => void;
-  /** Опора окна календаря (§5.3): день, вокруг недели которого собрано `summaries`. */
+  /** The calendar window's anchor (§5.3): the day whose weeks `summaries` was built around. */
   anchor: string;
-  /** Листание окна календаря на N недель (−1 назад, +1 вперёд). */
+  /** Page the calendar window by N weeks (-1 back, +1 forward). */
   shiftWeeks: (weeks: number) => void;
-  /** Возврат окна календаря к сегодня. */
+  /** Return the calendar window to today. */
   resetWindow: () => void;
-  /** Упёрлось ли окно в генезис — дальше назад листать нечего. */
+  /** Whether the window has hit genesis — there is nothing further back to page to. */
   canGoBack: boolean;
   /**
-   * Сколько недель окна отданы кромке календаря (§5.2). Считает борд: окно грузит он,
-   * а ширина окна и размер кромки — одно и то же число, и разъехаться им нельзя.
+   * How many of the window's weeks belong to the calendar's edge (§5.2). The board decides, since
+   * it loads the window: the window's width and the edge's size are one number and must not drift.
    */
   edgeWeeks: number;
-  /** Линза дисциплины (§5.3): выбранная на карте-тропе остановка, по которой размечен календарь. */
+  /** The discipline lens (§5.3): the quest-map stop the calendar is marked up by. */
   lens: DisciplineLens | null;
   setLens: (lens: DisciplineLens | null) => void;
   retryDay: () => void;
@@ -100,36 +94,35 @@ interface BoardData {
 }
 
 /**
- * Борд danchuo.world (PRD §12 M2). Тянет данные на клиенте с независимыми per-tile
- * состояниями (DESIGN §7 — общего спиннера нет). Раскладка — из data-driven реестра
- * тайлов ([TILE_LAYOUT]): на десктопе (мышь/трекпад) bento 40×28, на тач-устройствах —
- * одноколоночный стек с той же сеткой календаря, что в бенто (DESIGN §8).
+ * The board: data is fetched client-side with independent per-tile states, so there is no shared
+ * spinner. The layout comes from the data-driven tile registry — bento on pointer devices, a
+ * single column on touch with the same calendar grid as the bento. DESIGN §7, §8
  */
 export function Board() {
-  // Раскладка активной волны (мерж волны с дефолтом, DESIGN §3, §10). Своп волны
-  // переключателем меняет её вживую — борд перерисовывается в новой сетке без перезагрузки.
+  // The active wave's layout, merged over the default. A swap in the switcher changes it live —
+  // the board redraws into the new grid with no reload. DESIGN §3, §10
   const { layout, activeKey } = useWave();
   const today = useMemo(() => mskToday(), []);
-  // Опора окна календаря (§5.3). Домашнее положение — «сегодня»; листание двигает её неделями,
-  // и только её: выбранный день листание не трогает — это просмотр истории, а не выбор дня.
+  // The calendar window's anchor (§5.3). Home is today; paging moves the anchor by weeks, and ONLY
+  // the anchor — the selected day is untouched, as this is viewing history, not choosing a day.
   const [anchor, setAnchor] = useState(today);
 
-  // Кромка календаря (DESIGN §5.2) показывает НАСТОЯЩИЕ соседние недели, поэтому окно берётся
-  // на неделю шире с каждого края — их отрезает сам календарь. Знание про размер окна живёт
-  // здесь, потому что окно грузит борд; какая редакция у плитки — говорит волна.
+  // The calendar's edge (§5.2) shows REAL neighbouring weeks, so the window is taken a week wider
+  // each side and the calendar trims them. Window size is known here because the board loads it;
+  // which edition the tile wears is the wave's word.
   const fieldCalendar = layout.tiles.calendar.edition === "field";
   const edgeWeeks = fieldCalendar ? 1 : 0;
   const weeksAfter = fieldCalendar ? FIELD_WEEKS_AFTER : WEEKS_AFTER;
 
   const [selected, setSelected] = useState(today);
-  // Линза живёт на борде, а не в плитке: её ставит карта-тропа «Сегодня», а читает календарь.
-  // Смену выбранного дня она переживает намеренно — это взгляд на историю, а не состояние дня.
+  // The lens lives on the board, not in a tile: the Today quest map sets it and the calendar reads
+  // it. It deliberately survives a change of day — it is a view of history, not a day's state.
   const [lens, setLens] = useState<DisciplineLens | null>(null);
-  // Дневной слой — свой шов ([useSelectedDay]): у него есть чем занять экран на время загрузки —
-  // предыдущий выбранный день.
+  // The day layer has its own seam ([useSelectedDay]), which has something to hold the screen with
+  // while loading: the previously selected day.
   const { day, status: dayStatus, retry: retryDay } = useSelectedDay(selected);
-  // Оконный слой календаря — тоже свой шов ([useCalendarWindow]) и по той же причине: пока
-  // едет отлистанное окно, на экране остаётся предыдущее вместе со своей опорой.
+  // The calendar's window layer has its own seam ([useCalendarWindow]) for the same reason: while a
+  // paged window travels, the previous one stays on screen together with its anchor.
   const {
     days: summaries,
     status: rangeStatus,
@@ -138,17 +131,17 @@ export function Board() {
     retry: retryRange,
   } = useCalendarWindow(anchor, WEEKS_BEFORE + edgeWeeks, weeksAfter + edgeWeeks);
 
-  // Выборка графиков — своя (шире окна календаря) и **следует за выбранным днём**: борд это
-  // машина времени, и уехав в июнь, читатель ждёт июньских графиков (§7.4). Переносится лениво,
-  // только когда выбранный день вышел за края, — иначе клик по соседнему дню гонял бы запрос.
+  // The charts' range is its own, wider than the calendar's, and FOLLOWS THE SELECTED DAY: the
+  // board is a time machine, and a reader gone to June expects June's charts (§7.4). It moves
+  // lazily, only once the day leaves its edges, or a click on a neighbour would cost a request.
   const [statsRange, setStatsRange] = useState<StatsRange>(() => statsWindow(today, today, null));
   useEffect(() => {
-    // `statsWindow` возвращает тот же объект, когда двигать нечего, — состояние не меняется.
+    // `statsWindow` returns the same object when there is nothing to move, so state stays put.
     setStatsRange((cur) => statsWindow(selected, today, cur));
   }, [selected, today]);
 
-  // Холст волны читает свой диапазон, а не окно календаря (см. [BACKDROP_DAYS]). Конец
-  // прибит к «сегодня»: лента называется лентой ПРОЖИТЫХ дней, дальше неё брать нечего.
+  // The wave backdrop reads its own range rather than the calendar's. Its end is pinned to today:
+  // it is a ribbon of LIVED days, and beyond that there is nothing to take.
   const backdropFrom = useMemo(() => addDays(today, -(BACKDROP_DAYS - 1)), [today]);
   const { days: backdropDays } = useDayRange(backdropFrom, today, null);
 
@@ -158,8 +151,8 @@ export function Board() {
     retry: retryStats,
   } = useDayRange(statsRange.from, statsRange.to, null);
 
-  // Esc снимает линзу — привычный выход из «режима просмотра», и единственный клавиатурный.
-  // Вешаем слушатель только когда линза включена: без неё борд событий не слушает.
+  // Esc clears the lens — the habitual way out of a viewing mode, and the only keyboard one. The
+  // listener is attached only while the lens is on; without it the board listens to nothing.
   useEffect(() => {
     if (!lens) return;
     const onKey = (e: KeyboardEvent) => {
@@ -180,8 +173,8 @@ export function Board() {
     statsHistory,
     statsStatus,
     selectDay: setSelected,
-    // Выбор и опора разом — это НЕ листание (§5.3): жест адресован дню, и вернуть в ответ
-    // одно окно значило бы ответить не на тот вопрос.
+    // Selection and anchor together — this is NOT paging (§5.3): the gesture addresses a DAY, and
+    // answering with a window alone would answer a different question.
     focusDay: (date: string) => {
       setSelected(date);
       setAnchor(anchorOnDay(date, today));
@@ -196,52 +189,48 @@ export function Board() {
     retryDay,
     retryRange,
     retryStats,
-    // null (деградированный SSR) ⇒ фолбэк-скин волны 01, поэтому и её спрайт-набор.
+    // null (a degraded SSR) falls back to wave 01's skin, and therefore to its sprite set.
     wave: activeKey ?? "wave-01",
   };
 
   return (
-    /* `relative` — опора фонового слоя волны: он растянут на `main`, то есть на всю
-       прокручиваемую страницу, и едет вместе с бордом одним слоем (см. врез у
-       `.wave-backdrop` в common.css). Без неё слой считался бы от вьюпорта и на стеке
-       телефона отставал бы от плиток на всю прокрутку. */
+    /* `relative` anchors the wave's backdrop layer: it spans `main`, that is the whole scrollable
+       page, and travels with the board as one layer. Without it the layer would be measured from
+       the viewport and, in the phone stack, lag behind the tiles by the entire scroll. */
     <main className="relative min-h-screen p-4">
-      {/* Фоновый слой волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином.
-          Волне 03 он рисует холст — ленту последних прожитых дней. */}
+      {/* The wave's backdrop layer (DESIGN §10.2): off by default, switched on by a wave's skin. */}
       <WaveBackdrop summaries={backdropDays} today={today} wave={activeKey} />
 
-      {/* Ховер-шов волны (DESIGN §10.2): по умолчанию выключен, волна включает его скином
-          через `--tile-edge-light`. Волне 03 он даёт кромку, ловящую свет курсора. */}
+      {/* The wave's hover seam (DESIGN §10.2): off by default, switched on by a skin through
+          `--tile-edge-light`. */}
       <TileEdgeLight wave={activeKey} />
 
-      {/* Десктоп (мышь/трекпад, окно шире страховочного пола): полный bento без скролла
-          (DESIGN §3, §8). Условие режима — в `.board-bento`/`.board-stack` (common.css):
-          решает тип указателя, а не ширина, иначе браузерный зум ронял борд в стек. */}
+      {/* Desktop (mouse or trackpad, window wider than the safety floor): the full bento without
+          scrolling (DESIGN §3, §8). The mode condition lives in `.board-bento`/`.board-stack`:
+          the pointer type decides, not the width, or browser zoom drops the board into the stack. */}
       <div
         data-testid="bento"
         className="board-bento"
         style={{
-          // minmax(0, …): bare 1fr means minmax(auto, 1fr) — track width would follow the
-          // items' min-content. Tiles that size themselves in px from a measured cell width
-          // (LatestDropTile/MusicTile shrink-to-content) then feed back into the tracks and
-          // the mosaic oscillates. With a 0 minimum the tracks are pure layout, content can't
-          // push them (rows below are already minmax(0, 1fr) for the same reason).
+          // minmax(0, …): a bare 1fr means minmax(auto, 1fr), so track width would follow the
+          // items' min-content. Tiles that size themselves in px from a measured cell then feed
+          // back into the tracks and the mosaic oscillates. A 0 minimum keeps tracks pure layout.
           gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))`,
-          // Прослойки между тайлами теперь структурные (пустые треки сетки 40×28,
-          // см. layout.ts), поэтому CSS-gap минимальный — только чтобы не было касаний.
+          // The air between tiles is now structural (empty tracks of the 40x28 grid, see
+          // layout.ts), so the CSS gap is minimal — just enough to prevent touching.
           gap: 4,
           height: "calc(100vh - 32px)",
         }}
       >
         {(Object.keys(layout.tiles) as TileId[]).map((id) => {
           const span = layout.tiles[id];
-          if (span.hidden) return null; // волна спрятала тайл (DESIGN §10)
-          // Место в сетке и высота в нём — из реестра ([tileBox]): почти все тайлы занимают
-          // спан целиком, тайл с высотой по содержимому получает спан потолком.
+          if (span.hidden) return null; // the wave hid this tile (DESIGN §10)
+          // Place in the grid and height within it come from the registry ([tileBox]): almost every
+          // tile fills its span, while a content-height tile gets that span as a ceiling.
           const box = tileBox(id, span);
           return (
-            // data-tile-id: атрибуция кликов для потайловой хитмапы (PRD §5.11 B2).
+            // data-tile-id: click attribution for the per-tile heatmap (PRD §5.11).
             <div key={id} data-tile-id={id} style={box.cell}>
               <BoardTile
                 id={id}
@@ -257,15 +246,14 @@ export function Board() {
         })}
       </div>
 
-      {/* Тач-устройства (и аварийно — очень узкие окна): одноколоночный стек. Календарь тут
-          такой же, как в бенто, — полная сетка недель: 7 колонок влезают, ячейка на 360px
-          это ~44px, ровно тач-таргет. Подменять его недельной полосой рассмотрено и
-          отклонено — полоса показывает одну неделю, то есть отвечает на другой вопрос. */}
+      {/* Touch devices (and, as a fallback, very narrow windows): a single-column stack. The
+          calendar here is the same full week grid as in bento — 7 columns fit, a cell at 360px is
+          ~44px, exactly a tap target. A week strip was considered and rejected (DESIGN §8). */}
       <div data-testid="stack" className="board-stack flex-col gap-4">
         {layout.mobileOrder.map((id) =>
           layout.tiles[id]?.hidden ? null : (
             <div key={id} data-tile-id={id}>
-              {/* Редакция едет и в стек: это выбор вёрстки, а не потока, и она общая для обоих режимов. */}
+              {/* The edition travels into the stack too: it is a choice of layout, not of flow. */}
               <BoardTile
                 id={id}
                 data={data}
@@ -282,8 +270,8 @@ export function Board() {
 }
 
 /**
- * Один тайл реестра как полноценный компонент (а не inline-функция в рендере —
- * иначе React терял бы идентичность поддерева).
+ * One registry tile as a real component rather than an inline function in render — otherwise React
+ * would lose the subtree's identity.
  */
 function BoardTile({
   id,
@@ -297,13 +285,13 @@ function BoardTile({
 }: {
   id: TileId;
   data: BoardData;
-  /** Ориентация контента из layout волны (DESIGN §10.1) — только bento; в стеке всё full-width. */
+  /** Content orientation from the wave's layout — bento only; in the stack everything is full width. */
   orientation?: TileOrientation;
-  /** Редакция тайла из layout волны (DESIGN §10.1) — и в bento, и в стеке. */
+  /** The tile's edition from the wave's layout — in both bento and stack. */
   edition?: string;
-  /** Чем волна одевает планеты проектов (DESIGN §12.5) — тоже в обоих режимах. */
+  /** How the wave dresses project planets — in both modes as well. */
   planet?: string;
-  /** Редакция ГАЛЕРЕИ дропа (общая на волну): её открывают обе дроп-плитки. */
+  /** The drop GALLERY's edition, shared per wave: both drop tiles open it. */
   gallery?: string;
   style?: CSSProperties;
   className?: string;
@@ -367,7 +355,7 @@ function BoardTile({
           className={className}
         />
       );
-    // Контентные тайлы M4 тянут данные сами (независимо от выбранного дня) — как музыка.
+    // Content tiles fetch their own data, independently of the selected day — as music does.
     case "music":
       return <MusicTile style={style} className={className} />;
     case "projects":
@@ -397,8 +385,8 @@ function BoardTile({
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
     case "waveSwitcher":
-      // В переключатель едет РОВНО ТОТ ЖЕ диапазон, что в холст борда: карта волны, чей фон
-      // сделан из данных, показывает не похожий узор, а кусок этого фона (DESIGN §2.6).
+      // The switcher receives EXACTLY the range the board's backdrop does: a wave whose background
+      // is made of data shows a piece of that background, not a lookalike pattern. DESIGN §2.6
       return (
         <WaveSwitcher
           orientation={orientation}
@@ -411,12 +399,12 @@ function BoardTile({
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
     default:
-      // Пустых швов борда не осталось — все TileId имеют свой компонент.
+      // No empty seams are left on the board — every TileId has its component.
       return <PlaceholderTile label={TILE_NOTES[id]} style={style} className={className} />;
   }
 }
 
-/** Подписи пустых швов борда (тайлы будущих эр, DESIGN §7 Empty). */
+/** Captions for the board's empty seams (tiles of future eras, DESIGN §7). */
 const TILE_NOTES: Record<TileId, string> = {
   identity: "danchuo.world",
   photoDrops: "дропы",

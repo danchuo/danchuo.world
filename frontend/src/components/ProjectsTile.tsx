@@ -18,59 +18,46 @@ interface ProjectsTileProps {
   style?: CSSProperties;
   className?: string;
   /**
-   * Направление списка — задаётся волной через layout (`tiles.projects.orientation`,
-   * как у marquee и полки дропов). Дефолт — вертикальная колонка.
+   * Direction of the list, set by the wave through layout (`tiles.projects.orientation`, as with the
+   * marquee and the drops shelf). The default is a vertical column.
    */
   orientation?: TileOrientation;
   /**
-   * Вёрстка списка (DESIGN §7.8) — выбирает ВОЛНА через раскладку (`tiles.projects.edition`):
-   * - не задана / незнакомая — прежний свёрнутый список, которым правит [orientation];
-   * - `console` — вывод `tree`: строки висят на ветках под приглашением оболочки, под
-   *   названием — путь репозитория своей ссылкой, название и картинка ведут в дом проекта,
-   *   а время стоит ЛЕВЫМ ПОЛЕМ строки (год последней активности, один раз на группу) и
-   *   связано с деревом горизонталью, а не колонкой справа.
-   *   Материал самой плитки (панель терминала вместо стекла) — дело СКИНА волны, а не
-   *   редакции: редакция владеет содержимым, волна — краем и фоном (DESIGN §7.8, §10.2).
+   * Layout of the list, chosen by the WAVE through its layout. Unset or unknown keeps the old
+   * collapsed list driven by [orientation]; `console` renders `tree` output with the year as the
+   * row's LEFT margin. The tile's material is the SKIN's business, not the edition's. DESIGN §7.8
    */
   edition?: string;
   /**
-   * Чем волна одевает планеты (DESIGN §12.5): `model` — объёмным артефактом у тех проектов, у
-   * кого модель есть; не задано или незнакомо — плоский спрайт у всех. Ключ волны, а не проекта:
-   * запись держит обе планеты сразу, и тёплой волне 01 не навязывается циановый каркас.
+   * How the wave dresses the planets (DESIGN §12.5): `model` gives a 3D artifact to projects that have
+   * one, while unset or unknown gives everyone a flat sprite. A key of the wave rather than the
+   * project: a record holds both planets at once, so warm wave 01 is not handed a cyan wireframe.
    */
   planet?: string;
 }
 
-/** Незнакомое имя редакции ⇒ дефолт: набор редакций — знание тайла, а не реестра раскладки. */
+/** An unknown edition name falls back to the default: the set of editions is the tile's knowledge. */
 function resolveEdition(value: string | undefined): "console" | "default" {
   return value === "console" ? "console" : "default";
 }
 
-/** То же для планеты: незнакомое имя — плоский спрайт, самая безопасная подача. */
+/** The same for a planet: an unknown name gives the flat sprite, the safest presentation. */
 function wearsModel(value: string | undefined): boolean {
   return value === "model";
 }
 
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
-// Project "planet" sprites are wave-agnostic art served from our own static assets
-// (DESIGN §12.2): rendered in a bigger unrounded slot, same on every wave. External
-// favicons (any other origin/path) keep the legacy small rounded treatment. The "-px"
-// filename suffix marks true pixel art that must scale with nearest-neighbor: smooth
-// flat sprites (e.g. proxemics) fall apart when pixelated at small sizes. Smooth sprites
-// get a one-step bigger box: without a chunky pixel outline they optically read smaller
-// than pixel art of the same box.
-//
-// Размеры живут в CSS (.project-* в common.css) — доли контейнера, а не пиксели, иначе
-// начинка не растёт вместе с плиткой (DESIGN §8.1). Атрибуты width/height остаются
-// номинальными: они задают браузеру пропорцию 1:1 до загрузки, а показ ведёт CSS.
+// Project "planet" sprites are wave-agnostic art from our own static assets: a bigger unrounded
+// slot, identical on every wave, while external favicons keep the small rounded treatment. A "-px"
+// suffix marks true pixel art needing nearest-neighbour; smooth sprites get a bigger box. §12.2
 const isPlanetSprite = (url: string) => url.startsWith("/assets/projects/");
 const isPixelArt = (url: string) => url.endsWith("-px.png");
 const SPRITE_NOMINAL = 32;
 
 /**
- * Плитка «Проекты» (P) — PRD §5.7, DESIGN §3. Свёрнутый блок: иконка + название (ссылкой,
- * если задан url) + диапазон кварталов. Пусто ⇒ тихий empty. Ноль хардкод-цветов (токены волны).
+ * The "Projects" tile (PRD §5.7, DESIGN §3). A collapsed block: icon, title (a link when a url is
+ * given) and a range of quarters. Nothing to show ⇒ a quiet empty state. No hardcoded colours.
  */
 export function ProjectsTile({
   style,
@@ -87,23 +74,21 @@ export function ProjectsTile({
   );
   const projects = data ?? [];
   const isEmpty = phase === "loaded" && projects.length === 0;
-  // Досье — вёрстка вертикальная по своей природе (две строки текста в ряду), поэтому она
-  // сильнее ориентации: волна, забывшая снять `orientation`, не должна получить ленту.
+  // The dossier is vertical by nature (two lines of text per row), so it outranks orientation: a wave
+  // that forgot to drop `orientation` must not end up with a rail.
   const consoleEdition = edition === "console";
-  // Год «сейчас» для раскладки — канон MSK, как и всё остальное время борда: проект с
-  // открытым концом попадает в текущий год, а не в год своего старта.
+  // "Now" for the layout is MSK canon, like every other time on the board: an open-ended project lands
+  // in the current year rather than in the year it started.
   const currentYear = Number(mskToday().slice(0, 4));
-  // Строки консоли считаются ЗАРАНЕЕ и одним списком: каждая несёт свой год и своё место
-  // внутри него, из которого и следует вид ветки.
+  // Console rows are computed IN ADVANCE and as one list: each carries its year and its place within
+  // it, from which the shape of its branch follows.
   const yearRows = consoleEdition ? projectYearRows(projects, currentYear) : [];
   const horizontal = !consoleEdition && orientation === "horizontal";
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Живой скролл без видимого ползунка — контур полки дропов (DESIGN §7.5). Вертикальный
-  // список колесо листает родно, поэтому обработчик нужен только горизонтальной ленте:
-  // вертикальное колесо мыши двигает её вбок (трекпадный горизонтальный жест пропускаем —
-  // он уже родной). На краях колесо отдаётся странице, чтобы не запирать прокрутку.
-  // Перетаскивания мышью нет намеренно: у дропов оно перехватывало клик и ломало открытие.
+  // Live scrolling with no visible scrollbar, following the drop shelf. A vertical list already
+  // wheels natively, so the handler is only for the horizontal ribbon. Mouse dragging is
+  // deliberately absent: on the drops it swallowed the click and broke opening. DESIGN §7.5
   useEffect(() => {
     const el = listRef.current;
     if (!el || !horizontal) return;
@@ -130,21 +115,20 @@ export function ProjectsTile({
       onRetry={retry}
       label="проекты"
       ariaLabel="Проекты"
-      // Высота плитки — по содержимому (layout.ts, CONTENT_HEIGHT_TILES), поэтому вся цепочка
-      // от секции до списка держится флексом: процентной высоте там не от чего считаться.
+      // The tile's height follows its content (layout.ts, CONTENT_HEIGHT_TILES), so the whole chain
+      // from section to list is held by flex: a percentage height would have nothing to count from.
       fluid
       style={style}
       className={className}
     >
       {phase === "loaded" && !isEmpty && (
-        // projects-frame: именованный контейнер, от которого считаются размеры внутри
-        // (список сам себя мерить не может — DESIGN §8.1).
+        // projects-frame: the named container the sizes inside are computed from, since a list cannot
+        // measure itself (DESIGN §8.1).
         <div className="tile-frame flex min-h-0 flex-1 flex-col">
         {consoleEdition ? (
-          // Консоль: приглашение оболочки вместо ярлыка плитки + вывод `tree` под ним.
-          // Приглашение живёт в СОДЕРЖИМОМ, а не в `label` плитки, и это по смыслу: волна,
-          // прячущая мета-ярлыки (§10.2 PRIME), спрятала бы вместе с ними и его — а оно
-          // здесь не имя плитки, а КОРЕНЬ дерева, на котором висят строки ниже.
+          // Console: a shell prompt instead of the tile label, with `tree` output beneath it. The
+          // prompt lives in the CONTENT, not in the tile's label, because a wave that hides meta
+          // labels would hide it too — and here it is the ROOT of the tree, not the tile's name.
           <div className="projects-console-frame flex min-h-0 flex-1 flex-col">
             <p className="projects-prompt">
               <span className="projects-prompt__path">~/projects</span>
@@ -152,25 +136,23 @@ export function ProjectsTile({
               <span className="projects-prompt__cmd">tree -L 1</span>
             </p>
             <div className="projects-console scroll-invisible min-h-0 flex-1 overflow-y-auto">
-              {/* Список ОДИН на все годы: просвет между строками обязан быть один на весь
-                  вывод. Дерево при этом у каждого года своё — ствол растёт от года вниз, и
-                  вид ветки считается внутри группы (DESIGN §7.8). */}
+              {/* ONE list for all years: the spacing between rows must be the same across the whole
+                  listing. Each year still has its own tree — the trunk grows down from the year and
+                  the branch kind is decided inside the group (DESIGN §7.8). */}
               <ul className="projects-console__list flex flex-col">
                 {yearRows.map((row) => {
                   const p = row.project;
-                  // Показанный путь — вторая строка ряда: она и говорит «это код», до всякой
-                  // подписи. Нет ссылки — нет и строки (пустое место честнее прочерка).
-                  // Совпал с названием (сайт, названный своим адресом, — `danchuo.world`) —
-                  // тоже нет: строка повторяла бы название вторым голосом, ничего не добавив.
+                  // The repository path is the row's second line: it says "this is code" before
+                  // any caption. No link, no line — empty space is honester than a dash. Matching
+                  // the title (a site named after its own address) also gets no line.
                   const repo = repoLabel(p.url);
                   const code = repo === p.title ? null : repo;
-                  // Дом проекта: куда ведут название и картинка. У сайта его нет — там путь и
-                  // есть дом; у бота он свой, потому что код и сам проект живут в разных местах.
+                  // The project's home, where the title and the picture lead. A site has none — there
+                  // the path IS the home; a bot has its own, its code and itself living apart.
                   const home = p.homeUrl ?? p.url;
-                  // Актуальность — ЯРКОСТЬЮ, а не знаком: в терминале состояние различают
-                  // цветом (`ls --color`), а глифы `-F` — это его монохромный костыль, и
-                  // процитировать их тут нечем — в выводе `tree` по `~/projects` все записи
-                  // каталоги, то есть пометку получили бы одну на всех.
+                  // Currency is shown by BRIGHTNESS, not a sign: a terminal tells state by colour,
+                  // and `-F` glyphs are its monochrome crutch with nothing to quote here — in a
+                  // `tree` of a projects directory every entry is a directory anyway.
                   const live = p.endYear === null;
                   return (
                     <li key={p.title} className="min-w-0">
@@ -178,46 +160,46 @@ export function ProjectsTile({
                         className="project-console flex items-center"
                         data-state={live ? "live" : "archived"}
                       >
-                        {/* Левое поле года: ширина одна на все строки, текст только у первой
-                            строки года. Пустая у остальных, она держит их отступ, поэтому ствол
-                            под годом идёт одной вертикалью. */}
+                        {/* The year's left margin: one width for all rows, text only on the year's
+                            first row. Empty on the rest, it holds their indent so the trunk below
+                            the year runs as one vertical. */}
                         <span className="projects-year__gutter">
                           {row.startsYear && (
                             <>
                               <span className="projects-year__head">{row.year}</span>
-                              {/* Горизонталь от года к стволу — ею год и связан со своим
-                                  поддеревом. Рисует её CSS, поэтому элемент пустой и для
-                                  читалки декоративен: связь озвучивать нечем и незачем. */}
+                              {/* The horizontal from the year to the trunk, which is what joins a
+                                  year to its subtree. CSS draws it, so the element is empty and
+                                  decorative: there is nothing to voice. */}
                               <span aria-hidden className="projects-year__link" />
                             </>
                           )}
                         </span>
-                        {/* Ветка: она вешает строку на ствол своего года. Пустая: линии рисует
-                            CSS (box-drawing-знаков в подмножестве моношрифта нет —
-                            docs/pitfalls.md). Декор для читалки: вслух «тройник» ничего не
-                            добавляет к названию проекта. */}
+                        {/* The branch hangs a row on its year's trunk. It is empty because CSS
+                            draws the lines (the mono subset has no box-drawing glyphs —
+                            docs/pitfalls.md), and decorative: "tee" adds nothing when read aloud. */}
                         <span
                           aria-hidden
                           className="project-branch"
                           data-branch={treeBranch(row.indexInYear, row.yearSize)}
                         />
-                        {/* Картинка ведёт туда же, куда название, но из обхода с клавиатуры
-                            снята: две остановки на одном адресе — лишняя работа для читалки. */}
+                        {/* The picture leads where the title does but is out of the tab order: two
+                            stops on one address is extra work for a screen reader. */}
                         <LinkOrPlain href={home} className="project-console__icon" decorative>
                           <ProjectIcon iconUrl={p.iconUrl} modelUrl={showModels ? p.modelUrl : null} />
                         </LinkOrPlain>
                         <span className="project-console__text flex min-w-0 flex-col">
-                          {/* Цвет названия здесь НЕ инлайном, в отличие от списка волны 01:
-                              им правит состояние строки (`data-state`), а инлайн-стиль
-                              перебил бы правило скина по специфичности. */}
+                          {/* The title's colour is NOT inline here, unlike the wave-01 list: the
+                              row's `data-state` governs it, and an inline style would beat the
+                              skin's rule on specificity. */}
                           <LinkOrPlain href={home} className="project-title truncate">
                             {p.title}
                           </LinkOrPlain>
-                          {/* Приглушение — сигнал зрячему; читалке то же самое говорится словом. */}
+                          {/* Dimming is the sighted signal; a screen reader is told in words. */}
                           {!live && <span className="sr-only">завершён</span>}
                           {code && (
-                            // Зелень — токен «кода» волны (--accent-code, канал вкладов гита):
-                            // путь репозитория и вклады приходят из одного места, цвет у канала общий.
+                            // The green is the wave's "code" token (`--accent-code`, the git
+                            // contributions channel): repository path and contributions come from one
+                            // place, so the channel's colour is shared.
                             <LinkOrPlain
                               href={p.url}
                               className="project-repo truncate"
@@ -237,8 +219,8 @@ export function ProjectsTile({
         ) : (
         <ul
           ref={listRef}
-          // scrollbarWidth: ползунок скрыт, скролл живой (колесо/трекпад/тач) — как у полки
-          // дропов. Подсказка о продолжении списка — обрезанный краем элемент, не ползунок.
+          // scrollbarWidth: the bar is hidden, the scroll alive (wheel, trackpad, touch) — as on the
+          // drops shelf. The hint that the list continues is an element cut by the edge, not a bar.
           style={{ scrollbarWidth: "none" }}
           className={
             horizontal
@@ -287,10 +269,9 @@ export function ProjectsTile({
 }
 
 /**
- * Кусок строки, который **может** оказаться ссылкой: адрес есть — гиперссылка, нет — просто
- * текст (мёртвых ссылок на борде не бывает, PRD §5.7). `decorative` снимает элемент с обхода
- * клавиатурой и с озвучки: так помечена картинка, ведущая туда же, куда стоящее рядом
- * название, — второй остановки на том же адресе читателю не нужно.
+ * A piece of a row that MAY be a link: an address makes it a hyperlink, none leaves plain text —
+ * there are no dead links on the board. `decorative` takes an element out of tab order and off the
+ * screen reader, marking a picture that leads where the title beside it already leads. PRD §5.7
  */
 function LinkOrPlain({
   href,
@@ -328,22 +309,16 @@ function LinkOrPlain({
 }
 
 /**
- * Иконка проекта — одна на все редакции: спрайт-«планета» в единой колонке-слоте (тексты
- * рядов начинаются с одного x), сторонний фавикон в легаси-подаче, ничего нет — глухая
- * плашка. Размеры задаёт CSS долями контейнера (DESIGN §8.1), поэтому редакции достаточно
- * переопределить доли у своих классов.
- *
- * [modelUrl] — объёмная планета (DESIGN §12.5): тот же слот, но предмет оживает под курсором.
- * Приезжает уже отфильтрованной волной: не задана ⇒ либо волна объёма не просит, либо модели
- * у проекта нет, и в обоих случаях показывается прежний плоский спрайт. Значит новая волна с
- * объёмом ничего не ломает у старых, а проект без модели не выпадает из ряда.
+ * A project's icon, one for every edition: a "planet" sprite in a single column slot, a third
+ * party favicon in the legacy treatment, or a blank plate. [modelUrl] arrives already filtered by
+ * the wave, so a wave adding volume breaks nothing and a model-less project stays in line. §12.5
  */
 function ProjectIcon({ iconUrl, modelUrl }: { iconUrl: string | null; modelUrl: string | null }) {
-  // `is3dArtifact` здесь — страж, а не выбор ветки: если в поле модели окажется не модель
-  // (опечатка в записи), лучше показать спрайт, чем пустой слот.
+  // `is3dArtifact` is a guard here, not a branch selector: if the model field holds something that is
+  // not a model (a typo in the record), showing the sprite beats showing an empty slot.
   if (modelUrl && is3dArtifact(modelUrl)) {
-    // Артефакт берёт слот целиком: поле вокруг предмета отмеряет сама сцена, а не CSS, —
-    // иначе у моделей с разными габаритами поле получалось бы разным.
+    // The artifact takes the whole slot: the padding around the object is measured by the scene rather
+    // than by CSS, or models of different sizes would end up with different padding.
     return (
       <span aria-hidden className="project-slot grid shrink-0 place-items-center">
         <Artifact3D src={modelUrl} className="project-artifact" />

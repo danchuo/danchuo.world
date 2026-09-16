@@ -12,29 +12,17 @@ import jakarta.ws.rs.core.MediaType
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 
 /**
- * Клиент `api.spotify.com` — read-only слой плеера (PRD §M3). Базовый URL —
- * `quarkus.rest-client.spotify-api.url`. Access-токен передаётся в `Authorization:
- * Bearer …` на каждый вызов (его готовит [SpotifyTokenService] из refresh-токена).
- *
- * DTO — минимальная проекция Spotify-ответов: берём только поля, что рендерим,
- * `@JsonIgnoreProperties(ignoreUnknown = true)` глушит остальное (API богат).
+ * Client for `api.spotify.com`, the read-only player layer; the access token goes in
+ * `Authorization` on every call. The DTOs are a minimal projection — only the fields we render,
+ * with unknown ones ignored, because the API is far richer than the board needs.
  */
 @RegisterRestClient(configKey = "spotify-api")
 interface SpotifyApiClient {
 
     /**
-     * Текущее воспроизведение; при «ничего не играет» Spotify отдаёт 204 ⇒ тело `null`.
-     *
-     * [additionalTypes] — типы сверх дефолтного `track`, которые клиент готов принять
-     * (`track,episode`). Без него подкаст не приезжает вовсе: эпизоды скрыты ради обратной
-     * совместимости со старыми интеграциями. Скоупов параметр не требует — хватает того же
-     * `user-read-currently-playing`.
-     *
-     * [market] обязателен по смыслу: без него (и без страны в токене) Spotify считает контент
-     * недоступным и молча отдаёт пустой ответ.
-     *
-     * Дефолты параметров тут не котлиновские, а на каждой точке вызова: REST-клиент
-     * MicroProfile значения по умолчанию не поддерживает.
+     * Current playback; "nothing playing" comes back as 204, so the body is `null`.
+     * [additionalTypes] must include `episode` or podcasts never arrive at all, and [market] is
+     * required in practice — without it Spotify calls the content unavailable and answers empty.
      */
     @GET
     @Path("/v1/me/player/currently-playing")
@@ -62,7 +50,7 @@ interface SpotifyApiClient {
         @QueryParam("time_range") timeRange: String,
     ): SpotifyPaging
 
-    /** Имя плейлиста по id (для строки-источника). `fields=name` — отдаёт только имя. */
+    /** Playlist name by id (for the source line). `fields=name` returns only the name. */
     @GET
     @Path("/v1/playlists/{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -72,7 +60,7 @@ interface SpotifyApiClient {
         @QueryParam("fields") fields: String,
     ): SpotifyNamed
 
-    /** Имя артиста по id (для строки-источника, когда играешь со страницы артиста). */
+    /** Artist name by id (for the source line, when playing from an artist page). */
     @GET
     @Path("/v1/artists/{id}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -82,23 +70,23 @@ interface SpotifyApiClient {
     ): SpotifyNamed
 }
 
-/** Минимальная проекция «объект с именем» — плейлист/артист (берём только name). */
+/** Minimal "object with a name" projection — a playlist or artist (we take only name). */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyNamed(
     @param:JsonProperty("name") val name: String? = null,
 )
 
-// ── Сырые DTO Spotify Web API (только нужные поля) ──
+// -- Raw Spotify Web API DTOs (only the fields we need) --
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyCurrentlyPlaying(
     @param:JsonProperty("is_playing") val isPlaying: Boolean = false,
     @param:JsonProperty("progress_ms") val progressMs: Long? = null,
     @param:JsonProperty("item") val item: SpotifyTrack? = null,
-    // Откуда играет: плейлист/альбом/артист/подкаст/«любимое». Бывает null (вне контекста).
+    // Where it plays from: playlist/album/artist/podcast/liked. May be null (outside a context).
     @param:JsonProperty("context") val context: SpotifyContext? = null,
-    // «track» либо «episode» — дискриминатор союза в [item]. Дублирует item.type, но приезжает
-    // даже тогда, когда сам item пуст, поэтому решение по нему надёжнее.
+    // "track" or "episode" — the union discriminator for [item]. It duplicates item.type but
+    // arrives even when item itself is empty, so deciding by it is more reliable.
     @param:JsonProperty("currently_playing_type") val currentlyPlayingType: String? = null,
 )
 
@@ -126,12 +114,9 @@ data class SpotifyPaging(
 )
 
 /**
- * Проекция поля `item` — оно СОЮЗ трека и эпизода подкаста, различаемый по [type]
- * (и по `currently_playing_type` снаружи). Общее у них — имя, длительность и ссылка; дальше
- * расходятся: у трека артисты и альбом, у эпизода [show] и собственные [images].
- *
- * Одним типом, а не двумя, — потому что Jackson разбирает одно и то же поле, и разводить союз
- * пришлось бы кастомным десериализатором ради двух полей. Пустая половина остаётся пустой.
+ * Projection of the `item` field, which is a UNION of a track and a podcast episode told apart by
+ * [type]: both carry a name, duration and link, then diverge into artists and album, or [show] and
+ * its own [images]. One type rather than two, since Jackson parses one field; halves stay empty.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyTrack(
@@ -142,15 +127,15 @@ data class SpotifyTrack(
     @param:JsonProperty("album") val album: SpotifyAlbum? = null,
     @param:JsonProperty("duration_ms") val durationMs: Long? = null,
     @param:JsonProperty("external_urls") val externalUrls: SpotifyExternalUrls? = null,
-    // Обложка эпизода: у трека картинка лежит в альбоме, у эпизода — прямо на нём.
+    // Episode cover: a track's picture lives on its album, an episode's sits directly on it.
     @param:JsonProperty("images") val images: List<SpotifyImage>? = null,
     @param:JsonProperty("show") val show: SpotifyShow? = null,
 )
 
 /**
- * Шоу подкаста внутри эпизода. Издателя (`publisher`) во вложенном объекте нет — «автором»
- * карточки служит [name]; за настоящим издателем пришлось бы ходить в `/v1/shows/{id}`
- * (рассмотрено и отклонено: владельцу достаточно названия шоу).
+ * The podcast show inside an episode. The nested object carries no `publisher`, so [name] serves
+ * as the card's author; the real publisher would mean a trip to `/v1/shows/{id}` (rejected: the
+ * show name is enough).
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyShow(

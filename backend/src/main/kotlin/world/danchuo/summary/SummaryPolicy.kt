@@ -1,50 +1,38 @@
 package world.danchuo.summary
 
 /**
- * Что очередь уже знает про заход: сколько про него рассказано, куда целилась последняя попытка
- * и сколько раз подряд промахнулись. Снимок строки [ContentSummary] без самой строки — чтобы
- * правила очереди ([SummaryPolicy]) остались арифметикой и проверялись без базы.
+ * What the queue already knows about a sitting: how much has been told, where the last attempt
+ * aimed, and how many misses in a row. A snapshot of a [ContentSummary] row without the row, so
+ * the queue rules stay arithmetic and can be tested without a database.
  */
 data class SummaryState(
-    /** Есть ли что показывать прямо сейчас: пересказ удался и в нём есть пункты. */
+    /** Whether there is anything to show right now: the summary succeeded and has points. */
     val ready: Boolean,
-    /** Докуда доходит лежащий текст; `null` — успеха ещё не было, покрывать нечем. */
+    /** How far the stored text reaches; `null` when there has been no success to cover with. */
     val coveredEnd: Double?,
-    /** Конец куска, на который целилась ПОСЛЕДНЯЯ попытка. */
+    /** The end of the stretch the LAST attempt aimed at. */
     val targetEnd: Double?,
     val attempts: Int,
 )
 
 /**
- * Правила очереди пересказов (PRD §5.16): кого спрашивать у модели, а кого оставить в покое.
- *
- * Всё здесь — про «что уже рассказано», а не про «сколько раз пробовали». Заход не застывает в
- * момент первого пересказа: вернулся к книге в пределах паузы — поллер продлевает ТУ ЖЕ строку
- * сессии, и текст про её начало перестаёт отвечать за неё целиком (карточка сказала бы
- * «10% → 30%» над пунктами, которые видели 15%).
- *
- * Порог `refresh` при этом не косметика: без него округление доли гоняло бы модель по кругу за
- * пару абзацев, выжигая бесплатный лимит. Ноль здесь означал бы поход к модели на каждый такт.
+ * Rules of the summary queue: whom to ask the model about and whom to leave alone. Everything here
+ * is about WHAT HAS BEEN TOLD, not how many times we tried. The refresh threshold is not cosmetic
+ * — without it, rounding alone would walk the model in circles over two paragraphs. PRD §5.16
  */
 object SummaryPolicy {
 
     /**
-     * Другая ли это цель, чем та, на которую целились в прошлый раз. Ничего не пробовали —
-     * цель по определению новая.
+     * Whether this is a different target from last time's. Nothing attempted makes the target new
+     * by definition.
      */
     fun isNewTarget(previousTargetEnd: Double?, end: Double, refresh: Double): Boolean =
         previousTargetEnd?.let { end - it >= refresh } ?: true
 
     /**
-     * Нужен ли заходу поход к модели.
-     *
-     * - **не спрашивали** — берём;
-     * - **не вышло, и попытки на ЭТУ цель ещё есть** — берём;
-     * - **рассказано, но заход ушёл вперёд за порог** — берём заново;
-     * - иначе оставляем в покое.
-     *
-     * Потолок попыток держит решение «сдаюсь» только про ту цель, на которую целились: заход,
-     * доросший дальше, — новая цель, и прежний отказ был про другой кусок.
+     * Whether a sitting needs a trip to the model: never asked, or failed with attempts left on
+     * THIS target, or told but since moved past the threshold. The attempt cap keeps "I give up"
+     * about the target it was aimed at — a grown sitting is a new target. PRD §5.16
      */
     fun queued(end: Double, known: SummaryState?, refresh: Double, maxAttempts: Int): Boolean {
         if (known == null) return true
@@ -53,7 +41,7 @@ object SummaryPolicy {
         return end - (known.coveredEnd ?: 0.0) >= refresh
     }
 
-    /** Сколько промахов подряд числится за заходом после этой попытки (успех обнуляет счёт сам). */
+    /** Misses in a row credited to the sitting after this attempt (a success zeroes it itself). */
     fun attemptsAfter(known: SummaryState?, end: Double, refresh: Double): Int =
         if (isNewTarget(known?.targetEnd, end, refresh)) 1 else (known?.attempts ?: 0) + 1
 }

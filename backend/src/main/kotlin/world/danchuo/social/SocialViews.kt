@@ -3,11 +3,11 @@ package world.danchuo.social
 import io.quarkus.runtime.annotations.RegisterForReflection
 
 /**
- * Публичные read-проекции слайса social (PRD §5.8). `GET /api/social-links` и
- * `GET /api/artifacts` отдают эти DTO; фронт рисует блок ссылок и marquee артефактов.
+ * Public read projections of the social slice (PRD §5.8). `GET /api/social-links` and
+ * `GET /api/artifacts` return these DTOs; the board draws the link block and the artifact marquee.
  */
 
-/** Соцссылка: иконка + подпись + гиперссылка. */
+/** A social link: icon, caption, hyperlink. */
 data class SocialLinkView(
     val platform: String,
     val name: String,
@@ -20,10 +20,11 @@ data class SocialLinkView(
 }
 
 /**
- * Артефакт marquee. [firstMentionedOn] — ISO-строка (`YYYY-MM-DD`); в UI показывается
- * только в ховер-поповере (§5.8, DESIGN §7.2), не в самой строке.
+ * A marquee artifact. [firstMentionedOn] is an ISO string (`YYYY-MM-DD`), shown only in the hover
+ * popover (§5.8, DESIGN §7.2), never in the row itself.
  */
-/** Артефакт в админке: все поля формы, включая описание для поиска на кадрах (§5.12). */
+
+/** An artifact in the admin UI: every form field, including the frame-search hint (§5.12). */
 @RegisterForReflection
 data class AdminArtifactView(
     val id: Long,
@@ -35,12 +36,12 @@ data class AdminArtifactView(
 )
 
 data class ArtifactView(
-    /** Нужен, чтобы соотнести предмет с рамкой его подсветки на кадре дропа (PRD §5.12). */
+    /** Needed to match an item with its highlight box on a drop frame (PRD §5.12). */
     val id: Long,
     val name: String,
     val imageUrl: String?,
     val firstMentionedOn: String,
-    /** Можно ли класть предмет набок в ленте, идущей поперёк него (DESIGN §7.2). */
+    /** Whether the item may lie on its side in the marquee running across it (DESIGN §7.2). */
     val rotatable: Boolean,
 ) {
     companion object {

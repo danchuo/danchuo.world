@@ -2,7 +2,7 @@ import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FaviconSpinner } from "./FaviconSpinner";
 
-/** jsdom не умеет канвас — подменяем нарезку спрайта предсказуемыми data-URL. */
+/** jsdom has no canvas — the sprite slicing is replaced by predictable data URLs. */
 function stubCanvas() {
   const draw = vi.fn();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
@@ -14,7 +14,7 @@ function stubCanvas() {
   return draw;
 }
 
-/** Картинка в jsdom не грузится сама — дёргаем onload сразу после присвоения src. */
+/** An image does not load itself in jsdom — we fire onload right after src is assigned. */
 function stubImage() {
   vi.stubGlobal(
     "Image",
@@ -58,7 +58,7 @@ describe("FaviconSpinner", () => {
     stubImage();
     render(<FaviconSpinner />);
     await waitFor(() => expect(link()?.href).toContain("data:frame-0"));
-    // Запас по времени: кадр держится 100мс, но под общим прогоном таймеры плывут.
+    // Slack in the timeout: a frame holds for 100ms, but timers drift under the shared run.
     await waitFor(() => expect(link()?.href).toContain("data:frame-1"), { timeout: 3000 });
   });
 
@@ -68,7 +68,7 @@ describe("FaviconSpinner", () => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     render(<FaviconSpinner />);
     await waitFor(() => expect(link()?.href).toContain("data:frame-0"));
-    await new Promise((r) => setTimeout(r, 300)); // хватило бы на три кадра
+    await new Promise((r) => setTimeout(r, 300)); // enough for three frames
     expect(link()?.href).toContain("data:frame-0");
   });
 

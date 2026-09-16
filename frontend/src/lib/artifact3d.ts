@@ -1,48 +1,26 @@
-/**
- * Чистая арифметика 3D-артефактов (DESIGN §12.5) — всё, что можно посчитать без WebGL:
- * распознавание модели по адресу, посадка камеры и шаг вращения. Сама сцена живёт в
- * `artifact3dStage.ts` (браузерная, `three` подгружается динамически), компонент — в
- * `components/Artifact3D.tsx`.
- *
- * ⚠️ «Артефакт» здесь — **3D-предмет волны**, не запись слайса `artifacts` (витрина вещей,
- * `ArtifactMarquee`). Слова совпали, домены разные.
- */
+/** Pure 3D wave-object math; browser rendering lives in artifact3dStage.ts. These are not artifacts-slice records. DESIGN §12.5. */
 
-/** Расширения glTF, которые умеет грузить сцена. Точка обязательна — иначе `/glb/x.png` пройдёт. */
+/** Require dotted glTF extensions so /glb/x.png cannot match. */
 const MODEL_EXT = [".glb", ".gltf"];
 
-/**
- * Адрес ведёт на 3D-модель? Конвенция та же по духу, что у спрайтов проектов (`-px` →
- * pixelated, DESIGN §12.2): **подача выводится из имени файла**, поэтому новый 3D-артефакт —
- * это запись в БД плюс файл, без правок кода. Хвост запроса (`?v=2`, бамп кэша) отсекается.
- */
+/** Detect glTF from the filename after stripping the query; adding a model needs no component change. DESIGN §12.2, §12.5. */
 export function is3dArtifact(url: string): boolean {
   const path = url.split(/[?#]/, 1)[0].toLowerCase();
   return MODEL_EXT.some((ext) => path.endsWith(ext));
 }
 
-/**
- * Дистанция камеры, при которой шар радиуса [radius] вписан в вертикальный угол обзора
- * [fovDeg] с полем [padding] вокруг. Так предмет любого масштаба — хоть глобус в единицу,
- * хоть купленная модель в сотню — встаёт в слот одинаково, и волне не приходится
- * подгонять числа под каждый файл.
- */
+/** Fit a sphere of radius into vertical fovDeg with padding, independently of model scale. */
 export function fitDistance(radius: number, fovDeg: number, padding: number): number {
   const half = (fovDeg * Math.PI) / 360;
-  // Вырожденный предмет (пустая сцена, нулевой bbox) не должен схлопывать камеру в точку:
-  // ноль дистанции — это near-plane, то есть чёрный кадр вместо пустого.
+  // A zero-size model must not collapse the camera onto its near plane.
   const safe = Math.max(radius, 1e-3);
   return (safe / Math.sin(half)) * padding;
 }
 
-/**
- * Потолок шага кадра. Вкладку увели на пять минут — `requestAnimationFrame` вернётся с
- * гигантской дельтой, и предмет провернётся рывком на десятки оборотов. Обрезаем по
- * ~6 кадрам: пауза читается как «стояло и поехало», а не как скачок.
- */
+/** Clamp frame deltas so returning from a suspended tab cannot jump through many turns. */
 const MAX_STEP_MS = 100;
 
-/** Следующий угол вращения (радианы, в пределах круга) через [deltaMs] при [rpm] оборотах в минуту. */
+/** Advance the angle in radians at rpm for deltaMs, wrapping within one turn. */
 export function nextSpin(angle: number, deltaMs: number, rpm: number): number {
   const step = Math.min(deltaMs, MAX_STEP_MS);
   const turns = (rpm * step) / 60_000;
@@ -50,36 +28,18 @@ export function nextSpin(angle: number, deltaMs: number, rpm: number): number {
   return next < 0 ? next + 2 * Math.PI : next;
 }
 
-/**
- * Обратный ход: предмет возвращается в исходное положение **с той же скоростью**, с какой
- * крутился вперёд: курсор ушёл — предмет отматывается назад, а не замирает где попало
- * и не доезжает круг вперёд.
- *
- * Отматывается ровно столько, сколько видно: [nextSpin] держит угол в пределах круга, поэтому
- * «оборот и ещё десятая» хранится как одна десятая — назад предмет пройдёт её, а не полтора
- * оборота. Целые обороты в положении предмета неразличимы, и гонять его вхолостую незачем.
- *
- * Ноль — упор: ниже начального положения ход не проваливается, сколько бы ни было простоя.
- */
+/** Rewind the visible angle at the forward speed, stopping at zero without replaying completed turns. */
 export function rewindSpin(angle: number, deltaMs: number, rpm: number): number {
   const step = Math.min(deltaMs, MAX_STEP_MS);
   const turns = (rpm * step) / 60_000;
   return Math.max(0, angle - turns * 2 * Math.PI);
 }
 
-/**
- * Часы кадров цикла отрисовки. Отдельная сущность потому, что на них уже спотыкались:
- * «запустить цикл» и «продолжить цикл» — РАЗНЫЕ действия, а шли через одну функцию, которая
- * заодно обнуляла отсчёт. Шаг выходил нулевым каждый кадр, предмет рисовался снова и снова под
- * одним углом: цикл честно крутился, а глобус выглядел неподвижным.
- *
- * Поэтому «запуска» здесь нет вовсе — есть только [FrameClock.step] и [FrameClock.reset],
- * который зовут, когда цикл **закончился**. Перепутать нечего: обнулить идущие часы неоткуда.
- */
+/** Reset only when the frame loop stops; resetting every continuation freezes rotation. */
 export interface FrameClock {
-  /** Шаг до кадра [now] в миллисекундах; первый кадр захода — ноль. */
+  /** Milliseconds since the previous frame; the first frame is zero. */
   step(now: number): number;
-  /** Цикл остановлен. Следующий заход начнётся с нуля, а не с длины простоя. */
+  /** Stop the clock so the next run excludes idle time. */
   reset(): void;
 }
 

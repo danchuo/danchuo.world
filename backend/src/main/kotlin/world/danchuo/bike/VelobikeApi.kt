@@ -3,15 +3,12 @@ package world.danchuo.bike
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 /**
- * Сырые DTO внешнего API Велобайка (`pwa.velobike.ru`) — зеркало ответов, восстановленных
- * реверс-инжинирингом мобильного приложения. Только нужные поля; остальное игнорируем
- * ([JsonIgnoreProperties] — контракт чужой и может прирастать, не должен ронять парсинг).
- *
- * Живут в слайсе `bike`: маппинг в доменную [Ride] — в [BikeRideService], дальше по системе
- * ходит уже наша модель, а не форма Велобайка.
+ * Raw DTOs mirroring the Velobike API, recovered by reverse-engineering its mobile app. Only the
+ * fields we need; the rest is ignored, since someone else's contract may grow and must not break
+ * parsing. Mapping into our [Ride] happens in [BikeRideService].
  */
 
-/** Страница истории: `GET /api/rent/rents/client?size=&page=&statuses=TECH_DONE,DONE` (Spring Data Page). */
+/** History page: `GET /api/rent/rents/client?size=&page=&statuses=TECH_DONE,DONE` (Spring Page). */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class RentPage(
     val content: List<RentItem> = emptyList(),
@@ -21,7 +18,7 @@ data class RentPage(
     val last: Boolean = true,
 )
 
-/** Одна поездка из истории. Времена — epoch millis; `distance` — метры (float); `cost` — копейки. */
+/** One ride from history. Times are epoch millis; `distance` metres (float); `cost` kopecks. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class RentItem(
     val id: Long,
@@ -37,7 +34,7 @@ data class RentItem(
     val tariffName: String? = null,
     val startBikeGeoPosition: GeoPosition? = null,
     val finishBikeGeoPosition: GeoPosition? = null,
-    // Только из детального getPopulatedRent:
+    // Only from the detailed getPopulatedRent:
     val startParkingAddress: String? = null,
     val finishParkingAddress: String? = null,
 )
@@ -49,9 +46,9 @@ data class GeoPosition(
 )
 
 /**
- * Страница истории покупок: `GET /api/purchases/history?size=&page=` (Spring Data Page). Смешивает
- * записи двух видов по [PurchaseItem.purchaseType]: `TARIFF` (покупка тарифа — нужна нам для
- * атрибуции бесплатных поездок) и `RENTAL` (списание за конкретную поездку — это у нас уже есть).
+ * Purchase-history page: `GET /api/purchases/history?size=&page=` (Spring Page). It mixes two
+ * kinds by [PurchaseItem.purchaseType]: `TARIFF`, which we need to attribute free rides, and
+ * `RENTAL`, a charge for one ride, which we already hold.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class PurchasePage(
@@ -62,8 +59,8 @@ data class PurchasePage(
 )
 
 /**
- * Одна запись истории покупок. `cost` — копейки (напр. `39900` = 399 ₽ за «Пакет 60 минут»);
- * `createDate` — epoch millis момента покупки. Название/минуты берём из [orderItems].
+ * One purchase-history record. `cost` is kopecks, `createDate` the epoch millis of the purchase.
+ * Name and minutes come out of [orderItems].
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class PurchaseItem(
@@ -74,7 +71,7 @@ data class PurchaseItem(
     val orderItems: List<PurchaseOrderItem> = emptyList(),
 )
 
-/** Позиция покупки: `type` = `tariff`/`rental`, `name` — человекочитаемое («Доступ Пакет 60 минут»). */
+/** A purchase line: `type` is `tariff`/`rental`, `name` is the human-readable label. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class PurchaseOrderItem(
     val type: String? = null,
@@ -83,9 +80,9 @@ data class PurchaseOrderItem(
 )
 
 /**
- * Ответ `POST /api/api-auth/client-authenticate` (тело `{user: телефон, password: код из SMS}`).
- * `access_token` — JWT на 24ч; `refresh_token` — JWT на ~6 мес (хранится шифрованно); supabase-
- * токен слайсу не нужен (отдельный бэкенд).
+ * Reply of `POST /api/api-auth/client-authenticate` (body `{user: phone, password: SMS code}`).
+ * `access_token` is a 24h JWT, `refresh_token` a ~6-month one stored encrypted; the supabase
+ * token is for a separate backend and the slice does not need it.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class VelobikeAuthResponse(
@@ -93,7 +90,7 @@ data class VelobikeAuthResponse(
     val refresh_token: String? = null,
 )
 
-/** Ответ `POST /api/api-auth/code/{phone}` — запрос SMS-кода. */
+/** Reply of `POST /api/api-auth/code/{phone}` — the SMS code request. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class VelobikeCodeResponse(
     val authParameters: CodeParams? = null,

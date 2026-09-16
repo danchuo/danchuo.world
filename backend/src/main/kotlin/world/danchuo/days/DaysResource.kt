@@ -13,14 +13,9 @@ import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 
 /**
- * Публичное чтение дней (PRD §5.4/§5.6, §12 M2) — ось «Сегодня + календарь».
- *
- * - `GET /api/days/{date}` — полная проекция дня ([DayView]) для плитки «Сегодня»/перефокуса.
- * - `GET /api/days?from=&to=` — сводки диапазона ([DaySummary]) для календаря и мини-графика.
- *
- * Всё публично на чтение (§3): фильтр `IngestAuthFilter` стережёт только `/api/ingest/…`.
- * Даты — ISO (`YYYY-MM-DD`) в каноне MSK; парсим вручную, чтобы отдавать JSON-ошибки в
- * стиле ingest-эндпоинтов. Генезис-гард (§4): раньше генезиса данных нет.
+ * Public day reads, the "Today + calendar" axis: `/api/days/{date}` is the full [DayView],
+ * `/api/days?from=&to=` a range of [DaySummary]. Dates are ISO in the MSK canon, parsed by hand so
+ * failures come back as JSON in the ingest style; before genesis there is no data. PRD §5.4, §4
  */
 @Path("/api/days")
 @Produces(MediaType.APPLICATION_JSON)
@@ -33,13 +28,13 @@ class DaysResource(
     @Path("/{date}")
     fun day(@PathParam("date") raw: String): Response {
         val date = parseDate(raw) ?: return badDate("date", raw)
-        // Раньше генезиса дня на оси данных нет (§4) — это не пустой день, а 404.
+        // Before genesis there is no day on the data axis (§4) — that is a 404, not an empty day.
         if (date.isBefore(mskTime.genesis)) {
             return Response.status(Response.Status.NOT_FOUND)
                 .entity(mapOf("error" to "before_genesis", "date" to raw))
                 .build()
         }
-        // today MSK входит в проекцию (правило стрика «по вчера») и в ключ кэша — см. viewOf.
+        // MSK today enters the projection (the streak's "through yesterday" rule) and the cache key.
         return Response.ok(aggregator.viewOf(date, mskTime.today())).build()
     }
 
@@ -60,7 +55,7 @@ class DaysResource(
             return badRequest("range_too_large", mapOf("maxDays" to MAX_RANGE_DAYS))
         }
 
-        // Клампим к генезису: до него данных нет, дыр в сетке это не создаёт (§4).
+        // Clamp to genesis: nothing exists before it, and this makes no holes in the grid (§4).
         val start = maxOf(from, mskTime.genesis)
         val summaries = if (start.isAfter(to)) emptyList() else aggregator.summaries(start, to)
         return Response.ok(summaries).build()
@@ -85,7 +80,7 @@ class DaysResource(
             .build()
 
     private companion object {
-        /** Защита публичного GET от безразмерного диапазона (год с запасом). */
+        /** Guards the public GET against an unbounded range (a year with room to spare). */
         const val MAX_RANGE_DAYS = 366L
     }
 }

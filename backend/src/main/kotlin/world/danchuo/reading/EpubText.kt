@@ -4,32 +4,30 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipFile
 
-/** Документ спайна: сколько он весит в исходнике и что в нём написано словами. */
+/** A spine document: how much it weighs in the source, and what it says in words. */
 data class EpubSection(
-    /** Заголовок документа (`<title>`, иначе первый `<h1>`); `null` — безымянный. */
+    /** Document title (`<title>`, else the first `<h1>`); `null` when unnamed. */
     val title: String?,
     /**
-     * Длина ИСХОДНИКА документа в знаках — вместе с разметкой. Это не любопытство, а шкала:
-     * долю прочитанного читалка считает по весу документов, а не по числу глав, и срез обязан
-     * пользоваться той же линейкой (см. [EpubBook.excerpt]).
+     * Length of the document SOURCE in characters, markup included. Not curiosity but a scale: the
+     * reader computes the read fraction by document weight, not by chapter count, and the excerpt
+     * must use the same ruler (see [EpubBook.excerpt]).
      */
     val rawChars: Int,
-    /** Текст без разметки: абзацы разделены переводом строки. */
+    /** Text without markup: paragraphs separated by a newline. */
     val text: String,
 )
 
 /**
- * Книга, разобранная в плоский текст: документы спайна в порядке чтения.
- *
- * Зачем вообще нужен исходный текст: пересказ прочитанного куска (PRD §5.16) делается ТОЛЬКО по
- * нему. Пересказ «по памяти модели» рассмотрен и отклонён — на публичном борде он однажды
- * уверенно соврал бы про книгу, которой модель не знает, и отличить это было бы нечем.
+ * A book parsed into flat text: spine documents in reading order. The source text exists for one
+ * reason — a summary of the passage read is made ONLY from it. Summarising "from the model's
+ * memory" was considered and rejected: PRD §5.16.
  */
 class EpubBook(val sections: List<EpubSection>) {
 
     private val totalRaw: Int = sections.sumOf { it.rawChars }.coerceAtLeast(1)
 
-    /** Заголовки документов, попавших в кусок `[from, to]` — контекст для промпта. */
+    /** Titles of the documents falling inside `[from, to]` — context for the prompt. */
     fun titlesIn(from: Double, to: Double): List<String> {
         val first = locate(from).section
         val last = locate(to).section
@@ -39,25 +37,14 @@ class EpubBook(val sections: List<EpubSection>) {
     }
 
     /**
-     * Текст между долями [from] и [to] — тот самый кусок, который владелец прошёл за заход.
-     *
-     * Доли ложатся на шкалу ВЕСА документов, как их считает читалка: глава на восемь килобайт
-     * занимает на ней в десять раз больше места, чем глава на восемьсот байт, — раскладка «по
-     * числу глав» промахнулась бы на десятки процентов. Внутри документа доля переводится в
-     * знаки уже по его собственному тексту.
-     *
-     * Границы кусочка НЕ раздвигаются вперёд: за `to` начинается непрочитанное, и захватить его
-     * значило бы спойлерить владельцу его же книгу. Промах шкалы гасится назад — окном перед
-     * началом (у нулевого куска оно единственное, что вообще можно пересказать).
-     *
-     * Под потолок вызова модели кусок здесь НЕ ужимается: сколько знаков влезает в один поход,
-     * знает бесплатная полоса, а не книга. Этим занимается ядро пересказа
-     * ([world.danchuo.summary.SummaryWindows]).
+     * Text between fractions [from] and [to] — the passage covered in one sitting. Fractions land
+     * on the WEIGHT scale of spine documents, and the boundaries are never widened forward. Both
+     * rules, and why the miss is absorbed backwards instead: PRD §5.16.
      */
     fun excerpt(from: Double, to: Double): String {
         val end = to.coerceIn(0.0, 1.0)
-        // Пустой (или вывернутый) диапазон — не повод остаться без пересказа: окно назад от
-        // точки остановки отвечает на тот же вопрос «что это было».
+        // An empty (or inverted) range is no reason to go without a summary: a window back from
+        // the stopping point answers the same "what was this" question.
         val start = from.coerceIn(0.0, end).let { if (end - it >= MIN_SPAN) it else end - MIN_SPAN }
             .coerceAtLeast(0.0)
 
@@ -78,7 +65,7 @@ class EpubBook(val sections: List<EpubSection>) {
         return text
     }
 
-    /** Доля → место в книге: какой документ и сколько знаков от его начала. */
+    /** Fraction to a place in the book: which document, and how many characters from its start. */
     private fun locate(fraction: Double): Position {
         var passed = 0
         val target = fraction.coerceIn(0.0, 1.0) * totalRaw
@@ -96,19 +83,15 @@ class EpubBook(val sections: List<EpubSection>) {
     private data class Position(val section: Int, val offset: Int)
 
     private companion object {
-        /** Минимальная ширина окна выдержки в долях книги (~полпроцента). */
+        /** Minimum excerpt window width as a fraction of the book (about half a percent). */
         const val MIN_SPAN = 0.005
     }
 }
 
 /**
- * Разбор EPUB в плоский текст (PRD §5.16) — второе место после [AnxShelfReader], где мы знаем
- * чужой формат, и такое же read-only.
- *
- * Разбираем регулярками, а не XML-парсером, по той же причине, что и фрагмент профиля GitHub:
- * нам нужны четыре вещи (корневой OPF, манифест, спайн, текст документов), а книги в дикой
- * природе бывают невалидны ровно настолько, чтобы строгий парсер отказался читать всё целиком.
- * Битый файл обязан стоить одного пропущенного пересказа, а не исключения в поллере.
+ * Parses EPUB into flat text with regexes rather than an XML parser, for the same reason as the
+ * GitHub profile fragment: we need four things, and books in the wild are invalid just enough that
+ * a strict parser refuses the whole file. A broken book costs one skipped summary. PRD §5.16
  */
 object EpubText {
 
@@ -129,7 +112,7 @@ object EpubText {
     private val SPACES = Regex("""[ \t ]+""")
     private val BLANK_LINES = Regex("""\n{2,}""")
 
-    /** Книга по файлу; `null` — файла нет, это не zip или в нём не нашлось ни одного документа. */
+    /** A book from a file; `null` when the file is missing, is not a zip, or holds no documents. */
     fun read(file: Path): EpubBook? {
         if (!Files.isRegularFile(file)) return null
         return try {
@@ -156,13 +139,13 @@ object EpubText {
                 if (sections.isEmpty()) null else EpubBook(sections)
             }
         } catch (_: Exception) {
-            // Не zip, оборванная загрузка, экзотическая раскладка — всё это значит одно:
-            // пересказать нечем. Поллер попробует со следующей книгой.
+            // Not a zip, a torn download, an exotic layout — all mean the same: nothing to
+            // summarise from. The poller will try the next book.
             null
         }
     }
 
-    /** Разметка в текст: блочные теги становятся переводом строки, остальные исчезают. */
+    /** Markup to text: block tags become newlines, the rest disappear. */
     fun plain(html: String): String =
         html.replace(DROPPED, " ")
             .replace(BLOCK_TAG, "\n")
@@ -178,11 +161,12 @@ object EpubText {
             ?.let { plain(it) }
             ?.takeIf { it.isNotBlank() }
 
-    /** Путь документа относительно каталога OPF; `%20` в именах реальных книг встречается часто. */
+    /** Document path relative to the OPF directory; `%20` is common in real book file names. */
     private fun resolve(base: String, href: String): String {
         val clean = href.substringBefore('#').replace("%20", " ")
         val joined = if (base.isEmpty()) clean else "$base/$clean"
-        // «../» в href уводит выше каталога OPF — сворачиваем вручную, путь идёт в zip, не в ФС.
+        // A "../" in an href leads above the OPF directory — fold it by hand; the path goes into
+        // the zip, not the filesystem.
         val parts = ArrayDeque<String>()
         joined.split('/').forEach {
             when (it) {
@@ -204,7 +188,7 @@ object EpubText {
     private fun ZipFile.text(name: String): String? =
         getEntry(name)?.let { entry -> getInputStream(entry).use { it.readBytes().decodeToString() } }
 
-    /** Сущности, которые реально встречаются в книгах; всё остальное закрывает числовая форма. */
+    /** Entities that actually occur in books; the numeric form covers everything else. */
     private val NAMED = mapOf(
         "&nbsp;" to " ", "&shy;" to "", "&lt;" to "<", "&gt;" to ">", "&quot;" to "\"",
         "&apos;" to "'", "&mdash;" to "—", "&ndash;" to "–", "&hellip;" to "…",

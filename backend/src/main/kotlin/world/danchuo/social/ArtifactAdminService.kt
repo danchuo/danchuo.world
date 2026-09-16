@@ -9,13 +9,9 @@ import java.nio.file.Path
 import java.time.LocalDate
 
 /**
- * Заведение артефактов из `/admin` (PRD §5.8): раньше каждый новый предмет был миграцией, то есть
- * правкой кода и деплоем.
- *
- * Подсказку для детектора ([Artifact.detectionHint]) предлагает **дешёвая модель** — описать
- * картинку словами умеет любая, платить за это координатной моделью незачем. Поэтому здесь
- * инъектируется [GroqLlmClient] напрямую, а не общий `LlmClient`: выбор провайдера тут часть
- * замысла, а не конфигурации. Модель молчит ⇒ `null`, поле заполняется руками.
+ * Creating artifacts from `/admin`. The detector hint ([Artifact.detectionHint]) is proposed by a
+ * CHEAP model — describing a picture in words needs no coordinate model — so [GroqLlmClient] is
+ * injected directly rather than the shared `LlmClient`. Silence gives `null` and a manual field.
  */
 @ApplicationScoped
 class ArtifactAdminService(
@@ -26,7 +22,7 @@ class ArtifactAdminService(
 
     private val log = Logger.getLogger(ArtifactAdminService::class.java)
 
-    /** Тот же порядок, что и в ленте (хроника, старое первым) — список правится «как видно». */
+    /** The same order as the marquee (chronicle, oldest first) — the list is edited as seen. */
     fun list(): List<AdminArtifactView> = artifacts.listOrdered().map(::view)
 
     fun create(input: ArtifactInput): AdminArtifactView = tx {
@@ -58,7 +54,7 @@ class ArtifactAdminService(
         true
     }
 
-    /** Принять загруженную картинку и привязать её URL к артефакту. */
+    /** Accepts an uploaded picture and binds its URL to the artifact. */
     fun putImage(id: Long, file: Path): AdminArtifactView? {
         artifacts.findById(id) ?: return null
         images.putFile(id, file)
@@ -71,8 +67,8 @@ class ArtifactAdminService(
     }
 
     /**
-     * Предложить описание предмета по его картинке — одной строкой, по-английски (промт детектора
-     * тоже английский). `null` — модели нет или она не ответила: поле остаётся за человеком.
+     * Suggests an item description from its picture — one line, in English (the detector prompt is
+     * English too). `null` when there is no model or it did not answer: the field stays a human's.
      */
     fun suggestHint(id: Long): String? {
         val bytes = images.get(id) ?: run {
@@ -87,7 +83,7 @@ class ArtifactAdminService(
                 "\"a white and pink badminton racket\". Do not name a brand or model.",
             image = LlmImage(bytes, "image/png"),
         ) ?: return null
-        // Модель любит обрамлять ответ кавычками и точкой — подсказке это не нужно.
+        // The model likes to wrap its answer in quotes and a full stop — the hint needs neither.
         return reply.lines().firstOrNull { it.isNotBlank() }
             ?.trim()?.trim('"', '.', ' ')?.ifBlank { null }
     }
@@ -104,12 +100,12 @@ class ArtifactAdminService(
     private fun <T> tx(block: () -> T): T = QuarkusTransaction.requiringNew().call(block)
 }
 
-/** Поля формы заведения артефакта. */
+/** Form fields for creating an artifact. */
 data class ArtifactInput(
     val name: String = "",
     val firstMentionedOn: String = "",
     val rotatable: Boolean = false,
-    /** Как предмет выглядит — для поиска на кадрах (§5.12). Пусто ⇒ в ход идёт имя. */
+    /** What the item looks like, for finding it on frames (§5.12). Empty falls back to the name. */
     val detectionHint: String? = null,
 ) {
     val parsedDate: LocalDate

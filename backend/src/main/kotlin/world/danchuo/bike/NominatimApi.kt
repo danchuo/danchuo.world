@@ -11,21 +11,17 @@ import jakarta.ws.rs.core.MediaType
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 
 /**
- * REST-клиент геокодера OSM **Nominatim** — превращаем надёжный адрес станции Велобайка в
- * координаты (см. [StationGeocoder]). URL задаётся в `application.properties`
- * (`quarkus.rest-client.nominatim.url`, дефолт `https://nominatim.openstreetmap.org`).
- *
- * Nominatim требует внятный `User-Agent` (идентификацию приложения) — передаём его заголовком из
- * конфига. Ответ — массив совпадений; берём первое. Использование лёгкое (уникальный адрес геокодим
- * один раз и кэшируем в [BikeStation]), поэтому укладываемся в usage policy публичного сервера.
+ * REST client for the OSM Nominatim geocoder (see [StationGeocoder]). Its usage policy requires
+ * an identifying `User-Agent`, which we pass from config; a unique address is geocoded once and
+ * cached, so the load stays within that policy.
  */
 @RegisterRestClient(configKey = "nominatim")
 @Produces(MediaType.APPLICATION_JSON)
 interface NominatimApi {
 
     /**
-     * Поиск по свободному запросу: `GET /search?q=&format=jsonv2&limit=1&countrycodes=ru`.
-     * Без Kotlin-дефолтов параметров (REST-клиент их не поддерживает) — константы передаёт вызывающий.
+     * Free-form search: `GET /search?q=&format=jsonv2&limit=1&countrycodes=ru`. No Kotlin default
+     * parameters (the REST client ignores them) — the caller passes the constants.
      */
     @GET
     @Path("/search")
@@ -39,7 +35,7 @@ interface NominatimApi {
     ): List<NominatimResult>
 }
 
-/** Одно совпадение Nominatim. `lat`/`lon` приходят **строками** — парсим в [StationGeocoder]. */
+/** One Nominatim match. `lat`/`lon` arrive as STRINGS — parsed in [StationGeocoder]. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @RegisterForReflection
 data class NominatimResult(

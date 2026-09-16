@@ -11,11 +11,9 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /**
- * Раскладка минут «осознанности» по вечерним окнам (PRD §5.6).
- *
- * Пункт «дневник» ставится не галочкой, а временем в приложении «Журнал»: оно приходит
- * с HealthKit кусками (как сон) и попадает в **вечернюю корзину** дня — окно 19:00 → 02:00
- * следующих суток. Календарная полночь тут не граница: запись в 00:40 закрывает уходящий день.
+ * Mindfulness minutes laid out over evening windows (PRD §5.6). The "diary" item is set by time
+ * in the Journal app, which arrives from HealthKit in chunks and lands in the day's EVENING
+ * bucket: 19:00 → 02:00 next day, so calendar midnight is not the boundary.
  */
 class JournalDetectorTest {
 
@@ -43,8 +41,7 @@ class JournalDetectorTest {
 
     @Test
     fun `session crossing midnight stays on the day it belongs to, whole`() {
-        // Уснуть не успел, дописывал в дневнике через полночь: календарные сутки сменились,
-        // «день» — нет. Разрежь мы по полуночи, вечер бы делился надвое и порог не набирался.
+        // Cutting at midnight would split the evening in two and the threshold would never be reached.
         val byDay = minutes(seg("2026-07-27T23:40", "2026-07-28T00:20"))
 
         assertEquals(40, byDay[day("2026-07-27")])
@@ -61,8 +58,7 @@ class JournalDetectorTest {
 
     @Test
     fun `session is clipped to the window edges, not counted whole`() {
-        // Дневник открыт с 18:30 — до окна засчитывать нечего, иначе дневное сидение
-        // в приложении вытянуло бы вечернюю галочку.
+        // Nothing before the window counts, or daytime use of the app would earn the evening's mark.
         val byDay = minutes(seg("2026-07-27T18:30", "2026-07-27T19:20"))
 
         assertEquals(20, byDay[day("2026-07-27")])
@@ -84,7 +80,7 @@ class JournalDetectorTest {
 
     @Test
     fun `overlapping duplicates do not double-count`() {
-        // Shortcuts не дедуплицирует семплы: та же грабля, что удваивала ночь до сессионизации.
+        // Shortcuts does not deduplicate samples: the same trap that doubled the night before sessionisation.
         val byDay = minutes(
             seg("2026-07-27T21:00", "2026-07-27T21:30"),
             seg("2026-07-27T21:10", "2026-07-27T21:40"),
@@ -95,7 +91,7 @@ class JournalDetectorTest {
 
     @Test
     fun `one wide pull fills two evening buckets at once`() {
-        // Ради этого шорткат и тащит 34 часа: полуночный прогон дозакрывает вчерашний день.
+        // This is why the shortcut carries 34 hours: the midnight run closes out yesterday.
         val byDay = minutes(
             seg("2026-07-26T20:00", "2026-07-26T20:25"),
             seg("2026-07-27T21:00", "2026-07-27T21:16"),
@@ -107,9 +103,9 @@ class JournalDetectorTest {
 
     @Test
     fun `fragmented chunks of one evening add up, daytime ones stay out`() {
-        // Форма живых данных: «Журнал» пишет не одну сессию, а россыпь коротких кусков с
-        // паузами (открыл-закрыл-вернулся). Группировать их в сессии, как сон, не нужно —
-        // вопрос «сколько всего минут за вечер», поэтому просто сумма внутри окна.
+        // Journal writes a scatter of short chunks with pauses rather than one session. The
+        // question is "how many minutes this evening", so it is a plain sum inside the window
+        // and there is no sessionising as there is for sleep.
         val byDay = minutes(
             seg("2026-07-09T13:24:42", "2026-07-09T13:25:43"),
             seg("2026-07-09T16:45:17", "2026-07-09T16:50:02"),
@@ -117,7 +113,7 @@ class JournalDetectorTest {
             seg("2026-07-09T22:53:23", "2026-07-09T22:56:58"),
         )
 
-        // 2:53 + 3:35 = 6:28 ⇒ 6 минут; дневные куски в вечернюю корзину не попадают вовсе
+        // 2:53 + 3:35 = 6:28 ⇒ 6 minutes; daytime chunks never reach the evening bucket
         assertEquals(6, byDay[day("2026-07-09")])
         assertEquals(1, byDay.size)
     }

@@ -15,9 +15,9 @@ const getTelegramMock = vi.mocked(getTelegramProfile);
 
 afterEach(() => vi.clearAllMocks());
 
-// Источников превью два (пост Instagram и визитка Telegram), и плитка спрашивает оба разом.
-// Умолчание «пусто» на обоих обязательно: незамоканный источник отдаёт `undefined`, и плитка
-// падает на нём ещё до того, как тест дойдёт до своей проверки.
+// There are two preview sources and the tile asks both at once. Defaulting both to empty is
+// required: an unmocked source returns `undefined` and the tile dies on it before the test
+// reaches its own assertion.
 beforeEach(() => {
   getPostMock.mockResolvedValue(null);
   getTelegramMock.mockResolvedValue(null);
@@ -34,8 +34,8 @@ function link(platform: string): SocialLinkView {
 
 async function grid(platforms: string[]): Promise<HTMLElement> {
   getSocialLinksMock.mockResolvedValue(platforms.map(link));
-  // Свой контейнер на каждый рендер: в одном тесте сетка строится несколько раз, и глобальный
-  // поиск по документу нашёл бы ссылки предыдущей сетки.
+  // A fresh container per render: one test builds the grid several times, and a document-wide
+  // search would find the previous grid's links.
   const { container } = render(<SocialTile />);
   await within(container).findByLabelText(platforms[0]);
   return container.querySelector(".social-grid") as HTMLElement;
@@ -43,9 +43,9 @@ async function grid(platforms: string[]): Promise<HTMLElement> {
 
 describe("SocialTile", () => {
   /**
-   * Число колонок приезжает ПЕРЕМЕННОЙ, а не inline-стилем `grid-template-columns`: в мобильном
-   * стеке квадратная сетка становится одним рядом, а inline-стиль CSS не перебивает ничем,
-   * кроме `!important` (тот же приём, что у ширины карточки музыки).
+   * The column count arrives as a VARIABLE rather than an inline `grid-template-columns`: in the
+   * mobile stack the square grid becomes one row, and CSS cannot override an inline style without
+   * `!important` (the same device as the music card's width).
    */
   it("отдаёт квадратную сетку переменной --social-cols, а не inline-раскладкой", async () => {
     const el = await grid(["github", "telegram", "x", "instagram"]);
@@ -63,10 +63,9 @@ describe("SocialTile", () => {
   });
 
   /**
-   * Фирменную марку платформы компонент только ПУБЛИКУЕТ (адрес в `--social-brand` + метка
-   * `social-icon--brand`); показать её или красить одноцветную маску токеном — дело скина
-   * волны. Платформе без своей марки переменная не приезжает вовсе, иначе скин нарисовал бы
-   * пустой фон вместо значка.
+   * The component only PUBLISHES a platform's brand mark (an address in `--social-brand` plus the
+   * `social-icon--brand` flag); whether to show it is the wave skin's decision. A platform with no
+   * mark gets no variable at all, or the skin would draw an empty background instead of an icon.
    */
   it("публикует фирменную марку платформы переменной, а решение оставляет скину", async () => {
     const el = await grid(["github", "telegram", "x", "instagram", "mastodon"]);
@@ -75,14 +74,14 @@ describe("SocialTile", () => {
     for (const p of ["github", "telegram", "x", "instagram"]) {
       expect(icon(p)).toHaveClass("social-icon--brand");
       expect(icon(p).style.getPropertyValue("--social-brand")).toBe(`url(/assets/social/brand/${p}.svg)`);
-      // Одноцветная маска остаётся при ней: волна вправе выбрать её, а не марку.
+      // The single-colour mask stays alongside: a wave may choose it instead of the brand mark.
       expect(icon(p).style.getPropertyValue("--social-mask")).toBe(`url(/assets/social/${p}.svg)`);
     }
     expect(icon("mastodon")).not.toHaveClass("social-icon--brand");
     expect(icon("mastodon").style.getPropertyValue("--social-brand")).toBe("");
   });
 
-  /** Одному ряду в стеке нужно САМО число ссылок — из числа колонок его не вывести. */
+  /** A single row in the stack needs the link COUNT itself — it cannot be derived from columns. */
   it("отдаёт число ссылок переменной --social-count (ряд в мобильном стеке)", async () => {
     const el = await grid(["github", "telegram", "x", "instagram"]);
     expect(el.style.getPropertyValue("--social-count")).toBe("4");
@@ -117,8 +116,8 @@ describe("SocialTile — превью последнего поста (реда�
   it("в редакции peek карточка поста висит у марки Instagram", async () => {
     getPostMock.mockResolvedValue(post);
     await tile("peek");
-    // Карточка живёт в ПОРТАЛЕ (плитка режет содержимое, см. HoverTip), поэтому ищем
-    // её в документе, а не в контейнере плитки.
+    // The card lives in a PORTAL (a tile clips its content, see HoverTip), so it is searched for
+    // in the document rather than the tile's container.
     const card = await screen.findByText("347 отметок «Нравится»");
     expect(card).not.toBeNull();
     expect(document.querySelector(".ig-peek")).not.toBeNull();
@@ -140,10 +139,9 @@ describe("SocialTile — превью последнего поста (реда�
   });
 
   it("марка с карточкой стоит в ячейке так же, как марки без неё", async () => {
-    // ⚠️ Регрессия прода. Обёртка подсказки появляется ВМЕСТЕ с данными — то есть у одной
-    // марки из четырёх и только когда пост доехал. `inline-block`-обёртка схлопывала ссылку
-    // с `w-full` в ноль: знак уезжал из ячейки влево-вверх, пока соседи стояли на месте.
-    // Обёртка обязана быть безразличной к раскладке, потому что она то есть, то нет.
+    // ⚠️ A production regression. The hint wrapper appears WITH the data — on one mark of four and
+    // only once the post arrives. An `inline-block` wrapper collapsed the `w-full` link to zero and
+    // the mark drifted out of its cell. The wrapper must be layout-neutral, because it comes and goes.
     getPostMock.mockResolvedValue(post);
     const container = await tile("peek");
     await screen.findByText("вечерний двор", { exact: false });
@@ -151,7 +149,7 @@ describe("SocialTile — превью последнего поста (реда�
     const anchors = container.querySelectorAll(".hover-tip-anchor");
     expect(anchors).toHaveLength(1);
     expect(anchors[0]).toHaveClass("hover-tip-anchor--fill");
-    // Ссылка внутри обёртки — та же полноразмерная карточка, что и у соседей.
+    // The link inside the wrapper is the same full-size card as its neighbours'.
     expect(anchors[0].querySelector("a")).toHaveClass("h-full", "w-full");
   });
 
@@ -180,14 +178,14 @@ describe("SocialTile — визитка Telegram (редакция peek)", () =>
   it("в редакции peek визитка висит у марки Telegram", async () => {
     getTelegramMock.mockResolvedValue(profile);
     await tile("peek");
-    // Карточка живёт в ПОРТАЛЕ (плитка режет содержимое, см. HoverTip) — ищем в документе.
+    // The card lives in a PORTAL (a tile clips its content, see HoverTip) — search the document.
     await screen.findByText("Данила");
     expect(screen.getByText("@danchuo")).not.toBeNull();
     expect(screen.getByText("keep")).not.toBeNull();
     expect(document.querySelector(".tg-peek")).not.toBeNull();
   });
 
-  /** Обе гиперссылки ведут туда же, куда сама марка: адрес профиля у борда ОДИН. */
+  /** Both hyperlinks lead where the mark itself does: the board has ONE profile address. */
   it("аватар и кнопка ведут по адресу самой марки", async () => {
     getTelegramMock.mockResolvedValue(profile);
     await tile("peek");
@@ -205,7 +203,7 @@ describe("SocialTile — визитка Telegram (редакция peek)", () =>
     expect(container.querySelector('a[aria-label="telegram"]')).not.toBeNull();
   });
 
-  /** Пустой статус — законное состояние аккаунта: строки просто нет, прочерка тоже. */
+  /** An empty status is a legitimate account state: the line is simply absent, with no dash. */
   it("аккаунт без статуса не рисует строку статуса", async () => {
     getTelegramMock.mockResolvedValue({ ...profile, bio: null });
     await tile("peek");
@@ -213,7 +211,7 @@ describe("SocialTile — визитка Telegram (редакция peek)", () =>
     expect(document.querySelector(".tg-peek__bio")).toBeNull();
   });
 
-  /** Аватара может не быть — на его месте штатный серый круг, а не дыра в раскладке. */
+  /** There may be no avatar — a standard grey circle takes its place, not a hole in the layout. */
   it("аккаунт без аватара оставляет круг на месте", async () => {
     getTelegramMock.mockResolvedValue({ ...profile, avatarUrl: null });
     await tile("peek");
@@ -238,10 +236,9 @@ describe("SocialTile — переезд курсора с марки на мар
   const profile = { name: "Данила", username: "danchuo", bio: "keep", avatarUrl: null };
 
   /**
-   * ⚠️ Регрессия прода. Марки стоят вплотную, и переезд с одной на соседнюю — это уход с
-   * первой и приход на вторую в один момент. Уход с карточки отложен (курсор должен успеть
-   * доехать до неё через зазор), поэтому прежняя карточка досиживала свою отсрочку под уже
-   * раскрытой новой: на мгновение было видно две наложенные.
+   * ⚠️ A production regression. The marks stand flush, so moving from one to its neighbour is a
+   * leave and an enter in the same moment. Leaving a card is delayed (the cursor must cross the
+   * gap), so the previous card sat out its delay under the new one: two overlapped for an instant.
    */
   it("карточка предыдущей марки гаснет сразу, не досиживая отсрочку", async () => {
     getPostMock.mockResolvedValue(post);
@@ -256,7 +253,7 @@ describe("SocialTile — переезд курсора с марки на мар
     fireEvent.pointerEnter(igAnchor);
     expect(tipOf(".ig-peek")).toHaveAttribute("data-open", "true");
 
-    // Ровно как ведёт себя указатель: уходит с первой марки и тут же приходит на вторую.
+    // Exactly how a pointer behaves: it leaves the first mark and arrives at the second at once.
     fireEvent.pointerLeave(igAnchor);
     fireEvent.pointerEnter(tgAnchor);
 
@@ -264,7 +261,7 @@ describe("SocialTile — переезд курсора с марки на мар
     expect(tipOf(".ig-peek")).not.toHaveAttribute("data-open");
   });
 
-  /** Переезд с марки НА её же карточку отсрочку не отменяет — иначе до ссылок не доехать. */
+  /** Moving from a mark ONTO its own card does not cancel the delay — or the links are unreachable. */
   it("переезд на саму карточку её не гасит", async () => {
     getPostMock.mockResolvedValue(post);
     getSocialLinksMock.mockResolvedValue([link("instagram")]);

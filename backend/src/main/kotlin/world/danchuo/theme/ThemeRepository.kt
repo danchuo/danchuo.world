@@ -5,9 +5,8 @@ import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
 
 /**
- * Доступ к волнам. Публичный шов слайса:
- * - [findActive] — активная волна (default отображения); `null`, если ни одна не размечена.
- * - [listReleased] — все выпущенные (для переключателя), старые первыми по [Theme.releasedAt].
+ * Access to waves, the slice's public seam: [findActive] gives the display default or `null` when
+ * none is marked, and [listReleased] gives every released wave for the switcher, oldest first.
  */
 @ApplicationScoped
 class ThemeRepository : PanacheRepository<Theme> {

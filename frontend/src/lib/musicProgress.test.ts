@@ -8,7 +8,7 @@ import {
   type ProgressSample,
 } from "./musicProgress";
 
-/** Снимок «пришёл ответ сервера в момент T с головкой P». */
+/** A snapshot: "the server's answer arrived at moment T with the playhead at P". */
 function sample(progressMs: number | null, atMs: number, isPlaying: boolean): ProgressSample {
   return { progressMs, atMs, isPlaying };
 }
@@ -19,12 +19,12 @@ describe("elapsedMs", () => {
   });
 
   it("пока играет — головка едет вместе с часами", () => {
-    // Ответ приехал на 1000-й мс с головкой 107с; спустя 3с головка должна быть на 110с.
+    // The answer arrived at ms 1000 with the head at 107s; three seconds later it must be at 110s.
     expect(elapsedMs(sample(107_000, 1_000, true), 4_000, 390_000)).toBe(110_000);
   });
 
   it("не переезжает конец трека", () => {
-    // Вкладка была скрыта полчаса — без потолка головка ушла бы далеко за длительность.
+    // The tab was hidden for half an hour — with no ceiling the head would run past the duration.
     expect(elapsedMs(sample(380_000, 0, true), 1_800_000, 390_000)).toBe(390_000);
   });
 
@@ -33,7 +33,7 @@ describe("elapsedMs", () => {
   });
 
   it("часы, ушедшие назад, головку не отматывают", () => {
-    // Системное время может прыгнуть назад (синхронизация NTP); прогресс от этого не обязан.
+    // The system clock can jump backwards (an NTP sync); the progress need not follow.
     expect(elapsedMs(sample(107_000, 10_000, true), 4_000, 390_000)).toBe(107_000);
   });
 
@@ -55,7 +55,7 @@ describe("progressRatio", () => {
   it("без длительности или головки доли нет", () => {
     expect(progressRatio(195_000, null)).toBeNull();
     expect(progressRatio(null, 390_000)).toBeNull();
-    // Нулевая длительность — деление на ноль, а не «трек пройден».
+    // A zero duration is a division by zero, not "the track is finished".
     expect(progressRatio(0, 0)).toBeNull();
   });
 });
@@ -68,7 +68,7 @@ describe("formatClock", () => {
   });
 
   it("секунды округляются ВНИЗ — как в плеере", () => {
-    // 1:47.9 на экране плеера всё ещё 1:47: секунда «наступает», а не «округляется».
+    // 1:47.9 on a player's screen is still 1:47: a second arrives rather than rounds.
     expect(formatClock(107_900)).toBe("1:47");
   });
 
@@ -96,8 +96,8 @@ describe("headSample", () => {
   });
 
   it("протухший снимок головки не даёт", () => {
-    // Копия из localStorage может пролежать сутки: досчитывать по ней значило бы показать
-    // трек доигранным до конца, хотя на деле неизвестно даже, играет ли он.
+    // A copy in localStorage may sit for a day: extrapolating from it would show the track played
+    // out, when it is not even known whether it is playing.
     const stale = headSample(107_000, 0, true, HEAD_MAX_AGE_MS + 1);
     expect(stale.progressMs).toBeNull();
     expect(stale.isPlaying).toBe(false);
@@ -108,8 +108,8 @@ describe("headSample", () => {
   });
 
   it("копия из кэша встаёт на своё место, а не в начало трека", () => {
-    // Ровно случай F5 внутри окна опроса: снимок записан 12с назад с головкой 1:47.
-    // Без опоры на его СОБСТВЕННОЕ время шкала откатывалась бы к 1:47 и догоняла рывком.
+    // Exactly an F5 inside the polling window: the snapshot was written 12s ago. Without anchoring
+    // to its OWN time the scale would roll back and then catch up in a jump.
     const sample = headSample(107_000, 1_000, true, 13_000);
     expect(elapsedMs(sample, 13_000, 390_000)).toBe(119_000);
   });

@@ -2,18 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Тонкий self-contained сервер для Docker-образа (docker-compose в корне).
+  // A thin self-contained server for the Docker image (docker-compose at the repo root).
   output: "standalone",
   experimental: {
-    // Прокси Next буферизует проксируемое тело и по умолчанию режет его на 10MB — zip
-    // фото-дропа (~100MB+) обрезается, и бэкенд получает битый multipart (ECONNRESET → 500).
-    // Поднимаем лимит. В реальном проде /api проксирует Caddy (не Next) — там лимита нет.
-    // (Next 15.x: ключ `middlewareClientMaxBodySize`; в 16 переименован в `proxyClientMaxBodySize`.)
+    // Next's proxy buffers the body it forwards and caps it at 10MB by default, so a photo-drop
+    // zip (~100MB+) is truncated and the backend gets broken multipart (ECONNRESET → 500). In real
+    // production Caddy proxies the API, not Next. Renamed `proxyClientMaxBodySize` in Next 16.
     middlewareClientMaxBodySize: "600mb",
   },
-  // Same-origin прокси к бэкенду: браузер бьёт в /api/* (тот же origin, без CORS),
-  // Next-сервер проксирует на Quarkus. Зеркалит прод за Caddy. Цель — из env
-  // (в Docker — http://backend:8080; локально по умолчанию — http://localhost:8080).
+  // Same-origin proxy to the backend: the browser hits /api/* on its own origin (no CORS) and the
+  // Next server forwards to Quarkus, mirroring production behind Caddy. The target comes from env
+  // (http://backend:8080 in Docker, http://localhost:8080 locally).
   async rewrites() {
     const target = process.env.API_PROXY_TARGET ?? "http://localhost:8080";
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];

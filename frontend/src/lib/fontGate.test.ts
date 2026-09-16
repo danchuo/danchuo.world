@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-// Проекту `logic` положено окружение node (vitest.config.ts), но ворота живут в документе:
-// проверять их без DOM нечем, поэтому окружение переопределено для одного файла.
+// The `logic` project runs in node (vitest.config.ts), but the gate lives in the document: there
+// is no way to check it without a DOM, so the environment is overridden for this one file.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FONT_GATE_SCRIPT, FONT_GATE_TIMEOUT_MS, onFontsReady } from "./fontGate";
 
-/** Исполняем ровно ту строку, что уезжает в `<head>`. */
+/** Execute exactly the line that goes into `<head>`. */
 function runGate() {
   // eslint-disable-next-line no-new-func
   new Function(FONT_GATE_SCRIPT)();
@@ -63,7 +63,7 @@ describe("ворота шрифта", () => {
 });
 
 describe("ворота ждут первой раскладки", () => {
-  /** Пока документ парсится, `document.fonts` пуст — ни один файл ещё не запрошен. */
+  /** While the document parses, `document.fonts` is empty — no file has been requested yet. */
   function withReadyState(value: DocumentReadyState) {
     Object.defineProperty(document, "readyState", { value, configurable: true });
   }
@@ -80,7 +80,7 @@ describe("ворота ждут первой раскладки", () => {
     withFonts(Promise.resolve());
     runGate();
 
-    // Обещание уже выполнено — если бы ворота подписались сразу, они бы открылись.
+    // The promise is already settled — had the gate subscribed at once, it would have opened.
     await Promise.resolve();
     await Promise.resolve();
     expect(state()).toBe("pending");
@@ -101,8 +101,8 @@ describe("ворота ждут первой раскладки", () => {
       configurable: true,
       get: () => (measured += 1),
     });
-    // Снимаем подмену здесь же, а не после проверок: упавший тест иначе оставил бы её
-    // соседям по файлу.
+    // The stub is removed here rather than after the assertions: a failing test would otherwise
+    // leave it for its neighbours in the file.
     onAfter = () => delete (document.body as unknown as Record<string, unknown>).offsetHeight;
     withFonts(Promise.resolve());
     runGate();

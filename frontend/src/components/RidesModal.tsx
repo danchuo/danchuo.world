@@ -21,16 +21,16 @@ import { useDropMorph } from "./useDropMorph";
 interface RidesModalProps {
   rides: RideView[];
   today: string;
-  /** Активная волна — пробрасывается в карту для выбора пиксельных пинов (DESIGN §12). */
+  /** The active wave, passed into the map to pick the pixel pins (DESIGN §12). */
   wave?: string | null;
   /**
-   * Редакция виджета (см. `RideEdition` в [RideTile]): `map` разворачивает окно в разворот —
-   * карта слева, список справа, — всё прочее оставляет прежнюю колонку. Строка как есть.
+   * Widget edition (see `RideEdition` in [RideTile]): `map` unfolds the window into a spread — map
+   * left, list right — and anything else keeps the former column. Taken as a string.
    */
   edition?: string;
   /**
-   * Карта на плитке борда, из которой растёт карта окна (проявка, DESIGN §7.5). Играть
-   * движение или нет, решает скин волны (`--drop-morph`) — здесь только источник.
+   * The board tile's map, which the window's map grows from (develop transition, DESIGN §7.5).
+   * Whether the movement plays is decided by the wave's skin (`--drop-morph`); only the source is here.
    */
   origin?: RefObject<HTMLElement | null>;
   onClose: () => void;
@@ -40,30 +40,9 @@ const hasCoords = (r: RideView | undefined): r is RideView =>
   !!r && r.startLat != null && r.startLon != null && r.finishLat != null && r.finishLon != null;
 
 /**
- * Модалка «поездки» Велобайк (PRD §9 B4, DESIGN §7.6) — тот же контур, что у модалки фото-дропов
- * (§5.12): большое всплывающее окно, затемнённый фон, закрытие по `×`/`Esc`/клику по фону,
- * фокус-трап. Открывается по кнопке «предыдущие» ИЛИ по клику на карту тайла.
- *
- * Внутри — **карта** выбранной поездки (путь старт→финиш, пины активной волны), **выбираемый
- * список** всех поездок (прокручивается независимо) и **сводка за месяц** тихой строкой. По
- * умолчанию выбрана самая свежая (первая в списке = та, что на тайле); клик по строке
- * перерисовывает карту динамически. Список уже загружен тайлом (передаётся пропом) — модалка
- * не делает повторный запрос.
- *
- * Редакция `map` (её выбирает волна, см. `RideEdition`) раскладывает те же три части
- * **разворотом**: карта слева, список справа, сводка строкой под ними. Причина не в моде на
- * колонки: на плитке этой редакции карта занимает всё, и окно, открывающееся из неё узкой
- * полосой карты над списком, читалось бы шагом назад — карта обязана остаться главной.
- * Прочие редакции оставляют прежнюю колонку (карта сверху, список под ней).
- *
- * В развороте разведены и ОТВЕТЫ: «сколько» (дистанция, время, калории, деньги выбранной
- * поездки) стоит шапкой над картой, «когда и откуда куда» — строками списка. Слово «поездки»
- * шапке не нужно: окно и так о них, а место лучше отдать данным.
- *
- * Карта приезжает **проявкой** из плитки (§7.5), если её попросил скин волны: шов [useDropMorph]
- * тот же, что у галереи дропа, и о поездках он не знает — ему нужны источник (`origin`), сцена
- * и «герой». Ждём при этом первых тайлов карты (`onReady`): пустой серый прямоугольник, летящий
- * через экран, — не то движение, ради которого шов заводили.
+ * The Velobike rides modal, the same shape as the photo-drop one: the selected ride's map, a
+ * selectable list and a month summary. The `map` edition lays those three as a SPREAD, because in
+ * that edition the tile is all map and a narrow strip above a list would read as a step back.
  */
 export function RidesModal({ rides, today, wave, edition, origin, onClose }: RidesModalProps) {
   const spread = edition === "map";
@@ -80,9 +59,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     [rides, selectedId],
   );
 
-  // Сводка за текущий месяц (шапка под картой) — тянем лениво при открытии модалки; сбой
-  // глотаем (строка второстепенна, без неё модалка живёт списком). Деньги считает бэк с учётом
-  // дедупликации покупок тарифов — на фронте это не восстановить (см. `RideMonthSummaryView`).
+  // Current month's summary (the header under the map), fetched lazily on opening; a failure is
+  // swallowed, the line being secondary. The money is computed by the backend with tariff purchases
+  // deduplicated, which the frontend cannot reconstruct (see `RideMonthSummaryView`).
   useEffect(() => {
     const ctrl = new AbortController();
     getRideMonthSummary({ signal: ctrl.signal }).then(setSummary).catch(() => {});
@@ -93,24 +72,22 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
   const summaryMinutes = summary ? Math.round(summary.durationSeconds / 60) : 0;
   const summaryRubles = summary ? rublesWhole(summary.spentKopecks) : 0;
 
-  // Проявка: карта растёт из плитки борда (DESIGN §7.5). Шов общий с галереей дропа, включает
-  // его волна (`--drop-morph`), поэтому здесь нет ни ключа волны, ни единого числа анимации.
+  // Develop transition: the map grows out of the board tile (DESIGN §7.5). The seam is shared with the
+  // drop gallery and switched on by the wave, so no wave key or animation number lives here.
   const { playIn, requestClose } = useDropMorph({ origin, sceneRef, onClose });
-  // Играем, когда карте есть что показать: тайлы приехали — или показывать нечего в принципе
-  // (у поездки нет координат, на месте карты заглушка). Layout-эффект, а не обычный, — как у
-  // галереи: трансформация обязана лечь ДО первой отрисовки окна.
+  // Played once the map has something to show: the tiles have arrived, or there is nothing to show at
+  // all (a ride without coordinates gets a placeholder). A layout effect, as in the gallery — the
+  // transform must land BEFORE the window's first paint.
   useLayoutEffect(() => {
     if (mapReady || !hasCoords(selected)) playIn();
   }, [mapReady, selected, playIn]);
 
-  // Системное «Назад» закрывает окно, а не уводит с сайта (DESIGN §9).
+  // The system Back closes the window rather than leaving the site (DESIGN §9).
   useBackToClose(true, requestClose);
 
-  // Список докручен до конца? От этого зависит растворение нижней строки (аффорданс прокрутки,
-  // common.css): пока внизу что-то есть — строка уходит под край, докрутили — маска снимается.
-  // «Влезло целиком» считается тем же условием и даёт `true` — фейд не появляется вовсе.
-  // Пересчёт и на прокрутку, и на изменение размера колонки: разворот доезжает до своих размеров
-  // уже после открытия (проявка), и замер на маунте сам по себе не окончателен.
+  // Is the list scrolled to the end? The bottom row's fade depends on it, and "it all fits" counts
+  // as true so no fade appears. Recomputed on scroll AND on column resize: the spread reaches its
+  // real size only after opening, so a measurement on mount is not final.
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -152,10 +129,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     return () => window.removeEventListener("keydown", onKey);
   }, [requestClose]);
 
-  // Карта выбранной поездки. Один и тот же узел в обеих редакциях — меняется только место,
-  // куда его кладут: колонкой сверху или левой половиной разворота. Он же «герой» проявки
-  // (`data-morph-hero`) и её «лицо» (`data-morph-face` — слой, который режется клипом на время
-  // полёта; у дропа лицом работает снимок, здесь — сама карта).
+  // The selected ride's map. THE SAME NODE in both editions — only where it is placed changes. It
+  // is also the develop transition's hero and its face, the layer clipped during the flight; for a
+  // drop the face is the photo, here it is the map itself.
   const map = (
     <div
       className={spread ? "ride-modal__map" : "shrink-0"}
@@ -191,9 +167,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     </div>
   );
 
-  /* Сводка за текущий месяц — тихая однострочная подпись (не скроллится со списком).
-     Ненавязчиво: без плашки/рамки, приглушённый моно; числа чуть ярче единиц. Нет поездок
-     в этом месяце ⇒ строки нет вовсе. */
+  /* Current month's summary as a quiet one-line caption that does not scroll with the list. Unobtrusive:
+     no plate or border, muted mono, with the figures a little brighter than the units. No rides this
+     month ⇒ no line at all. */
   const summaryLine = showSummary && (
     <div
       className="ride-modal__summary shrink-0 flex flex-wrap items-baseline"
@@ -210,13 +186,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
   );
 
   /**
-   * Данные ВЫБРАННОЙ поездки в шапке разворота (вместо слова «поездки»): дистанция голосом
-   * заголовка, при ней моно-строкой время, калории и деньги. Шапка отвечает на «сколько», список
-   * справа — на «когда и откуда куда»; пока цифры стояли в каждой строке списка, оба ответа
-   * лежали в одном столбце, и столбец рябил (см. строй строки ниже).
-   *
-   * Только в развороте: в колоночной раскладке список — единственное место, где вообще есть
-   * данные поездки, и вынимать их оттуда некуда.
+   * The SELECTED ride's figures in the spread's header, in place of the word "rides": the header
+   * answers "how much" and the list "when and where". While the figures sat in every list row,
+   * both answers shared one column and it shimmered. Spread only — a column has nowhere else.
    */
   const headline = selected && (
     <div className="ride-modal__headline flex min-w-0 flex-wrap items-baseline">
@@ -229,19 +201,20 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     </div>
   );
 
-  /* Прокручиваемый список: строка = кнопка выбора, выделенная подсвечена. В развороте ползунок
-     снят, а взамен нижняя строка растворяется под краем колонки (`--fade`, common.css) — знание
-     о том, что список длиннее окна, обязано остаться, когда полосу убрали.
+  /* Scrollable list: a row is a selection button, the selected one highlighted. In the spread the
+     scrollbar is removed and the bottom row dissolves under the column's edge instead (`--fade`,
+     common.css) — the knowledge that the list is longer than the window has to survive its removal. */
 
-     Строй строки в развороте: имя дня, километры при нём, дата мелко справа, под ними —
-     станции. Километры — ЕДИНСТВЕННАЯ цифра, которая повторяется из шапки: «сколько проехал»
-     — первый вопрос к чужой строке, и отвечать на него выбором строки значило бы заставить
-     перебрать весь список. Прочие цифры (время, калории, деньги) остаются только в шапке
-     у карты: со всеми сразу список читался таблицей одинаково громких строк.
-     В колоночной раскладке цифры остаются в строке целиком: другой шапки там нет.
+  /* Row structure in the spread: day name, its kilometres beside it, the date small on the right, and
+     the stations below. Kilometres are the ONLY figure repeated from the header, because "how far" is
+     the first question asked of someone else's row. */
 
-     Строка разворота мельче колоночной на треть (`--ride-row-scale`): ширина колонки отдана
-     карте, и набор прежнего кегля в ней жил бы одними многоточиями. */
+  /* Time, calories and money stay in the header by the map: all of them at once made the list read as
+     a table of equally loud rows. In the column layout the figures stay in the row, there being no
+     other header there. */
+
+  /* A spread row is a third smaller than a column one (`--ride-row-scale`): the column's width went to
+     the map, and text at the former size would live there entirely in ellipses. */
   const list = (
     <ul
       ref={listRef}
@@ -253,7 +226,7 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     >
       {rides.map((r) => {
         const isSel = r.id === selected.id;
-        const cost = formatRideCost(r); // «406 ₽ (доступ 399 + 7 сверх)» и прочие формы
+        const cost = formatRideCost(r); // "406 ₽ (access 399 + 7 over)" and other shapes
         return (
           <li key={r.id} role="option" aria-selected={isSel}>
             <button
@@ -264,10 +237,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
               }`}
             >
               <div className="flex min-w-0 items-baseline justify-between gap-2">
-                {/* Имя дня и километры — ОДНА группа слева: они про одну поездку и читаются
-                    подряд. Дата держится правого края строки (служебная метка стоит там, где
-                    её ищут глазами), а место между ними выбирает усечение имени — уступает
-                    именно оно, потому что оно одно тут переменной длины. */}
+                {/* The day's name and the kilometres are ONE group on the left: they are about one
+                    ride and read in sequence. The date holds the row's right edge, and the space
+                    between is given up by the name — the only part of variable length. */}
                 <span className="ride-modal__when flex min-w-0 items-baseline">
                   <span
                     className="ride-modal__day"
@@ -288,10 +260,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
               )}
               {(r.startAddress || r.finishAddress) &&
                 (spread ? (
-                  /* Две станции — ДВЕ строки, каждая в одну линию с многоточием. Одной строкой
-                     длинная пара переносилась по-своему у каждой поездки, и список шёл рваными
-                     блоками разной высоты: искать в нём глазами было нечего. Строки ровные —
-                     список читается столбцом, а не кладкой. */
+                  /* Two stations on TWO lines, each a single line with an ellipsis. On one line a long
+                     pair wrapped differently for every ride and the list went in ragged blocks of
+                     different heights, with nothing for the eye to search by. */
                   <div className="ride-modal__stations">
                     <span className="ride-modal__station">{formatStationAddress(r.startAddress) ?? "?"}</span>
                     <span className="ride-modal__station">
@@ -316,10 +287,9 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
   );
 
   return (
-    // `drop-scene` — сцена проявки, а не «слой дропа»: затемнение (`--modal-scrim`), такты
-    // движения и экранное стекло волны живут на ней (common.css). Имя осталось от первого
-    // жильца, как и весь словарь шва (`--drop-morph-*`); второй жилец переезжает в него,
-    // а не заводит рядом свой.
+    // `drop-scene` is the develop transition's SCENE, not "the drop's layer": the scrim, the motion
+    // timings and the wave's screen glass all live on it. The name stayed from its first tenant,
+    // as did the whole seam's vocabulary; a second tenant moves in rather than building beside it.
     <div
       ref={sceneRef}
       className="drop-scene modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -334,8 +304,8 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
         style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Подложка «коробочки» + белая внутренняя рамка (§2.4) — как у TileShell:
-            панель-модалка несёт .pixel-tile сама, элементы слоёв добавляем сами. */}
+        {/* The box backing plus the white inner frame (§2.4), as in TileShell: the modal panel
+            carries .pixel-tile itself, so the layer elements are added here. */}
         <span className="pixel-slab" aria-hidden />
         <span className="pixel-lid" aria-hidden />
         <div className="ride-modal__head mb-3 flex shrink-0 items-center justify-between gap-3">
@@ -360,11 +330,11 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
           <p style={monoTertiary}>поездок пока нет</p>
         ) : spread ? (
           <>
-            {/* Разворот: карта слева, список справа — обе половины ужимаются вместе с окном,
-                сводка лежит строкой под ними во всю ширину. */}
+            {/* The spread: map left, list right, both halves shrinking with the window, with the
+                summary as a full-width row beneath them. */}
             <div className="ride-modal__body flex min-h-0 flex-1">
-              {/* Карта и кнопка — одна колонка: кнопка действует на карту и обязана стоять
-                  при ней, а не уезжать под список. */}
+              {/* The map and its button are one column: the button acts on the map and must stand
+                  with it rather than drift under the list. */}
               <div className="ride-modal__mapcol flex min-h-0 flex-col">{map}</div>
               {list}
             </div>
@@ -382,7 +352,7 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
   );
 }
 
-/** Один показатель сводки месяца в строку: число (чуть ярче) + просклонённая единица (приглушённо). */
+/** One month-summary figure as a line: the number (slightly brighter) plus its inflected unit (muted). */
 function SummaryStat({ value, unit }: { value: number; unit: string }) {
   return (
     <span style={{ ...mono, fontSize: "var(--fs-modal-meta)" }}>
@@ -400,8 +370,8 @@ const monoTertiary = {
   color: "var(--text-tertiary)",
 } satisfies CSSProperties;
 
-// Сводка месяца — тихая однострочная подпись под картой (ненавязчиво, без плашки/рамки): числа в
-// строку через точку-разделитель, приглушённый моно. Ниже карты с небольшим зазором, не наезжает.
+// Month summary as a quiet one-line caption under the map, without a plate or border: figures in a row
+// separated by a dot, in muted mono, set below the map with a small gap so nothing overlaps.
 const summaryRow = {
   columnGap: 6,
   rowGap: 2,

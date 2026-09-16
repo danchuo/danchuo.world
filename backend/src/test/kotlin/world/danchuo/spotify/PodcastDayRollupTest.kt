@@ -5,25 +5,23 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 /**
- * Свёртка суток в отметки и карточки (PRD §5.6). Два разных вопроса, и считаются они по-разному:
- * - **галочки** — по СУММЕ минут за сутки, без оглядки на эпизоды: каждые полные 25 минут
- *   закрывают одну остановку пункта. Только так переживают оба реальных сценария владельца —
- *   «два эпизода по 40 минут» и «один двухчасовой, половина туда, половина обратно»;
- * - **карточки** — по ЗАХОДАМ: первые два захода дня, каждый из которых перевалил сумму через
- *   очередную полную 25-минутку.
- *
- * Расхождение между ними — не баг, а следствие: марафон в один присест даёт две галочки и ОДНУ
- * карточку (заход-то был один), а тот же эпизод, взятый по дороге туда и обратно, — две галочки
- * и ДВЕ карточки, потому что заходов было два.
+ * Rolling a day up into marks and cards (PRD §5.6) — two questions counted differently. Marks go
+ * by the day's SUM of minutes (every full 25 closes a stop); cards go by SITTINGS, the first two
+ * that push the sum past another full 25.
+ */
+
+/**
+ * The divergence is a consequence, not a bug: a marathon in one sitting gives two marks and ONE
+ * card, while the same episode taken there and back gives two marks and TWO cards.
  */
 class PodcastDayRollupTest {
 
     private val morning: Instant = Instant.parse("2026-08-12T05:10:00Z")
 
-    /** Ключи строк — как в БД: у каждой сессии свой, и растут они по мере записи. */
+    /** Row keys as in the DB: one per session, growing as they are written. */
     private var nextSessionId = 1L
 
-    /** Заход: минуты слушал подряд, начиная с [at]. Сессия из БД приезжает сюда в этой же форме. */
+    /** A sitting: minutes listened in a row from [at]. A DB session arrives in this same shape. */
     private fun run(id: String, minutes: Long, at: Instant) = PodcastRun(
         sessionId = nextSessionId++,
         episodeId = id,
@@ -46,7 +44,7 @@ class PodcastDayRollupTest {
     private fun merge(vararg runs: PodcastRun, gapMinutes: Long = 45) =
         PodcastDayRollup.runs(runs.toList(), gapMinutes)
 
-    // ── галочки: min(target, floor(минуты / 25)) ──
+    // ── marks: min(target, floor(minutes / 25)) ──
 
     @Test
     fun `under the threshold closes nothing`() {
@@ -80,17 +78,17 @@ class PodcastDayRollupTest {
 
     @Test
     fun `partial minutes below the threshold do not round up`() {
-        // 49:59 — ещё один подкаст, ровно 50:00 — уже два.
+        // 49:59 is still one podcast; exactly 50:00 is two.
         assertEquals(1, PodcastDayRollup.occurrences(2_999_000, target = 2))
         assertEquals(2, PodcastDayRollup.occurrences(3_000_000, target = 2))
     }
 
-    // ── заходы: сессии одного эпизода, склеенные по паузе ──
+    // ── sittings: sessions of one episode, glued across a pause ──
 
     @Test
     fun `a short break keeps one run`() {
-        // Порог хранения (15 мин) рвёт сессию раньше, чем человек считает прослушивание
-        // прерванным: обед посреди эпизода — это тот же заход.
+        // The storage threshold (15 min) breaks a session sooner than a person considers listening
+        // interrupted: lunch in the middle of an episode is the same sitting.
         val before = run("A", 20, morning)
         val after = run("A", 15, morning.plusSeconds(20 * 60 + 30 * 60))
         val merged = merge(before, after)
@@ -101,13 +99,13 @@ class PodcastDayRollupTest {
 
     @Test
     fun `a glued run keeps the key of the strip it started with`() {
-        // Ключ захода — это ключ его ПЕРВОЙ строки: к нему привязан пересказ прослушанного
-        // (§5.16.1), и приклеенный следом кусок не должен уводить его на другую строку.
+        // A sitting's key is its FIRST row's key: the retelling hangs off it (§5.16.1), and a
+        // chunk glued on afterwards must not move it to another row.
         val before = run("A", 20, morning)
         val after = run("A", 15, morning.plusSeconds(20 * 60 + 30 * 60))
 
         assertEquals(before.sessionId, merge(before, after).single().sessionId)
-        // Порядок аргументов роли не играет: склейка идёт по времени, а не по вызову.
+        // Argument order does not matter: gluing goes by time, not by call.
         assertEquals(before.sessionId, merge(after, before).single().sessionId)
     }
 
@@ -132,12 +130,12 @@ class PodcastDayRollupTest {
         assertEquals(listOf("A", "B"), merge(evening, early).map { it.episodeId })
     }
 
-    // ── карточки: заходы, перевалившие сумму через очередную 25-минутку ──
+    // ── cards: sittings that pushed the sum past another 25 minutes ──
 
     @Test
     fun `one episode taken there and back gives two cards`() {
-        // Главный кейс владельца: 80 минут одного эпизода двумя заходами — две остановки
-        // и ДВЕ карточки, потому что заходов правда было два.
+        // The owner's main case: 80 minutes of one episode in two sittings — two stops and TWO
+        // cards, because there really were two sittings.
         val there = run("A", 45, morning)
         val back = run("A", 35, morning.plusSeconds(10 * 3600))
         assertEquals(listOf("A", "A"), cardIds(there, back))
@@ -160,8 +158,8 @@ class PodcastDayRollupTest {
 
     @Test
     fun `a run poked and abandoned earns no card but its minutes still count`() {
-        // 40 минут + 2 минуты «ткнул и бросил»: вторая остановка не закрыта вовсе (42 < 50),
-        // и карточки у тычка нет — он ни одной 25-минутки не перевалил.
+        // 40 minutes plus a 2-minute poke: the second stop is not closed at all (42 < 50), and the
+        // poke has no card — it pushed past no 25-minute mark.
         val real = run("A", 40, morning)
         val poked = run("B", 2, morning.plusSeconds(3600))
         assertEquals(listOf("A"), cardIds(real, poked))
@@ -170,8 +168,8 @@ class PodcastDayRollupTest {
 
     @Test
     fun `a fragmented day still fills both stops`() {
-        // Четыре куска по 20 минут: ни один сам по себе порога не берёт, но 25-ю и 50-ю
-        // минуту дня кто-то из них перевалил — эти двое и получают карточки.
+        // Four 20-minute chunks: none reaches the threshold alone, but two of them pushed the day
+        // past its 25th and 50th minute — those two get the cards.
         val runs = listOf(
             run("A", 20, morning),
             run("B", 20, morning.plusSeconds(2 * 3600)),

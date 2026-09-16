@@ -12,13 +12,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Сшивка отсчётов плеера в сессии и производная отметка пункта (PRD §5.6).
- *
- * Чистая арифметика проверена отдельно ([PodcastListenMathTest], [PodcastDayRollupTest]) — здесь
- * ровно то, что без БД не проверить: когда сессия тянется дальше, а когда начинается новая, и
- * кто выигрывает спор за отметку с интерактивным шорткатом.
- *
- * Тесты делят одну БД с соседями, поэтому дата своя и всё записанное убирается в [cleanup].
+ * Stitching player samples into sessions and deriving the item's mark (PRD §5.6). The pure
+ * arithmetic lives in [PodcastListenMathTest] and [PodcastDayRollupTest]; here is what needs a
+ * DB. The date is this class's own and everything written is removed in [cleanup].
  */
 @QuarkusTest
 class PodcastListenServiceTest {
@@ -35,7 +31,7 @@ class PodcastListenServiceTest {
     @Inject
     lateinit var checklistEntries: ChecklistEntryRepository
 
-    /** Своя дата: соседние тесты сеют дни фикстурами и не должны видеть чужие сессии. */
+    /** Our own date: neighbours seed days from fixtures and must not see these sessions. */
     private val date: LocalDate = LocalDate.of(2026, 3, 3)
     private val start: Instant = Instant.parse("2026-03-03T05:00:00Z")
 
@@ -62,7 +58,7 @@ class PodcastListenServiceTest {
         episodeDurationMs = 60L * 60_000,
     )
 
-    /** Прослушать [minutes] шагами по 10 минут — внутри порога разрыва, значит одной сессией. */
+    /** Listen for [minutes] in 10-minute steps — inside the gap threshold, so one session. */
     private fun listen(episodeId: String, minutes: Long, from: Instant): Instant {
         service.record(sample(episodeId, 0), date, from)
         var elapsed = 0L
@@ -80,7 +76,7 @@ class PodcastListenServiceTest {
 
     private fun sessionCount(): Int = QuarkusTransaction.requiringNew().call { sessions.listByDate(date).size }
 
-    /** Начала окон прослушивания за дату, в порядке появления сессий. */
+    /** The starts of the date's listening windows, in the order the sessions appeared. */
     private fun startProgresses(): List<Long?> = QuarkusTransaction.requiringNew().call {
         sessions.listByDate(date).sortedBy { it.startedAt }.map { it.startProgressMs }
     }
@@ -100,12 +96,12 @@ class PodcastListenServiceTest {
     @Test
     fun `one episode taken there and back gives a card to each run`() {
         listen("A", 30, start)
-        // Час тишины — пауза больше порога склейки: это уже другой заход.
+        // An hour of silence is longer than the gluing threshold: this is another sitting.
         listen("A", 30, start.plusSeconds(3600 + 30 * 60))
 
         assertEquals(2, sessionCount())
         assertEquals(60, service.minutesOn(date))
-        // Эпизод один, а карточки ДВЕ: обе остановки закрыты разными заходами.
+        // One episode, TWO cards: both stops were closed by different sittings.
         assertEquals(listOf("A", "A"), service.cardsOn(date, 2).map { it.episodeId })
         assertEquals(listOf(30, 30), service.cardsOn(date, 2).map { (it.listenedMs / 60_000).toInt() })
     }
@@ -113,7 +109,7 @@ class PodcastListenServiceTest {
     @Test
     fun `a short break stays one run even though storage split the session`() {
         listen("A", 30, start)
-        // 20 минут тишины: для хранения это новая сессия (порог 15), для борда — тот же заход.
+        // 20 minutes of silence: a new session for storage (threshold 15), the same sitting for the board.
         listen("A", 30, start.plusSeconds(30 * 60 + 20 * 60))
 
         assertEquals(2, sessionCount(), "хранение рвёт по своему порогу")
@@ -146,16 +142,16 @@ class PodcastListenServiceTest {
     fun `an episode started from the top is a stretch that begins at zero`() {
         listen("A", 30, start)
 
-        // Кусок эпизода, а не только его длина: 0 → 30 минут (PRD §5.16, вторая половина —
-        // пересказ прослушанного — без начала окна невозможна).
+        // The chunk of the episode, not just its length: retelling what was heard (PRD §5.16) is
+        // impossible without the window's start.
         assertEquals(listOf(0L), startProgresses())
         assertEquals(listOf(30L * 60_000), lastProgresses())
     }
 
     @Test
     fun `an episode continued from the middle keeps the middle as its start`() {
-        // Вчерашний эпизод продолжен с 20-й минуты: первые 20 минут слушали не сегодня, и
-        // засчитывать их нельзя — ни в минуты, ни в кусок, который потом пересказывать.
+        // Yesterday's episode resumed at minute 20: those first 20 minutes were not heard today
+        // and count neither as minutes nor as part of the chunk to retell.
         service.record(sample("A", 20), date, start)
         service.record(sample("A", 30), date, start.plusSeconds(600))
 
@@ -166,7 +162,7 @@ class PodcastListenServiceTest {
     @Test
     fun `each run of the same episode remembers where it began`() {
         listen("A", 30, start)
-        // Час тишины — новая сессия того же эпизода, и начинается она там, где кончилась прошлая.
+        // An hour of silence: a new session of the same episode, starting where the last one ended.
         service.record(sample("A", 30), date, start.plusSeconds(3600 + 30 * 60))
 
         assertEquals(listOf(0L, 30L * 60_000), startProgresses())
@@ -174,7 +170,7 @@ class PodcastListenServiceTest {
 
     @Test
     fun `a mark sent from the shortcut wins and the poller stops touching it`() {
-        // Шорткат отработал первым: строка становится ручной.
+        // The shortcut got there first: the row becomes manual.
         QuarkusTransaction.requiringNew().run {
             checklistEntries.upsert(date, checklistItems.findByKey(PODCAST_KEY)!!, 1)
         }
@@ -182,7 +178,7 @@ class PodcastListenServiceTest {
         listen("A", 60, start)
 
         assertEquals(1, markedCount(), "поллер насчитал две остановки, но ручной ввод главнее")
-        // Сессии при этом пишутся как обычно — карточки от спора за отметку не страдают.
+        // Sessions are still written as usual — cards do not suffer from the fight over the mark.
         assertEquals(60, service.minutesOn(date))
     }
 

@@ -10,9 +10,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Фото-дроп (PRD §5.12, §7) — пачка кадров за один день, как альбом-событие. Загрузка кадров —
- * B1-админка; до неё таблица пуста. [coverPhotoId] — плоская ссылка на обложку (FK без
- * JPA-отношения, как везде в проекте). [monthLabel] — подпись «месяц год».
+ * A photo drop (PRD §5.12, §7) — one day's batch of frames, like an event album. [coverPhotoId] is
+ * a flat cover reference (an FK without a JPA relation, as everywhere in this project) and
+ * [monthLabel] is the "month year" caption.
  */
 @Entity
 @Table(name = "film_drop")

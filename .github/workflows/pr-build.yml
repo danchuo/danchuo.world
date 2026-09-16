@@ -1,44 +1,44 @@
-name: PR · сборка и тесты
+name: PR · build and tests
 
-# Гейт на пул-реквестах: при PR в main собираем бэкенд с прогоном тестов.
-# Проваленная сборка/тесты => job красный => PR не вмёрджить (если check сделан required).
+# Pull-request gate: on a PR into main the backend is built with its tests.
+# A failed build or test turns the job red, so the PR cannot be merged (when the check is required).
 on:
   pull_request:
     branches: [ main ]
 
-# Новый пуш в ветку PR отменяет предыдущий ещё бегущий прогон.
+# A new push to the PR branch cancels the previous run if it is still going.
 concurrency:
   group: pr-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Сборка + тесты (backend)
+    name: Build + tests (backend)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Java 25 — канон стека. Раннер ставит JDK и выставляет JAVA_HOME.
-      - name: Установить JDK 25
+      # Java 25 is the stack's canon. The runner installs the JDK and sets JAVA_HOME.
+      - name: Install JDK 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
 
-      - name: Подготовить Gradle (с кэшем)
+      - name: Set up Gradle (cached)
         uses: gradle/actions/setup-gradle@v4
 
-      # build тянет за собой test (Dev Services поднимает Postgres в Docker раннера).
-      # org.gradle.java.home в gradle.properties указывает на Windows-путь разработчика —
-      # перебиваем его на JAVA_HOME раннера, иначе Gradle-демон не стартует.
-      - name: Сборка с тестами
+      # `build` pulls `test` with it (Dev Services raises Postgres in the runner's Docker).
+      # `org.gradle.java.home` in gradle.properties points at the developer's Windows path, so it is
+      # overridden with the runner's JAVA_HOME or the Gradle daemon never starts.
+      - name: Build with tests
         working-directory: backend
         run: |
           chmod +x ./gradlew
           ./gradlew build -Dorg.gradle.java.home="$JAVA_HOME" --no-daemon
 
-      # Отчёты тестов — артефактом, чтобы разбирать падения не вслепую.
-      - name: Загрузить отчёты тестов
+      # Test reports as an artifact, so failures can be examined rather than guessed at.
+      - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -48,24 +48,29 @@ jobs:
           retention-days: 7
 
   frontend:
-    name: Тесты + сборка (frontend)
+    name: Tests + build (frontend)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Установить Node 24
+      - name: Install Node 24
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Установить зависимости
+      - name: Install dependencies
         working-directory: frontend
         run: npm ci
 
-      # Тесты (Vitest) + проверка типов + продакшн-сборка Next.js.
-      - name: Тесты и сборка
+      # Comment budget (CLAUDE.md): a block over 3 lines, or Cyrillic, turns the PR red. The check
+      # covers the whole repository and lives here because Node is already set up at this point.
+      - name: Check the comment budget
+        run: node scripts/check-comment-budget.mjs
+
+      # Tests (Vitest), type check and the production Next.js build.
+      - name: Tests and build
         working-directory: frontend
         run: |
           npm run test

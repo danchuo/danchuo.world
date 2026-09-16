@@ -9,14 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Последний пост владельца (PRD §5.17) — синглтон-строка: на борде показывается ровно один,
- * история постов никому здесь не нужна.
- *
- * ⚠️ **Картинка НЕ хранится ссылкой на Instagram.** `media_url` из API — подписанный URL с
- * зашитым сроком: через несколько часов CDN отвечает 403 «URL signature expired», и карточка
- * на борде тихо пустеет. Поэтому байты снимаются себе ([InstagramImageStorage]), а наружу
- * уходит свой адрес. Отсюда же [mediaId]: по нему видно, что пост сменился и картинку надо
- * перекачать, — сам URL меняется и у того же поста, так что сравнивать по нему нельзя.
+ * The owner's latest post as a singleton row — the board shows exactly one and needs no history.
+ * The image is NOT kept as an Instagram link (signed, dead within hours): the bytes are taken
+ * locally, and [mediaId] is what says the post changed, since the URL churns by itself. §5.17
  */
 @Entity
 @Table(name = "instagram_post")
@@ -24,7 +19,7 @@ class InstagramPost {
     @Id
     var id: Long = SINGLETON_ID
 
-    /** Идентификатор медиа в Instagram — по нему видно, что пост сменился. */
+    /** Instagram media id — how we tell that the post has changed. */
     @Column(name = "media_id", nullable = false)
     lateinit var mediaId: String
 
@@ -34,7 +29,7 @@ class InstagramPost {
     @Column(name = "caption", columnDefinition = "TEXT")
     var caption: String? = null
 
-    /** `IMAGE`, `VIDEO`, `CAROUSEL_ALBUM` — как их называет Instagram. */
+    /** `IMAGE`, `VIDEO`, `CAROUSEL_ALBUM` — as Instagram names them. */
     @Column(name = "media_type", nullable = false)
     lateinit var mediaType: String
 
@@ -44,7 +39,7 @@ class InstagramPost {
     @Column(name = "comments_count")
     var commentsCount: Int? = null
 
-    /** Когда пост опубликован (не когда мы его забрали). */
+    /** When the post was published (not when we fetched it). */
     @Column(name = "posted_at", nullable = false)
     var postedAt: Instant = Instant.EPOCH
 

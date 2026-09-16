@@ -7,20 +7,16 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Ночь как она была (PRD §5.4, реестр I-23).
- *
- * Сумма минут отвечает «сколько спал», полоса — «как»: во сколько лёг, где провалился,
- * в какие минуты не спал. Данные для этого приходили с первого дня (ingest шлёт сырые куски),
- * но до сих пор схлопывались в четыре числа и терялись — теперь куски доживают до отдачи.
+ * The night as it was: the minute total answers "how much", the band answers "how" — when sleep
+ * started, where it broke, which minutes were awake. Raw segments now survive to the read side
+ * instead of collapsing into four numbers and being thrown away. PRD §5.4 (I-23)
  */
 object SleepNight {
 
     /**
-     * Ночь дня пробуждения: самая длинная сессия этого дня, разложенная во времени.
-     *
-     * Сессий у дня может быть несколько (дневной сон — тоже сессия, закончившаяся сегодня),
-     * и в сумму минут они входят все. В полосу — нет: дневные сорок минут растянули бы ось
-     * до вечера и сплющили саму ночь. Берётся сессия с наибольшим временем сна.
+     * The waking day's night: its LONGEST session, laid out in time. A day may hold several
+     * sessions — a nap also ends today — and all of them count toward the minute total but not
+     * toward the band: forty daytime minutes would stretch the axis and flatten the night itself.
      */
     fun of(segments: List<SleepSegment>, wakeDate: LocalDate, zone: ZoneId): List<SleepSegment> =
         SleepSessionizer.sessionsEndingOn(segments, wakeDate, zone)
@@ -28,25 +24,23 @@ object SleepNight {
             .maxByOrNull { asleepSeconds(it) }
             .orEmpty()
 
-    /** Секунды сна (без пробуждений — как считает Apple «Time Asleep», §7). */
+    /** Seconds asleep, excluding wake-ups — as Apple counts "Time Asleep" (§7). */
     internal fun asleepSeconds(parts: List<SleepSegment>): Long = parts
         .filter { it.stage != SleepStage.AWAKE }
         .sumOf { Duration.between(it.start, it.end).seconds }
 }
 
 /**
- * Ось полосы ночи: минуты от **18:00 MSK кануна** дня пробуждения.
- *
- * Почему не от полуночи: ночь лежит по обе стороны от неё, и на оси-сутках вечернее начало
- * уехало бы в конец шкалы, разорвав полосу надвое. Вечерний ноль оси держит любую нормальную
- * ночь одним куском слева направо, а клиенту достаточно арифметики, чтобы подписать часы.
+ * Axis of the night band: minutes from 18:00 MSK on the EVE of the waking day. Not from midnight,
+ * because a night lies on both sides of it — on a calendar-day axis the evening start would jump
+ * to the far end of the scale and tear the band in two. PRD §5.4
  */
 object SleepBand {
 
-    /** Час MSK, с которого начинается ось (и он же — ноль координат полосы). */
+    /** The MSK hour the axis starts at, which is also the band's coordinate zero. */
     const val AXIS_START_HOUR = 18
 
-    /** Длина оси в минутах: ровно сутки от [AXIS_START_HOUR] до него же. */
+    /** Axis length in minutes: exactly one day from [AXIS_START_HOUR] back to itself. */
     const val AXIS_MINUTES = 24 * 60
 
     fun of(night: List<SleepSegment>, wakeDate: LocalDate, zone: ZoneId): SleepBandView? {
@@ -54,8 +48,8 @@ object SleepBand {
         val origin = origin(wakeDate, zone)
         val parts = night.map {
             SleepBandPartView(
-                // Неразмеченный сон телефона — не пятая фаза, а тот же light: так его считает
-                // и сумма дня (§7). Клиенту знать про `unspecified` незачем.
+                // The phone's unlabelled sleep is not a fifth phase but the same light: that is
+                // how the day's sum counts it too (§7). The client need not know `unspecified`.
                 stage = (if (it.stage == SleepStage.UNSPECIFIED) SleepStage.LIGHT else it.stage).name.lowercase(),
                 fromMinute = minuteOf(origin, it.start),
                 toMinute = minuteOf(origin, it.end),
@@ -66,20 +60,21 @@ object SleepBand {
             onsetMinute = parts.first().fromMinute,
             wakeMinute = parts.last().toMinute,
             asleepMinutes = Math.round(SleepNight.asleepSeconds(night) / 60.0).toInt(),
-            // Сон мог начаться пробуждением (лёг, поворочался): полоса начинается там, где легли,
-            // а «уснул» — там, где пошёл первый сон. Пусто быть не может: ночь без сна сюда не едет.
+            // Sleep may open with a wake-up (lay down, tossed about): the band starts where you
+            // lay down, "fell asleep" where the first sleep begins. It cannot be empty — a night
+            // without sleep never gets here.
             asleepFromMinute = asleep.firstOrNull()?.let { minuteOf(origin, it.start) } ?: parts.first().fromMinute,
             parts = parts,
         )
     }
 
-    /** Ноль оси: 18:00 кануна в канонической зоне (§4). */
+    /** Axis zero: 18:00 of the eve in the canonical zone (§4). */
     fun origin(wakeDate: LocalDate, zone: ZoneId): Instant =
         wakeDate.minusDays(1).atTime(AXIS_START_HOUR, 0).atZone(zone).toInstant()
 
     /**
-     * Момент времени в минуту оси. Выход за сутки прижимается к краю, а не заворачивается:
-     * заснувший до 18:00 должен начать полосу с нуля, а не оказаться в завтрашнем вечере.
+     * An instant as an axis minute. Anything outside the day is clamped to the edge rather than
+     * wrapped: someone asleep before 18:00 must start the band at zero, not land in tomorrow.
      */
     fun minuteOf(origin: Instant, at: Instant): Int =
         Duration.between(origin, at).toMinutes().coerceIn(0L, AXIS_MINUTES.toLong()).toInt()
@@ -88,20 +83,20 @@ object SleepBand {
 // Views cross REST only inside Response entities - invisible to native-image static analysis,
 // so Jackson needs an explicit reflection registration (otherwise native serializes them as {}).
 
-/** Полоса одной ночи на оси [SleepBand]. */
+/** One night's band on the [SleepBand] axis. */
 @RegisterForReflection
 data class SleepBandView(
-    /** Минута оси, с которой началась ночь (первый кусок — сон или «лёг и ворочался»). */
+    /** The axis minute the night began at (its first chunk, asleep or restless). */
     val onsetMinute: Int,
-    /** Минута оси, на которой ночь кончилась. */
+    /** The axis minute the night ended at. */
     val wakeMinute: Int,
-    /** Сон в минутах без пробуждений — то же число, что и в сумме дня. */
+    /** Minutes asleep excluding wake-ups — the same number as in the day's sum. */
     val asleepMinutes: Int,
-    /** Минута, с которой пошёл первый настоящий сон. */
+    /** The minute the first real sleep started at. */
     val asleepFromMinute: Int,
     val parts: List<SleepBandPartView>,
 )
 
-/** Кусок полосы: фаза строкой в нижнем регистре (`light`/`deep`/`rem`/`awake`/`unspecified`). */
+/** A band chunk: the phase lowercased (`light`/`deep`/`rem`/`awake`/`unspecified`). */
 @RegisterForReflection
 data class SleepBandPartView(val stage: String, val fromMinute: Int, val toMinute: Int)

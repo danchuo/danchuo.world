@@ -1,13 +1,9 @@
-/**
- * Канон дат MSK (PRD §4, CLAUDE.md). Ось данных — `YYYY-MM-DD` в зоне Europe/Moscow,
- * независимо от tz посетителя. Арифметика — над ISO-строками в UTC-полночь, чтобы не
- * ловить дрейф летнего времени и локальной зоны браузера.
- */
+/** MSK ISO dates define the data axis; UTC-midnight arithmetic avoids browser-zone and DST drift. PRD §4. */
 
 const MSK_ZONE = "Europe/Moscow";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Intl-форматтеры строятся один раз на модуль (создание дорогое — не повторяем на каждый вызов).
+// Reuse Intl formatters; constructing one per call is expensive.
 const MSK_TODAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: MSK_ZONE });
 const MSK_CLOCK_FMT = new Intl.DateTimeFormat("ru-RU", {
   timeZone: MSK_ZONE,
@@ -18,22 +14,18 @@ const MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone:
 const MONTH_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "short", timeZone: "UTC" });
 const WEEKDAY_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "UTC" });
 
-/** Сегодня в каноне MSK (`YYYY-MM-DD`), независимо от зоны посетителя. */
+/** Today's ISO date in MSK, independently of the visitor's zone. */
 export function mskToday(now: Date = new Date()): string {
-  // en-CA форматирует как YYYY-MM-DD.
+  // en-CA formats as YYYY-MM-DD.
   return MSK_TODAY_FMT.format(now);
 }
 
-/**
- * Время суток по MSK (`09:12`) из ISO-момента, который отдаёт бэкенд. Зона зашита, как и у
- * дат: борд отвечает про день владельца, а не про часовой пояс смотрящего — «заход в 09:12»
- * из Владивостока обязан оставаться утренним заходом.
- */
+/** Format a backend instant as MSK time so an owner's morning session stays morning for every visitor. */
 export function mskClock(instant: string): string {
   return MSK_CLOCK_FMT.format(new Date(instant));
 }
 
-/** Сдвиг даты на [days] дней (может быть отрицательным). */
+/** Shift an ISO date by a signed number of days. */
 export function addDays(iso: string, days: number): string {
   assertIso(iso);
   const d = new Date(`${iso}T00:00:00Z`);
@@ -41,7 +33,7 @@ export function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Непрерывный список дат `[from, to]` включительно. */
+/** Inclusive, continuous ISO date range [from, to]. */
 export function datesInRange(from: string, to: string): string[] {
   assertIso(from);
   assertIso(to);
@@ -50,19 +42,12 @@ export function datesInRange(from: string, to: string): string[] {
   return out;
 }
 
-/** Понедельник недели, в которую попадает дата (недели считаем пн→вс). */
+/** Monday of the date's week. */
 export function startOfWeek(iso: string): string {
   return addDays(iso, -weekdayMondayIndex(iso));
 }
 
-/**
- * Окно календаря целыми неделями вокруг [center]: [weeksBefore] прошлых недель + неделя
- * центра + [weeksAfter] будущих, всегда с понедельника по воскресенье (PRD §5.3).
- *
- * Границы режутся по неделям, а не по «±N дней», потому что календарь — сетка недель:
- * окно ±15 дней начиналось с произвольного дня недели, первый ряд выходил рваным
- * (полупустая неделя), и «прошлая неделя» на нём читалась наполовину.
- */
+/** Whole-week calendar window around center, from Monday through Sunday. PRD §5.3. */
 export function weekWindowAround(
   center: string,
   weeksBefore: number,
@@ -71,22 +56,18 @@ export function weekWindowAround(
   const monday = startOfWeek(center);
   return {
     from: addDays(monday, -7 * weeksBefore),
-    // Конец — воскресенье последней недели: понедельник её начала плюс шесть дней.
+    // The final week's Sunday is six days after its Monday.
     to: addDays(monday, 7 * weeksAfter + 6),
   };
 }
 
-/** Число месяца (1..31) для ячейки календаря. */
+/** Day of month, 1..31. */
 export function dayOfMonth(iso: string): number {
   assertIso(iso);
   return Number(iso.slice(8, 10));
 }
 
-/**
- * Месяц даты словом (`июнь`), с годом — только если он не совпадает с [today] (`декабрь 2025`).
- * Подпись отлистанного окна календаря (§5.3): по одним числам дней месяц не опознать, а год
- * добавлять всегда значит шуметь им все двенадцать месяцев из тринадцати.
- */
+/** Russian month name, including the year only when it differs from today. PRD §5.3. */
 export function monthNameRu(iso: string, today: string): string {
   assertIso(iso);
   const name = MONTH_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
@@ -94,29 +75,25 @@ export function monthNameRu(iso: string, today: string): string {
   return year === today.slice(0, 4) ? name : `${name} ${year}`;
 }
 
-/** Короткий день недели в RU (`пн`..`вс`) — подпись выходного на оси графиков активности (§7.4). */
+/** Short Russian weekday label for activity chart axes. DESIGN §7.4. */
 export function weekdayShortRu(iso: string): string {
   assertIso(iso);
   return WEEKDAY_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
 }
 
-/** Индекс дня недели с началом в понедельник: 0=пн … 5=сб, 6=вс (для сетки календаря §5). */
+/** Monday-based weekday index: Monday=0, Sunday=6. DESIGN §5. */
 export function weekdayMondayIndex(iso: string): number {
   assertIso(iso);
   return (new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7;
 }
 
-/**
- * Месяц сокращённо (`июл`) — подпись на первом числе месяца в сетке календаря (§5.3).
- * Точку, которую ru-RU ставит у части месяцев (`июл.`), снимаем: в клетке рядом с числом
- * она читается как мусор, а не как сокращение.
- */
+/** Russian short month name without its trailing abbreviation period. PRD §5.3. */
 export function monthShortRu(iso: string): string {
   assertIso(iso);
   return MONTH_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`)).replace(".", "");
 }
 
-/** Месяц даты как `YYYY-MM` — для сравнения соседних дней в сетке (§5.3). */
+/** ISO month (YYYY-MM) for adjacent-day comparison. PRD §5.3. */
 export function monthOf(iso: string): string {
   assertIso(iso);
   return iso.slice(0, 7);

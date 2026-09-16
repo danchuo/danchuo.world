@@ -11,19 +11,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Служба пересказов (PRD §5.16) — та её часть, которую без базы не проверить.
- *
- * Сами правила очереди — арифметика и живут отдельно ([SummaryPolicyTest]); здесь про то, как
- * они ложатся в строки:
- * - **очередь спрашивает источник**, а отсеивает уже сама — источник не обязан помнить, о чём
- *   рассказано;
- * - **готовое переживает неудачное освежение** — промах не стирает того, что уже на карточке;
- * - **вид источника — часть ключа**: заход №7 у книг и заход №7 у подкастов это разные строки,
- *   и перепутать их значило бы рассказывать под карточкой чужое.
- *
- * Источник здесь поддельный и намеренно: служба не должна знать ни про полку, ни про epub — весь
- * её интерес к источнику умещается в [SummarySource]. Тесты делят одну БД с соседями, поэтому
- * заходы взяты с заведомо своими id и убираются в [cleanup].
+ * The retelling service (PRD §5.16) — the part that needs a database. The queue rules themselves
+ * are arithmetic and live in [SummaryPolicyTest]; here is how they land in rows, with the source
+ * faked on purpose: the service knows nothing but [SummarySource].
  */
 @QuarkusTest
 class SummaryServiceTest {
@@ -83,7 +73,7 @@ class SummaryServiceTest {
         }
 
         assertNull(service.nextTarget(source))
-        // Промах — это не пересказ: показывать на борде по-прежнему нечего.
+        // A miss is not a retelling: there is still nothing to show on the board.
         assertNull(service.readyFor(SummaryKind.READING, session))
     }
 
@@ -92,8 +82,8 @@ class SummaryServiceTest {
         source.offer(session, from = 0.10, to = 0.15)
         retell(Retelling(listOf("Первая половина захода."), null))
 
-        // Вернулся к книге через десять минут: поллер тянет ТОТ ЖЕ заход дальше, а пересказ
-        // остаётся про его начало — карточка сказала бы «10% → 30%», а пункты про 15%.
+        // Back to the book ten minutes later: the poller extends the SAME sitting while the
+        // retelling still covers its start, so the card would say "10% → 30%" over 15% of bullets.
         source.offer(session, from = 0.10, to = 0.30)
 
         val again = service.nextTarget(source)
@@ -109,7 +99,7 @@ class SummaryServiceTest {
 
         assertEquals(false, retell(null))
 
-        // Модель промолчала — это не повод стирать то, что уже рассказано и показано.
+        // The model stayed silent, which is no reason to erase what is told and already shown.
         assertEquals(
             listOf("Первая половина захода."),
             service.readyFor(SummaryKind.READING, session)?.bulletLines(),
@@ -124,7 +114,7 @@ class SummaryServiceTest {
 
         retell(Retelling(listOf("Про книгу."), null))
 
-        // Книга рассказана, выпуск с тем же номером захода — нет.
+        // The book is told; the episode with the same sitting number is not.
         assertNull(service.nextTarget(source))
         assertEquals(session, service.nextTarget(podcasts)?.sessionId)
         assertNull(service.readyFor(SummaryKind.PODCAST, session))
@@ -134,7 +124,7 @@ class SummaryServiceTest {
         )
     }
 
-    /** Прогнать заход через очередь так же, как это делает поллер: взять цель и записать итог. */
+    /** Run a sitting through the queue as the poller does: take the target, record the result. */
     private fun retell(retelling: Retelling?): Boolean {
         val target = service.nextTarget(source)
         assertNotNull(target, "заход обязан быть в очереди")
@@ -142,14 +132,14 @@ class SummaryServiceTest {
     }
 
     /**
-     * Источник, который просто помнит, что ему положили. Служба спрашивает у него ровно две
-     * вещи — что можно резать и что там написано, — и обе здесь заданы прямо.
+     * A source that just remembers what was put in it. The service asks it exactly two things —
+     * what may be cut and what it says — and both are set here directly.
      */
     private class FakeSource(private val kind: SummaryKind) : SummarySource {
 
         private val targets = LinkedHashMap<Long, SummaryTarget>()
 
-        /** Положить (или подвинуть) заход: повторный вызов с тем же id — это «заход дорос». */
+        /** Put (or move) a sitting: calling again with the same id means "the sitting grew". */
         fun offer(sessionId: Long, from: Double, to: Double) {
             targets[sessionId] = SummaryTarget(
                 kind = kind,

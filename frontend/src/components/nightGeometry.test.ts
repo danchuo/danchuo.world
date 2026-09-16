@@ -3,11 +3,11 @@ import type { SleepBandView } from "@/lib/api/types";
 import { clockLabel, nightBandGeometry } from "./nightGeometry";
 
 /**
- * Геометрия полосы ночи (§7.7, идея I-23). Считается чистой функцией, а не замером контейнера:
- * jsdom не знает ResizeObserver, да и мерить нечего — всё выражается долями оси.
+ * Geometry of the night band (§7.7, idea I-23). It is a pure function rather than a container
+ * measurement: jsdom has no ResizeObserver, and there is nothing to measure — it is all fractions.
  */
 
-/** Ночь 23:20 → 07:20 с пробуждением 06:00–06:20 (ось от 18:00 кануна). */
+/** The night 23:20 → 07:20 with a waking at 06:00–06:20 (axis from 18:00 the evening before). */
 const band: SleepBandView = {
   onsetMinute: 320,
   wakeMinute: 800,
@@ -25,7 +25,7 @@ describe("nightBandGeometry", () => {
   it("растягивает ночь по оси в долях, а не в пикселях", () => {
     const g = nightBandGeometry(band)!;
 
-    // Ось прижата к целым часам вокруг ночи: 23:00 (300) → 08:00 (840)
+    // The axis snaps to whole hours around the night: 23:00 (300) → 08:00 (840)
     expect(g.fromMinute).toBe(300);
     expect(g.toMinute).toBe(840);
     const span = 840 - 300;
@@ -64,7 +64,7 @@ describe("nightBandGeometry", () => {
     const g = nightBandGeometry(band)!;
     const lane = Object.fromEntries(g.parts.map((p) => [p.stage, p.lane]));
 
-    // Вертикаль теперь несёт глубину: не спал сверху, глубокий — у самого низа.
+    // The vertical now carries depth: awake at the top, deep at the very bottom.
     expect(lane.awake).toBe(0);
     expect(lane.rem).toBe(1);
     expect(lane.light).toBe(2);

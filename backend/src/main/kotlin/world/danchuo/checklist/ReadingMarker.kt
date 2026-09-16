@@ -4,16 +4,9 @@ import jakarta.enterprise.context.ApplicationScoped
 import java.time.LocalDate
 
 /**
- * Публичный шов слайса `checklist` для **производной** отметки чтения (PRD §5.16) — сосед по
- * образцу [PodcastMarker]: слайс `reading` считает минуты и зовёт сюда, в чужие репозитории не
- * лазая.
- *
- * Пункт «Чтение» (сид 0020, target 2) — производный от минут, ровно как подкасты: полка
- * читалки знает ВРЕМЯ чтения, а не страницы, поэтому порог тот же и считается так же.
- *
- * **Приоритет ручного ввода сохранён**, как у подкастов: прислал отметку с телефона — строка
- * становится ручной, и поллер её больше не трогает до конца суток. Обратная сторона честная:
- * запущенный шорткат ФИКСИРУЕТ значение, в том числе меньшее.
+ * The `checklist` seam for the DERIVED reading mark, sibling of [PodcastMarker]: `reading` counts
+ * the minutes and calls here. Time, not pages, because time is what the shelf knows; manual input
+ * still outranks it and freezes the value, lower ones included. PRD §5.16, §5.6
  */
 @ApplicationScoped
 class ReadingMarker(
@@ -21,12 +14,12 @@ class ReadingMarker(
     private val checklistEntries: ChecklistEntryRepository,
 ) {
 
-    /** Сколько остановок у пункта чтения; `null` — пункта нет (деактивирован/удалён). */
+    /** How many stops the reading item has; `null` when the item is gone or deactivated. */
     fun target(): Int? = checklistItems.findByKey(READING_ITEM_KEY)?.target
 
     /**
-     * Проставить [occurrences] закрытых остановок за [date]. `true` — отметка записана;
-     * `false` — пункта нет либо за этот день уже решено вручную.
+     * Marks [occurrences] closed stops for [date]. `true` when written; `false` when the item is
+     * missing, or the day was already decided by hand.
      */
     fun mark(date: LocalDate, occurrences: Int): Boolean {
         val item = checklistItems.findByKey(READING_ITEM_KEY) ?: return false

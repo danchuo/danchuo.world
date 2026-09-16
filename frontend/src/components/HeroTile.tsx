@@ -6,14 +6,14 @@ import { TileShell } from "./TileShell";
 interface HeroTileProps {
   style?: CSSProperties;
   className?: string;
-  /** Путь к hero-снимку (сид-ассет фронта, PRD §5.8). */
+  /** Path to the hero shot (a seeded frontend asset, PRD §5.8). */
   src?: string;
 }
 
 /**
- * Плитка hero-фото (H) — PRD §5.8, DESIGN §3. Один избранный снимок в пиксель-рамке.
- * В v1 — статический сид-ассет (`/public/assets/hero/*`). Нет ассета (ошибка загрузки) ⇒
- * тихий empty, борд не ломается. (next/image тут не нужен — один декоративный кадр.)
+ * The hero photo tile: one chosen shot in a pixel frame. In v1 it is a static seed asset; a missing
+ * one degrades to a quiet empty and the board holds. `next/image` is unnecessary for one
+ * decorative frame. PRD §5.8, DESIGN §3
  */
 export function HeroTile({ style, className, src = "/assets/hero/hero.jpg" }: HeroTileProps) {
   const [broken, setBroken] = useState(false);

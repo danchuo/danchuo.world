@@ -16,11 +16,9 @@ import java.util.zip.ZipOutputStream
 import javax.imageio.ImageIO
 
 /**
- * Подсветка артефактов на кадрах (PRD §5.12): прогон, ручные рамки, публичная выдача.
- *
- * В тестах ключа LLM нет ⇒ модель молчит. Это и есть самый ценный кейс: кадры обязаны остаться
- * **непроверенными**, а не «проверенными, ничего не найдено» — иначе один сбой провайдера
- * записался бы в данные как отсутствие артефактов и следующий прогон их бы уже не искал.
+ * Artifact highlighting on frames (PRD §5.12): a scan, manual boxes, public output. Tests have no
+ * LLM key, which is the valuable case: frames must stay UNCHECKED rather than "checked, nothing
+ * found" — otherwise one provider failure would be recorded as the absence of artifacts.
  */
 @QuarkusTest
 class ArtifactScanResourceTest {
@@ -28,9 +26,8 @@ class ArtifactScanResourceTest {
     private val token = "dev-ingest-token-change-me"
 
     /**
-     * База в тестах общая, а соседний тест проверяет, что список дропов пуст — залитые здесь
-     * дропы обязаны исчезнуть даже если тест упал на середине, иначе порядок классов начинает
-     * влиять на результат.
+     * The DB is shared and a neighbouring test asserts the drop list is empty, so drops seeded
+     * here must disappear even if this test dies halfway.
      */
     private val created = mutableListOf<Long>()
 
@@ -56,14 +53,14 @@ class ArtifactScanResourceTest {
             .post("/api/ingest/drops/$dropId/artifacts")
             .then().statusCode(202)
 
-        // Прогон синхронно не завершается, но по итогу проверенных быть не должно ни одного.
+        // The scan does not finish synchronously, but by the end nothing may be marked checked.
         awaitScanFinished(dropId)
         given().header("Authorization", "Bearer $token")
             .get("/api/ingest/drops/$dropId/artifacts")
             .then().statusCode(200)
             .body("checked", equalTo(0))
 
-        // И находок тоже нет — публичная выдача кадров чиста.
+        // And there are no findings either — the public frame output is clean.
         given().get("/api/drops/$dropId")
             .then().statusCode(200)
             .body("[0].artifacts", hasSize<Any>(0))
@@ -87,11 +84,11 @@ class ArtifactScanResourceTest {
             .body("[0].artifacts[0].artifactId", equalTo(artifactId.toInt()))
             .body("[0].artifacts[0].x0", equalTo(0.1f))
             .body("[0].artifacts[0].y1", equalTo(0.8f))
-            // Картинка предмета едет вместе с рамкой: подсказка у рамки показывает сам
-            // предмет, а не одно имя, и второго запроса за каталогом для этого не делает.
+            // The item's picture travels with the box: the hint shows the thing itself,
+            // and does not make a second request to the catalogue to do it.
             .body("[0].artifacts[0]", hasKey("imageUrl"))
-            // …и вместе с ней — флаг «можно набок»: карточка у рамки держит лежачий слот, и без
-            // флага вытянутый предмет (ракетка) вырождался бы в нитку, как когда-то в ленте.
+            // The "may lie flat" flag: the hint card holds a landscape slot, and without the flag
+            // an elongated item (a racket) degenerates into a thread.
             .body("[0].artifacts[0]", hasKey("rotatable"))
 
         given().header("Authorization", "Bearer $token")
@@ -109,16 +106,16 @@ class ArtifactScanResourceTest {
         given().header("Authorization", "Bearer $token")
             .get("/api/ingest/drops/$dropId/photos")
             .then().statusCode(200)
-            // Рамку тянут мышью по кадру, а доли считаются от нарисованного размера: на
-            // превью 96px промах в один пиксель это процент кадра. Разметчику нужен web.
+            // Box fractions are taken from the drawn size, so on a 96px preview a one-pixel miss
+            // is a percent of the frame. Marking up needs web.
             .body("[0].imageUrl", org.hamcrest.Matchers.containsString("/web"))
             .body("[0].thumbUrl", org.hamcrest.Matchers.containsString("/thumb"))
     }
 
     @Test
     fun `snatched box stays gone after a rerun`() {
-        // Удаление помечает находку отклонённой, а не стирает строку: иначе следующий прогон
-        // нашёл бы предмет заново и рамка вернулась бы — снятие руками должно быть решением.
+        // Deleting marks the finding rejected instead of erasing the row: otherwise the next scan
+        // would find the item again and the box would come back.
         val dropId = upload()
         val photoId = firstPhotoId(dropId)
         val artifactId = anyArtifactId()
@@ -133,7 +130,7 @@ class ArtifactScanResourceTest {
             .delete("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
             .then().statusCode(200)
 
-        // Перепрогон по уже проверенным кадрам — отклонённую пару он трогать не должен.
+        // A rescan over already-checked frames must not touch the rejected pair.
         given().header("Authorization", "Bearer $token")
             .post("/api/ingest/drops/$dropId/artifacts?recheck=true")
             .then().statusCode(202)
@@ -159,7 +156,7 @@ class ArtifactScanResourceTest {
             .then().statusCode(200)
         given().get("/api/drops/$dropId").then().body("[0].artifacts", hasSize<Any>(0))
 
-        // Ручная рамка на ту же пару перезаписывает отклонение — путь назад есть.
+        // A manual box on the same pair overrides the rejection — there is a way back.
         given().header("Authorization", "Bearer $token").contentType("application/json").body(box)
             .put("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
             .then().statusCode(200)
@@ -172,14 +169,12 @@ class ArtifactScanResourceTest {
         val photoId = firstPhotoId(dropId)
         val artifactId = anyArtifactId()
 
-        // Правый край левее левого — рамкой это не является.
         given().header("Authorization", "Bearer $token")
             .contentType("application/json")
             .body("""{"x0":0.8,"y0":0.2,"x1":0.3,"y1":0.9}""")
             .put("/api/ingest/drops/$dropId/photos/$photoId/artifacts/$artifactId")
             .then().statusCode(400)
 
-        // Доли кадра не выходят за единицу.
         given().header("Authorization", "Bearer $token")
             .contentType("application/json")
             .body("""{"x0":0.1,"y0":0.2,"x1":1.4,"y1":0.9}""")
@@ -192,8 +187,7 @@ class ArtifactScanResourceTest {
         val dropId = upload()
         val artifactId = anyArtifactId()
 
-        // Прогон ради одного предмета: сводка называет его, чтобы в админке было видно,
-        // что именно сейчас ищется — на длинном прогоне это единственный признак.
+        // On a long scan the named item in the summary is the only sign of what is being looked for.
         given().header("Authorization", "Bearer $token")
             .post("/api/ingest/artifact-scan?artifactId=$artifactId")
             .then().statusCode(202)
@@ -205,7 +199,7 @@ class ArtifactScanResourceTest {
             .get("/api/ingest/artifact-scan")
             .then().statusCode(200)
             .body("drops", org.hamcrest.Matchers.greaterThan(0))
-            // Модель молчит ⇒ ни одного проверенного кадра, все в пропущенных.
+            // The model is silent ⇒ not one checked frame, all of them skipped.
             .body("checked", equalTo(0))
     }
 
@@ -218,21 +212,21 @@ class ArtifactScanResourceTest {
 
     @Test
     fun `cancelling with nothing running is a conflict, not a false success`() {
-        // Отменять нечего — ответ обязан это сказать, иначе кнопка «остановить» врала бы
-        // об остановке прогона, который на самом деле уже кончился.
+        // Nothing to cancel, and the reply must say so: otherwise the stop button would claim to
+        // have halted a scan that had already ended.
         given().header("Authorization", "Bearer $token")
             .delete("/api/ingest/artifact-scan")
             .then().statusCode(409)
     }
 
-    // ── Помощники ──
+    // ── Helpers ──
 
     private fun awaitScanFinished(dropId: Long) {
         repeat(50) {
             val state = given().header("Authorization", "Bearer $token")
                 .get("/api/ingest/drops/$dropId/artifacts")
                 .then().extract().jsonPath().getString("state")
-            // `queued` — дроп ещё ждёт очереди: единственный воркер может разбирать соседний.
+            // `queued` — the drop is still waiting: the single worker may be busy with a neighbour.
             if (state != "running" && state != "queued") return
             Thread.sleep(100)
         }

@@ -17,9 +17,9 @@ function tick(ms: number) {
 
 describe("HoverTip", () => {
   /**
-   * Карточка — не подпись, а мини-интерфейс со своими ссылками: до неё надо ДОЕХАТЬ курсором.
-   * Мгновенное скрытие по уходу с якоря делало это невозможным — между якорем и карточкой
-   * есть зазор, и указатель гасил её ровно на нём.
+   * The card is not a label but a mini interface with its own links: the cursor has to REACH it.
+   * Hiding instantly on leaving the anchor made that impossible — there is a gap between anchor
+   * and card, and the pointer died exactly on it.
    */
   it("карточка переживает переезд курсора с якоря на неё", () => {
     const { getByText } = render(
@@ -62,7 +62,7 @@ describe("HoverTip", () => {
     expect(isOpen()).toBe(false);
   });
 
-  /** Текстовая подсказка событий не ловит и отсрочки не заслуживает: наводиться на неё незачем. */
+  /** A text tooltip catches no events and earns no delay: there is no reason to hover it. */
   it("текстовая подсказка гаснет сразу", () => {
     const { getByText } = render(
       <HoverTip text="подпись">

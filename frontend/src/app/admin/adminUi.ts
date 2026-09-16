@@ -1,8 +1,4 @@
-/**
- * Общие для секций админки стили и мелкие чистые хелперы. Отдельным модулем (а не в
- * `page.tsx`), потому что их делят между собой все панели — форма дропа, список, сетка
- * кадров, импорт велобайка. Файл `.ts`, а не `.tsx`: тут только значения, компонентов нет.
- */
+/** Shared admin styles and pure helpers; keep section-independent values outside page.tsx. */
 
 import type { CSSProperties } from "react";
 import { AdminApiError } from "@/lib/api/admin";
@@ -35,7 +31,7 @@ export const btnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-/** Вторичная кнопка — тот же габарит, но поверхностью и рамкой вместо заливки акцентом. */
+/** Secondary action with the primary button's dimensions. */
 export const secondaryBtnStyle: CSSProperties = {
   ...btnStyle,
   background: "var(--bg-surface)",
@@ -104,21 +100,18 @@ export const ambiguousBadgeStyle: CSSProperties = {
   fontFamily: "var(--font-mono)",
 };
 
-/* ── Ручная разметка артефактов (§5.12) ── */
+/** Manual artifact annotation. PRD §5.12. */
 
-/** Рамка на кадре разметчика: позицию задаёт компонент долями, тут только вид. */
+/** Annotation box appearance; the component supplies fractional coordinates. */
 export const markerBoxStyle: CSSProperties = {
   position: "absolute",
   border: "2px solid var(--border)",
-  // Заливка нужна: на пёстром кадре одна линия теряется, а сплошная закрывала бы предмет.
+  // Translucent fill keeps the box visible on busy photos without hiding the item.
   background: "color-mix(in srgb, var(--accent) 12%, transparent)",
   pointerEvents: "none",
 };
 
-/**
- * Подпись рамки. Указатель ловит только крестик — сама подпись прозрачна для мыши, иначе
- * протяжка, начатая на подписи, не начиналась бы вовсе.
- */
+/** Only the close button intercepts pointers; dragging must also start through the label. */
 export const markerBoxLabelStyle: CSSProperties = {
   position: "absolute",
   left: 0,
@@ -136,7 +129,7 @@ export const markerBoxLabelStyle: CSSProperties = {
   pointerEvents: "auto",
 };
 
-/** Строка каталога в разметчике: картинка предмета + имя. */
+/** Catalog row in the annotation picker. */
 export const markerArtifactBtnStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -152,7 +145,7 @@ export const markerArtifactBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-/** Выбранный предмет — заливка акцентом (тот же язык, что у вкладок разделов). */
+/** Match the admin tabs' selected-state accent. */
 export const markerSelectedArtifactBtnStyle: CSSProperties = {
   ...markerArtifactBtnStyle,
   border: "1px solid var(--accent)",
@@ -160,7 +153,7 @@ export const markerSelectedArtifactBtnStyle: CSSProperties = {
   color: "var(--bg-base)",
 };
 
-/* Кнопка «разметить» в свободном (нижнем-левом) углу кадра: остальные три заняты «?», ✕ и ↻. */
+/** Annotation uses the remaining free photo corner: bottom-left. */
 export const markBtnStyle: CSSProperties = {
   position: "absolute",
   left: 4,
@@ -178,14 +171,10 @@ export const markBtnStyle: CSSProperties = {
   lineHeight: 1,
 };
 
-/** Заголовок панели — один кегль на все секции админки. */
+/** Shared heading size across admin sections. */
 export const sectionTitleStyle: CSSProperties = { fontSize: 16, color: "var(--text-primary)" };
 
-/**
- * Разделы админки (§5.14, реестр I-64): экран на раздел вместо одной простыни. Порядок тут —
- * порядок кнопок в ряду, добавление раздела = строка в этом списке плюс ветка рендера.
- * Список здесь, а не в компоненте: его делят ряд вкладок и сама страница.
- */
+/** Shared section registry; order defines the tab row. PRD §5.14. */
 export const ADMIN_TABS = [
   { id: "drops", label: "дропы" },
   { id: "artifacts", label: "артефакты" },
@@ -195,7 +184,7 @@ export const ADMIN_TABS = [
 
 export type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 
-/** Кнопка раздела. Невыбранная — прозрачная: ряд читается строкой надписей, а не полосой плашек. */
+/** Inactive tabs stay transparent so the row reads as navigation. */
 export const tabBtnStyle: CSSProperties = {
   border: "1px solid transparent",
   borderRadius: "var(--radius-sm)",
@@ -206,7 +195,7 @@ export const tabBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-/** Выбранный раздел — заливка акцентом (то же решение, что у главной кнопки формы). */
+/** Match the primary form button's selected-state accent. */
 export const activeTabBtnStyle: CSSProperties = {
   ...tabBtnStyle,
   border: "1px solid var(--accent)",
@@ -214,13 +203,13 @@ export const activeTabBtnStyle: CSSProperties = {
   color: "var(--bg-base)",
 };
 
-/** Сегодняшняя дата в формате input[type=date] (`yyyy-MM-dd`), локальная. */
+/** Local date for input[type=date], yyyy-MM-dd. */
 export function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Человекочитаемая ошибка админ-API. Чистая (без состояния) — на уровне модуля, не пересоздаётся. */
+/** Human-readable admin API error. */
 export function describe(e: unknown): string {
   return e instanceof AdminApiError
     ? e.status === 401
@@ -229,7 +218,7 @@ export function describe(e: unknown): string {
     : "сеть недоступна";
 }
 
-/** Строка статуса проверки поворота под заголовком сетки кадров. Чистая — на уровне модуля. */
+/** Orientation status below the photo grid heading. */
 export function orientationLabel(s: OrientationStatusView): string {
   switch (s.state) {
     case "running":
@@ -243,11 +232,7 @@ export function orientationLabel(s: OrientationStatusView): string {
   }
 }
 
-/**
- * Строка статуса поиска артефактов (§5.12). «Пропущено» тут значит «модель не ответила» —
- * такие кадры остаются непроверенными и подхватятся следующим прогоном, поэтому их видно
- * отдельно от найденного.
- */
+/** Skipped means no model response; those photos remain eligible for another scan. PRD §5.12. */
 export function artifactScanLabel(s: ArtifactScanStatusView): string {
   switch (s.state) {
     case "running":
@@ -261,17 +246,7 @@ export function artifactScanLabel(s: ArtifactScanStatusView): string {
   }
 }
 
-/**
- * Строка сводки по прогону всего архива (§5.12).
- *
- * Отдельно от [artifactScanLabel] называет **предмет**, ради которого прогон затеян, и
- * **дропы** — на прогоне в двести кадров счётчик кадров движется незаметно, а «дроп 2 из 6»
- * читается сразу.
- *
- * Всё пропущено и ничего не найдено — не «на кадрах пусто», а молчащий провайдер (нет ключа,
- * не тот провайдер в `DANCHUO_LLM_PROVIDER`, рейт-лимит). Разница видна только тут, поэтому
- * строка говорит об этом прямо: иначе прогон выглядит успешным и пустым одновременно.
- */
+/** Archive scan summary; distinguish an unresponsive provider from a completed scan with no matches. PRD §5.12. */
 export function artifactRunLabel(r: ArtifactScanRunView): string {
   const scope = r.artifactName ? `«${r.artifactName}»` : "все предметы";
   const done = r.checked + r.skipped;
@@ -291,8 +266,7 @@ export function artifactRunLabel(r: ArtifactScanRunView): string {
   }
 }
 
-/* Список находок под кадром в админ-сетке (§5.12). Ниже картинки, а не поверх: углы кадра уже
-   заняты поворотом, удалением и бейджем «?», а имён может быть несколько. */
+/** Detection chips sit below the photo because all photo corners contain controls. PRD §5.12. */
 export const artifactChipListStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",

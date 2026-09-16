@@ -12,12 +12,9 @@ import jakarta.ws.rs.core.MultivaluedMap
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 
 /**
- * Клиент `accounts.spotify.com` — OAuth token-эндпоинт (PRD §M3). Базовый URL —
- * `quarkus.rest-client.spotify-accounts.url`. Тело form-urlencoded, авторизация —
- * Basic `client_id:client_secret` в заголовке (готовит [SpotifyTokenService]).
- *
- * Один метод на оба гранта (`authorization_code` при первом OAuth и `refresh_token`
- * при перевыпуске) — различие лишь в полях формы.
+ * Client for `accounts.spotify.com`, the OAuth token endpoint: a form-urlencoded body with Basic
+ * `client_id:client_secret` prepared by [SpotifyTokenService]. One method serves both grants —
+ * the first exchange and every refresh differ only in form fields.
  */
 @RegisterRestClient(configKey = "spotify-accounts")
 interface SpotifyAccountsClient {
@@ -33,8 +30,8 @@ interface SpotifyAccountsClient {
 }
 
 /**
- * Ответ token-эндпоинта. `refresh_token` приходит при первом обмене кода; при
- * рефреше Spotify его обычно НЕ присылает — тогда переиспользуем прежний.
+ * The token endpoint's reply. `refresh_token` arrives on the first code exchange; on a refresh
+ * Spotify usually does NOT send it, and we reuse the previous one.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class SpotifyTokenResponse(

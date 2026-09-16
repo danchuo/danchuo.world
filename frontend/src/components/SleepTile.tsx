@@ -13,24 +13,24 @@ import { SleepBigIcon } from "./StatsIcons";
 import { TileShell, type TileState } from "./TileShell";
 
 interface SleepTileProps {
-  /** Выбранный день (перефокус календаря) — источник длительности и фаз. */
+  /** The selected day (the calendar's refocus) — the source of the duration and phases. */
   day: DayView | null;
   state: TileState;
   onRetry?: () => void;
   /**
-   * Редакция виджета (DESIGN §7.7, §10.1) — выбирает ВОЛНА через раскладку
-   * (`tiles.sleep.edition`); компонент о волнах не знает. `echo` — промер глубины во всю
-   * плитку (см. [SleepEcho]); незнакомое имя ⇒ дефолтная вёрстка «сумма + полоса ночи».
+   * The widget's edition (DESIGN §7.7, §10.1), chosen by the WAVE through the layout
+   * (`tiles.sleep.edition`); the component knows nothing of waves. `echo` is a depth sounding
+   * across the tile (see [SleepEcho]); an unknown name ⇒ the default sum-plus-band layout.
    */
   edition?: string;
   style?: CSSProperties;
   className?: string;
 }
 
-/** Число ячеек пиксельного бара фазы (та же длина, ячейки мельче — как в макете). */
+/** Cells in a phase's pixel bar (the same length, smaller cells, as in the mock-up). */
 const BAR_CELLS = 15;
 
-/** Пиксельный бар доли фазы: ряд ячеек, залитых пропорционально проценту (§7.7). */
+/** A phase's share as a pixel bar: a row of cells filled in proportion to the percentage (§7.7). */
 function PixelBar({ pct, color }: { pct: number; color: string }) {
   const filled = Math.round((pct / 100) * BAR_CELLS);
   return (
@@ -50,22 +50,18 @@ function PixelBar({ pct, color }: { pct: number; color: string }) {
 }
 
 /**
- * Плитка «сон» (§7.7) — детали ночи выбранного дня: длительность, пробуждения и разбивка по
- * фазам (REM/deep/light) пиксельными барами с минутами и долей. Фаз нет (часы не носили) ⇒
- * деградирует до одной длительности. Нет сна за день ⇒ тихое «нет данных» (§5.4).
- *
- * Второй вид — полоса ночи (I-23): та же ночь во времени вместо суммы. Переключатель, а не
- * второй тайл: это один и тот же вопрос «как я спал», заданный с разной точностью, — и место
- * в бенто у него одно. Сумма остаётся видом по умолчанию, полоса приезжает по запросу.
+ * The sleep tile: the selected day's night as duration, wakings and a phase breakdown. No phases
+ * degrades to duration alone; no sleep at all is a quiet "no data". The second view is the night
+ * BAND — the same question asked at a different precision, so it is a switch, not a tile. §7.7
  */
 export function SleepTile({ day, state, onRetry, edition, style, className }: SleepTileProps) {
   const [showBand, setShowBand] = useState(false);
-  // «Лёг–встал» приезжает из загруженной ночи (см. NightBand): в шапке ему тесно по смыслу,
-  // но там оно не тратит отдельной строки под полосой — вертикаль в этой плитке дороже.
+  // "Asleep–awake" arrives from the loaded night (see NightBand): the header is a tight fit by
+  // meaning, but there it costs no separate line below the band, and vertical space is dear here.
   const [nightTimes, setNightTimes] = useState<string | null>(null);
   const minutes = day?.health.sleepMinutes ?? null;
   const hasData = day != null && minutes !== null;
-  // Пустое состояние рисуем сами (кровать + текст), поэтому TileShell держим в «loaded».
+  // We draw the empty state ourselves (a bed plus text), so TileShell is kept in "loaded".
   const showEmpty = state === "loaded" && !hasData;
   const phases = sleepPhases(day?.health.sleepStages);
   const awake = day?.health.sleepStages?.awake ?? null;
@@ -80,7 +76,7 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
         className={`sleep-card--echo ${className ?? ""}`}
       >
         {showEmpty && <SleepNoData />}
-        {/* key по дню: смена выбранного дня грузит ночь заново, а не показывает чужую. */}
+        {/* key by day: changing the selected day loads the night afresh, not someone else's. */}
         {hasData && <SleepEcho key={day.date} date={day.date} stages={day.health.sleepStages} />}
       </TileShell>
     );
@@ -97,16 +93,16 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
       {showEmpty && <SleepNoData />}
       {hasData && (
         <div className="tile-frame flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
-          {/* Шапка — одна строка: подпись, время ночи и переключатель вида. Какой день выбран,
-              подписано в плитке «Сегодня» и в календаре; повторять это здесь незачем — выбор дня
-              общий для всего борда, и каждой плитке своя копия подписи не нужна. */}
+          {/* The header is one line: label, the night's times and the view switcher. Which day is
+              selected is captioned in the "Today" tile and the calendar; repeating it here is
+              pointless — the choice of day is shared by the whole board. */}
           <div className="mb-1 flex items-baseline gap-3">
             <span className="tile-label">сон</span>
-            {/* Время сна — данные, а не мета-подпись: класс `tile-chrome`, иначе скин волны,
-                прячущий `.tile-label`, унёс бы цифры вместе с подписями. */}
+            {/* The sleep times are data, not a meta label: the `tile-chrome` class, or a wave skin
+                hiding `.tile-label` would carry the figures off with the labels. */}
             {showBand && nightTimes && <span className="tile-chrome">{nightTimes}</span>}
-            {/* Переключатель прижат вправо: он служебный и не должен спорить с цифрой ночи.
-                Он — управление, поэтому тоже вне `.tile-label` (иначе исчезает на волне 02). */}
+            {/* The switcher is flush right: it is a utility and must not argue with the night's
+                figure. It is a control, so it too sits outside `.tile-label`. */}
             <button
               type="button"
               onClick={() => setShowBand((v) => !v)}
@@ -118,7 +114,7 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
             </button>
           </div>
 
-          {/* key по дню: смена выбранного дня грузит ночь заново, а не показывает чужую. */}
+          {/* key by day: changing the selected day loads the night afresh, not someone else's. */}
           {showBand && (
             <div className="min-h-0 flex-1">
               <NightBand key={day.date} date={day.date} onTimes={setNightTimes} />
@@ -127,7 +123,7 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
 
           {!showBand && (
             <div className="flex min-h-0 flex-1 items-stretch gap-3">
-              {/* Слева — длительность ночи и пробуждения. */}
+              {/* Left: the night's duration and the wakings. */}
               <div className="flex w-[128px] shrink-0 flex-col justify-center">
                 <div className="flex items-center gap-2">
                   <SleepBigIcon height={26} />
@@ -142,7 +138,7 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
                 )}
               </div>
 
-              {/* Справа — фазы пиксельными барами, отделённые вертикальной линией (как в макете). */}
+              {/* Right: the phases as pixel bars, split off by a vertical rule (as in the mock-up). */}
               {phases ? (
                 <div
                   className="flex min-w-0 flex-1 flex-col justify-center gap-2 pl-3"
@@ -150,10 +146,9 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
                 >
                   {phases.map((p) => (
                     <div key={p.key} className="flex items-center gap-1.5 text-xs">
-                      {/* Подпись фазы — якорь подсказки волны (тот же [HoverTip], что у номера
-                          дня жизни и у огонька-стрика): «REM/DEEP/LIGHT» ничего не говорят
-                          тому, кто не разбирался в фазах, а минуты и доля рядом отвечают уже
-                          на другой вопрос. */}
+                      {/* The phase label anchors the wave's hint (the same [HoverTip] as the
+                          life-day number and the streak flame): the phase names mean nothing on
+                          their own, and the minutes beside them answer a different question. */}
                       <span className="w-10 shrink-0 whitespace-nowrap font-medium" style={{ color: STAGE_COLOR[p.key] }}>
                         <HoverTip text={p.hint} phrase>
                           {p.label}

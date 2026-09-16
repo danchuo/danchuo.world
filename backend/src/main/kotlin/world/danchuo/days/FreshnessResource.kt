@@ -6,10 +6,9 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 
 /**
- * Публичная свежесть данных (PRD §8, эра M5) — `GET /api/freshness` отдаёт момент
- * последнего приёма ingest для тихого индикатора в UI. Публично на чтение (§3): фильтр
- * `IngestAuthFilter` стережёт только `/api/ingest/…`. Без @Transactional — как и прочие
- * read-ресурсы слайса ([DaysResource]).
+ * Public data freshness: `GET /api/freshness` gives the moment of the last ingest for the quiet
+ * indicator in the UI. Public like every read (§3) — `IngestAuthFilter` guards only the ingest
+ * paths. No `@Transactional`, same as the slice's other read resources. PRD §8
  */
 @Path("/api/freshness")
 @Produces(MediaType.APPLICATION_JSON)

@@ -5,34 +5,25 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 import world.danchuo.llm.LlmClient
 import world.danchuo.llm.LlmImage
 
-/** Решение по кадру: что делать с его ориентацией (B9). */
+/** The decision for a frame: what to do about its orientation (B9). */
 sealed interface OrientationDecision {
-    /** Кадр стоит правильно (или ориентиров нет) — не трогаем, помечаем проверенным. */
+    /** The frame stands correctly (or has no landmarks) — leave it, mark it checked. */
     data object Upright : OrientationDecision
 
-    /** Верх не определился однозначно — не трогаем, помечаем `ambiguous` (ручная стрелка). */
+    /** The top was not determined — leave it, mark `ambiguous` for the manual arrow. */
     data object Ambiguous : OrientationDecision
 
-    /** Верх найден — повернуть на [rotation]. */
+    /** The top was found — rotate by [rotation]. */
     data class Rotate(val rotation: FrameRotation) : OrientationDecision
 
-    /** LLM недоступна/ответ не бинарный — кадр пропустить непроверенным (ретрай позже). */
+    /** The LLM is unavailable or answered non-binary — skip the frame unchecked and retry later. */
     data object Unavailable : OrientationDecision
 }
 
 /**
- * Определение верной ориентации кадра vision-LLM (B9, PRD §9 п.13). Направлению поворота
- * модель доверять нельзя (фаза 0: CW/CCW путает почти всегда) — она работает только
- * **бинарным верификатором**: повороты генерируются локально ([FilmImaging.rotate]), модель
- * отвечает лишь «стоит ли фото правильно» (YES/NO) и — при неоднозначности — «перевёрнуто ли»
- * (тай-брейк: ложные YES почти всегда на варианте вверх ногами).
- *
- * Гейт «текущее положение YES ⇒ не трогаем» защищает правильные и пустые кадры (без ориентиров
- * модель инструктирована отвечать YES) — алгоритм по построению не портит то, что уже стоит
- * правильно. Замеры фазы 0 на кадрах прода: правильные не тронуты 10/10, повёрнутые распознаны
- * 26/30, тай-брейк 19/20.
- *
- * Троттлинг перед каждым vision-вызовом — щадим рейт-лимит Groq free-tier.
+ * Decides a frame's correct orientation with a vision LLM used ONLY as a binary verifier: turns
+ * are generated locally and the model just answers "is this upright", with an "is it upside down"
+ * tie-break. Its sense of direction is never trusted. Gate and measurements: PRD §5.12.
  */
 @ApplicationScoped
 class OrientationDecider(
@@ -41,13 +32,14 @@ class OrientationDecider(
     @param:ConfigProperty(name = "danchuo.film.orientation.throttle-ms") private val throttleMs: Long,
 ) {
 
-    // Промты — в ресурсах (prompts/), дословно с замеров фазы 0; менять только с перезамером.
+    // Prompts live in resources (prompts/), verbatim from the phase-0 measurements; change them
+    // only together with a re-measurement.
     private val verifySystem = prompt("orientation-verify.system.txt")
     private val verifyUser = prompt("orientation-verify.user.txt")
     private val upsideSystem = prompt("orientation-upside-down.system.txt")
     private val upsideUser = prompt("orientation-upside-down.user.txt")
 
-    /** Решить судьбу кадра по его thumb-варианту (для классификации хватает, дёшево по токенам). */
+    /** Decides a frame's fate off its thumb variant: enough to classify, and cheap in tokens. */
     fun decide(thumb: ByteArray): OrientationDecision {
         val uprightNow = verify(verifySystem, verifyUser, thumb) ?: return OrientationDecision.Unavailable
         if (uprightNow) return OrientationDecision.Upright
@@ -62,7 +54,7 @@ class OrientationDecider(
             confirmed.isEmpty() -> OrientationDecision.Ambiguous
             confirmed.size == 1 -> OrientationDecision.Rotate(confirmed.single().first)
             else -> {
-                // Ложные YES почти всегда на перевёрнутом варианте — добиваем целевым вопросом.
+                // False YES answers land almost always on the flipped variant — follow up.
                 val survivors = confirmed.filter { (_, candidate) ->
                     val upsideDown = verify(upsideSystem, upsideUser, candidate)
                         ?: return OrientationDecision.Unavailable
@@ -77,7 +69,7 @@ class OrientationDecider(
         }
     }
 
-    /** Один YES/NO-вопрос модели про кадр; `null` — LLM молчит или ответ не бинарный. */
+    /** One YES/NO question about the frame; `null` when the LLM is silent or non-binary. */
     private fun verify(system: String, user: String, jpeg: ByteArray): Boolean? {
         if (throttleMs > 0) Thread.sleep(throttleMs)
         val reply = llm.completeVision(system, user, LlmImage(jpeg, "image/jpeg")) ?: return null
@@ -89,7 +81,7 @@ class OrientationDecider(
         }
     }
 
-    /** Промт из ресурсов `prompts/` (в native включаются через `quarkus.native.resources.includes`). */
+    /** A prompt from `prompts/` (included in native via `quarkus.native.resources.includes`). */
     private fun prompt(name: String): String =
         checkNotNull(javaClass.getResourceAsStream("/prompts/$name")) { "нет промта prompts/$name" }
             .readBytes().decodeToString().trim()

@@ -26,11 +26,11 @@ const landscape = (seq: number): FilmPhotoView => ({
 describe("buildMosaic (justified-раскладка кадров)", () => {
   it("пять кадров никогда не пакуются в один ряд, даже в широком низком виджете", () => {
     const photos = [0, 1, 2, 3, 4].map(landscape);
-    // Широкий и низкий контейнер: без капа единственный ряд из 5 выигрывал по score.
+    // A wide, low container: without the cap a single row of 5 won on score.
     const mosaic = buildMosaic(photos, 1000, 120);
     expect(mosaic).not.toBeNull();
     for (const row of mosaic!) expect(row.length).toBeLessThanOrEqual(4);
-    // Перераскладка, не выбрасывание: все 5 кадров остаются на месте.
+    // A re-layout, not a discard: all 5 frames stay.
     expect(mosaic!.flat()).toHaveLength(5);
   });
 
@@ -59,7 +59,7 @@ const DROP = {
   coverPhotoUrl: "/api/film-media/2/0/thumb",
 };
 
-/** Предзагрузка кадра в jsdom: картинки не грузятся, `load` симулируем. */
+/** Frame preloading in jsdom: images do not load, so `load` is simulated. */
 class ImageStub {
   onload: (() => void) | null = null;
   set src(v: string) {
@@ -67,7 +67,7 @@ class ImageStub {
     if (ImageStub.loads) queueMicrotask(() => this.onload?.());
   }
   static loads = true;
-  /** Что вообще просили у сети: по этому списку видно предзагрузку соседей. */
+  /** What was asked of the network at all: this list shows the neighbours being preloaded. */
   static srcs: string[] = [];
 }
 
@@ -81,7 +81,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
   it("до ответа сети карточки нет — копия из кэша не мелькает «на секунду до свежего»", async () => {
     writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
-    getDropsMock.mockReturnValue(new Promise(() => {})); // сеть молчит
+    getDropsMock.mockReturnValue(new Promise(() => {})); // the network stays silent
     const { container } = render(<LatestDropTile />);
     await new Promise((r) => setTimeout(r, 10));
     expect(container.querySelector(".pixel-tile")).toBeNull();
@@ -97,8 +97,8 @@ describe("LatestDropTile — редакции (волна выбирает че�
   });
 
   it("с копией в кэше кадры мозаики всё равно рисуются: замер идёт после появления карточки", async () => {
-    // Вторая загрузка страницы: копия есть, фаза «loaded» ещё до ответа сети, карточка
-    // появляется после него — и замер блока обязан пойти по самому узлу, а не по фазе.
+    // A second page load: the copy exists, the "loaded" phase arrives before the network answers
+    // and the card after it — so the block must be measured on the node itself, not on the phase.
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
@@ -127,7 +127,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     const { container } = render(<LatestDropTile edition="frame" />);
     await screen.findByText("Июльская плёнка").catch(() => {});
-    // Данные пришли, но кадр ещё грузится: стекла на экране быть не должно.
+    // The data arrived but the frame is still loading: no glass may be on screen.
     await new Promise((r) => setTimeout(r, 0));
     expect(container.querySelector(".pixel-tile")).toBeNull();
   });
@@ -142,14 +142,15 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     expect(container.querySelectorAll("img")).toHaveLength(1);
     expect(screen.getByText(/12 кадров/)).toBeInTheDocument();
-    // Подпись лежит ВНУТРИ полосы блюра: высота полосы = растушёвка + подпись, длинное
-    // название углубляет полосу само.
+    // The caption sits INSIDE the blur band: the band's height is feather plus caption, so a long
+    // title deepens the band by itself.
     expect(container.querySelector(".drop-frame__band .drop-frame__caption")).not.toBeNull();
-    // Размытые копии под подписью берут тот же кадр, что и сам снимок.
+    // The blurred copies under the caption take the same frame as the shot itself.
     const band = container.querySelector(".drop-frame__band") as HTMLElement;
     expect(band.style.getPropertyValue("--drop-frame-src")).toContain("/api/film-media/1/");
     expect(container.querySelectorAll(".drop-frame__blur")).toHaveLength(2);
-    // Пропорция — у карточки (стекла), а не у картинки: лежачий кадр — лежачая карточка.
+    // The proportion belongs to the card (the glass), not the picture: a landscape frame, a
+    // landscape card.
     const card = container.querySelector(".pixel-tile") as HTMLElement;
     expect(card.style.aspectRatio).toBe("120 / 80");
     expect(container.querySelector(".drop-mosaic")).toBeNull();
@@ -167,10 +168,9 @@ describe("LatestDropTile — редакции (волна выбирает че�
   });
 
   /**
-   * Свайп по карточке: жест пальцем в px. Порог — `SWIPE_NOTCH` (56px).
-   *
-   * Событие собираем руками из `MouseEvent`: `PointerEvent` в jsdom не реализован, и
-   * `fireEvent.pointerMove` отдаёт голый `Event` — без `clientX`, то есть без самого жеста.
+   * A swipe across the card in px, with `SWIPE_NOTCH` (56px) as the threshold. The event is built
+   * by hand from `MouseEvent`: jsdom has no `PointerEvent`, and `fireEvent.pointerMove` gives a
+   * bare `Event` — no `clientX`, that is, no gesture at all.
    */
   const pointer = (card: HTMLElement, type: string, clientX: number) => {
     const event = new MouseEvent(type, { bubbles: true, clientX });
@@ -182,7 +182,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     pointer(card, "pointermove", dx);
     pointer(card, "pointerup", dx);
   };
-  /** Длинный жест: рука едет далеко и не одним скачком, а как настоящая — по дороге. */
+  /** A long gesture: the hand travels far, and by stages rather than in one jump, as a real one does. */
   const longSwipe = (card: HTMLElement, dx: number) => {
     pointer(card, "pointerdown", 0);
     for (let i = 1; i <= 6; i += 1) pointer(card, "pointermove", (dx / 6) * i);
@@ -199,25 +199,24 @@ describe("LatestDropTile — редакции (волна выбирает че�
     const { container } = render(<LatestDropTile edition="frame" />);
     const card = await screen.findByLabelText(/Открыть дроп/);
 
-    // Стартовый кадр — случайный (жребий по зерну), поэтому сперва уезжаем ВПРАВО до упора:
-    // трёх жестов на три кадра хватает с запасом, а за первым кадром шага нет.
+    // The starting frame is random (a seeded roll), so we first go RIGHT to the stop: three
+    // gestures for three frames is plenty, and past the first frame there is no step.
     swipe(card, 70);
     swipe(card, 70);
     swipe(card, 70);
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
 
-    // Влево — следующий кадр (лист бумаги уезжает за пальцем), и так до конца плёнки.
+    // Left is the next frame (the sheet of paper follows the finger), to the end of the roll.
     swipe(card, -70);
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
     swipe(card, -70);
     await waitFor(() => expect(shownSeq(container)).toBe("2"));
 
-    // Последний кадр: дальше плёнка не идёт и НЕ закольцовывается на первый.
+    // The last frame: the roll goes no further and does NOT loop back to the first.
     swipe(card, -70);
     await new Promise((r) => setTimeout(r, 10));
     expect(shownSeq(container)).toBe("2");
 
-    // Назад — предыдущий кадр.
     swipe(card, 70);
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
   });
@@ -229,8 +228,8 @@ describe("LatestDropTile — редакции (волна выбирает че�
     const { container } = render(<LatestDropTile edition="frame" />);
     const card = await screen.findByLabelText(/Открыть дроп/);
 
-    // К началу плёнки — и оттуда один длинный жест влево: он обязан стоить ОДИН кадр, а не
-    // домотать ленту до края.
+    // Back to the roll's start, then one long gesture left: it must cost ONE frame rather than
+    // winding the film to its edge.
     for (let i = 0; i < 6; i += 1) swipe(card, 70);
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
     longSwipe(card, -600);
@@ -238,7 +237,6 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await new Promise((r) => setTimeout(r, 10));
     expect(shownSeq(container)).toBe("1");
 
-    // И так же в обратную сторону.
     longSwipe(card, 600);
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
   });
@@ -249,13 +247,12 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     const { container } = render(<LatestDropTile edition="frame" />);
     const card = await screen.findByLabelText(/Открыть дроп/);
-    for (let i = 0; i < 6; i += 1) swipe(card, 70); // к началу плёнки
+    for (let i = 0; i < 6; i += 1) swipe(card, 70); // back to the roll's start
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
 
-    // Один мах двумя пальцами приезжает ПАЧКОЙ событий: два десятка по 40px подряд, и почти
-    // все — уже хвост инерции. Пока кадр не остыл, путь не копится вовсе, поэтому мах стоит
-    // один кадр, а не восемь. Плитка между событиями ещё и перерисовывается, так что счётчик
-    // обязан жить в ссылке — в замыкании его сбрасывал бы им же вызванный кадр.
+    // One two-finger flick arrives as a BURST: a couple of dozen 40px events, almost all of them
+    // inertia. Travel does not accumulate while the frame is cooling, so a flick costs one frame.
+    // The counter must live in a ref — in a closure the frame it triggers would reset it.
     for (let i = 0; i < 20; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
     await new Promise((r) => setTimeout(r, 20));
@@ -268,14 +265,12 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     const { container } = render(<LatestDropTile edition="frame" />);
     const card = await screen.findByLabelText(/Открыть дроп/);
-    for (let i = 0; i < 6; i += 1) swipe(card, 70); // к началу плёнки
+    for (let i = 0; i < 6; i += 1) swipe(card, 70); // back to the roll's start
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
 
-    // Ровно жалоба владельца: пальцы ведут не отрываясь, курсор при этом стоит на месте —
-    // и раньше кадр менялся ОДИН раз за весь жест. Ведение — это события, разделённые
-    // настоящим временем, поэтому и тут паузы настоящие.
-    // Шаг события выводим из порога, а не держим числом: подогнанное под порог число
-    // молча ломается вместе с ним, и тест начинает проверять не то, что написано.
+    // The owner's exact complaint: fingers drag without lifting, the cursor stands still, and the
+    // frame changed ONCE for the whole gesture. Dragging is events separated by real time, so the
+    // pauses here are real. The step is derived from the threshold rather than hardcoded.
     const perEvent = Math.ceil((FRAME_WHEEL_TRAVEL_PX + 40) / 4);
     for (let burst = 0; burst < 3; burst += 1) {
       for (let i = 0; i < 4; i += 1) fireEvent.wheel(card, { deltaX: perEvent, deltaY: 0 });
@@ -295,7 +290,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
-    // Рука отпустила — к следующему маху кадр уже остыл, и он снова стоит кадр.
+    // The hand let go — by the next flick the frame has cooled, and it costs a frame again.
     await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("2"));
@@ -311,8 +306,8 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await screen.findByLabelText(/Открыть дроп/);
     await waitFor(() => expect(container.querySelector(".drop-frame__img")).not.toBeNull());
 
-    // Показанный кадр — какой-то из выборки; рядом с ним обязаны быть заказаны соседи (±1, ±2),
-    // иначе каждый жест на телефоне упирается в загрузку.
+    // The shown frame is one of the selection, and its neighbours (±1, ±2) must be requested
+    // beside it, or every gesture on a phone runs into a load.
     const shown = container.querySelector(".drop-frame__img")!.getAttribute("src")!;
     const shownIdx = photos.findIndex((p) => shown.includes(p.imageUrl));
     const neighbours = [shownIdx - 2, shownIdx - 1, shownIdx + 1, shownIdx + 2].filter(
@@ -333,13 +328,12 @@ describe("LatestDropTile — редакции (волна выбирает че�
     const img = container.querySelector(".drop-frame__img");
     const view = container.querySelector(".drop-frame__view");
 
-    for (let i = 0; i < 3; i += 1) swipe(card, 70); // к началу плёнки, откуда есть куда шагнуть
+    for (let i = 0; i < 3; i += 1) swipe(card, 70); // to the start, where there is room to step
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
     swipe(card, -70);
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
-    // Тот же самый узел, а не новый с тем же классом: пересозданный слой уносит из-под курсора
-    // цель наведения, и браузер перестаёт слать на карточку колесо, пока мышь не двинулась
-    //.
+    // The very same node, not a new one with the same class: a recreated layer takes the hover
+    // target out from under the cursor, and the browser stops sending wheel events to the card.
     expect(container.querySelector(".drop-frame__img")).toBe(img);
     expect(container.querySelector(".drop-frame__view")).toBe(view);
   });
@@ -351,7 +345,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     render(<LatestDropTile edition="frame" />);
     const card = await screen.findByLabelText(/Открыть дроп/);
     swipe(card, -70);
-    fireEvent.click(card); // клик, которым браузер завершает перетаскивание
+    fireEvent.click(card); // the click a browser ends a drag with
     await new Promise((r) => setTimeout(r, 10));
     expect(document.querySelector(".drop-modal__panel")).toBeNull();
   });
@@ -362,9 +356,9 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     render(<LatestDropTile edition="frame" />);
     const card = await screen.findByLabelText(/Открыть дроп/);
-    // Жест, который браузер НЕ завершил кликом: на тач-экране свайп кликом не оборачивается,
-    // а на мыши его съедает нативное перетаскивание картинки. Метка «это был жест» обязана
-    // умереть вместе с жестом — иначе её снимало бы следующее нажатие вместо открытия.
+    // A gesture the browser did NOT finish with a click: on a touch screen a swipe is not a click,
+    // and on a mouse the native image drag eats it. The "this was a gesture" mark must die with
+    // the gesture, or the next press would clear it instead of opening.
     swipe(card, -70);
     pointer(card, "pointerdown", 0);
     pointer(card, "pointerup", 0);
@@ -395,7 +389,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     const imgs = [...container.querySelectorAll(".drop-sheet img")] as HTMLImageElement[];
     expect(imgs).toHaveLength(4);
     expect(container.querySelector("[data-rotated]")).toBeNull();
-    // Каждый кадр несёт СВОЮ пропорцию: стоячий остаётся стоячим, лежачий — лежачим.
+    // Every frame carries ITS OWN proportion: portrait stays portrait, landscape stays landscape.
     for (const img of imgs) {
       const seq = Number(img.getAttribute("src")!.match(/\/(\d+)\/thumb$/)![1]);
       const [w, h] = img.style.aspectRatio.split("/").map((v) => Number(v.trim()));
@@ -403,16 +397,15 @@ describe("LatestDropTile — редакции (волна выбирает че�
       expect(Math.abs(w / h - expected) / expected).toBeLessThan(0.05);
     }
     expect(screen.getByText(/12 кадров/)).toBeInTheDocument();
-    // В стеке высоту блоку даёт CSS-контракт `.drop-mosaic` (§8) — лист его не теряет.
+    // In the stack the block's height comes from the `.drop-mosaic` CSS contract (§8).
     expect(screen.getByRole("button", { name: /Открыть дроп/ })).toHaveClass("drop-mosaic");
     rect.mockRestore();
   });
 
   it("в стеке карточка НЕ жмётся к мозаике: ширина стека и есть ширина карточки", async () => {
-    // Прыгающий виджет на телефоне (волна 02, замечание владельца): в стеке высота блока кадров
-    // считается от его же ширины (`aspect-ratio` §8), а карточка жалась по ширине к разложенным
-    // рядам — ширина меняла высоту, высота меняла раскладку, раскладка меняла ширину. Петля
-    // рвётся тем, что в стеке карточка ширину не подгоняет: центровать её всё равно не в чем.
+    // A jumping widget on a phone: in the stack the frame block's height comes from its own width
+    // (`aspect-ratio`, §8) while the card sized its width to the laid-out rows, closing a loop.
+    // In the stack the card no longer fits its width, which breaks it.
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
@@ -472,30 +465,25 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     render(<LatestDropTile />);
 
     expect(await screen.findByText("Июльская плёнка")).toBeInTheDocument();
-    // Тянет кадры только последнего дропа (id=2).
     expect(getDropMock).toHaveBeenCalledWith(2, expect.anything());
   });
 
   it("ширину кадров раздаёт флексбокс, а не пиксели из JS", () => {
-    // Пиксельная ширина в `style.width` держалась на том, что движок сложит числа так же,
-    // как их сложил расчёт. Safari складывал иначе, и правый кадр вылезал за карточку.
-    // `flex-grow` + `flex-basis: 0` заставляют ряд заполнить контейнер по определению.
+    // A pixel width in `style.width` relied on the engine adding numbers the way the calculation
+    // did. Safari added them differently and the right frame spilled out of the card.
+    // `flex-grow` plus `flex-basis: 0` make the row fill the container by definition.
     const photos = [0, 1, 2, 3].map(landscape);
     const mosaic = buildMosaic(photos, 341, 260)!;
     expect(mosaic.flat().length).toBe(4);
-    // Сам контракт разметки проверяется рендером ниже — здесь фиксируем, что расчёт
-    // по-прежнему отдаёт целые ширины, из которых берутся grow-коэффициенты.
+    // The layout contract itself is checked by the render below; here we pin that the calculation
+    // still yields whole widths, which the grow factors are taken from.
     for (const cell of mosaic.flat()) expect(Number.isInteger(cell.w)).toBe(true);
   });
 
   it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
-    // Плитка несёт filter: drop-shadow, то есть свой композитный слой; тень волны 01 смещена
-    // вправо-вниз и выходит за бокс. WebKit не подчищает область, освобождённую сжимающимся
-    // слоем, и каждый кадр перегона ширины оставлял полосу тени — в Safari справа от карточки
-    // вырастала гребёнка из десятка полос (docs/pitfalls.md).
-    //
-    // Геометрию подставляем руками: без неё `frameW` нулевой, карточка идёт по ветке «ширина
-    // не задана», и замок сторожил бы ветку, в которой анимации не бывает и так.
+    // The tile carries filter: drop-shadow, hence its own compositing layer, and the shadow
+    // extends past the box. WebKit does not clean up the area freed by a shrinking layer, so every
+    // frame of a width animation left a stripe of shadow (docs/pitfalls.md).
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
@@ -504,23 +492,22 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     ]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
 
-    // Высота слота (бенто) обязательна: жмётся к мозаике только там, в стеке карточка берёт
-    // всю ширину ряда (см. тест про прыгающий виджет выше).
+    // The slot height (bento) is required: the card hugs the mosaic only there, while in the stack
+    // it takes the row's full width.
     const { container } = render(<LatestDropTile style={{ height: 300 }} />);
     await screen.findByText("Июльская плёнка");
 
     const card = container.querySelector(".pixel-tile") as HTMLElement;
-    // Ширина действительно посчиталась ⇒ замок стоит на той самой ветке.
+    // The width really was computed ⇒ the lock guards the branch it claims to.
     expect(card.style.width).not.toBe("");
     expect(card.style.transition).toBe("");
     rect.mockRestore();
   });
 
   it("блок мозаики зацеплен за .drop-mosaic — свою высоту ему даёт CSS", async () => {
-    // Высота блока — вход расчёта рядов (`buildMosaic` при H<=0 возвращает null), а в мобильном
-    // стеке родитель её не задаёт: без собственной высоты плитка оставалась без кадров навсегда
-    // (пустой блок мерился нулём, ноль не давал кадров). Пиксели проверяет CSS-контракт
-    // `app/styles/stackHeights.test.ts`, здесь — что зацепка на месте.
+    // The block's height is an input of the row calculation (`buildMosaic` returns null at H<=0),
+    // and in the mobile stack the parent sets none: without a height of its own the tile stayed
+    // frameless forever. The pixels are checked by `app/styles/stackHeights.test.ts`.
     getDropsMock.mockResolvedValue([
       { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
     ]);
@@ -537,9 +524,8 @@ describe("LatestDropTile (крупный последний дроп)", () => {
 
 describe("LatestDropTile — ряд мозаики заполняет контейнер сам", () => {
   it("у кадров flex-grow и нулевой базис, а жёсткой ширины в пикселях нет", async () => {
-    // Регрессионный замок на несущее решение: горизонталь не должна зависеть от того,
-    // как движок сложит записанные из JS пиксели. Вернётся `width: Npx` — вернётся и
-    // обрезка правого кадра в Safari.
+    // A regression lock on the load-bearing decision: the horizontal must not depend on how the
+    // engine adds pixels written from JS. Bring back `width: Npx` and Safari clips the right frame.
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
@@ -559,7 +545,7 @@ describe("LatestDropTile — ряд мозаики заполняет конте
       expect(img.style.width).toBe("");
       expect(img.style.aspectRatio).not.toBe("");
     }
-    // Ряд тянется во всю ширину контейнера, а не по сумме пикселей.
+    // The row spans the container's full width rather than the sum of the pixels.
     const row = container.querySelector(".drop-mosaic > div") as HTMLElement;
     expect(row.style.width).toBe("100%");
     rect.mockRestore();

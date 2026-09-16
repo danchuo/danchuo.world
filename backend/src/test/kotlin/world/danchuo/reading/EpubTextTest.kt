@@ -12,18 +12,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * Разбор EPUB в плоский текст и вырезание прочитанного куска (PRD §5.16).
- *
- * Книга приезжает к нам той же полкой, что и статистика: Anx синкает по WebDAV и сам файл
- * (`anx/data/file/…epub`). Пересказывать кусок можно только по НЕМУ — иначе модели пришлось бы
- * сочинять по названию.
- *
- * Проверяем:
- * - **порядок чтения** — текст идёт по спайну, а не по алфавиту файлов в архиве;
- * - **разметка снята**, но границы абзацев остаются: слова соседних блоков не слипаются;
- * - **срез по долям** совпадает с тем, как долю считает читалка — по РАЗМЕРУ документов, а не
- *   по их числу (глава на 8 килобайт и глава на 800 байт занимают на шкале разное место);
- * - **не EPUB** — тихий `null`, как у всей полки: это норма, а не поломка.
+ * EPUB into flat text and the excerpt of what was read (PRD §5.16). The book arrives on the same
+ * WebDAV shelf as the statistics, and the retelling can only be built from it. Text follows the
+ * spine, markup is stripped but paragraph edges stay, and the slice is by document SIZE.
  */
 class EpubTextTest {
 
@@ -43,10 +34,8 @@ class EpubTextTest {
 
         val first = book.sections.first().text
         assertFalse(first.contains("<"), "разметка должна быть снята: $first")
-        // Заголовок и первый абзац — разные блоки, между ними обязан остаться разрыв.
         assertFalse(first.contains("главаЖил"), "блоки слиплись: $first")
         assertTrue(first.contains("Жил"), "текст абзаца потерялся: $first")
-        // Сущности раскрыты, неразрывный пробел стал обычным.
         assertTrue(first.contains("«кит» & кот"), "сущности не раскрыты: $first")
     }
 
@@ -54,7 +43,7 @@ class EpubTextTest {
     fun `the excerpt of a range lands inside that range`() {
         val book = EpubText.read(epub(dir.resolve("book.epub")))!!
 
-        // Вторая глава — вся середина книги по размеру; кусок 0.4..0.6 обязан быть про неё.
+        // The second chapter is the whole middle of the book BY SIZE, so 0.4..0.6 must be about it.
         val excerpt = book.excerpt(from = 0.4, to = 0.6)
 
         assertTrue(excerpt.contains("вторая"), "середина книги — вторая глава: $excerpt")
@@ -65,8 +54,7 @@ class EpubTextTest {
     fun `an excerpt never runs past the end of what was read`() {
         val book = EpubText.read(epub(dir.resolve("book.epub")))!!
 
-        // Последняя глава начинается там же, где кончается вторая: кусок «до 60%» её не задевает.
-        // Захватить непрочитанное значило бы спойлерить владельцу его же книгу.
+        // Catching the unread part would spoil the owner's own book for them.
         assertFalse(book.excerpt(from = 0.0, to = 0.6).contains("третья"))
     }
 
@@ -74,8 +62,8 @@ class EpubTextTest {
     fun `an empty range still gives something to summarise`() {
         val book = EpubText.read(epub(dir.resolve("book.epub")))!!
 
-        // Импортированный день и промах округления дают from == to; пустая строка сорвала бы
-        // пересказ на ровном месте — берём окно вокруг точки.
+        // An imported day or a rounding miss gives from == to; an empty string would kill the
+        // retelling for nothing, so a window around the point is taken.
         assertTrue(book.excerpt(from = 0.5, to = 0.5).isNotBlank())
     }
 
@@ -88,8 +76,8 @@ class EpubTextTest {
     }
 
     /**
-     * Минимальный EPUB: контейнер → OPF → три главы разного размера. Порядок в манифесте
-     * намеренно перепутан относительно спайна — так проверяется, что читаем мы спайн.
+     * A minimal EPUB: container → OPF → three chapters of different sizes. The manifest order is
+     * deliberately shuffled against the spine, which is how "we read the spine" is checked.
      */
     private fun epub(path: Path): Path {
         val chapters = listOf(

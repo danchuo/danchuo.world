@@ -5,10 +5,9 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
- * Сжатие поля `item` в проекцию плитки «сейчас играет» (PRD §M3). Плитка отвечает на вопрос
- * «что играет прямо сейчас», и подкаст — такой же ответ, как трек, поэтому эпизод укладывается
- * в ту же форму без единого нового поля: «исполнитель» — это шоу со своей ссылкой, обложка у
- * эпизода собственная (у трека она в альбоме), альбома нет вовсе.
+ * Squeezing `item` into the "now playing" tile projection. A podcast is as valid an answer as a
+ * track, so an episode fits the same shape with no new fields: the "artist" is the show with its
+ * own link, the cover is the episode's own (a track's lives on the album), and there is no album.
  */
 class TrackViewTest {
 
@@ -39,9 +38,9 @@ class TrackViewTest {
         assertEquals("How Feelings Make Us Smarter", track.title)
         assertEquals(listOf("Hidden Brain"), track.artists.map { it.name })
         assertEquals("https://open.spotify.com/show/20Gf4IAauFrfj7RBkjcWxh", track.artists.single().url)
-        // Обложка эпизода лежит на нём самом, и берём крупнейшую — как у альбома.
+        // An episode's cover sits on the episode itself, and we take the largest, as for an album.
         assertEquals("https://i.scdn.co/image/big.jpg", track.albumImageUrl)
-        // Альбома у эпизода нет; плитка эту строку просто не рисует.
+        // An episode has no album; the tile simply does not draw that line.
         assertNull(track.album)
         assertEquals(2_887_209L, track.durationMs)
     }

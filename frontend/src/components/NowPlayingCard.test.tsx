@@ -27,9 +27,9 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
   });
 
   /**
-   * Несущий случай: CDN Spotify недоступен, соединение просто
-   * ВИСИТ. Ошибки браузер не отдаёт, `onerror` не приходит никогда — и на месте обложки
-   * оставалась пустота вместо заглушки. Ждём картинку не вечно.
+   * The load-bearing case: Spotify's CDN is unreachable and the connection simply HANGS. The
+   * browser reports no error, `onerror` never arrives, and the cover's place stayed empty instead
+   * of showing the placeholder.
    */
   it("картинка не приехала за отведённое время ⇒ та же заглушка, что и при ошибке", () => {
     vi.useFakeTimers();
@@ -47,9 +47,9 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
   });
 
   /**
-   * Порог ожидания — ТРИ секунды: он отвечает не на «сколько грузится картинка», а на «после
-   * чего пустое место хуже заглушки», и восемь секунд дырки в виджете успевали прочитаться
-   * поломкой.
+   * The wait threshold is THREE seconds: it answers not "how long does a picture take" but "after
+   * what does empty space read worse than a placeholder", and eight seconds of a hole in the
+   * widget was long enough to read as breakage.
    */
   it("порог ожидания — три секунды: до них ещё ждём, после них уже заглушка", () => {
     vi.useFakeTimers();

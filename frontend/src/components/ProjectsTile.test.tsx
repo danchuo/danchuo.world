@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectView } from "@/lib/api/types";
 import { ProjectsTile } from "./ProjectsTile";
 
-// Сцену 3D-артефакта подменяем: в jsdom нет WebGL, а проверяем мы выбор ПОДАЧИ по адресу.
+// The 3D artifact scene is stubbed: jsdom has no WebGL, and what we check is the choice of
+// presentation by address.
 vi.mock("@/lib/artifact3dStage", () => ({
   mountArtifact: vi.fn(async () => ({ setSpinning: vi.fn(), resize: vi.fn(), dispose: vi.fn() })),
 }));
@@ -13,8 +14,8 @@ const getProjectsMock = vi.mocked(getProjects);
 
 afterEach(() => {
   vi.clearAllMocks();
-  // Часы подменяют тесты группировки по годам: год «сейчас» решает, куда ляжет проект с
-  // открытым концом, и без фиксации прогон начал бы зависеть от даты запуска.
+  // The year-grouping tests fake the clock: "this year" decides where an open-ended project lands,
+  // and without freezing it the run would depend on the date it was started.
   vi.useRealTimers();
 });
 
@@ -56,10 +57,9 @@ describe("ProjectsTile", () => {
 
     const artifact = container.querySelector("canvas");
     expect(artifact).toHaveClass("project-artifact");
-    // Тот же слот, что у плоских планет: тексты рядов начинаются с одного x независимо от
-    // того, чем одета планета.
+    // The same slot as the flat planets: row texts begin at one x whatever the planet wears.
     expect(artifact?.parentElement).toHaveClass("project-slot");
-    // Подача ровно одна: спрайт при этом не рисуется вторым слоем.
+    // Exactly one presentation: the sprite is not drawn as a second layer.
     expect(container.querySelector("img")).toBeNull();
   });
 
@@ -93,8 +93,8 @@ describe("ProjectsTile", () => {
     const { container } = render(<ProjectsTile />);
     await screen.findByText("proxemics");
 
-    // Размеры — доли контейнера в CSS (DESIGN §8.1), поэтому в jsdom проверяем выбор класса,
-    // а не вычисленные пиксели: clamp/cqw тут не считаются. Пропорции закреплены e2e-замером.
+    // Sizes are fractions of the container in CSS (DESIGN §8.1), so in jsdom we check the class
+    // rather than computed pixels: clamp/cqw are not evaluated. Proportions are pinned by e2e.
     const [pixel, smooth] = Array.from(container.querySelectorAll("img"));
     expect(pixel).toHaveClass("project-sprite");
     expect(pixel.style.imageRendering).toBe("pixelated");
@@ -135,8 +135,8 @@ describe("ProjectsTile", () => {
   });
 
   /**
-   * Редакция `console` (DESIGN §7.8, волна 03): вывод `tree` вместо строки-ярлыка. Набор
-   * редакций — знание тайла, а не реестра раскладки, поэтому незнакомое имя = дефолт.
+   * The `console` edition (DESIGN §7.8): a `tree` listing instead of a label row. The set of
+   * editions is the tile's knowledge, not the layout registry's, so an unknown name is the default.
    */
   describe("редакция console", () => {
     it("подпись плитки — приглашение оболочки, а не слово «проекты»", async () => {
@@ -148,8 +148,8 @@ describe("ProjectsTile", () => {
     });
 
     /**
-     * Две ссылки разного назначения: показанный путь ведёт туда, куда показывает, а название
-     * с картинкой — в «дом» проекта (у proxemics код на гитхабе, сам проект — бот).
+     * Two links with different jobs: the shown path leads where it points, while the title and
+     * picture lead to the project's home (for proxemics the code is a repo, the project a bot).
      */
     it("название и картинка ведут в дом проекта, путь — по своему адресу", async () => {
       getProjectsMock.mockResolvedValue([
@@ -171,7 +171,7 @@ describe("ProjectsTile", () => {
       );
     });
 
-    /** Дома отдельно нет ⇒ название и картинка ведут туда же, куда показанный путь. */
+    /** With no separate home, the title and picture lead where the shown path does. */
     it("без дома название ведёт по показанному пути", async () => {
       getProjectsMock.mockResolvedValue([
         project({ title: "danchuo.world", iconUrl: "/assets/projects/danchuo-world-px.png", url: "https://danchuo.world" }),
@@ -184,8 +184,8 @@ describe("ProjectsTile", () => {
     });
 
     /**
-     * Сайт, названный своим же адресом: вторая строка повторила бы название вторым голосом и
-     * зелёным — и не сказала бы ничего нового. Её просто нет.
+     * A site named by its own address: a second line would repeat the title in another voice and
+     * colour while saying nothing new, so it simply is not there.
      */
     it("путь, дословно равный названию, второй строкой не печатается", async () => {
       getProjectsMock.mockResolvedValue([
@@ -198,8 +198,9 @@ describe("ProjectsTile", () => {
     });
 
     /**
-     * Время — левым полем строки, а не колонкой справа (DESIGN §7.8): правого столбца у строк
-     * нет вовсе. Год берётся по ПОСЛЕДНЕЙ активности, поэтому открытый конец идёт в текущий.
+     * Time goes in the row's left margin rather than a right-hand column (DESIGN §7.8): there is
+     * no right column at all. The year follows the LAST activity, so an open end lands in the
+     * current one.
      */
     it("год — в левом поле; колонки диапазона в строке нет", async () => {
       vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
@@ -212,13 +213,13 @@ describe("ProjectsTile", () => {
 
       const years = [...container.querySelectorAll(".projects-year__head")].map((h) => h.textContent);
       expect(years).toEqual(["2031", "2024"]);
-      // Год связан со своим поддеревом горизонталью — по линии на каждый напечатанный год.
+      // A year is joined to its subtree by a horizontal — one per printed year.
       expect(container.querySelectorAll(".projects-year__link")).toHaveLength(2);
       expect(container.querySelector(".projects-console .project-range")).toBeNull();
       expect(screen.queryByText(/Q\d/)).not.toBeInTheDocument();
     });
 
-    /** Каждый год — своё поддерево: ствол растёт от года, угол закрывает СВОЙ год. */
+    /** Each year is its own subtree: the trunk grows from the year, and the elbow closes ITS year. */
     it("ветки считаются внутри года: угол в каждой группе", async () => {
       vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
       getProjectsMock.mockResolvedValue([
@@ -229,17 +230,17 @@ describe("ProjectsTile", () => {
       const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("c");
 
-      // Группа 2031 = [a, b]: голова и угол. Группа 2024 = [c]: одиночка, ствола нет вовсе.
+      // Group 2031 = [a, b]: a head and an elbow. Group 2024 = [c]: a singleton, so no trunk.
       const branches = [...container.querySelectorAll(".project-branch")].map((b) => b.getAttribute("data-branch"));
       expect(branches).toEqual(["head", "corner", "only"]);
-      // Год печатается один раз на группу: у второй строки поле пустое.
+      // The year prints once per group: the second row's margin is empty.
       const years = [...container.querySelectorAll(".projects-year__gutter")].map((g) => g.textContent);
       expect(years).toEqual(["2031", "", "2024"]);
     });
 
     /**
-     * Актуальность — яркостью, а не знаком: состояние едет атрибутом строки, красит его скин
-     * (`ls --color`, не `-F`). Читалке то же самое сказано словом.
+     * Currency shows by brightness, not by a sign: the state travels as a row attribute and the
+     * skin colours it (`ls --color`, not `-F`). A screen reader is told the same in words.
      */
     it("живой и завершённый проекты различаются состоянием строки", async () => {
       vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
@@ -265,9 +266,9 @@ describe("ProjectsTile", () => {
     });
 
     /**
-     * Ветки дерева: строки висят на приглашении, а угол закрывает список. Проверяем порядок
-     * видов в разметке — сам выбор вида проверен в `projectTree.test.ts`. Рисуются ветки
-     * линиями в CSS, поэтому в разметке от них остаётся ровно этот атрибут.
+     * Rows hang off the branch and the elbow closes the list. We check the order of branch kinds
+     * in the markup — the choice of kind itself is checked in `projectTree.test.ts`, and the lines
+     * are drawn in CSS, so only this attribute survives into the markup.
      */
     it("строки висят на ветках, угол достаётся последней", async () => {
       getProjectsMock.mockResolvedValue([
@@ -278,7 +279,7 @@ describe("ProjectsTile", () => {
       const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("третий");
 
-      // Год стоит слева на первой строке, и ствол начинается от него: у неё `head`, не `tee`.
+      // The year stands left of the first row and the trunk grows from it: `head`, not `tee`.
       const branches = [...container.querySelectorAll(".project-branch")].map((b) => b.getAttribute("data-branch"));
       expect(branches).toEqual(["head", "tee", "corner"]);
     });
@@ -307,7 +308,7 @@ describe("ProjectsTile", () => {
   });
 
   it("сбой при наличии кэш-копии → показывает её, а не пустоту/ошибку", async () => {
-    // Прошлая удачная загрузка (как после серии F5 с рейтлимитом на повторе).
+    // A previous successful load (as after a run of F5 with a rate limit on the retry).
     window.localStorage.setItem(
       "dw:cache:v1:projects",
       JSON.stringify({ t: Date.now(), v: [project({ title: "из кэша" })] }),

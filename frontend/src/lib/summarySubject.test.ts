@@ -3,17 +3,9 @@ import { bookSubject, episodeSubject } from "./summarySubject";
 import type { PodcastEpisodeView, ReadingBookView } from "./api/types";
 
 /**
- * Приведение карточки борда к предмету разговора для окна пересказа (PRD §5.16.1).
- *
- * Окно у книги и у выпуска **одно и то же**: вопрос («что там было») и ответ (пункты + итог) не
- * зависят от того, читали или слушали. Различается ровно шапка, и различия здесь — данные, а не
- * второй компонент: иначе два почти одинаковых окна расходились бы по мелочам при каждой правке.
- *
- * Проверяем то, в чём легко ошибиться:
- * - **подпись берётся из своего предмета**: у книги вторая строка — автор, у выпуска — шоу;
- * - **обложка книги портретная, эпизода — квадратная** (конверт против корешка);
- * - **без ключа окна нет**: заход, у которого нет id, открыть нечем — кнопки не будет;
- * - **строка «сколько» говорит на языке предмета**: проценты у книги, минуты у выпуска.
+ * Reducing a board card to the subject of the retelling window (PRD §5.16.1). The window is THE
+ * SAME for a book and an episode — the question and the answer do not depend on reading or
+ * listening — so the differences are data, not a second component.
  */
 describe("summarySubject", () => {
   const book = (patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
@@ -65,13 +57,13 @@ describe("summarySubject", () => {
     expect(subject.byline).toBe("Hidden Brain");
     expect(subject.progressValue).toBe("12 → 47 мин");
     expect(subject.progressCaption).toBe("прослушано за этот заход");
-    // Обложка эпизода квадратная — это конверт, а не корешок книги.
+    // An episode's cover is square: it is a sleeve, not a book's spine.
     expect(subject.portrait).toBe(false);
   });
 
   it("без известных границ окна выпуск откатывается к «сколько слушали»", () => {
-    // Старый заход: границ нет. Это меньше, чем хотелось бы, но не молчание — окно всё равно
-    // открывается и пересказ показывает.
+    // An old sitting has no bounds. That is less than one would like but not silence — the window
+    // still opens and shows the retelling.
     const old = episode({ startMinute: null, endMinute: null });
 
     expect(episodeSubject(old)!.progressValue).toBe("35 из 48 мин");
@@ -79,14 +71,14 @@ describe("summarySubject", () => {
   });
 
   it("заход без ключа открыть нечем", () => {
-    // Пересказ висит на id захода; без него запрашивать нечего — и кнопки быть не должно.
+    // The retelling hangs off the sitting's id; without it there is nothing to request and no button.
     expect(bookSubject(book({ sessionId: null }))).toBeNull();
     expect(episodeSubject(episode({ sessionId: null }))).toBeNull();
   });
 
   it("книга без начала показывает достигнутое, а не стрелку из ниоткуда", () => {
-    // Книга приехала к нам уже начатой (§5.16): подставлять ноль значило бы приписать
-    // владельцу проценты, которых он при нас не проходил.
+    // The book arrived already started (§5.16): substituting zero would credit the owner with
+    // percentages they did not cover while we watched.
     expect(bookSubject(book({ startPercent: null }))!.progressValue).toBe("53%");
   });
 });

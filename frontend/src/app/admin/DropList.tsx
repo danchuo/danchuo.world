@@ -11,7 +11,7 @@ interface DropListProps {
   onDelete: (drop: AdminDropView) => void;
 }
 
-/** Список дропов — выбор кликом по строке, удаление крестиком справа. Своего состояния нет. */
+/** Parent-owned drop selection and deletion. */
 export function DropList({ drops, selectedId, onSelect, onDelete }: DropListProps) {
   return (
     <section className="md:w-1/3">

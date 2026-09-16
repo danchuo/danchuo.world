@@ -5,15 +5,15 @@ import jakarta.enterprise.context.ApplicationScoped
 import java.time.Instant
 
 /**
- * Доступ к синглтон-строке OAuth-кредов Spotify ([SpotifyToken]). OAuth идемпотентен:
- * [save] — upsert по фиксированному id, повтор не плодит строк.
+ * Access to the singleton row of Spotify OAuth credentials ([SpotifyToken]). OAuth is idempotent:
+ * [save] upserts by a fixed id, so a repeat makes no extra rows.
  */
 @ApplicationScoped
 class SpotifyTokenRepository : PanacheRepositoryBase<SpotifyToken, Long> {
 
     fun current(): SpotifyToken? = findById(SpotifyToken.SINGLETON_ID)
 
-    /** Перезаписать (или создать) единственную строку с новым refresh-токеном. */
+    /** Overwrites (or creates) the single row with a new refresh token. */
     fun save(encryptedRefreshToken: String, scope: String) {
         val token = current() ?: SpotifyToken()
         token.encryptedRefreshToken = encryptedRefreshToken

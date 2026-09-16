@@ -6,14 +6,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Байты картинок артефактов, заведённых через `/admin` (PRD §5.8).
- *
- * Живёт в подкаталоге хранилища фото-дропов намеренно: в проде это уже смонтированный том, и
- * заводить ради нескольких картинок второй — лишний шаг в деплое. Слайсы при этом не связаны —
- * общий только путь из конфига.
- *
- * Артефакты, засеянные миграциями, лежат статикой во фронте (каталог `assets/artifacts`) и сюда
- * не переезжают: `Artifact.imageUrl` — это просто URL, оба источника уживаются.
+ * Bytes of artifact images created through `/admin`. They sit in a subdirectory of the photo-drop
+ * storage on purpose: in prod that is already a mounted volume, and a second one would be an
+ * extra deploy step. Seeded artifacts stay as frontend statics — `imageUrl` is just a URL. §5.8
  */
 @ApplicationScoped
 class ArtifactImageStorage(
@@ -23,16 +18,16 @@ class ArtifactImageStorage(
     private val root: Path get() = Path.of(dir)
 
     /**
-     * Положить картинку предмета. Прозрачные поля срезаются на входе ([ArtifactImageTrim]):
-     * лента считает оптический вес от пропорции картинки, поэтому широкие поля показывали бы
-     * предмет мельче — и вдобавок врали бы про его пропорцию.
+     * Stores an item's picture. Transparent margins are trimmed on the way in
+     * ([ArtifactImageTrim]): the marquee derives optical weight from the picture's ratio, so wide
+     * margins would both shrink the item and lie about its proportions.
      */
     fun put(artifactId: Long, bytes: ByteArray) {
         Files.createDirectories(root)
         Files.write(fileOf(artifactId), ArtifactImageTrim.trim(bytes))
     }
 
-    /** Переложить загруженный временный файл (multipart отдаёт путь, а не байты). */
+    /** Moves the uploaded temp file into place (multipart hands over a path, not bytes). */
     fun putFile(artifactId: Long, source: Path) {
         put(artifactId, Files.readAllBytes(source))
     }
@@ -45,12 +40,9 @@ class ArtifactImageStorage(
     }
 
     /**
-     * Публичный URL картинки — под ним её раздаёт [ArtifactMediaResource].
-     *
-     * Имя файла от содержимого не зависит (это всегда `{id}.png`), поэтому замена картинки
-     * оставила бы URL прежним, и браузер честно показывал бы кэшированную копию. Отсюда
-     * версия `?v=` от времени файла: тот же приём, что у перевёрнутых кадров (`FilmService`).
-     * Заметно это было так: первая замена срабатывала (URL появлялся впервые), вторая — нет.
+     * Public URL of the image, served by [ArtifactMediaResource]. The file name never depends on
+     * content (always `{id}.png`), so a replacement would keep the URL and the browser would
+     * honestly show its cached copy — hence the `?v=` version taken from the file's timestamp.
      */
     fun urlOf(artifactId: Long): String {
         val base = "/api/artifact-media/$artifactId"

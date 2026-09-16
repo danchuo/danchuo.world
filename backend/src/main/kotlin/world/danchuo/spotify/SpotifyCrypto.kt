@@ -4,9 +4,9 @@ import jakarta.enterprise.context.ApplicationScoped
 import world.danchuo.core.crypto.SecretBox
 
 /**
- * Шифрование refresh-токена Spotify at-rest (PRD §8, §M3). Схема — общий ящик ядра
- * ([SecretBox], AES-256-GCM); слайс даёт только СВОЙ ключ ([SpotifyConfig.tokenEncryptionKey],
- * Base64 32 байта). Ключи источников не пересекаются: утечка одного не открывает второй.
+ * At-rest encryption of the Spotify refresh token (PRD §8). The scheme is the core's shared box
+ * ([SecretBox], AES-256-GCM); the slice supplies only its OWN key. Source keys never overlap, so
+ * leaking one does not open the other.
  */
 @ApplicationScoped
 class SpotifyCrypto(private val config: SpotifyConfig) {

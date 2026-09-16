@@ -1,9 +1,8 @@
 import { BedIcon } from "./StatsIcons";
 
 /**
- * Пустое состояние «сон» (§7.7): пиксельная кровать и одна строка. Одна картинка на оба случая —
- * день без сна и ночь без сохранённых кусков: для зрителя это один и тот же ответ «показать
- * нечего», а прежний текст про минуты объяснял устройство хранения, а не ночь.
+ * The "sleep" empty state (§7.7): a pixel bed and one line. One picture for both cases — a day
+ * with no sleep and a night with no stored chunks: to a viewer they are the same "nothing to show".
  */
 export function SleepNoData() {
   return (

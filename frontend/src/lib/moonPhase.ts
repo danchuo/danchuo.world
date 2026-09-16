@@ -1,22 +1,20 @@
 /**
- * Фаза Луны над ночью — из одной даты, без внешнего источника (DESIGN §7.7).
- *
- * Считается от опорного новолуния синодическим месяцем: ошибка порядка полусуток, то есть
- * заметно меньше того, что различает глаз на глифе в полтора десятка пикселей. Ось — дата
- * пробуждения: ночь целиком лежит в пределах суток от неё, а сутки — три процента цикла.
+ * The moon phase over a night, from a date alone with no external source. Counted from a reference
+ * new moon by the synodic month, with an error of about half a day — far below what the eye can
+ * tell on a glyph this small. The axis is the waking date. DESIGN §7.7
  */
 
 const SYNODIC_DAYS = 29.530588853;
 
-/** Новолуние 6 января 2000, 18:14 UTC — начало отсчёта. */
+/** The new moon of 6 January 2000, 18:14 UTC — the epoch. */
 const NEW_MOON_EPOCH = Date.UTC(2000, 0, 6, 18, 14);
 
 export interface MoonPhase {
-  /** Доля синодического цикла: 0 — новолуние, 0.5 — полнолуние. */
+  /** The fraction of the synodic cycle: 0 is new, 0.5 is full. */
   cycle: number;
-  /** Освещённая доля диска: 0 — тьма, 1 — весь диск. */
+  /** The lit fraction of the disc: 0 is dark, 1 the whole disc. */
   lit: number;
-  /** Луна растёт, то есть освещён правый край диска (северное полушарие). */
+  /** The moon is waxing, so the disc's right edge is lit (northern hemisphere). */
   waxing: boolean;
 }
 
@@ -29,19 +27,14 @@ export function moonPhase(date: string): MoonPhase | null {
 }
 
 /**
- * Контур освещённой части диска радиуса `r` с центром в нуле — для растущей Луны
- * (убывающую рисуем тем же контуром в зеркале, см. `SleepEcho`).
- *
- * Освещённый край — всегда полуокружность, а терминатор — эллипс, чья полуось равна проекции
- * круга на направление света: на четвертях она нулевая и терминатор идёт прямой, к новолунию
- * и полнолунию дорастает до радиуса. Различает эти два края флаг развёртки: до четверти
- * терминатор выгнут К свету (серп), после — ОТ света (горб). Без него полнолуние рисовалось
- * бы пустым контуром.
+ * Outline of the lit part of a disc, for a waxing moon; a waning one is the same path mirrored.
+ * The lit edge is always a semicircle while the terminator is an ellipse whose semi-axis is the
+ * circle's projection. The sweep flag tells the two apart, or a full moon draws as an empty path.
  */
 export function moonLitPath(cycle: number, r: number): string {
   const cos = Math.cos(2 * Math.PI * cycle);
-  // Полуось округляется: на четвертях косинус даёт не ноль, а его плавающий остаток, и в
-  // разметку уезжало бы `4.2862637970157e-16` вместо прямого терминатора.
+  // The semi-axis is rounded: at the quarters the cosine gives not zero but its floating
+  // remainder, and a value like `4.2862637970157e-16` would go into the markup.
   const rx = Math.round(Math.abs(cos) * r * 100) / 100;
   const sweep = cos > 0 ? 0 : 1;
   return `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} A ${rx} ${r} 0 0 ${sweep} 0 ${-r} Z`;

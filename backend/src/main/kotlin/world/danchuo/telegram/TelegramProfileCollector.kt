@@ -10,24 +10,13 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 
-/** Снятый аватар: байты, их тип и отметка забора — из неё собирается версия адреса. */
+/** A downloaded avatar: bytes, their type, and the fetch stamp the URL version is built from. */
 class TelegramAvatar(val bytes: ByteArray, val contentType: String, val version: Long)
 
 /**
- * Фоновый забор визитки Telegram (PRD §5.18): страница `t.me/{ник}` → имя, статус, аватар.
- *
- * **Хранится в памяти, а не в базе.** Визитка — не история и не данные дня: она всегда
- * «сейчас», её нечего накапливать и не с чем сверять. Переживать рестарт ей тоже незачем —
- * первый же такт (через полминуты после старта) наполняет её заново, а до тех пор карточки
- * просто нет, как и у не забранного поста Instagram.
- *
- * **Аватар снимается к себе.** Не из-за срока жизни ссылки (у Telegram она долгая), а чтобы
- * борд не отправлял каждого зрителя на CDN мессенджера: там, где Telegram замедляют, аватарка
- * приезжала бы дырой. Перекачиваем только на смене адреса — картинка меняется раз в годы.
- *
- * **Сбой канала ничего не стирает.** Нет сети, страница ошибки, поехавшая разметка — разбор
- * отдаёт `null`, и проход просто не пишет: на борде остаётся прежняя визитка (та же доктрина,
- * что «пустой прогон Health не стирает ночь»).
+ * Background fetch of the Telegram card. It is kept IN MEMORY, not the DB: a card is always "now",
+ * there is nothing to accumulate, and the first tick refills it after a restart. The avatar is
+ * copied locally so the board never sends a viewer to Telegram's CDN. A failed pass writes nothing.
  */
 @ApplicationScoped
 class TelegramProfileCollector(
@@ -47,11 +36,11 @@ class TelegramProfileCollector(
     @Volatile
     private var avatar: TelegramAvatar? = null
 
-    /** Адрес аватара, под который сняты [avatar]: по нему видно, надо ли перекачивать. */
+    /** The address [avatar] was downloaded from, which is how we know whether to fetch again. */
     @Volatile
     private var avatarSource: String? = null
 
-    /** Что показывать борду. `null` — визитки ещё нет (первый такт не прошёл или канал молчит). */
+    /** What to show the board; `null` means no card yet — first tick pending or channel silent. */
     fun current(): TelegramProfile? = profile
 
     fun currentAvatar(): TelegramAvatar? = avatar
@@ -67,7 +56,7 @@ class TelegramProfileCollector(
             .onFailure { log.warn("telegram: визитку забрать не удалось (сеть/разметка?): ${it.message}") }
     }
 
-    /** Один проход: страница → разбор → снятый аватар. `true` — визитка обновилась. */
+    /** One pass: page, parse, downloaded avatar. `true` if the card changed. */
     fun collectOnce(): Boolean {
         val username = config.username()
         val html = api.profilePage(username, config.userAgent())
@@ -98,7 +87,7 @@ class TelegramProfileCollector(
             if (response.statusCode() !in 200..299) error("HTTP ${response.statusCode()}")
             TelegramAvatar(
                 bytes = response.body(),
-                // Тип берём из ответа, а не гадаем по байтам: CDN его присылает честно.
+                // Take the type from the response rather than guessing from bytes: the CDN is honest.
                 contentType = response.headers().firstValue("content-type").orElse("image/jpeg"),
                 version = System.currentTimeMillis(),
             )

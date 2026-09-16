@@ -3,20 +3,16 @@ package world.danchuo.github
 import java.time.LocalDate
 
 /**
- * Что из разобранного фрагмента доезжает до записи (PRD §5.4) — чистая функция, чтобы
- * решение можно было проверить без планировщика и базы.
- *
- * Фрагмент отдаёт год клеток при каждом заходе; писать их все каждые полчаса нельзя.
+ * What of the parsed fragment reaches the database (PRD §5.4). A pure function, so the decision
+ * can be tested without a scheduler or a database: the fragment returns a year of cells on every
+ * visit, and writing them all every half hour is not an option.
  */
 object ContributionWriteFilter {
 
     /**
-     * `parsed` (что отдал GitHub) + `stored` (что уже лежит; `null` = день есть, вклады не
-     * собирали) → что записать.
-     *
-     * Три отсечения: раньше [genesis] (данных до него не существует — гард всё равно бы
-     * бросил), позже [today] (хвост текущей недели приходит нулями, будущие дни в базе
-     * заводить незачем) и совпадающее значение (не трогаем `updatedAt` без причины).
+     * `parsed` against `stored` (`null` = the day exists but contributions were never collected),
+     * giving what to write. Three cuts: before [genesis], after [today] (the current week's tail
+     * arrives as zeros), and values that did not change, so `updatedAt` is never bumped in vain.
      */
     fun pending(
         parsed: Map<LocalDate, Int>,

@@ -1,31 +1,23 @@
 package world.danchuo.spotify
 
 /**
- * Разбор чужого подкастного RSS и выдачи каталога (PRD §5.16.1) — второе место после
- * [world.danchuo.reading.EpubText], где мы знаем чужой формат, и такое же read-only.
- *
- * Разбираем регулярками, а не XML-парсером, по той же причине, что и фрагмент профиля GitHub:
- * нам нужны три вещи (название выпуска, длительность, ссылка на аудио), а фиды в дикой природе
- * бывают невалидны ровно настолько, чтобы строгий парсер отказался читать всё целиком. Битый
- * фид обязан стоить одного пропущенного пересказа, а не исключения в поллере.
- *
- * **Главный риск здесь — не «не нашли», а «нашли не тот».** Пропущенный выпуск стоит
- * отсутствующей кнопки; чужой — уверенного пересказа под карточкой, и отличить его на странице
- * будет нечем. Поэтому ключей два — название И длительность, — а при любом сомнении мы молчим.
+ * Parses foreign podcast RSS and catalogue output with regexes, not an XML parser — feeds in the
+ * wild are invalid just enough that a strict parser refuses everything. THE RISK IS NOT "not
+ * found" BUT "found the wrong one", so there are two keys and any doubt means silence. §5.16.1
  */
 object PodcastFeedParser {
 
     /**
-     * Допуск на расхождение длительности, долей. Два процента: у шоу с динамической вставкой
-     * рекламы длительность в фиде и в Spotify не совпадают в принципе (замерено 7707 с против
-     * 7692.5 с у Huberman), а вдвое разошедшийся выпуск — это уже другой выпуск.
+     * Allowed duration mismatch, as a fraction. Two percent: a show with dynamic ad insertion
+     * simply never matches between feed and Spotify, while an episode off by a factor of two is
+     * a different episode.
      */
     const val DURATION_TOLERANCE = 0.02
 
     /**
-     * Фид шоу по его названию из плеера. Совпадение ищем **точное** и только потом
-     * приблизительное: у популярных шоу есть спутники-тёзки («Hidden Brain Plus»), они стоят в
-     * выдаче выше и содержат ДРУГИЕ выпуски.
+     * A show's feed by the player's name for it. An EXACT match is sought first and only then an
+     * approximate one: popular shows have same-named companions ("Hidden Brain Plus") that rank
+     * higher in results and contain DIFFERENT episodes.
      */
     fun feedUrlFor(results: List<ItunesShow>, showName: String): String? {
         val wanted = normalise(showName)
@@ -38,20 +30,9 @@ object PodcastFeedParser {
     }
 
     /**
-     * Ссылка на аудио выпуска [episodeName] длительностью [durationMs]; `null` — не нашли либо
-     * не уверены.
-     *
-     * Ключей два, и второй зависит от того, чем фид располагает:
-     * - **длительность есть** — название сверяется с обеих сторон (фид часто дописывает гостя
-     *   или рубрику: «… | Dr. Fei-Fei Li»), а длительность должна сойтись с допуском;
-     * - **длительности в фиде нет вовсе** (так у Lex Fridman: ни `itunes:duration`, ни любого
-     *   другого тега, а `length` в enclosure — заглушка 5 МБ против настоящих 143) — тогда
-     *   требуется ТОЧНОЕ совпадение названия, и оно должно быть единственным. Отказываться от
-     *   таких фидов целиком было бы дороже: шоу теряется всё, а точное название внутри уже
-     *   опознанного шоу — ключ немногим слабее пары.
-     *
-     * Неоднозначность (два выпуска с тем же названием) всегда значит «молчим»: выбрать наугад
-     * хуже, чем не показать кнопку.
+     * Audio link for [episodeName] of [durationMs]; `null` means not found OR not certain. With a
+     * duration, the name is matched from both sides and the duration must agree; with a feed that
+     * carries no duration at all, an EXACT and unique name is required instead. PRD §5.16.1
      */
     fun enclosureFor(xml: String, episodeName: String, durationMs: Long?): String? {
         if (durationMs == null || durationMs <= 0) return null
@@ -69,8 +50,8 @@ object PodcastFeedParser {
 
             val seconds = durationSeconds(tag(item, "itunes:duration"))
             if (seconds == null) {
-                // Длительности нет — выпуск годится только при точном имени, и решаем после
-                // обхода: одноимённый близнец обязан отменить находку, а не проиграть порядку.
+                // With no duration the episode only qualifies on an exact name, and we decide
+                // after the walk: a same-named twin must cancel the find, not lose to ordering.
                 if (sameName) exact += url
                 continue
             }
@@ -81,7 +62,7 @@ object PodcastFeedParser {
         return exact.singleOrNull()
     }
 
-    /** `itunes:duration` бывает и голыми секундами («7707»), и часами («01:25:37», «48:07»). */
+    /** `itunes:duration` comes as bare seconds ("7707") or as clock time ("01:25:37", "48:07"). */
     fun durationSeconds(raw: String?): Int? {
         val text = raw?.trim().orEmpty()
         if (text.isEmpty()) return null
@@ -96,7 +77,7 @@ object PodcastFeedParser {
         return seconds.takeIf { it > 0 }
     }
 
-    /** Куски `<item>…</item>` — режем строкой, а не парсером (см. врез класса). */
+    /** The `<item>...</item>` chunks — cut by string, not by a parser (see the class note). */
     private fun items(xml: String): List<String> =
         xml.split(ITEM_OPEN).drop(1).map { it.substringBefore("</item>") }
 
@@ -110,16 +91,14 @@ object PodcastFeedParser {
             ?.groupValues?.get(1)
 
     /**
-     * Название к сравнимому виду: только буквы и цифры, разделённые пробелом.
-     *
-     * Сущности раскрываются ДО этого ([entities]), и это не мелочь: `&amp;` без раскрытия
-     * оставляет в названии слово «amp», и выпуск перестаёт находиться. Ровно на этом
-     * промахнулся первый скрипт разведки.
+     * A title reduced to a comparable form: letters and digits separated by single spaces.
+     * Entities are expanded BEFORE this, which is not a detail — an unexpanded `&amp;` leaves the
+     * word "amp" in the title and the episode stops being found.
      */
     private fun normalise(text: String?): String =
         text.orEmpty().lowercase().replace(NON_ALNUM, " ").trim().replace(SPACES, " ")
 
-    /** Сущности, которые реально встречаются в фидах; числовая форма закрывает остальное. */
+    /** Entities that actually occur in feeds; the numeric form covers the rest. */
     private fun entities(text: String): String =
         text.replace("&amp;", "&").replace("&quot;", "\"").replace("&apos;", "'")
             .replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ")

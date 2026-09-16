@@ -3,13 +3,9 @@ package world.danchuo.theme
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 /**
- * Layout-блок волны (DESIGN §3, §10) — переопределяет дефолтную bento-раскладку фронта.
- * Хранится в `Theme.layout` (JSONB) и отдаётся в [ThemeView] как есть; бэкенд его **не
- * интерпретирует** — реестр тайлов и сам мерж живут во фронте (`layout.ts`), который знает,
- * какие компоненты существуют. Здесь — только форма контракта.
- *
- * Все поля опциональны: волна задаёт лишь дельту к дефолту (незаданное берётся из `layout.ts`).
- * Ключи [tiles] — машинные id тайлов (`today`, `music`, …); неизвестные фронту игнорируются.
+ * A wave's layout block, overriding the frontend's default bento. It is stored in `Theme.layout`
+ * and passed through AS IS — the backend does NOT interpret it, since the tile registry and the
+ * merge live in `layout.ts`, which knows what components exist. DESIGN §3, §10
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class LayoutSpec(
@@ -17,14 +13,14 @@ data class LayoutSpec(
     val tiles: Map<String, TileSpanSpec>? = null,
     val mobileOrder: List<String>? = null,
     /**
-     * Редакция ГАЛЕРЕИ дропа: `mosaic` (дефолт фронта) | `roll` — плёнка (DESIGN §7.5, §10.1).
-     * В корне layout, а не в спане плитки: галерею открывают обе дроп-плитки, и редакция у
-     * волны одна. Как и остальные поля, здесь только форма контракта — интерпретирует фронт.
+     * The drop GALLERY's edition: `mosaic` (frontend default) or `roll`. It sits at the layout
+     * root rather than in a tile's span, because both drop tiles open the gallery and a wave has
+     * one edition. Only the contract's shape lives here; the frontend interprets it. DESIGN §7.5
      */
     val gallery: String? = null,
 )
 
-/** Размер bento-сетки волны (по умолчанию 40×28 — см. `layout.ts`). */
+/** Size of the wave's bento grid; the default 40x28 lives in `layout.ts`. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class GridSpec(
     val cols: Int? = null,
@@ -32,13 +28,9 @@ data class GridSpec(
 )
 
 /**
- * Спан/видимость/ориентация одного тайла; любое поле опционально (фолбэк — дефолт фронта).
- *
- * `ignoreUnknown`: контракт layout развивается на фронте (`layout.ts`) — новые поля волны,
- * которых эта версия бэкенда ещё не знает, не должны ронять чтение темы из JSONB (иначе
- * миграция с новым полем кладёт `/api/theme*` до пересборки бэка). Неизвестное молча
- * пропускается; но каждое НОВОЕ поле контракта всё же добавляется сюда явно — иначе Jackson
- * молча выбросит его при отдаче в [ThemeView] и волна недополучит раскладку.
+ * One tile's span, visibility and orientation, every field optional. `ignoreUnknown` keeps a wave
+ * with newer fields from breaking theme reads — but each NEW contract field must still be added
+ * here explicitly, or Jackson silently drops it on the way out and the wave loses its layout.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class TileSpanSpec(
@@ -47,10 +39,10 @@ data class TileSpanSpec(
     val colSpan: Int? = null,
     val rowSpan: Int? = null,
     val hidden: Boolean? = null,
-    /** Поток контента тайла: `horizontal` | `vertical` (DESIGN §10.1); интерпретирует фронт. */
+    /** The tile's content flow: `horizontal` or `vertical`, interpreted by the frontend. §10.1 */
     val orientation: String? = null,
-    /** Редакция тайла — имя одной из его вёрсток (DESIGN §10.1); набор знает только сам тайл. */
+    /** The tile's edition — one of its layouts; only the tile itself knows the set. DESIGN §10.1 */
     val edition: String? = null,
-    /** Чем волна одевает «планеты» проектов: `model` — 3D-артефактом (DESIGN §12.5). */
+    /** How the wave dresses project "planets": `model` means a 3D artifact. DESIGN §12.5 */
     val planet: String? = null,
 )

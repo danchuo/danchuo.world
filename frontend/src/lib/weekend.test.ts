@@ -14,7 +14,8 @@ describe("isWeekend", () => {
   });
 
   it("день недели берётся по дате MSK, а не по локальной tz (UTC-парс)", () => {
-    // Полночь MSK 2026-06-20 — это ещё 2026-06-19 в UTC; парс как UTC-даты держит субботу субботой.
+    // MSK midnight on 2026-06-20 is still 2026-06-19 in UTC; parsing as a UTC date keeps a
+    // Saturday a Saturday.
     expect(isWeekend("2026-06-20")).toBe(true);
   });
 });

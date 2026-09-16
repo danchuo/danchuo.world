@@ -10,16 +10,9 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * One-time OAuth Spotify (PRD §M3). Поток личный и редкий:
- *
- * 1. `GET /api/ingest/spotify/authorize` (за bearer-токеном записи — [world.danchuo.core.security.IngestAuthFilter]
- *    стережёт префикс `/api/ingest`): отдаёт ссылку согласия Spotify со свежим
- *    одноразовым `state`. Владелец открывает её в браузере и подтверждает доступ.
- * 2. Spotify редиректит на `GET /api/spotify/callback?code=&state=` ([SpotifyCallbackResource]).
- *
- * Корни ресурсов специфичны (`/api/ingest/spotify`, `/api/spotify/callback`), чтобы НЕ
- * пересекаться с [SpotifyResource] (`/api/spotify`): JAX-RS выбирает самый длинный
- * совпавший корень и к менее специфичному уже не откатывается.
+ * One-off Spotify OAuth, a personal and rare flow: authorize (behind the write bearer) hands back
+ * a consent link carrying a fresh one-time `state`, and Spotify redirects to the callback. The
+ * resource roots are deliberately specific — JAX-RS picks the longest match and never falls back.
  */
 @Path("/api/ingest/spotify")
 class SpotifyAuthResource(
@@ -56,13 +49,9 @@ class SpotifyAuthResource(
 }
 
 /**
- * Публичный callback OAuth (PRD §M3): Spotify сюда редиректит браузер после согласия
- * (`?code=&state=`). Путь публичный (браузер не шлёт bearer) — защита здесь сверкой
- * одноразового `state`. Меняем код на токены, refresh кладём шифрованно
- * ([SpotifyTokenService.exchangeCode]).
- *
- * Отдельный класс с корнем `/api/spotify/callback` (специфичнее, чем `/api/spotify`
- * у [SpotifyResource]) — иначе JAX-RS отдал бы запрос read-ресурсу и вернул 404.
+ * The public OAuth callback Spotify redirects the browser to. The path must be public, as a
+ * browser sends no bearer, so the guard here is the one-time `state`. It is a separate class with
+ * a root more specific than [SpotifyResource]'s, or JAX-RS would hand the request to the reader.
  */
 @Path("/api/spotify/callback")
 class SpotifyCallbackResource(
@@ -78,7 +67,7 @@ class SpotifyCallbackResource(
         @QueryParam("error") error: String?,
     ): Response {
         if (error != null) return page(Response.Status.BAD_REQUEST, "Spotify отказал: $error")
-        // state гасим всегда (одноразовый) — даже если дальше отвалимся.
+        // The state is always burned (it is one-time), even if we fail further down.
         if (!oauthState.consume(state)) return page(Response.Status.BAD_REQUEST, "Неверный или истёкший state.")
         if (code.isNullOrBlank()) return page(Response.Status.BAD_REQUEST, "Spotify не вернул code.")
 
@@ -90,7 +79,7 @@ class SpotifyCallbackResource(
         }
     }
 
-    /** Минимальная HTML-страница итога — callback открыт в браузере. */
+    /** A minimal HTML result page — the callback is open in a browser. */
     private fun page(status: Response.Status, message: String): Response =
         Response.status(status)
             .type(MediaType.TEXT_HTML)

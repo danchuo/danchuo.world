@@ -4,15 +4,11 @@ import { useState, type FormEvent } from "react";
 import { btnStyle, describe, fieldStyle, mono } from "./adminUi";
 
 interface AdminLoginProps {
-  /** Проверка токена: успех — родитель уже загрузил дропы и запомнил токен; бросок — показываем ошибку. */
+  /** The parent stores the token after validation; rejection is displayed by the form. */
   onLogin: (token: string) => Promise<void>;
 }
 
-/**
- * Экран входа в админку — сознательно голый: одно поле токена и одна кнопка по центру
- * экрана, без заголовка и подписи (aria-label на поле остаётся). Поле держит себя само:
- * наружу токен уходит только при успешной проверке.
- */
+/** Minimal token form with an accessible input label. PRD §5.14. */
 export function AdminLogin({ onLogin }: AdminLoginProps) {
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);

@@ -9,11 +9,9 @@ import java.util.Base64
 import java.util.Optional
 
 /**
- * Default production [LlmClient]: talks to Groq's OpenAI-compatible API (ported from proxemics).
- *
- * Mirrors the Spotify-slice convention — when no api-key is configured (dev/test/CI) it makes no
- * external call and returns `null`, so nothing breaks and no tokens are spent. Any transport or
- * provider error is logged and also collapses to `null`; callers degrade gracefully.
+ * Default production [LlmClient], on Groq's OpenAI-compatible API. With no api-key configured
+ * it makes no call and returns `null`, so dev/test/CI break nothing and spend nothing; any
+ * transport or provider error collapses to `null` the same way.
  */
 @ApplicationScoped
 @Typed(GroqLlmClient::class)
@@ -88,7 +86,7 @@ class GroqLlmClient(
                     reasoningEffort = call.reasoningEffort,
                 ),
             ).choices.firstOrNull()?.message?.content
-                // Подстраховка: если модель всё же «подумала вслух», ответ идёт после блока.
+                // A safety net: if the model did think aloud, the answer follows the block.
                 ?.replace(THINK_BLOCK, "")?.trim()?.ifBlank { null }
         } catch (e: Exception) {
             log.error("Groq request failed", e)

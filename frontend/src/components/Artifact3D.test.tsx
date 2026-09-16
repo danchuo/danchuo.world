@@ -11,7 +11,7 @@ function handle() {
   return { setSpinning: vi.fn(), resize: vi.fn(), dispose: vi.fn() };
 }
 
-/** jsdom не знает `matchMedia` — подставляем ответ настройки «меньше движения». */
+/** jsdom has no `matchMedia` — we supply the answer for the reduced-motion setting. */
 function setReducedMotion(reduce: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: reduce && query.includes("reduce"),
@@ -47,7 +47,7 @@ describe("Artifact3D", () => {
     await waitFor(() => expect(mountMock).toHaveBeenCalled());
     const canvas = container.querySelector("canvas")!;
 
-    // Ключевое свойство: сама по себе сцена не движется — это статичная картинка.
+    // The key property: the scene does not move on its own — it is a still picture.
     expect(h.setSpinning).not.toHaveBeenCalled();
 
     await userEvent.hover(canvas);

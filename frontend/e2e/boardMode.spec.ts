@@ -2,13 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 import { FIXED_TIME, stubApi } from "./fixtures";
 
 /**
- * Режим борда выбирается ТИПОМ УКАЗАТЕЛЯ, а не шириной (DESIGN §8, common.css).
- * Это не визуальная регрессия — эталоны не нужны; тест закрепляет саму развилку,
- * которую jsdom-юниты не видят (медиа-запросы `pointer`/`hover` живут только в браузере).
- *
- * Зачем: браузерный зум не увеличивает картинку, он ужимает CSS-вьюпорт (110% на окне
- * 1512px отдаёт 1375px). Пока развилка шла по ширине, один шаг зума ронял весь борд
- * в телефонный стек. Указатель зуму неподвластен.
+ * The board mode is chosen by POINTER TYPE, not width (DESIGN §8, common.css). Browser zoom does
+ * not enlarge the picture, it shrinks the CSS viewport, so while the switch went by width one
+ * zoom step dropped the whole board into the phone stack. A pointer is immune to zoom.
  */
 async function boardMode(page: Page): Promise<"BENTO" | "STACK"> {
   const display = await page
@@ -22,17 +18,15 @@ async function openBoard(page: Page) {
   await stubApi(page);
   await page.goto("/");
   await page.waitForLoadState("domcontentloaded");
-  // Ворота шрифта (DESIGN §7.10): борд скрыт, пока не приехали шрифты волны. Без этого
-  // ожидания снимок успевает застать пустое место — а раньше ловил гонку со сменой
-  // начертания, то есть эталоны были нестабильны и до ворот.
+  // The font gate (DESIGN §7.10): the board is hidden until the wave's fonts arrive. Without this
+  // wait a snapshot catches an empty space, or races the change of typeface.
   await page.waitForFunction(() => document.documentElement.dataset.fonts !== "pending");
 }
 
 /**
- * Тип указателя задаём СВОИМ контекстом, а не настройками проекта: спека гоняется на обоих
- * проектах playwright.config, и у мобильного стоит `hasTouch` — «мышиные» кейсы под ним
- * молча проверяли бы не то (и падали). Здесь развилка задаётся явно, поэтому результат
- * одинаков в любом проекте.
+ * The pointer type is set by OUR OWN context rather than the project's settings: the spec runs on
+ * both playwright.config projects and the mobile one sets `hasTouch`, so mouse cases would
+ * silently check the wrong thing. Setting it explicitly makes the result project-independent.
  */
 async function modeFor(
   browser: import("@playwright/test").Browser,
@@ -48,9 +42,8 @@ async function modeFor(
 }
 
 /**
- * Ширины CSS-вьюпорта, которые даёт зум на типовом окне 1512px (1512 / zoom).
- * Порога по ширине НЕТ намеренно: десктоп остаётся бенто на любом зуме (решение владельца —
- * крупные сайты не подменяют раскладку под пользователем). 200% включён как крайний случай.
+ * CSS viewport widths that zoom produces on a typical 1512px window (1512 / zoom). There is
+ * deliberately NO width threshold: the desktop stays bento at any zoom, and 200% is the extreme.
  */
 const ZOOM_ON_1512 = [
   { zoom: "90%", width: 1680, height: 1000 },
@@ -69,8 +62,8 @@ test.describe("выбор режима борда", () => {
     });
   }
 
-  // Тач получает стек при ЛЮБОЙ ширине: планшет в альбомной (1366px) заметно шире любого
-  // разумного порога, но пальцем по bento 40×28 не попасть — решает указатель, а не ширина.
+  // Touch gets the stack at ANY width: a tablet in landscape is wider than any sensible
+  // threshold, but a finger cannot hit a 40×28 bento — the pointer decides, not the width.
   for (const d of [
     { label: "телефон 375px", width: 375, height: 812 },
     { label: "планшет 1366px", width: 1366, height: 1024 },

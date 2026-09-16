@@ -1,14 +1,6 @@
 /**
- * Общий кэш-вайринг (PRD §3.1, §8): in-process Caffeine через `quarkus-cache`.
- * Redis сознательно не нужен в v1.
- *
- * M0 — шов на месте (зависимость подключена). Соглашение для слайсов:
- * - кэш объявляется локально в слайсе (`@CacheResult("<slice>-<что>")`);
- * - инвалидация — при своём `ingest/…` (`@CacheInvalidate` / `@CacheInvalidateAll`);
- * - спец-настройки (TTL и пр.) — в `application.properties` рядом с кэшем-владельцем
- *   (напр. now-playing TTL ~20с в слайсе [world.danchuo.spotify]).
- *
- * Ядро намеренно не вводит общий фасад кэша — это было бы преждевременным
- * обобщением (PRD §3.1, guardrail). Общий тут только сам факт подключения Caffeine.
+ * Shared cache wiring: in-process Caffeine via `quarkus-cache`, no Redis in v1. A slice declares
+ * its own cache (`@CacheResult("<slice>-<what>")`) and invalidates it from its own ingest. Core
+ * deliberately offers no cache facade — that would be premature generalisation. PRD §3.1, §8
  */
 package world.danchuo.core.cache

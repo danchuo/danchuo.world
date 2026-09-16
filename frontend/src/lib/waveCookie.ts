@@ -1,8 +1,7 @@
 /**
- * Wave preference cookie (PRD §5.9): the wave picked in the switcher must survive a page
- * reload. The client writes the wave key here on every swap; SSR (layout/page) reads it and
- * renders the preferred wave straight away — no flash of the owner's active wave.
- * Cookie (not localStorage) precisely because the server must see it on first byte.
+ * The wave preference cookie: a wave picked in the switcher must survive a reload. The client
+ * writes the key on every swap and SSR reads it, rendering the preferred wave immediately with no
+ * flash of the owner's active one. A cookie, not localStorage, precisely so the server sees it.
  */
 
 export const WAVE_COOKIE = "danchuo_wave";

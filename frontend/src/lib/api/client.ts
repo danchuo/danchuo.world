@@ -20,12 +20,7 @@ import type {
 } from "./types";
 import type { SummaryKind } from "../summarySubject";
 
-/**
- * JSON-клиент к Quarkus (PRD §3 — фронт изолирован в клиента к бэкенду). Только публичное
- * чтение дней (M2); все GET без токена (креды нужны лишь на `/api/ingest/*`).
- *
- * База — `NEXT_PUBLIC_API_BASE_URL`; пусто ⇒ относительные пути (за обратным прокси Caddy).
- */
+/** Public Quarkus JSON reads require no token. An empty NEXT_PUBLIC_API_BASE_URL uses same-origin paths. PRD §3. */
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 
@@ -39,54 +34,45 @@ export class ApiError extends Error {
   }
 }
 
-/** Полная проекция дня (`GET /api/days/{date}`). */
+/** Get the full day projection. */
 export function getDay(date: string, init?: RequestInit): Promise<DayView> {
   return getJson<DayView>(`/api/days/${date}`, init);
 }
 
-/** Сводки диапазона для календаря/мини-графика (`GET /api/days?from=&to=`). */
+/** Get day summaries for the calendar and charts. */
 export function getDays(from: string, to: string, init?: RequestInit): Promise<DaySummary[]> {
   const qs = new URLSearchParams({ from, to }).toString();
   return getJson<DaySummary[]>(`/api/days?${qs}`, init);
 }
 
-/**
- * Деталь ночи (`GET /api/sleep/night/{date}`) — полоса ночи и «обычная ночь» за 30 дней.
- * Тайл «Сон» ходит сюда, только когда полосу попросили показать: борду она не нужна.
- */
+/** Load the night strip and 30-day baseline only when requested by the sleep tile. */
 export function getSleepNight(date: string, init?: RequestInit): Promise<SleepNightView> {
   return getJson<SleepNightView>(`/api/sleep/night/${date}`, init);
 }
 
-/** Текущий трек Spotify (`GET /api/spotify/now-playing`). IDLE, если ничего не играет. */
+/** Get current Spotify playback; IDLE means nothing is playing. */
 export function getNowPlaying(init?: RequestInit): Promise<NowPlayingView> {
   return getJson<NowPlayingView>(`/api/spotify/now-playing`, init);
 }
 
-/** Недавние треки Spotify (`GET /api/spotify/recent?limit=`). */
+/** Get recent Spotify tracks. */
 export function getRecent(limit = 8, init?: RequestInit): Promise<RecentTrackView[]> {
   return getJson<RecentTrackView[]>(`/api/spotify/recent?limit=${limit}`, init);
 }
 
-// ── Контент M4 (PRD §5.7/§5.8/§5.9/§5.12). Всё публичное чтение, без токена. ──
+// Public content: PRD §5.7, §5.8, §5.9, §5.12.
 
-/** Проекты (`GET /api/projects`), новые сверху. */
+/** Get projects, newest first. */
 export function getProjects(init?: RequestInit): Promise<ProjectView[]> {
   return getJson<ProjectView[]>(`/api/projects`, init);
 }
 
-/** Соцссылки (`GET /api/social-links`). */
+/** Get social links. */
 export function getSocialLinks(init?: RequestInit): Promise<SocialLinkView[]> {
   return getJson<SocialLinkView[]>(`/api/social-links`, init);
 }
 
-/**
- * Последний пост Instagram (`GET /api/instagram/latest`, PRD §5.17).
- *
- * ⚠️ Пустота здесь — 204 БЕЗ ТЕЛА, и читать её как JSON нельзя: `res.json()` на пустом теле
- * бросает, и «аккаунт ещё не подключён» приехало бы на борд ошибкой. Отдаём `null` —
- * плитка молча не рисует карточку (DESIGN §7).
- */
+/** Return null for an empty 204 response: parsing it as JSON would turn an unconnected account into an error. PRD §5.17. */
 export async function getLatestInstagramPost(init?: RequestInit): Promise<InstagramPostView | null> {
   const url = `${BASE}/api/instagram/latest`;
   const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });
@@ -95,10 +81,7 @@ export async function getLatestInstagramPost(init?: RequestInit): Promise<Instag
   return (await res.json()) as InstagramPostView;
 }
 
-/**
- * Визитка Telegram (`GET /api/telegram/profile`, PRD §5.18). Пустота — 204 без тела, как у
- * последнего поста: читать её как JSON нельзя, отдаём `null` и карточку просто не рисуем.
- */
+/** Return null for an empty 204 Telegram profile response; never parse its absent body. PRD §5.18. */
 export async function getTelegramProfile(init?: RequestInit): Promise<TelegramProfileView | null> {
   const url = `${BASE}/api/telegram/profile`;
   const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });
@@ -107,43 +90,37 @@ export async function getTelegramProfile(init?: RequestInit): Promise<TelegramPr
   return (await res.json()) as TelegramProfileView;
 }
 
-/** Артефакты marquee (`GET /api/artifacts`). */
+/** Get marquee artifacts. */
 export function getArtifacts(init?: RequestInit): Promise<ArtifactView[]> {
   return getJson<ArtifactView[]>(`/api/artifacts`, init);
 }
 
-/** Выпущенные волны (`GET /api/themes`) — для переключателя. */
+/** Get released themes for the wave switcher. */
 export function getThemes(init?: RequestInit): Promise<ThemeView[]> {
   return getJson<ThemeView[]>(`/api/themes`, init);
 }
 
-/** Список фото-дропов (`GET /api/drops`); до B1 — пусто. */
+/** Get photo drops. */
 export function getDrops(init?: RequestInit): Promise<FilmDropView[]> {
   return getJson<FilmDropView[]>(`/api/drops`, init);
 }
 
-/** Кадры дропа (`GET /api/drops/{id}`). */
+/** Get photos in a drop. */
 export function getDrop(id: number, init?: RequestInit): Promise<FilmPhotoView[]> {
   return getJson<FilmPhotoView[]>(`/api/drops/${id}`, init);
 }
 
-/** Свежесть данных (`GET /api/freshness`, PRD §8) — момент последнего приёма ingest. */
+/** Get the latest ingest timestamp. PRD §8. */
 export function getFreshness(init?: RequestInit): Promise<FreshnessView> {
   return getJson<FreshnessView>(`/api/freshness`, init);
 }
 
-/** Поездки Велобайка (`GET /api/rides`, PRD §9 B4), новые сверху; до ingest — пусто. */
+/** Get rides, newest first; empty until imported. PRD §9 B4. */
 export function getRides(init?: RequestInit): Promise<RideView[]> {
   return getJson<RideView[]>(`/api/rides`, init);
 }
 
-/**
- * Пересказ пройденного куска (`GET /api/summary/{kind}/{id}`, PRD §5.16.1) — тянется лениво,
- * когда окно раскрыли. В проекции дня едет только флаг `hasSummary`: текст на несколько строк
- * не нужен ни календарю, ни карточке, а дней в окне — десятки.
- *
- * Точка одна на все виды заходов: строка на бэкенде тоже одна, различается только ключ.
- */
+/** Load a session summary on expansion; day projections carry only hasSummary. PRD §5.16.1. */
 export function getSummary(
   kind: SummaryKind,
   sessionId: number,
@@ -152,21 +129,17 @@ export function getSummary(
   return getJson<SummaryView>(`/api/summary/${kind}/${sessionId}`, init);
 }
 
-/** Агрегат истории поездок (`GET /api/rides/stats`). */
+/** Get aggregate ride history statistics. */
 export function getRideStats(init?: RequestInit): Promise<RideStatsView> {
   return getJson<RideStatsView>(`/api/rides/stats`, init);
 }
 
-/** Сводка за текущий календарный месяц (`GET /api/rides/month-summary`) — шапка модалки поездок. */
+/** Get the current calendar month's ride summary for the modal header. */
 export function getRideMonthSummary(init?: RequestInit): Promise<RideMonthSummaryView> {
   return getJson<RideMonthSummaryView>(`/api/rides/month-summary`, init);
 }
 
-/**
- * Бикон аналитики (`POST /api/analytics/beacon`, PRD §5.11) — публичный, cookieless.
- * Load-фаза: `fetch` с `keepalive`. Уход (`visibilitychange`/`pagehide`): см. `AnalyticsBeacon`
- * — там `navigator.sendBeacon` (надёжнее при выгрузке). Сбой бикона глотаем (телеметрия не критична).
- */
+/** Send a public cookieless load beacon with keepalive; telemetry failure is nonfatal. Exit uses AnalyticsBeacon. PRD §5.11. */
 export function postBeacon(payload: BeaconPayload): void {
   const url = `${BASE}/api/analytics/beacon`;
   void fetch(url, {
@@ -184,7 +157,7 @@ export interface BeaconPayload {
   referrer?: string;
 }
 
-/** Один клик для хитмапы (B2): тайл + доля внутри него (0..1). `tileId` null — клик мимо плиток. */
+/** A heatmap click in tile-relative 0..1 coordinates; null tileId means outside tiles. */
 export interface ClickPayload {
   tileId: string | null;
   offsetXPct: number;
@@ -198,18 +171,14 @@ export interface InteractionsPayload {
   clicks: ClickPayload[];
 }
 
-/**
- * Батч кликов хитмапы (`POST /api/analytics/interactions`, PRD §5.11 B2) — публичный, cookieless.
- * Шлётся одним пакетом на уходе через `navigator.sendBeacon` (переживает выгрузку вкладки, не
- * спамит по событию). Без кликов не шлём. Сбой телеметрии глотаем (не критично).
- */
+/** Send a nonempty click batch on exit with sendBeacon; telemetry failure is nonfatal. PRD §5.11 B2. */
 export function postInteractions(payload: InteractionsPayload): void {
   if (payload.clicks.length === 0) return;
   const url = `${BASE}/api/analytics/interactions`;
   const body = JSON.stringify(payload);
   const blob = new Blob([body], { type: "application/json" });
   if (typeof navigator !== "undefined" && navigator.sendBeacon?.(url, blob)) return;
-  // Фолбэк, если sendBeacon недоступен/отказал — keepalive-fetch.
+  // Fall back to keepalive fetch when sendBeacon is unavailable or refuses the payload.
   void fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

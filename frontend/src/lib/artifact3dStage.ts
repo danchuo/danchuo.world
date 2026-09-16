@@ -1,16 +1,4 @@
-/**
- * Сцена 3D-артефактов (DESIGN §12.5) — браузерная половина: грузит glTF и рисует его в
- * `<canvas>` вызывающего. Чистая арифметика (посадка камеры, шаг вращения, распознавание
- * адреса) — в `artifact3d.ts`; React-обёртка — в `components/Artifact3D.tsx`.
- *
- * ⚠️ **Рендерер один на весь борд, канвасов — сколько угодно.** Волна 03 несёт много
- * 3D-предметов, а WebGL-контекстов у браузера считанные единицы (~16, и самый старый он
- * молча роняет). Поэтому здесь один `WebGLRenderer` со своим скрытым канвасом; каждый вид
- * рисуется в него и **копируется** в свой 2D-канвас (`drawImage`). Контекст всегда ровно
- * один, сколько бы артефактов ни висело на экране.
- *
- * `three` подгружается **динамически**: страница без 3D-артефактов за библиотеку не платит.
- */
+/** One shared WebGL renderer copies frames into per-view 2D canvases to avoid browser context limits. DESIGN §12.5. */
 
 import { createFrameClock, fitDistance, nextSpin, rewindSpin } from "./artifact3d";
 
@@ -19,38 +7,31 @@ type GLTFLoaderCtor = typeof import("three/examples/jsm/loaders/GLTFLoader.js").
 type GLTF = import("three/examples/jsm/loaders/GLTFLoader.js").GLTF;
 
 export interface ArtifactHandle {
-  /** Включить/выключить движение (вращение + встроенная анимация модели). */
+  /** Toggle rotation and embedded model animation. */
   setSpinning(on: boolean): void;
-  /** Канвас сменил размер — перерисовать под новый. */
+  /** Redraw after the canvas size changes. */
   resize(): void;
   dispose(): void;
 }
 
 export interface MountOptions {
-  /** Адрес `.glb`/`.gltf`. */
+  /** URL of a .glb or .gltf model. */
   src: string;
-  /** Оборотов в минуту при наведении. */
+  /** Revolutions per minute on hover. */
   rpm?: number;
-  /** Поле вокруг предмета: 1 — впритык к краю слота. */
+  /** Padding around the model; 1 fits the slot exactly. */
   padding?: number;
   signal?: AbortSignal;
 }
 
-/** Вертикальный угол обзора. Узкий — предмет читается почти ортогонально, без раздувания краёв. */
+/** A narrow vertical FOV limits perspective distortion. */
 const FOV = 32;
-/**
- * Подъём камеры над экватором. Прямо в лоб шар с сеткой читается плоским кольцевым узором;
- * с наклона параллели становятся эллипсами, и предмет мгновенно читается объёмным.
- */
+/** Elevate the camera so sphere parallels read as volume instead of flat rings. */
 const ELEVATION_DEG = 14;
 const DEFAULT_RPM = 9;
-/**
- * Поле вокруг предмета. Единица — габаритная сфера модели вписана в кадр ровно: предмет берёт
- * слот целиком. Больше единицы прежнего запаса не даём намеренно — сфера и так шире силуэта
- * (особенно у плоских моделей вроде спирали), и лишнее поле читалось как «модель мелковата».
- */
+/** A bounding sphere already exceeds flat silhouettes; extra padding makes them too small. */
 const DEFAULT_PADDING = 1.0;
-/** Тот же потолок шага, что у вращения (`nextSpin`) — им же обрезаем встроенную анимацию. */
+/** Clamp embedded animation with the same delta ceiling as nextSpin. */
 const MAX_STEP_MS = 100;
 
 interface View {
@@ -63,11 +44,7 @@ interface View {
   angle: number;
   rpm: number;
   spinning: boolean;
-  /**
-   * Курсор ушёл, но предмет ещё не вернулся в исходное положение. Отдельное состояние от
-   * [View.spinning], а не его отрицание: «стоит» и «отматывается назад» — разные вещи, и цикл
-   * обязан жить, пока идёт вторая.
-   */
+  /** Keep the loop alive while rewinding; stopped and rewinding are distinct states. */
   rewinding: boolean;
   needsRender: boolean;
 }
@@ -90,9 +67,7 @@ const clock = createFrameClock();
 
 function ensureRenderer(THREE: Three) {
   if (renderer) return renderer;
-  // `alpha` — артефакт стоит на фоне волны, своей подложки у него нет.
-  // `preserveDrawingBuffer` обязателен: кадр копируется в чужой канвас ПОСЛЕ отрисовки, без
-  // него буфер к моменту `drawImage` уже очищен и в слот приезжает пустота.
+  // Alpha preserves the wave background; preserveDrawingBuffer keeps the frame available for the later drawImage copy.
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setClearAlpha(0);
   rendererSize = { w: 0, h: 0 };
@@ -102,8 +77,7 @@ function ensureRenderer(THREE: Three) {
 function draw(view: View) {
   const { width, height } = view.canvas;
   if (!renderer || width === 0 || height === 0) return;
-  // Размер общего рендерера подгоняем под ТЕКУЩИЙ вид и только когда он реально другой:
-  // присваивание `canvas.width` сбрасывает контекст, даже если значение то же.
+  // Resize only when dimensions change: assigning canvas.width clears even an unchanged context.
   if (rendererSize.w !== width || rendererSize.h !== height) {
     renderer.setSize(width, height, false);
     rendererSize = { w: width, h: height };
@@ -118,7 +92,7 @@ function draw(view: View) {
   view.ctx.drawImage(renderer.domElement, 0, 0, width, height);
 }
 
-/** Будит цикл, если он спит. Продолжает его сам [tick] — см. предупреждение там. */
+/** Wake an idle loop; tick schedules its own continuations. */
 function schedule() {
   if (rafId) return;
   rafId = requestAnimationFrame(tick);
@@ -132,15 +106,12 @@ function tick(now: number) {
     if (view.spinning) {
       view.angle = nextSpin(view.angle, delta, view.rpm);
       view.pivot.rotation.y = view.angle;
-      // Встроенную анимацию модели (у покупных она обычно есть) двигаем тем же шагом и с тем
-      // же потолком — иначе после свёрнутой вкладки она проматывается рывком.
+      // Clamp embedded animation too, preventing jumps after tab suspension.
       view.mixer?.update(Math.min(delta, MAX_STEP_MS) / 1000);
       view.needsRender = true;
       moving = true;
     } else if (view.rewinding) {
-      // Обратный ход той же скорости — до упора в исходное положение (§12.5). Встроенную
-      // анимацию назад НЕ гоняем: у наших моделей её нет, а вслепую кормить микшер
-      // отрицательным шагом — догадка. Появится анимированная модель — решим на ней.
+      // Rewind rotation at the forward speed; embedded animation is not reversed. DESIGN §12.5.
       view.angle = rewindSpin(view.angle, delta, view.rpm);
       view.pivot.rotation.y = view.angle;
       view.rewinding = view.angle > 0;
@@ -152,10 +123,7 @@ function tick(now: number) {
       view.needsRender = false;
     }
   }
-  // ⚠️ Продолжаем цикл ЗДЕСЬ, а не через `schedule()`: `rafId` наверху уже обнулён, поэтому
-  // страж «уже идёт» продолжение не отличил бы от запуска. Пока запуск заодно обнулял отсчёт
-  // кадров, шаг выходил нулевым каждый раз — предмет рисовался под одним углом и выглядел
-  // неподвижным (регрессия закреплена тестами `createFrameClock`).
+  // Continue directly: schedule cannot distinguish continuation from startup after rafId is cleared; resetting the clock freezes motion.
   if (moving) rafId = requestAnimationFrame(tick);
   else clock.reset();
 }
@@ -169,7 +137,7 @@ function release(view: View) {
     if (Array.isArray(material)) material.forEach((m) => m.dispose());
     else material?.dispose();
   });
-  // Последний вид ушёл — отдаём и WebGL-контекст: борд без 3D не должен держать его занятым.
+  // Release the WebGL context when its last view is removed.
   if (views.size === 0 && renderer) {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
@@ -181,28 +149,15 @@ function release(view: View) {
   }
 }
 
-/**
- * Модель без материалов одевается **акцентом активной волны**.
- *
- * Так бывает у геометрии, выгруженной инструментом-конструктором (наш `spiral-vortex.glb` —
- * из trimesh): материалов в файле нет вовсе. Умолчание glTF на этот случай —
- * металл с шероховатостью 1, и без карты окружения он рисуется почти чёрным пятном.
- *
- * Правило простое: **файл сам говорит, как выглядит; не сказал — одевает волна.** Цвет берём
- * из токена `--accent`, а не константой (DESIGN: ноль хардкод-цветов), поэтому предмет без
- * собственного вида остаётся своим на любой волне. Модель со своими материалами (наш глобус —
- * эмиссивный циан) не трогаем: она уже сказала.
- */
+/** Use the wave accent only when the glTF declares no materials. DESIGN §12.5. */
 function dressMateriallessModel(THREE: Three, gltf: GLTF) {
-  // Спрашиваем ИСХОДНЫЙ json, а не разобранные материалы: три-джей уже подставил своё
-  // умолчание, и по нему «файл молчал» от «файл сказал: белый» не отличить.
+  // Inspect source JSON: parsed default materials cannot distinguish omission from an explicit white material.
   const declared = (gltf.parser.json as { materials?: unknown[] }).materials;
   if (declared && declared.length > 0) return;
 
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const color = new THREE.Color(accent || "#ffffff");
-  // Не unlit: сплошная заливка превратила бы предмет в плоский силуэт. Немного собственного
-  // свечения — чтобы тени не уводили его в чёрное на тёмной волне.
+  // Unlit fill flattens the silhouette; slight emission keeps shadows visible on dark waves.
   const material = new THREE.MeshStandardMaterial({
     color,
     metalness: 0,
@@ -216,11 +171,7 @@ function dressMateriallessModel(THREE: Three, gltf: GLTF) {
   });
 }
 
-/**
- * Ставит артефакт в канвас и отдаёт ручку управления. Канвас к этому моменту должен иметь
- * размер (его задаёт вызывающий из наблюдаемого CSS-бокса) — иначе первый кадр будет пустым
- * до первого [ArtifactHandle.resize].
- */
+/** Mount a model into an already sized canvas; otherwise the first frame stays empty until resize. */
 export async function mountArtifact(
   canvas: HTMLCanvasElement,
   { src, rpm = DEFAULT_RPM, padding = DEFAULT_PADDING, signal }: MountOptions,
@@ -234,11 +185,11 @@ export async function mountArtifact(
   const gltf = await new GLTFLoader().loadAsync(src);
   if (signal?.aborted) throw new Error("монтаж артефакта отменён");
 
-  // Рендерер создаём ПОСЛЕ загрузки: сорвавшаяся модель не должна оставлять занятый контекст.
+  // Create the renderer after loading so failed models cannot retain a context.
   ensureRenderer(THREE);
 
   const scene = new THREE.Scene();
-  // Свет нужен покупным PBR-моделям; наш каркасный глобус — unlit и его игнорирует.
+  // PBR models need lights; unlit models ignore them.
   scene.add(new THREE.AmbientLight(0xffffff, 2.4));
   const key = new THREE.DirectionalLight(0xffffff, 2.4);
   key.position.set(2, 3, 4);
@@ -250,9 +201,7 @@ export async function mountArtifact(
 
   dressMateriallessModel(THREE, gltf);
 
-  // Предмет любого масштаба садится в слот одинаково: центрируем по его габаритной сфере и от
-  // её радиуса считаем дистанцию камеры. Волне не приходится подбирать числа под файл — купленная
-  // модель в сотню единиц встанет так же, как наш глобус в единицу.
+  // Normalize placement by the bounding sphere so model scale cannot change its apparent slot size.
   const bounds = new THREE.Box3().setFromObject(gltf.scene);
   const sphere = bounds.getBoundingSphere(new THREE.Sphere());
   gltf.scene.position.sub(sphere.center);
@@ -267,7 +216,7 @@ export async function mountArtifact(
   if (gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(gltf.scene);
     mixer.clipAction(gltf.animations[0]).play();
-    mixer.update(0); // первый кадр анимации — и есть статичная картинка покоя
+    mixer.update(0); // the animation's first frame IS the still picture at rest
   }
 
   const view: View = {
@@ -291,8 +240,7 @@ export async function mountArtifact(
     setSpinning(on) {
       if (view.spinning === on) return;
       view.spinning = on;
-      // Курсор ушёл — не замираем на месте, а откатываемся в исходное положение. Вернулся на
-      // полпути — откат отменяется тем же флагом, и предмет едет вперёд с того места, где был.
+      // Leaving rewinds to the initial pose; re-entry resumes forward from the current angle.
       view.rewinding = !on && view.angle > 0;
       schedule();
     },

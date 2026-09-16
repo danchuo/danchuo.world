@@ -10,20 +10,9 @@ import java.util.Optional
 import java.util.concurrent.ThreadLocalRandom
 
 /**
- * Расшифровка речи у Groq (`/openai/v1/audio/transcriptions`, PRD §5.16.1).
- *
- * Отдельный бин от [GroqLlmClient], потому что это другой протокол: не JSON, а
- * **multipart/form-data**. Тело собирается руками, и это сознательно — декларативный
- * multipart REST-клиента прячет ровно то, что здесь важнее всего: имя файла в части. Без
- * расширения в имени Groq отвергает запрос, а увидеть это можно только в проде, потому что
- * native-образ собирается уже после мержа (PR-сборка — только JVM).
- *
- * Контракт деградации общий для слайса: нет ключа или провайдер отказал ⇒ `null`, и вызывающий
- * молчит, а не роняет фон.
- *
- * **Лимит здесь свой.** Он меряется аудиосекундами (7200 в час на бесплатной полосе), а не
- * токенами в минуту, поэтому расшифровка и текстовый пересказ не отнимают бюджет друг у друга,
- * хотя ключ и провайдер у них общие.
+ * Speech transcription on Groq. A separate bean from [GroqLlmClient] because the protocol differs:
+ * multipart, with the body assembled BY HAND — the declarative client hides the part's filename,
+ * and Groq rejects one without an extension (docs/pitfalls.md). Its own limit: PRD §5.16.1
  */
 @ApplicationScoped
 class GroqTranscriptionClient(
@@ -34,7 +23,7 @@ class GroqTranscriptionClient(
 
     private val log: Logger = Logger.getLogger(GroqTranscriptionClient::class.java)
 
-    /** Текст куска; `null` — ключа нет, провайдер отказал или ответ пуст. */
+    /** The chunk's text; `null` when there is no key, the provider refused, or the reply is empty. */
     fun transcribe(audio: LlmAudio): String? {
         val key = apiKey.map { it.trim() }.orElse("")
         if (key.isBlank()) {
@@ -57,8 +46,8 @@ class GroqTranscriptionClient(
                         log.warnf("Groq transcription failed: HTTP %d", it.status)
                         return null
                     }
-                    // Ответ просим текстом (`response_format=text`) — разбирать нечего, и это
-                    // избавляет от JSON-DTO, который в native пришлось бы держать рефлексией.
+                    // We ask for a plain-text reply (`response_format=text`): nothing to parse,
+                    // and it spares a JSON DTO that native would need reflection for.
                     it.readEntity(String::class.java)?.trim()?.ifBlank { null }
                 }
             }
@@ -69,8 +58,8 @@ class GroqTranscriptionClient(
     }
 
     /**
-     * Тело multipart: файл плюс два поля. Собрано вручную и побайтно — текстовые части в UTF-8,
-     * аудио как есть; склеивать их через `String` нельзя, звук не текст.
+     * The multipart body: a file plus two fields, assembled by hand and byte-wise — text parts in
+     * UTF-8, audio as is. They must not be glued through a `String`; sound is not text.
      */
     private fun multipart(boundary: String, audio: LlmAudio): ByteArray {
         val out = java.io.ByteArrayOutputStream()

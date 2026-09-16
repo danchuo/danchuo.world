@@ -8,12 +8,9 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 
 /**
- * Пункт «Дисциплины» (PRD §5.6, §7) — data-driven: новый пункт = строка в БД, без релиза.
- *
- * Пункт **не бинарный**, а с целью-количеством [target] (растяжка = 1, чтение = 2/день,
- * подкасты = 2/день). Прогресс хранится одним числом в [ChecklistEntry] (`0..target`),
- * фронт рендерит «count/target». Пункт `monster` особый: его отметка приезжает отдельным
- * полем приёма (см. [DailyIngestService]), а не счётчиком в `items`.
+ * A discipline item, data-driven: a new one is a DB row, no release. Items are not binary but
+ * carry a goal [target] (stretching 1, reading 2/day), progress held as one number in
+ * [ChecklistEntry]. `monster` is special — its own ingest field, not an `items` counter. §5.6
  */
 @Entity
 @Table(name = "checklist_item")
@@ -22,7 +19,7 @@ class ChecklistItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
-    /** Стабильный машинный ключ (из шортката), уникален. */
+    /** Stable machine key (as sent by the shortcut), unique. */
     @Column(nullable = false, unique = true)
     lateinit var key: String
 
@@ -32,7 +29,7 @@ class ChecklistItem {
     @Column(name = "icon")
     var icon: String? = null
 
-    /** Цель-количество за день; для бинарных пунктов = 1. */
+    /** Daily target count; 1 for binary items. */
     @Column(nullable = false)
     var target: Int = 1
 

@@ -5,53 +5,42 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Публичная проекция одного дня (PRD §5.2/§5.4/§5.6, §12 M2) — модель плитки «Сегодня»
- * и перефокуса по клику в календаре. Отдаётся из `GET /api/days/{date}`.
- *
- * Это **read-проекция**, не сущность: агрегатор ([DayAggregator]) собирает её из слайсов
- * `days`/`health`/`checklist`. Соглашения соблюдаются на выходе:
- * - **null ≠ 0 (§5.4):** статы здоровья nullable — `null` = «нет данных», `0` = реальный ноль.
- * - **Пустые/будущие дни (§4):** дня нет в БД ⇒ [hasData] = `false`, статы `null`,
- *   [discipline] — каркас активных пунктов с прогрессом `0`, [monsterDrunk] = `null`. Форма
- *   ответа одинакова для наполненного и пустого дня — фронт рисует per-tile empty без спец-ветки.
+ * Public read-projection of one day, assembled from slices by [DayAggregator] — not an entity.
+ * Health stats are nullable because `null` ("no data") must not read as a real `0`. An absent
+ * or future day answers in the same shape, so the board needs no special branch. PRD §5.2/§5.4
  */
+
 // Views cross REST only inside Response entities - invisible to native-image static analysis,
 // so Jackson needs an explicit reflection registration (otherwise native serializes them as {}).
 @RegisterForReflection
 data class DayView(
     val date: LocalDate,
-    /** Имя дня (§5.6); `null` = не задано. */
     val title: String?,
-    /** Есть ли запись дня в БД (для per-tile empty/loaded состояния). */
+    /** Whether the day exists in the DB, for the per-tile empty/loaded state. */
     val hasData: Boolean,
     val health: HealthView,
     val workouts: List<WorkoutView>,
-    /** Прогресс дисциплины дробями (§5.6): по одному элементу на активный пункт. */
+    /** Discipline progress as fractions (§5.6): one entry per active item. */
     val discipline: List<DisciplineItemView>,
     /**
-     * Пил ли монстра в этот день (§5.6). **Три состояния, а не два:** `null` = за день монстра
-     * не отмечали, `true` = пил, `false` = не пил. Без третьего «не отмечали» выдавалось бы за
-     * честное «не пил» — а различить по [hasData] нельзя: запись дня создаёт **health-ingest**
-     * (авто 12/18/24 MSK), так что она есть почти всегда, а монстра пишет другой шорткат.
-     *
-     * Носитель — отметка пункта `monster` в `checklist_entry`: `ingest/daily` пишет её ВСЕГДА
-     * (1 «пил», 0 «не пил»), поэтому сам факт строки и означает «шорткат за день отработал».
+     * Three states, not two: `null` means the monster was never marked that day. It cannot be
+     * derived from [hasData] — health-ingest creates the day row on its own schedule, so the row
+     * is almost always there while the monster comes from a different shortcut. PRD §5.6
      */
     val monsterDrunk: Boolean?,
     /**
-     * Стрик «чистоты» монстра (§5.6): сколько дней подряд НЕ пил, отсчёт «по вчера»
-     * (сегодня в серию не входит, пока запись за него не выбрана — см. [StreakCalculator]).
+     * Clean-streak: consecutive days NOT drunk, counted through yesterday — today joins only
+     * once its record is picked (see [StreakCalculator]). PRD §5.6
      */
     val monsterCleanStreak: Int,
 )
 
-/** Статы Apple Health дня (§5.4). Все nullable — null ≠ 0. */
+/** Apple Health stats of the day (§5.4). All nullable — null is not 0. */
 @RegisterForReflection
 data class HealthView(
     val steps: Int?,
-    /** Сон относится ко дню пробуждения (§4). */
+    /** Sleep belongs to the day of waking up (§4). */
     val sleepMinutes: Int?,
-    /** Фазы сна; `null`, если ни одна не пришла. */
     val sleepStages: SleepStagesView?,
 )
 
@@ -72,10 +61,9 @@ data class WorkoutView(
 )
 
 /**
- * Пункт дисциплины с прогрессом за день: фронт рендерит «[count]/[target]».
- * Список data-driven — это верное отражение активных пунктов БД, без хардкода ключей.
- * Пункт `monster` тоже здесь — той же отметкой, которой он и ведётся (§5.6); вердикт
- * «пил / не пил» отдельным полем [DayView.monsterDrunk].
+ * A discipline item with its progress for the day, rendered as "[count]/[target]". The list is
+ * data-driven off the active DB items, so no key is hardcoded. `monster` rides here too, by the
+ * same mark that tracks it; its verdict is [DayView.monsterDrunk]. PRD §5.6
  */
 @RegisterForReflection
 data class DisciplineItemView(
@@ -85,86 +73,63 @@ data class DisciplineItemView(
     val count: Int,
     val target: Int,
     /**
-     * Стрик по каждой остановке пункта (§5.6): индекс `k` = серия дней подряд с `count ≥ k+1`,
-     * отсчёт «по вчера» ([StreakCalculator]). Длина = [target]; для `target=2` (подкасты/чтение)
-     * `[0]` — дней с ≥1, `[1]` — дней с ≥2 (второе ≤ первого). Фронт берёт по номеру остановки.
+     * Per-stop streaks: index `k` is the run of days with `count >= k+1`, counted through
+     * yesterday ([StreakCalculator]). Length equals [target], so entry `[1]` is never above
+     * `[0]`. The board indexes it by stop number. PRD §5.6
      */
     val occurrenceStreaks: List<Int>,
     /**
-     * Измеренное время по пункту в минутах; `null` = «не мерили» (у большинства пунктов всегда).
-     * Заполняется у `journal` (минуты в приложении «Журнал», §5.6) и у `podcasts` (минуты,
-     * насчитанные поллером плеера). Поле живёт здесь, а не отдельным полем дня, чтобы фронт
-     * рисовал цифру **у своего пункта** не зная ключей: есть измерение — показывается, нет — нет.
+     * Measured minutes for this item; `null` means "not measured", which is the case for most
+     * items always. It lives on the item rather than on the day so the board can print the
+     * number AT its own stop without knowing any keys. PRD §5.6
      */
     val measuredMinutes: Int?,
     /**
-     * Что именно слушали за день (§5.6) — карточки для ховера по остановкам пункта. Пусто у всех
-     * пунктов, кроме `podcasts`, и у него же пусто, пока ни один заход не закрыл остановку.
-     *
-     * Карточка — на ЗАХОД, а не на эпизод: один эпизод, взятый по дороге туда и обратно, приезжает
-     * двумя карточками, потому что заходов было два. Длина всё равно НЕ обязана совпадать с
-     * [count]: марафон в один присест закрывает обе остановки одним заходом и даёт одну карточку —
-     * это норма, фронт раздаёт карточки по порядку и оставляет лишнюю остановку без ховера.
+     * Hover cards for the stops of `podcasts`; empty for every other item. One card per SESSION,
+     * not per episode, so the length need not match [count]: a single long sitting closes both
+     * stops with one card and the spare stop simply gets no hover. PRD §5.6
      */
     val episodes: List<PodcastEpisodeView>,
     /**
-     * Что именно читали за день (§5.13) — карточки для ховера по остановкам пункта. Пусто у всех
-     * пунктов, кроме `reading`, и у него же пусто, пока ни одна сессия не закрыла остановку.
-     *
-     * Раздаются по тому же правилу, что и [episodes], и с той же оговоркой: час в присест
-     * закрывает обе остановки одной карточкой, и вторая остаётся без ховера — это норма.
+     * Hover cards for the stops of `reading`; empty for every other item. Handed out by the same
+     * rule as [episodes], including the spare stop left without a hover. PRD §5.13
      */
     val books: List<ReadingBookView>,
 )
 
 /**
- * Карточка сессии чтения (§5.16) — то, что показывается при наведении на остановку пункта
- * «Чтение»: обложка, книга и автор, когда и сколько читали, и путь по процентам.
- *
- * Проценты — доля 0..1, как их хранит читалка; округление до целых — дело борда. Оба конца
- * необязательны, и пустота у них РАЗНАЯ по смыслу: [startPercent] пуст, когда книга приехала
- * к нам уже начатой (историю до себя мы не придумываем), а у импортированных прошлых дней
- * пусто всё, включая [startedAt] — тогда нас там не было.
+ * A reading session card for the stop hover (§5.16). Percentages are the 0..1 fractions the
+ * reader stores; rounding is the board's job. The two ends are empty for different reasons:
+ * [startPercent] when the book arrived already started, [startedAt] when the day was imported.
  */
 @RegisterForReflection
 data class ReadingBookView(
     val title: String,
     val author: String?,
-    /** Ссылка на обложку с нашего же бэкенда; `null` — у книги её нет. */
+    /** Cover served by our own backend; `null` when the book has none. */
     val coverUrl: String?,
-    /** Когда начался заход; `null` у импортированного дня. Фронт переводит в MSK. */
+    /** When the session began; `null` on an imported day. The board converts to MSK. */
     val startedAt: Instant?,
-    /** Сколько читали В ЭТОТ ЗАХОД, минут; эта же цифра стоит под своей остановкой. */
+    /** Minutes read IN THIS SESSION; the same number sits under its stop. */
     val readMinutes: Int,
     val startPercent: Double?,
     val endPercent: Double?,
     /**
-     * Id захода — ключ к его пересказу (`GET /api/reading/summary/{id}`) и к обложке. `null`
-     * только у выдуманной карточки в тестах: у сохранённой сессии id есть всегда.
+     * Session id, the key to its summary and cover. `null` only for a card invented in tests:
+     * a stored session always has one.
      */
     val sessionId: Long?,
     /**
-     * Есть ли что рассказать про этот кусок книги (§5.16). Сам текст сюда не едет: он нужен
-     * только раскрытому окну, а проекция дня возится на каждый день календаря.
+     * Whether this stretch of the book has a summary (§5.16). The text itself stays out — only
+     * the opened modal needs it, while this projection is hauled for every calendar day.
      */
     val hasSummary: Boolean = false,
 )
 
 /**
- * Карточка прослушанного захода (§5.6) — то, что показывается при наведении на остановку пункта
- * подкастов: обложка, эпизод и шоу со ссылками, сколько слушали.
- *
- * [showName] — «автор» карточки: настоящего издателя плеер не отдаёт, а ради него пришлось бы
- * ходить в каталог отдельным запросом (рассмотрено и отклонено — владельцу достаточно шоу).
- *
- * **Времени начала захода здесь нет**: «во сколько включил» — не тот
- * вопрос, который задаёт карточка. В `podcast_session` оно **остаётся** — по нему заходы
- * упорядочены и склеены, и историю мы не переписываем; наружу просто не едет. Понадобится
- * снова — вернуть его сюда одной строкой.
- *
- * **Минут эпизода за сутки тут тоже НЕТ.** Строка «80 из 85 мин за день» защищала бы от
- * прочтения «эпизод брошен на середине» — но карточка и так говорит, какой именно кусок
- * пройден ([startMinute] → [endMinute]), и спутать заход с брошенным эпизодом нечем.
+ * A listened-session card for the stop hover (§5.6). [showName] stands in as the card's author:
+ * the real publisher would cost a separate catalogue request (rejected — the show is enough).
+ * Rejected too: session start time, and the episode's per-day minutes. PRD §5.6
  */
 @RegisterForReflection
 data class PodcastEpisodeView(
@@ -173,29 +138,25 @@ data class PodcastEpisodeView(
     val showName: String,
     val showUrl: String?,
     val imageUrl: String?,
-    /** Сколько слушали В ЭТОТ ЗАХОД, минут; эта же цифра стоит под своей остановкой. */
+    /** Minutes listened IN THIS SESSION; the same number sits under its stop. */
     val listenedMinutes: Int,
     /**
-     * **Какой кусок выпуска** пройден за этот заход, в минутах от его начала: «45 → 95».
-     * Отвечает на вопрос, которого не было у минут, — не «сколько», а «что именно», и потому
-     * же, что проценты у книги, стоит и на карточке, и в окне пересказа.
-     *
-     * `null` — начала окна у захода нет (строка записана до того, как мы стали его смотреть):
-     * тогда куска не показываем вовсе, а не подставляем ноль.
+     * WHICH stretch of the episode this session covered, in minutes from its start ("45 -> 95").
+     * `null` when the row predates us watching the window — then no stretch is shown at all,
+     * rather than a substituted zero.
      */
     val startMinute: Int?,
     val endMinute: Int?,
-    /** Полная длительность эпизода, минут; `null` — не приехала. */
+    /** Full episode length in minutes; `null` when it never arrived. */
     val durationMinutes: Int?,
     /**
-     * Id захода — ключ к его пересказу (`GET /api/summary/podcast/{id}`, §5.16.1). Это id первой
-     * из склеенных сессий: собственного ключа у захода нет, он собирается на чтении.
+     * Session id, the key to its summary (§5.16.1). It is the id of the FIRST glued session:
+     * a sitting has no key of its own, it is assembled on read.
      */
     val sessionId: Long? = null,
     /**
-     * Есть ли что рассказать про прослушанный кусок (§5.16.1). Сам текст сюда не едет — он нужен
-     * только раскрытому окну, а проекция дня возится на каждый день календаря.
+     * Whether this stretch has a summary (§5.16.1). The text stays out — only the opened modal
+     * needs it, while this projection is hauled for every calendar day.
      */
     val hasSummary: Boolean = false,
 )
-

@@ -18,7 +18,7 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
   };
 }
 
-/** Ленту в разметке ищем по её узлу, а не по тексту: текст ставит эффект императивно. */
+/** The ribbon is found by its node, not its text: the text is set imperatively by an effect. */
 function ribbonOf(container: HTMLElement): HTMLElement {
   const el = container.querySelector<HTMLElement>(".wave-backdrop-ribbon");
   if (!el) throw new Error("шов фона не отрендерил ленту");
@@ -26,10 +26,9 @@ function ribbonOf(container: HTMLElement): HTMLElement {
 }
 
 /**
- * Стена в jsdom: вёрстки нет, поэтому обе меры подменяем. Замер ширины знака в jsdom тоже
- * не состоится (проба меряется нулём) — шов падает на моноширинную оценку по кеглю, и это
- * ровно тот путь, которым он пойдёт в скрытом табе. Модель грубая намеренно: проверяем не
- * раскладку, а то, что строк ХВАТАЕТ на всю высоту стены.
+ * The wall in jsdom: there is no layout, so both measures are stubbed. Measuring a glyph fails too
+ * (the probe measures zero) and the seam falls back to a monospace estimate — exactly the path it
+ * takes in a hidden tab. The model is deliberately crude: what is checked is that lines SUFFICE.
  */
 function mockWall(height: number, width = 1000): () => void {
   const proto = HTMLElement.prototype;
@@ -43,7 +42,7 @@ function mockWall(height: number, width = 1000): () => void {
   };
 }
 
-/** Самый широкий правдоподобный межстрочный интервал — верхняя оценка для счёта строк. */
+/** The widest plausible line height — an upper bound for counting lines. */
 const MAX_LEADING_PX = 30;
 
 let restoreWall: (() => void) | null = null;
@@ -57,7 +56,7 @@ describe("WaveBackdrop", () => {
     const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-01" />);
     const root = container.querySelector(".wave-backdrop");
     expect(root).not.toBeNull();
-    // Фон — не контент: скринридер его не читает.
+    // The backdrop is not content: a screen reader does not read it.
     expect(root).toHaveAttribute("aria-hidden", "true");
   });
 
@@ -74,8 +73,8 @@ describe("WaveBackdrop", () => {
   });
 
   it("закрывает стену целиком, даже когда она в сотни раз выше ленты (зум наружу)", () => {
-    // 60 000 против ленты в полсотни символов — тысяча повторов. Линейный шаг «ещё один
-    // дубль за проход» упирался в свой потолок задолго до края, и низ холста оставался пустым.
+    // 60 000 against a ribbon of fifty characters is a thousand repeats. A linear "one more copy
+    // per pass" hit its own ceiling long before the edge and left the canvas's bottom empty.
     restoreWall = mockWall(60_000);
     const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
     const lines = ribbonOf(container).querySelectorAll(".wave-backdrop-line");
@@ -83,9 +82,9 @@ describe("WaveBackdrop", () => {
   });
 
   /**
-   * Выключка через строку — правило волны, но возможна она только потому, что КАЖДАЯ строка
-   * приезжает своим узлом: `text-align` в CSS правит абзац целиком, а не отдельную строку.
-   * Поэтому разбиение — обязательство шва, и проверяется здесь, а не глазами на борде.
+   * Alternating alignment is a wave's rule, but it is possible only because EVERY line arrives as
+   * its own node: `text-align` in CSS governs a whole paragraph, not one line. So the splitting is
+   * the seam's obligation and is checked here rather than by eye on the board.
    */
   it("ломает ленту на строки-узлы, чтобы волна могла выключать их по очереди", () => {
     restoreWall = mockWall(600);
@@ -93,9 +92,8 @@ describe("WaveBackdrop", () => {
     const lines = ribbonOf(container).querySelectorAll<HTMLElement>(".wave-backdrop-line");
     expect(lines.length).toBeGreaterThan(1);
     const lengths = [...lines].map((line) => (line.textContent ?? "").length);
-    // Пустых строк нет, и строки одной длины с точностью до слова: перенос считает шов по
-    // ширине, а не браузер по своему усмотрению. Точную длину тест не знает намеренно — она
-    // зависит от замера знака, а проверяется здесь СВОЙСТВО разбиения, не его арифметика.
+    // No empty lines, and lines of one length to within a word: the seam wraps by width rather
+    // than the browser at its own discretion. The exact length is deliberately not asserted.
     expect(Math.min(...lengths)).toBeGreaterThan(0);
     expect(Math.max(...lengths) - Math.min(...lengths)).toBeLessThan(24);
   });
@@ -116,10 +114,9 @@ describe("WaveBackdrop", () => {
     expect(text).not.toContain("тихий понедельник");
   });
   /**
-   * Лента режется по ЗАМЕРУ знака, а системное начертание и шрифт волны меряются по-разному:
-   * посчитанная до шрифта раскладка не достаёт до края. Сигнал пересчёта — ворота шрифта
-   * (`fontGate.ts`), а не `document.fonts.ready`: у ворот учтён и потолок ожидания, и то,
-   * что до первой раскладки набор шрифтов пуст и отвечает «готов» мгновенно.
+   * The ribbon is cut by a glyph MEASUREMENT, and the system face measures differently from the
+   * wave's, so a layout computed before the font does not reach the edge. The recount signal is
+   * the font gate (`fontGate.ts`), not `document.fonts.ready`, which answers instantly at first.
    */
   it("пересобирает ленту, когда открылись ворота шрифта", async () => {
     restoreWall = mockWall(600);
@@ -128,7 +125,7 @@ describe("WaveBackdrop", () => {
     const ribbon = ribbonOf(container);
     const before = ribbon.querySelectorAll(".wave-backdrop-line").length;
 
-    // Шрифт приехал — стена та же, а знак стал у́же: строк должно стать больше.
+    // The font arrived: the same wall, a narrower glyph ⇒ there must be more lines.
     restoreWall?.();
     restoreWall = mockWall(900);
     document.documentElement.setAttribute("data-fonts", "ready");

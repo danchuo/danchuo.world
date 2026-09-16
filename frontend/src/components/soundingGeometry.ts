@@ -2,84 +2,71 @@ import type { SleepBandView, SleepStagesView } from "@/lib/api/types";
 import { LANES, type SleepStageKey } from "./nightGeometry";
 
 /**
- * Геометрия «эхолота» — редакции плитки сна, где ночь читается промером глубины (DESIGN §7.7).
- *
- * Несущая мысль: **оба режима показывают ОДНИ И ТЕ ЖЕ бруски**, и переключение — это
- * пересортировка, а не подмена картинки. Брусок — столб воды от поверхности до дна своей фазы;
- * «по часам» ставит столбы в порядке ночи, «сумма» собирает их по горизонтам, и площадь цвета
- * при этом сохраняется по построению. Сумма, посчитанная отдельно от ночи, могла бы с ней
- * разойтись — здесь разойтись нечему.
- *
- * Считается в координатах viewBox, а не в пикселях плитки: все фигуры — прямоугольники по осям,
- * поэтому SVG растягивается `preserveAspectRatio="none"` и мерить контейнер не нужно вовсе
- * (тот же довод, что у `nightGeometry`: в jsdom замеряющий компонент не рендерился бы).
+ * Geometry of the echo sounder edition. The load-bearing idea: BOTH MODES SHOW THE SAME BARS, and
+ * switching re-sorts rather than swapping the picture, so the area of each colour is preserved by
+ * construction. Computed in viewBox coordinates, so the container is never measured. DESIGN §7.7
  */
 
-/** Глубина фазы = её дорожка в [LANES]: порядок фаз у виджета один на все редакции. */
+/** A phase's depth is its lane in [LANES]: the order of phases is one for every edition. */
 const DEPTH_OF: Record<SleepStageKey, number> = LANES.reduce(
   (acc, lane, i) => ({ ...acc, [lane.stage]: i }),
   {} as Record<SleepStageKey, number>,
 );
 
-/** Сколько горизонтов у промера — по одному на фазу. */
+/** How many horizons the sounding has — one per phase. */
 const DEPTHS = LANES.length;
 
 /**
- * Сколько брусков в промере. Единица рисунка — брусок, а НЕ минута, и это несущее: ночь
- * в семь часов на этой плитке даёт минуту тоньше пикселя, а столб тоньше пикселя рисуется
- * не столбом, а муаром — краевое сглаживание соседей складывается в полосатую рябь, в которой
- * не читается ни масса фазы, ни сам жест пересортировки. Число подобрано под ширину плитки
- * (DESIGN §10.2): на ней брусок выходит около четырёх пикселей и остаётся бруском.
+ * How many bars the survey holds. The unit of the drawing is a BAR, not a minute, and that is
+ * load-bearing: a seven-hour night would give a minute thinner than a pixel, and sub-pixel columns
+ * render as moire rather than mass. The count is tuned so a bar stays about four pixels. §10.2
  */
 const BRICKS = 64;
 
-/** Система координат рисунка. Высота — не пропорция плитки, а просто удобный масштаб. */
+/** The drawing's coordinate system. The height is not a tile proportion but a convenient scale. */
 export const ECHO_VIEW = { width: 1000, height: 600 } as const;
 
 /**
- * Поверхность и дно в долях высоты. Дно заходит ПОД растушёвку полосы подписи, но не под сам
- * текст: ночь лежит под подписью, как кадр под подписью в плитке дропа (§7.5), — и при этом
- * самый глубокий горизонт остаётся читаемым. Опустить дно ниже — и глубокий сон пропадает
- * за строкой с цифрами, то есть ровно та фаза, ради которой промер и рисуется.
+ * Surface and floor as fractions of the height. The floor reaches UNDER the caption band's feather
+ * but not under the text itself: the night lies beneath the caption as a photo does in the drop
+ * tile, while the deepest horizon — the very phase this is drawn for — stays readable.
  */
 const TOP = ECHO_VIEW.height * 0.05;
 const BOTTOM = ECHO_VIEW.height * 0.73;
 const ROW_H = (BOTTOM - TOP) / DEPTHS;
 
-/** Рост бруска в сумме — доля горизонта. Тоньше половины брусок читался линейкой, а не массой. */
+/** A bar's height in the summary, as a share of its horizon. Below half it read as a ruler, not a mass. */
 const BAR_H = ROW_H * 0.62;
 
 /**
- * Какую долю своего шага занимает брусок. Остаток — просвет, и он здесь НАМЕРЕННЫЙ: кладка
- * читается кладкой, а не сплошной заливкой, и одна и та же кладка стоит в обоих режимах,
- * поэтому пересортировка видна поштучно. Просвет обязан быть долей шага, а не числом единиц
- * viewBox: по горизонтали рисунок растягивается под плитку, и абсолютная щель разъехалась бы
- * вместе с ней.
+ * How much of its step a bar occupies; the remainder is a DELIBERATE gap, so the courses read as
+ * masonry rather than a solid fill and the re-sort is visible piece by piece. It must be a fraction
+ * of the step, not viewBox units: the drawing stretches horizontally and a fixed gap would drift.
  */
 const BRICK_FILL = 0.82;
 
 export interface EchoBrick {
   stage: SleepStageKey;
-  /** Место бруска в ночи. */
+  /** The bar's place in the night. */
   index: number;
-  /** Место бруска ВНУТРИ своей фазы — им и задаётся сумма. */
+  /** The bar's place WITHIN its own phase, which is what the summary is built from. */
   rank: number;
 }
 
 export interface EchoNight {
   bricks: EchoBrick[];
-  /** Итоги ночи в МИНУТАХ, а не в брусках: подпись считается по данным, а не по рисунку. */
+  /** Night totals in MINUTES rather than bars: the caption is computed from data, not the drawing. */
   totals: Record<SleepStageKey, number>;
-  /** Сон без пробуждений — то же число, что `sleepMinutes` дня (§7.7). */
+  /** Sleep without wakings — the same number as the day's `sleepMinutes` (DESIGN §7.7). */
   asleep: number;
   /**
-   * Есть ли у ночи хронология. Ночь без сохранённых кусков (часы отдали только итоги) знает
-   * лишь свою сумму — переключать в ней нечего, и редакция остаётся в одном режиме.
+   * Whether the night has a chronology. A night with no stored chunks (the watch gave only totals)
+   * knows just its sum, so there is nothing to switch and the edition stays in one mode.
    */
   timed: boolean;
 }
 
-/** Ночь по минутам из сохранённых кусков. Кусков нет ⇒ `null`. */
+/** The night by minutes from stored chunks. No chunks ⇒ `null`. */
 export function echoNight(band: SleepBandView | null | undefined): EchoNight | null {
   if (!band || band.parts.length === 0) return null;
   const stages: SleepStageKey[] = [];
@@ -90,8 +77,8 @@ export function echoNight(band: SleepBandView | null | undefined): EchoNight | n
 }
 
 /**
- * Ночь из одних итогов: минуты фазы идут подряд. Хронологии тут нет и не будет — порядок
- * выбран не «примерный», а служебный: он нужен только чтобы собрать бруски суммы.
+ * A night from totals alone: a phase's minutes run consecutively. There is no chronology here and
+ * never will be — the order is not "approximate" but functional, needed only to assemble the bars.
  */
 export function echoNightFromStages(stages: SleepStagesView | null | undefined): EchoNight | null {
   if (!stages) return null;
@@ -123,17 +110,9 @@ function build(stages: SleepStageKey[], timed: boolean): EchoNight | null {
 }
 
 /**
- * Кладка ночи: минуты сводятся к [BRICKS] брускам.
- *
- * Сколько брусков какой фазе, решает КВОТА по наибольшим остаткам, а не то, кто победил
- * в окне: доля фазы в кладке тогда отличается от истинной меньше чем на брусок, а фаза,
- * которой в ночи набралось хотя бы на половину бруска, не пропадает с рисунка целиком.
- * Простое голосование по окну обе гарантии теряет: пробуждения короткие и разрозненные,
- * каждое проигрывает своему окну поодиночке — и подпись «не спал 23м» оказывалась бы над
- * пустым верхним горизонтом.
- *
- * Внутри окна из фаз с непотраченной квотой берётся самая частая: хронология точна везде,
- * где квота и окно согласны, и уезжает на брусок там, где нет.
+ * Laying the night: minutes reduce to [BRICKS] bars. Bars per phase are decided by QUOTA on
+ * largest remainders, not by whichever won a window — so a phase that earned half a bar cannot
+ * vanish. Plain per-window voting loses that: wakings are short and scattered and each loses alone.
  */
 function lay(stages: SleepStageKey[], totals: Record<SleepStageKey, number>): SleepStageKey[] {
   const count = Math.min(stages.length, BRICKS);
@@ -173,24 +152,24 @@ function lay(stages: SleepStageKey[], totals: Record<SleepStageKey, number>): Sl
   return out;
 }
 
-/** Столб одного бруска: прямоугольник хронологии плюс то, чем он становится в сумме. */
+/** One bar's column: the chronology rectangle plus what it becomes in the summary. */
 export interface EchoColumn {
   stage: SleepStageKey;
   x: number;
   y: number;
   width: number;
   height: number;
-  /** Сдвиг вправо, ставящий столб на его место в сумме. */
+  /** Shift to the right, putting the column in its place in the summary. */
   shift: number;
-  /** Сжатие по вертикали ко дну своего горизонта — столб становится бруском. */
+  /** Vertical squeeze to the floor of its horizon, turning a column into a bar. */
   squash: number;
 }
 
 export interface EchoGeometry {
   columns: EchoColumn[];
-  /** Горизонты глубин — гравировка, без неё пустой уровень теряется. */
+  /** Depth horizons, engraved: without them an empty level is lost. */
   floors: number[];
-  /** Профиль дна ночи (`points` для polyline). Ступенька, поэтому точек столько же, сколько кусков. */
+  /** The night's floor profile (`points` for a polyline). A step function, hence a point per chunk. */
   profile: string;
 }
 
@@ -215,8 +194,8 @@ export function echoGeometry(night: EchoNight): EchoGeometry {
 
   const floors = LANES.map((_, i) => TOP + (i + 1) * ROW_H);
 
-  // Профиль — ступенчатая функция: внутри куска дно не меняется, поэтому точка ставится только
-  // на границе фаз. Полсотни точек вместо полутысячи, рисунок тот же до пикселя.
+  // The profile is a step function: inside a chunk the floor does not change, so a point is placed only
+  // at a phase boundary. Fifty points instead of five hundred, and the drawing is identical.
   const points: string[] = [];
   night.bricks.forEach(({ stage, index }) => {
     const floor = floorOf(stage);

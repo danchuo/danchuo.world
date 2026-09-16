@@ -18,7 +18,6 @@ const DROP: AdminDropView = {
   coverPhotoId: null,
 };
 
-/** Заливает zip через форму: заполняем поля и жмём «загрузить». */
 async function upload() {
   fireEvent.change(screen.getByLabelText("название дропа"), { target: { value: "чн" } });
   const file = new File(["zip"], "drop.zip", { type: "application/zip" });
@@ -47,8 +46,8 @@ describe("DropUploadForm — свежий дроп зовёт на поиск а
   });
 
   it("после заливки прямо говорит, что артефакты НЕ проверены, и даёт кнопку", async () => {
-    // Главное здесь: поиск артефактов не запускается сам (в отличие от проверки поворота) —
-    // без этой строки свежий дроп молча остаётся непроверенным.
+    // The point here: an artifact scan does NOT start by itself (unlike the rotation check), so
+    // without this line a fresh drop silently stays unchecked.
     render(
       <DropUploadForm
         token="t"
@@ -98,8 +97,8 @@ describe("DropUploadForm — свежий дроп зовёт на поиск а
   });
 
   it("уход на другой дроп убирает блок — иначе он показывал бы чужой статус", async () => {
-    // Статус прогона в админке один и принадлежит ВЫБРАННОМУ дропу; выбрали другой —
-    // приглашение к свежему дропу больше не про него.
+    // The admin has one scan status and it belongs to the SELECTED drop; pick another one and the
+    // invitation to scan the fresh drop is no longer about it.
     const { rerender } = render(
       <DropUploadForm
         token="t"

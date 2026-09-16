@@ -9,16 +9,9 @@ import world.danchuo.summary.SummarySource
 import world.danchuo.summary.SummaryTarget
 
 /**
- * Откуда берётся текст прочитанного куска (PRD §5.16) — половина пересказа, знающая про книги.
- *
- * Вторая половина (очередь, счётчик попыток, промпт, разбор ответа) живёт в слайсе `summary` и
- * про epub ничего не знает. Разделение проходит ровно по правилу вертикальных слайсов: полка
- * Anx, WebDAV и разбор epub — внешний источник, и он остаётся здесь целиком.
- *
- * **Текст только из файла книги.** Читалка синкает epub вместе со своей базой, а доли сессии
- * говорят, какой кусок вырезать. Пересказ «по памяти модели» рассмотрен и отклонён: на публичном
- * борде он однажды уверенно соврал бы про книгу, которой модель не знает, и отличить это на
- * странице было бы нечем. Нет файла — нет пересказа и нет кнопки.
+ * Where the text of a read passage comes from — the half of summarising that knows about books;
+ * the queue, prompt and parsing live in `summary` and know nothing of epub. The text comes ONLY
+ * from the book file: no file on the shelf, no summary and no button. PRD §5.16
  */
 @ApplicationScoped
 class ReadingSummarySource(
@@ -31,15 +24,13 @@ class ReadingSummarySource(
 
     override fun kind(): SummaryKind = SummaryKind.READING
 
-    /** Без настроенной полки резать нечего — это нормальное состояние, а не поломка. */
+    /** With no shelf configured there is nothing to cut — a normal state, not a breakage. */
     override fun isConfigured(): Boolean = config.isConfigured()
 
     /**
-     * Заходы, из которых МОЖНО вырезать кусок: известен файл на полке и оба конца пути по долям.
-     * Порядок задаёт запрос — свежие вперёд.
-     *
-     * Транзакция здесь и заканчивается: наружу уходит снимок, а не прицепленные сущности, чтобы
-     * поход к модели (секунды) шёл уже без открытой транзакции.
+     * Sittings a passage CAN be cut from: the shelf file is known and both ends of the path in
+     * fractions are set, newest first. The transaction ends here — a snapshot leaves rather than
+     * attached entities, so the trip to the model runs with no transaction open.
      */
     @Transactional
     override fun candidates(): List<SummaryTarget> = sessions.summarisable().map {
@@ -55,11 +46,9 @@ class ReadingSummarySource(
     }
 
     /**
-     * Кусок книги между долями захода. `null` — книги нет на полке, файл не разобрался или окно
-     * пустое: всё это значит одно — пересказывать нечего.
-     *
-     * Потолок выдержки здесь не применяется: ужать текст под лимит модели — дело ядра
-     * ([world.danchuo.summary.SummaryWindows]), которое одно знает, каков этот лимит.
+     * The slice of the book between a sitting's fractions. `null` covers every case that means
+     * the same thing: no book on the shelf, an unparsable file, an empty window. The excerpt
+     * ceiling is NOT applied here — only the summary core knows what that limit is.
      */
     override fun excerpt(target: SummaryTarget): SummaryExcerpt? {
         val path = target.ref ?: return null

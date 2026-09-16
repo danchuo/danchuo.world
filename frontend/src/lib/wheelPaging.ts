@@ -1,42 +1,36 @@
 /**
- * Листание календаря колесом и тачпадом (PRD §5.3): чистая арифметика жеста без DOM.
- *
- * Задача — превратить поток `wheel`-событий в шаги «неделя назад / вперёд» так, чтобы сила
- * жеста читалась: лёгкое движение двумя пальцами даёт неделю, размашистое — несколько подряд,
- * а инерционный хвост тачпада докатывает окно, как докатывает любой список. Источники ведут
- * себя по-разному: колесо мыши шлёт редкие крупные щелчки (Chrome — 100px, Firefox — 3 строки),
- * тачпад — десятки мелких дельт по 2–20px. Отсюда две ветки ниже и числа при них.
+ * Calendar paging by wheel and trackpad: pure gesture arithmetic with no DOM. It turns a stream of
+ * `wheel` events into week steps so the gesture's force reads through. The sources differ wildly —
+ * a mouse sends rare large clicks, a trackpad dozens of small deltas — hence two branches. §5.3
  */
 
 /**
- * Перемещение, за которое даётся одна неделя. Ощутимо больше щелчка мыши: это цена шага для
- * МЕЛКИХ дельт тачпада, и именно она делает жест управляемым — на коротком движении окно
- * стоит, на длинном едет.
+ * The travel that earns one week. Noticeably more than a mouse click: this is the price of a step for
+ * SMALL trackpad deltas, and it is what makes the gesture governable — on a short movement the window
+ * stands still, on a long one it travels.
  */
 export const WHEEL_STEP_PX = 90;
 /**
- * Дельта, которую считаем щелчком колеса (Chrome отдаёт 100px, Firefox 3 строки = 48px).
- * Щелчок — дискретное событие устройства: неделя за щелчок, без остатка. Копить его нечего,
- * у мыши промежуточных положений не бывает.
+ * The delta counted as a wheel click (Chrome sends 100px, Firefox 3 lines = 48px). A click is a
+ * discrete device event: one week per click, with no remainder. There is nothing to accumulate, a
+ * mouse having no intermediate positions.
  */
 export const WHEEL_NOTCH_PX = 40;
 /**
- * Минимальный зазор между шагами. Столько живёт наплыв окна (DESIGN §5.2): чаще — и недели
- * сменяются быстрее, чем глаз успевает проводить ту, за которой следил.
- *
- * Зазор **откладывает** шаг, а не глотает его: накопленное переносится через паузу и уходит
- * следующим событием. Проглоченный шаг читался бы заеданием — жест был, а окно не поехало.
+ * Minimum gap between steps: as long as the window's glide lives, since any faster and weeks
+ * replace one another before the eye can follow. The gap DEFERS a step rather than swallowing it —
+ * a swallowed one would read as sticking, the gesture happening but the window not moving.
  */
 export const WHEEL_MIN_STEP_GAP_MS = 160;
-/** Простой, после которого накопленное обнуляется: ленивые касания с перерывом не складываются. */
+/** Idle time after which the accumulator resets: lazy touches with a pause do not add up. */
 export const WHEEL_IDLE_MS = 200;
 
 export interface WheelState {
-  /** Накопленное перемещение текущего жеста, px со знаком. */
+  /** Accumulated travel of the current gesture, signed px. */
   acc: number;
-  /** Время последнего события, мс. */
+  /** Time of the last event, in ms. */
   lastAt: number;
-  /** Время последнего шага, мс. */
+  /** Time of the last step, in ms. */
   steppedAt: number;
 }
 
@@ -49,8 +43,8 @@ const LINE_PX = 16;
 const PAGE_PX = WHEEL_STEP_PX * 3;
 
 /**
- * Перемещение события в пикселях по доминирующей оси. Знак — направление листания:
- * положительное (вниз / свайп влево) — вперёд, отрицательное — назад.
+ * An event's travel in pixels along the dominant axis. The sign is the paging direction: positive
+ * (down, or a swipe left) goes forward, negative goes back.
  */
 export function wheelTravel(deltaX: number, deltaY: number, deltaMode: number): number {
   const raw = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
@@ -59,7 +53,7 @@ export function wheelTravel(deltaX: number, deltaY: number, deltaMode: number): 
   return raw;
 }
 
-/** Следующее состояние и шаг (−1 назад, +1 вперёд, 0 — ещё копим или ждём зазора). */
+/** The next state and step (−1 back, +1 forward, 0 while still accumulating or awaiting the gap). */
 export function wheelStep(
   state: WheelState,
   travel: number,
@@ -68,8 +62,8 @@ export function wheelStep(
   if (travel === 0) return { state, step: 0 };
 
   const dir: -1 | 1 = travel > 0 ? 1 : -1;
-  // Простой и разворот обнуляют копилку: складывать движение с тем, что было до паузы или
-  // в другую сторону, значит листать от жеста, которого не было.
+  // Idling and reversing reset the accumulator: adding movement to what came before a pause, or in
+  // the other direction, would page by a gesture that never happened.
   const stale = now - state.lastAt > WHEEL_IDLE_MS;
   const carried = stale || Math.sign(state.acc) !== dir ? 0 : state.acc;
   const acc = Math.abs(travel) >= WHEEL_NOTCH_PX ? dir * WHEEL_STEP_PX : carried + travel;
@@ -78,10 +72,10 @@ export function wheelStep(
     return { state: { ...state, acc, lastAt: now }, step: 0 };
   }
   if (now - state.steppedAt < WHEEL_MIN_STEP_GAP_MS) {
-    // Отложенный шаг копится ровно один: иначе размашистый жест ставил бы окну очередь
-    // из недель и оно продолжало бы ехать, когда пальцы уже сняты.
+    // Exactly one deferred step accumulates: otherwise a sweeping gesture would queue up weeks and
+    // the window would keep travelling after the fingers had left.
     return { state: { ...state, acc: dir * WHEEL_STEP_PX, lastAt: now }, step: 0 };
   }
-  // Остаток переносится в следующий шаг — этим сильный жест и отличается от слабого.
+  // The remainder carries into the next step, which is what tells a strong gesture from a weak one.
   return { state: { acc: acc - dir * WHEEL_STEP_PX, lastAt: now, steppedAt: now }, step: dir };
 }

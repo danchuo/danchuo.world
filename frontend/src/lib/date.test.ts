@@ -13,16 +13,16 @@ import {
 
 describe("date (канон MSK)", () => {
   it("mskToday отдаёт MSK-дату независимо от зоны посетителя", () => {
-    // 2026-06-18 23:30 UTC = 2026-06-19 02:30 MSK → в MSK уже следующий день.
+    // 2026-06-18 23:30 UTC = 2026-06-19 02:30 MSK → in MSK it is already the next day.
     expect(mskToday(new Date("2026-06-18T23:30:00Z"))).toBe("2026-06-19");
-    // 2026-06-18 10:00 UTC = 13:00 MSK → тот же день.
+    // 2026-06-18 10:00 UTC = 13:00 MSK → the same day.
     expect(mskToday(new Date("2026-06-18T10:00:00Z"))).toBe("2026-06-18");
   });
 
   it("mskClock отдаёт время суток по MSK, а не по зоне смотрящего", () => {
-    // 06:12 UTC — это 09:12 MSK: заход, подписанный утренним, остаётся утренним отовсюду.
+    // 06:12 UTC is 09:12 MSK: a sitting labelled morning stays morning from anywhere.
     expect(mskClock("2026-08-13T06:12:00Z")).toBe("09:12");
-    // Через полночь UTC: 21:40 UTC = 00:40 MSK следующих суток.
+    // Across UTC midnight: 21:40 UTC = 00:40 MSK the next day.
     expect(mskClock("2026-08-13T21:40:00Z")).toBe("00:40");
   });
 
@@ -32,28 +32,28 @@ describe("date (канон MSK)", () => {
   });
 
   it("startOfWeek — понедельник недели, в которую попадает дата", () => {
-    expect(startOfWeek("2026-06-18")).toBe("2026-06-15"); // четверг → понедельник той же недели
-    expect(startOfWeek("2026-06-15")).toBe("2026-06-15"); // сам понедельник — на месте
-    expect(startOfWeek("2026-06-21")).toBe("2026-06-15"); // воскресенье принадлежит ТОЙ ЖЕ неделе
+    expect(startOfWeek("2026-06-18")).toBe("2026-06-15"); // Thursday → the Monday of that week
+    expect(startOfWeek("2026-06-15")).toBe("2026-06-15"); // a Monday stays put
+    expect(startOfWeek("2026-06-21")).toBe("2026-06-15"); // Sunday belongs to the SAME week
   });
 
   it("weekWindowAround режет окно по целым неделям пн→вс", () => {
-    // 18 июня 2026 — четверг, её понедельник 15-е: две прошлые недели + эта + следующая
+    // 18 June 2026 is a Thursday, its Monday the 15th: two past weeks plus this one plus the next
     expect(weekWindowAround("2026-06-18", 2, 1)).toEqual({ from: "2026-06-01", to: "2026-06-28" });
   });
 
   it("weekWindowAround не зависит от дня недели внутри недели", () => {
     const monday = weekWindowAround("2026-06-15", 2, 1);
-    expect(weekWindowAround("2026-06-18", 2, 1)).toEqual(monday); // четверг
-    expect(weekWindowAround("2026-06-21", 2, 1)).toEqual(monday); // воскресенье
+    expect(weekWindowAround("2026-06-18", 2, 1)).toEqual(monday); // a Thursday
+    expect(weekWindowAround("2026-06-21", 2, 1)).toEqual(monday); // a Sunday
   });
 
   it("окно weekWindowAround — целое число недель, от понедельника до воскресенья", () => {
     const { from, to } = weekWindowAround("2026-06-18", 2, 1);
     const days = datesInRange(from, to);
-    expect(days).toHaveLength(28); // 4 недели
-    expect(weekdayMondayIndex(from)).toBe(0); // понедельник
-    expect(weekdayMondayIndex(to)).toBe(6); // воскресенье
+    expect(days).toHaveLength(28); // 4 weeks
+    expect(weekdayMondayIndex(from)).toBe(0); // Monday
+    expect(weekdayMondayIndex(to)).toBe(6); // Sunday
   });
 
   it("datesInRange непрерывен и включает оба конца", () => {

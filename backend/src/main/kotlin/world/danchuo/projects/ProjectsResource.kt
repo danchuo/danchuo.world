@@ -6,10 +6,9 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 
 /**
- * Публичное чтение проектов (PRD §5.7, §12 M4). `GET /api/projects` — список, новые сверху;
- * пусто (нет записей) ⇒ пустой массив, не ошибка (фронт рисует тихое empty).
- *
- * Всё на чтение и без токена (§3): фильтр `IngestAuthFilter` стережёт только `api/ingest`.
+ * Public project reads (PRD §5.7). `GET /api/projects` lists them newest first; no records means
+ * an empty array rather than an error, and the board draws a quiet empty state. All reads are
+ * token-free (§3): `IngestAuthFilter` guards only `api/ingest`.
  */
 @Path("/api/projects")
 @Produces(MediaType.APPLICATION_JSON)

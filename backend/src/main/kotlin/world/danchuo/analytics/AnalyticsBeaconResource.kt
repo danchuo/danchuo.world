@@ -11,12 +11,9 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичный бикон аналитики (PRD §5.11) — `POST /api/analytics/beacon`. **Вне** `api/ingest`,
- * поэтому открыт без токена: это не мутация владельца, а телеметрия посетителя (краулеры без
- * JS сюда не доходят). Cookieless: сырой IP не хранится — только суточный хэш ([VisitorHash]).
- *
- * Фронт шлёт два бикона на визит: load (без `dwellMs`) и добивку на уходе (`dwellMs`,
- * `navigator.sendBeacon`) с тем же `visitId` — сервис коррелирует их по визиту (§5.11).
+ * The public beacon. It sits OUTSIDE `api/ingest` and so needs no token: this is visitor
+ * telemetry, not an owner mutation. Two beacons per visit share a `visitId`, and the service
+ * correlates them by it. PRD §5.11
  */
 @Path("/api/analytics/beacon")
 class AnalyticsBeaconResource(
@@ -56,7 +53,7 @@ class AnalyticsBeaconResource(
         return Response.noContent().build()
     }
 
-    /** IP клиента: первый из `X-Forwarded-For` (за прокси Caddy) → иначе адрес соединения. */
+    /** Client IP: first of `X-Forwarded-For` (behind the Caddy proxy), else the connection address. */
     private fun clientIp(headers: HttpHeaders, request: HttpServerRequest): String {
         val forwarded = headers.getHeaderString("X-Forwarded-For")
             ?.split(",")?.firstOrNull()?.trim()

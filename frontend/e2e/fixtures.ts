@@ -1,18 +1,21 @@
 import type { Page } from "@playwright/test";
 
 /**
- * Детерминизм визуальной регрессии (PRD §12 M5). Борд тянет данные на клиенте из живого
- * бэка (даты «сегодня», Spotify, свежесть — плавают), поэтому для стабильных эталонов мы
- * 1) фиксируем часы ([FIXED_TIME]) и 2) подменяем все клиентские `/api/*` фикстурами ниже
- * ([stubApi]). SSR-инжект токенов темы идёт серверным fetch (его page.route не перехватит) —
- * он читает реальную БД, что детерминировано (тема стабильна). Картинки в фикстурах — `null`:
- * тайлы рисуют плейсхолдеры, без внешних загрузок (иначе эталон зависел бы от сети.)
+ * Determinism for visual regression (PRD §12). The board pulls data on the client from a live
+ * backend (today's date, Spotify, freshness all drift), so for stable baselines the clock is frozen
+ * ([FIXED_TIME]) and every client `/api/*` call is replaced by the fixtures below ([stubApi]).
  */
 
-/** Зафиксированное «сейчас»: 12:00 MSK 21.06.2026 ⇒ mskToday()=2026-06-21. */
+/**
+ * The SSR inject of theme tokens goes through a server fetch that `page.route` cannot intercept; it
+ * reads the real database, which is deterministic because the theme is stable. Pictures in the
+ * fixtures are `null`, so tiles draw placeholders and nothing is fetched from the network.
+ */
+
+/** The frozen "now": 12:00 MSK on 2026-06-21, so `mskToday()` is 2026-06-21. */
 export const FIXED_TIME = new Date("2026-06-21T09:00:00Z");
 
-/** Канон-дата выбранного дня (совпадает с FIXED_TIME в MSK). */
+/** Canonical date of the selected day (matching FIXED_TIME in MSK). */
 const TODAY = "2026-06-21";
 
 const DISCIPLINE = [
@@ -31,20 +34,20 @@ const DAY_VIEW = {
   health: { steps: 8421, sleepMinutes: 437, sleepStages: null },
   workouts: [{ type: "Бег", durationMinutes: 32, activeEnergyKcal: 290, distanceMeters: 5200 }],
   discipline: DISCIPLINE,
-  // Монстр выпит сегодня, но «чисто» держит вчерашнюю серию (правило «сегодня не роняет», §5.6).
+  // The monster was drunk today, but "clean" keeps yesterday's run (PRD §5.6: today does not drop it).
   monsterDrunk: true,
   monsterCleanStreak: 5,
 };
 
 /**
- * День с ДЛИННЫМ именем — отдельная дата фикстур: имя дня переносится на вторую строку, и это
- * единственный вид плитки, где перенос виден. Строка — реальное имя дня с прода (2026-09-01,
- * 75 символов): именно на нём владелец заметил, что ужатое в одну строку имя нечитаемо мелкое.
+ * A day with a LONG name, on its own fixture date: the day's name wraps onto a second line, and this
+ * is the only tile view where wrapping shows. The string is a real day name from production, 75
+ * characters — the one on which the owner noticed that squeezing it into one line made it unreadable.
  */
 const LONG_TITLE_DATE = "2026-06-17";
 const LONG_TITLE = "тройной пресс на работе еще и люстру не починили а она и не ломалась кстати";
 
-/** Детерминированные сводки для диапазона [from,to] — заполняют сетку календаря без сети. */
+/** Deterministic summaries for the range [from, to], filling the calendar grid without a network. */
 function summaries(from: string, to: string) {
   const out: unknown[] = [];
   const d = new Date(`${from}T00:00:00Z`);
@@ -52,18 +55,18 @@ function summaries(from: string, to: string) {
   let i = 0;
   while (d <= end) {
     const iso = d.toISOString().slice(0, 10);
-    const has = iso <= TODAY; // будущие дни — пустые (PRD §4)
+    const has = iso <= TODAY; // future days are empty (PRD §4)
     out.push({
       date: iso,
       title: iso === TODAY ? "первый забег" : iso === LONG_TITLE_DATE ? LONG_TITLE : null,
       hasData: has,
       steps: has ? 5000 + ((i * 311) % 6000) : null,
       sleepMinutes: has ? 400 + ((i * 17) % 80) : null,
-      // Вклады GitHub (§5.15): чип «+N» в статах. Каждый четвёртый день — измеренный ноль
-      // (чип на нём молчит), у «сегодня» значение заведомо ненулевое — иначе эталон не
-      // закреплял бы сам чип.
+      // GitHub contributions (PRD §5.15): the "+N" chip in the stats. Every fourth day is a measured
+      // zero, where the chip stays silent, and "today" is deliberately non-zero — otherwise the
+      // baseline would not pin the chip itself.
       contributions: has ? (iso === TODAY ? 7 : i % 4 === 0 ? 0 : 1 + ((i * 5) % 12)) : null,
-      // Монстра отмечали в каждый день с записью (шорткат отработал), §5.6; пил — каждый третий.
+      // The monster was marked on every day with a record (the shortcut ran), PRD §5.6; drunk on every third.
       monsterDrunk: has ? i % 3 === 0 : null,
     });
     d.setUTCDate(d.getUTCDate() + 1);
@@ -91,12 +94,12 @@ const RECENT = [
   { track: { title: "Reunion", artists: [{ name: "M83", url: null }], album: null, albumImageUrl: null, url: null, durationMs: null }, playedAt: "2026-06-21T08:10:00Z" },
 ];
 
-// Порядок = порядок API: идущие «по настоящее» сверху, завершённые ниже (PRD §5.7).
-// Спрайты-планетки — реальная статика /assets/projects/ (детерминирована, не стабится).
-// ⚠️ `modelUrl` намеренно пуст, хотя на борде у danchuo.world объёмная планета
-// (DESIGN §12.5): визуальная регрессия сравнивает картинки попиксельно, а кадр WebGL
-// зависит от драйвера и сглаживания и разошёлся бы на любой чужой машине. Эталоны
-// снимаются с плоских планет; подачу 3D держат юнит-тесты `Artifact3D`.
+// Order = the API's order: ongoing projects on top, finished ones below (PRD §5.7). The planet
+// sprites are real frontend statics, deterministic and not stubbed.
+
+// ⚠️ `modelUrl` is deliberately empty although the live board gives danchuo.world a 3D planet
+// (DESIGN §12.5): a WebGL frame depends on the driver and antialiasing, so a pixel comparison
+// would diverge on any other machine. The 3D presentation is held by the `Artifact3D` unit tests.
 const PROJECTS = [
   { iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: null, title: "danchuo.world", description: null, startYear: 2026, startQuarter: 3, endYear: 2026, endQuarter: 3, url: "https://danchuo.world" },
   { iconUrl: "/assets/projects/proxemics.png", modelUrl: null, title: "proxemics", description: null, startYear: 2026, startQuarter: 2, endYear: 2026, endQuarter: 2, url: "https://github.com/danchuo/proxemics" },
@@ -109,7 +112,7 @@ const SOCIAL = [
   { platform: "instagram", name: "Instagram", url: "https://instagram.com/danchuo_", icon: "/assets/social/instagram.svg" },
 ];
 
-// Реальный артефакт — статика фронта /assets/artifacts/ (детерминирована, локальная, не стабится).
+// A real artifact from the frontend statics — deterministic, local and not stubbed.
 const ARTIFACTS = [
   { name: "Cyber Y2K Sunglasses", imageUrl: "/assets/artifacts/cyber-y2k-sunglasses.png", firstMentionedOn: "2026-07-22" },
 ];
@@ -118,8 +121,8 @@ const DROPS = [
   { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 8, coverPhotoUrl: "/api/film-media/1/0/thumb" },
 ];
 
-/** Кадры последнего дропа для тайла/модалки. Картинки стаб-1×1 — снимок детерминирован
- *  независимо от того, какие 5 «случайных» кадров выбрал тайл (все варианты пиксельно равны). */
+/** Frames of the latest drop, for the tile and the modal. The pictures are 1×1 stubs, so the snapshot
+ *  is deterministic whichever five "random" frames the tile picked — every variant is pixel-equal. */
 const DROP_PHOTOS = Array.from({ length: 8 }, (_, i) => ({
   imageUrl: `/api/film-media/1/${i}/web`,
   thumbUrl: `/api/film-media/1/${i}/thumb`,
@@ -127,32 +130,32 @@ const DROP_PHOTOS = Array.from({ length: 8 }, (_, i) => ({
   height: 80,
 }));
 
-/** 1×1 PNG — стаб для всех media-запросов кадров (без сети, без битых картинок в эталоне). */
+/** A 1×1 PNG, the stub for every frame media request: no network, no broken pictures in a baseline. */
 const PIXEL_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
   "base64",
 );
 
-const FRESHNESS = { lastIngestAt: "2026-06-21T06:00:00Z" }; // 6 ч назад от FIXED_TIME
+const FRESHNESS = { lastIngestAt: "2026-06-21T06:00:00Z" }; // 6 h before FIXED_TIME
 
-/** Поездки Велобайк. Координаты `null` — карта (внешние тайлы CARTO) НЕ рисуется ⇒ эталон
- *  не зависит от сети/рендера Leaflet; снимаем верстку тайла (цифры/«когда»/«предыдущие»). */
+/** Velobike rides. Coordinates are `null`, so the map (external CARTO tiles) is NOT drawn and the
+ *  baseline does not depend on the network or on Leaflet's rendering — only the tile's layout. */
 const RIDES = [
   { id: 2, rideDate: "2026-06-18", startTime: "2026-06-18T09:00:00Z", finishTime: "2026-06-18T09:30:00Z", distanceMeters: 5000, durationSeconds: 1800, calories: 120, vehicleType: "OMNI_24", tariffName: "Пакет 60 минут", startLat: null, startLon: null, finishLat: null, finishLon: null, startAddress: null, finishAddress: null },
   { id: 1, rideDate: "2026-06-10", startTime: "2026-06-10T10:00:00Z", finishTime: "2026-06-10T10:20:00Z", distanceMeters: 3000, durationSeconds: 1200, calories: 60, vehicleType: "OMNI_24", tariffName: "Поминутный", startLat: null, startLon: null, finishLat: null, finishLon: null, startAddress: null, finishAddress: null },
 ];
 const RIDE_STATS = { totalRides: 2, totalDistanceMeters: 8000, totalDurationSeconds: 3000, totalCalories: 180, longestRideMeters: 5000, firstRideDate: "2026-06-10", lastRideDate: "2026-06-18" };
 
-/** Подменяет все клиентские `/api/*` детерминированными фикстурами. */
+/** Replaces every client `/api/*` call with deterministic fixtures. */
 export async function stubApi(page: Page): Promise<void> {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
 
-    // Проекция дня отдаётся ПОД ЗАПРОШЕННУЮ дату, а не всегда под «сегодня»: борд — это
-    // навигация по дням, и с константной датой любой клик по календарю возвращал бы ту же
-    // проекцию (плитка так и оставалась бы воскресеньем, чем бы её ни просили).
+    // The day projection is served FOR THE REQUESTED date rather than always for "today": the board
+    // is navigation across days, and with a constant date every calendar click would return the same
+    // projection, leaving the tile on one day whatever was asked of it.
     if (path.startsWith("/api/days/")) {
       const date = path.slice("/api/days/".length);
       return json({ ...DAY_VIEW, date, title: date === LONG_TITLE_DATE ? LONG_TITLE : DAY_VIEW.title });
@@ -169,7 +172,7 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === "/api/freshness") return json(FRESHNESS);
     if (path === "/api/rides") return json(RIDES);
     if (path === "/api/rides/stats") return json(RIDE_STATS);
-    if (path === "/api/theme/active" || path === "/api/themes") return route.continue(); // тема — из реальной БД (детерминирована)
+    if (path === "/api/theme/active" || path === "/api/themes") return route.continue(); // the theme comes from the real DB (deterministic)
     return json({});
   });
 }

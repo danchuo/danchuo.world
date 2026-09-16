@@ -5,21 +5,15 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
- * Поиск выпуска в чужом RSS (PRD §5.16.1) — единственное место, где мы знаем формат подкастного
- * фида.
- *
- * **Главный риск всей затеи — не «не нашли», а «нашли не тот».** Пропущенный выпуск стоит
- * отсутствующей кнопки; чужой — уверенного пересказа под карточкой, и отличить его на странице
- * будет нечем. Поэтому ключей два: название И длительность, и при сомнении мы молчим.
- *
- * Формы взяты из живых фидов (разведка по фонотеке владельца):
- * - `&#038;` у Lex Fridman и `&amp;` у Huberman — на этом промахнулся первый же скрипт разведки,
- *   принявший «amp» за слово названия;
- * - хвост « | Dr. Fei-Fei Li» у Huberman и « | Better in Person» у Freakonomics: в Spotify
- *   название выпуска короче, чем в фиде;
- * - `itunes:duration` бывает и «01:25:37», и голыми секундами «7707»;
- * - у Huberman длительность разошлась со Spotify на 14 с (динамическая вставка рекламы) —
- *   поэтому допуск в долях, а не «пара секунд».
+ * Finding an episode in a foreign RSS feed (PRD §5.16.1). The real risk is not "not found" but
+ * "found the wrong one": a missing episode costs a button, a foreign one costs a confident
+ * retelling under the card. Two keys then — title AND duration — and silence when in doubt.
+ */
+
+/**
+ * The shapes come from live feeds: `&#038;` and `&amp;` in titles, a guest appended after " | "
+ * where Spotify's title is shorter, `itunes:duration` either "01:25:37" or bare seconds, and a
+ * 14-second drift against Spotify from dynamic ads — hence a tolerance in fractions.
  */
 class PodcastFeedParserTest {
 
@@ -52,15 +46,15 @@ class PodcastFeedParserTest {
 
     @Test
     fun `the feed may carry a longer title than the player does`() {
-        // В Spotify выпуск называется короче: фид дописывает к нему гостя через « | ».
+        // Spotify's title is shorter: the feed appends the guest after " | ".
         val found = PodcastFeedParser.enclosureFor(
             feed,
             "Using AI to Increase Your Intelligence & Enrich Humanity",
             7_692_501,
         )
 
-        // Сущности в ссылке раскрыты — иначе `&amp;` уехал бы в query как есть и раздача
-        // отдала бы 404 на параметр с именем «amp;awEpisodeId».
+        // Entities in the link are resolved, or `&amp;` travels into the query as is and the CDN
+        // 404s on a parameter literally named "amp;awEpisodeId".
         assertEquals("https://cdn.example/ai.mp3?aid=rss_feed&awEpisodeId=42", found)
     }
 
@@ -75,15 +69,15 @@ class PodcastFeedParserTest {
 
     @Test
     fun `an episode whose length disagrees is not our episode`() {
-        // Название совпало, а длительность разошлась вдвое — это другой выпуск (переиздание,
-        // тизер, тёзка в чужом фиде). Молчим: чужой пересказ хуже отсутствующего.
+        // Title matches, duration is off by half — a different episode (a re-release, a teaser, a
+        // namesake in another feed). Stay silent: a foreign retelling is worse than none.
         assertNull(PodcastFeedParser.enclosureFor(feed, "How Feelings Make Us Smarter", 5_800_000))
     }
 
     @Test
     fun `a few seconds of injected ads do not lose the episode`() {
-        // Huberman: 7707 с в фиде против 7692.5 с в Spotify — динамическая реклама. Допуск в
-        // долях это переживает, «пара секунд» — нет.
+        // Dynamic ad insertion drifts the feed's duration against Spotify's; a fractional
+        // tolerance survives that, "a couple of seconds" does not.
         val found = PodcastFeedParser.enclosureFor(
             feed,
             "Using AI to Increase Your Intelligence & Enrich Humanity | Dr. Fei-Fei Li",
@@ -95,10 +89,9 @@ class PodcastFeedParserTest {
 
     @Test
     fun `a feed without durations still yields an exactly named episode`() {
-        // Фид Lex Fridman не несёт длительности вовсе (замерено: ни itunes:duration, ни любого
-        // другого тега; length в enclosure — заглушка 5 МБ против настоящих 143 МБ). Отказ по
-        // «нет второго ключа» стоил бы всего шоу целиком, поэтому при отсутствии длительности
-        // требуется ТОЧНОЕ совпадение названия — приблизительного мало.
+        // Some feeds carry no duration at all (measured: no `itunes:duration`, and enclosure
+        // `length` is a 5 MB placeholder). Refusing for "no second key" would cost the whole
+        // show, so with no duration the title must match EXACTLY.
         val lex = """
             <rss><channel><item>
               <title>#500 &#8211; Khabib Nurmagomedov: Dagestan, MMA &#038; Football</title>
@@ -110,14 +103,13 @@ class PodcastFeedParserTest {
             "https://media.example/khabib.mp3",
             PodcastFeedParser.enclosureFor(lex, "#500 - Khabib Nurmagomedov: Dagestan, MMA & Football", 11_971_328),
         )
-        // Приблизительного совпадения без длительности не хватает: это мог бы быть тизер или
-        // «часть 2» того же разговора.
+        // An approximate match with no duration is not enough: this could be a teaser or a part 2.
         assertNull(PodcastFeedParser.enclosureFor(lex, "#500", 11_971_328))
     }
 
     @Test
     fun `two episodes with the same name and no duration are an ambiguity, not a match`() {
-        // Переиздание под тем же названием: сверить не с чем, и выбрать наугад хуже, чем молчать.
+        // A re-release under the same title: nothing to check against, and guessing beats silence.
         val twins = """
             <rss><channel>
               <item><title>Один и тот же выпуск</title>
@@ -138,8 +130,8 @@ class PodcastFeedParserTest {
 
     @Test
     fun `without a known length we do not guess`() {
-        // Длительность не приехала с плеера — остаётся один ключ из двух, и этого мало:
-        // ошибиться выпуском страшнее, чем не показать кнопку.
+        // The player gave no duration, leaving one key of two — not enough: the wrong episode
+        // is scarier than a missing button.
         assertNull(PodcastFeedParser.enclosureFor(feed, "How Feelings Make Us Smarter", null))
     }
 
@@ -150,12 +142,12 @@ class PodcastFeedParserTest {
             ItunesShow(collectionName = "Hidden Brain", feedUrl = "https://feeds.simplecast.com/kwWc0lhf"),
         )
 
-        // Точное совпадение важнее порядка выдачи: «Hidden Brain Plus» стоит первым и это
-        // ДРУГОЕ шоу — у него свои выпуски, и пересказ поехал бы из чужого фида.
+        // An exact match beats result order: the "… Plus" show listed first is a DIFFERENT show
+        // with its own episodes, and the retelling would come from a foreign feed.
         assertEquals("https://feeds.simplecast.com/kwWc0lhf", PodcastFeedParser.feedUrlFor(results, "Hidden Brain"))
         assertNull(PodcastFeedParser.feedUrlFor(results, "Совсем другое шоу"))
         assertNull(PodcastFeedParser.feedUrlFor(emptyList(), "Hidden Brain"))
-        // Запись без фида бесполезна: качать нечего.
+        // An entry without a feed is useless: there is nothing to download.
         assertNull(PodcastFeedParser.feedUrlFor(listOf(ItunesShow("Hidden Brain", null)), "Hidden Brain"))
     }
 }

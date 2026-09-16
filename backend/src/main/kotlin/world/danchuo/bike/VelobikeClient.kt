@@ -10,23 +10,19 @@ import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 
-/** Тело логина `client-authenticate`: телефон + 4-значный код из SMS. */
+/** Login body for `client-authenticate`: phone plus the 4-digit SMS code. */
 data class VelobikeAuthRequest(val user: String, val password: String)
 
 /**
- * REST-клиент к API Велобайка (`pwa.velobike.ru`) — эндпоинты, подтверждённые реверсом
- * мобильного приложения. URL и (опц.) прокси задаются в `application.properties`
- * (`quarkus.rest-client.velobike.*`). Refresh→access вынесен из этого интерфейса в
- * [VelobikeTokenService] (его путь реверсом не подтверждён ⇒ держим в конфиге).
- *
- * ⚠️ Перед API стоит Qrator: эти вызовы с сервера (датацентр-IP) будут отбиты, пока трафик
- * не пойдёт через резидентный прокси (PRD §13). Контракт верен — это проблема доставки, не схемы.
+ * REST client for the Velobike API. The refresh-to-access exchange is deliberately NOT here —
+ * its path is unconfirmed, so it lives in config ([VelobikeTokenService]). These calls are barred
+ * from a datacentre IP until traffic goes through a residential proxy. PRD §13
  */
 @RegisterRestClient(configKey = "velobike")
 @Produces(MediaType.APPLICATION_JSON)
 interface VelobikeClient {
 
-    /** Запросить SMS-код на телефон: `POST /api/api-auth/code/{phone}`. */
+    /** Request an SMS code to the phone: `POST /api/api-auth/code/{phone}`. */
     @POST
     @Path("/api/api-auth/code/{phone}")
     fun requestCode(
@@ -36,7 +32,7 @@ interface VelobikeClient {
         @HeaderParam("lang") lang: String,
     ): VelobikeCodeResponse
 
-    /** Логин по телефону + коду: `POST /api/api-auth/client-authenticate` → токены. */
+    /** Login by phone and code: `POST /api/api-auth/client-authenticate`, returning tokens. */
     @POST
     @Path("/api/api-auth/client-authenticate")
     fun authenticate(
@@ -46,7 +42,7 @@ interface VelobikeClient {
         @HeaderParam("lang") lang: String,
     ): VelobikeAuthResponse
 
-    /** Страница истории поездок: `GET /api/rent/rents/client?size=&page=&statuses=TECH_DONE,DONE`. */
+    /** Ride history page: `GET /api/rent/rents/client?size=&page=&statuses=TECH_DONE,DONE`. */
     @GET
     @Path("/api/rent/rents/client")
     fun listRents(

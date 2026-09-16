@@ -7,26 +7,18 @@ import { btnStyle, describe, fieldStyle, mono, secondaryBtnStyle, sectionTitleSt
 
 interface BikeImportSectionProps {
   token: string;
-  /** Ошибка уходит наверх — строка ошибки в админке одна на весь экран. */
+  /** Send errors to the shared admin error row. */
   onError: (message: string) => void;
 }
 
-/**
- * Импорт поездок Велобайка (B4) — серверный поллер за Qrator, поэтому доставка идёт
- * букмарклетом из залогиненной PWA: он копирует JSON, его вставляют сюда. Секция полностью
- * самостоятельна — снаружи нужен только токен.
- */
+/** Qrator blocks the server poller; import JSON copied by the authenticated PWA bookmarklet. PRD §5.13. */
 export function BikeImportSection({ token, onError }: BikeImportSectionProps) {
   const [bikeJson, setBikeJson] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  /**
-   * Импорт вставленного JSON. Букмарклет отдаёт объект `{rides, tariffs}` (поездки + покупки
-   * тарифов одним заходом) — шлём обе части на свои ingest-ручки. Обратная совместимость: голый
-   * массив или целую страницу `{content:[…]}` принимаем как поездки без тарифов.
-   */
+  /** Import rides and tariffs separately; legacy arrays and content pages contain rides only. */
   async function onImport(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -37,12 +29,12 @@ export function BikeImportSection({ token, onError }: BikeImportSectionProps) {
       let rides: unknown;
       let tariffs: unknown[] = [];
       if (parsed && !Array.isArray(parsed) && Array.isArray(obj.rides)) {
-        rides = obj.rides; // новый формат букмарклета {rides, tariffs}
+        rides = obj.rides; // the bookmarklet's new shape {rides, tariffs}
         if (Array.isArray(obj.tariffs)) tariffs = obj.tariffs;
       } else if (parsed && !Array.isArray(parsed) && Array.isArray(obj.content)) {
-        rides = obj.content; // вставлена целая страница rents/client
+        rides = obj.content; // a whole rents/client page was pasted
       } else {
-        rides = parsed; // голый массив поездок
+        rides = parsed; // a bare array of rides
       }
       if (!Array.isArray(rides)) throw new SyntaxError("ожидался массив поездок");
 

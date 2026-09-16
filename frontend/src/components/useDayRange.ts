@@ -8,19 +8,9 @@ import type { DaySummary } from "@/lib/api/types";
 type Status = "loading" | "error" | "loaded";
 
 /**
- * Загрузка диапазона дней с двумя правилами, которых нет у обычного тайла ([useTileData]).
- * Общий шов для окна календаря ([useCalendarWindow]) и выборки графиков: у обоих диапазон
- * ездит по воле читателя, и обоим есть чем занять экран на время загрузки.
- *
- * **Смена диапазона не гасит показанное.** Состояние `loading` рисует шиммер ВМЕСТО
- * содержимого, поэтому с обычным stale-while-revalidate каждый шаг листания схлопывал бы
- * плитку в пустую коробку. Пока едет новый диапазон, на экране остаётся прежний — вместе со
- * своей меткой [tag] (для календаря это опора окна: подпись месяца обязана описывать то, что
- * на экране, а не то, что ещё едет). Общее правило — DESIGN §7: лоадер уместен, только когда
- * показать нечего. Отказ сети это не продлевает: без новых данных статус честно уходит
- * в `error`, иначе прежний диапазон молча выдавал бы себя за запрошенный.
- *
- * **Ответ на брошенный диапазон игнорируется** — читатель листает быстрее, чем отвечает сеть.
+ * Loads a range of days under two rules an ordinary tile does not need. A CHANGE OF RANGE DOES NOT
+ * BLANK WHAT IS SHOWN — the old range stays with its own tag until the new one arrives — and an
+ * answer for an abandoned range is ignored, since a reader pages faster than the network. §7
  */
 export function useDayRange<T>(
   from: string,
@@ -29,9 +19,9 @@ export function useDayRange<T>(
 ): {
   days: DaySummary[];
   status: Status;
-  /** Метка ПОКАЗАННОГО диапазона: пока едет новый, отстаёт от запрошенной — в этом её смысл. */
+  /** The SHOWN range's tag: while a new one travels it lags the requested one, by design. */
   shownTag: T;
-  /** Начало показанного диапазона — с ним, а не с запрошенным, сверяют упор в генезис. */
+  /** The shown range's start — genesis is checked against it, not against the requested one. */
   shownFrom: string;
   retry: () => void;
 } {
@@ -40,11 +30,11 @@ export function useDayRange<T>(
   const [shownTag, setShownTag] = useState<T>(tag);
   const [shownFrom, setShownFrom] = useState(from);
 
-  // Открытые в этой сессии диапазоны — накопитель ответов, а не отображаемое состояние.
+  // Ranges opened this session: an accumulator of answers, not displayed state.
   const memo = useRef<Record<string, DaySummary[]>>({});
-  // Показано ли хоть что-то: решение «гасить или оставить» принимается внутри загрузки.
+  // Whether anything is shown: the "blank it or keep it" decision is taken inside the load.
   const shown = useRef(false);
-  // Диапазон, ответ на который ещё ждём; поздний ответ по любому другому отбрасывается.
+  // The range still awaited; a late answer for any other one is discarded.
   const awaiting = useRef<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -60,19 +50,19 @@ export function useDayRange<T>(
     const key = `days:${from}:${to}`;
     awaiting.current = key;
 
-    // Уже открытый в этой сессии диапазон — из памяти и без сети: ход назад-вперёд не должен
-    // стучаться за одним и тем же (сводки прошлых дней за сессию не меняются).
+    // A range already opened this session comes from memory with no network: moving back and forth
+    // must not ask for the same thing twice (past days' summaries do not change within a session).
     const seen = memo.current[key];
     if (seen) {
       show(seen, tag, from);
       return;
     }
 
-    // Копия с прошлой сессии — показываем сразу, но проверяем по сети (она межсессионная и
-    // переживает F5 с мягким рейтлимитом публичных GET).
+    // A copy from a previous session is shown at once but revalidated over the network: the cache
+    // is cross-session and survives an F5 through the soft rate limit on public GETs.
     const copy = readCache<DaySummary[]>(key);
     if (copy) show(copy, tag, from);
-    else if (!shown.current) setStatus("loading"); // показывать нечего — честный лоадер
+    else if (!shown.current) setStatus("loading"); // nothing to show — an honest loader
 
     getDays(from, to)
       .then((rows) => {

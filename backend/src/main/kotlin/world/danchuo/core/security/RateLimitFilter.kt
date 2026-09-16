@@ -12,30 +12,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Мягкий рейтлимит публичных GET (PRD §3, §8, M4): in-memory токен-бакет на клиента.
- *
- * Останавливает одного шумного клиента, **не** настоящий DDoS (для последнего — рейтлимит и кэш
- * на edge, см. `Caddyfile`; Cloudflare остаётся в бэклоге). Лимитируем публичное чтение
- * `GET /api/…` и публичную телеметрию `POST /api/analytics/…` (бикон + клики хитмапы, B2 —
- * анти-абуз накрутки); `/api/ingest/…` пропускаем (там свой шов «креды записи» — это трафик
- * владельца/шортката, не публичный абуз).
- *
- * **Два независимых бакета на клиента.** Обычное чтение и раздача кадров фото-дропа считаются
- * порознь: одна модалка-галерея — это ~36 GET картинок, и в общем бакете она съедала лимит
- * целиком (борд + три открытых дропа = 130 запросов при лимите 120 ⇒ живой посетитель ловил
- * 429). Свой бакет у кадров кратно щедрее общего — но он есть: без потолка `api/film-media`
- * осталась бы публичной ручкой, читающей файлы с диска.
- *
- * **Запросы SSR не лимитируются вовсе.** Фронт-сервер ходит к бэку по compose-сети и метит свои
- * вызовы заголовком [INTERNAL_HEADER]; Caddy срезает этот заголовок с публичного трафика
- * (см. `Caddyfile`), поэтому подделать его снаружи нельзя. Без этой пометки весь SSR приходит
- * без `X-Forwarded-For`, попадает в общий бакет `direct` — и один шумный посетитель роняет
- * серверный рендер сразу всем.
- *
- * Это лёгкий самописный токен-бакет (PRD называет Bucket4j — он in-memory ровно так же; при
- * нужде заменяется без правок вызовов). Ключ клиента — `X-Forwarded-For` (за прокси Caddy);
- * без него (прямое подключение в деве) все идут в общий бакет. `danchuo.ratelimit.requests=0`
- * выключает фильтр (тесты/дев). Приоритет ниже аутентификации — лимитер не трогает 401-логику.
+ * Soft in-memory token bucket over public GETs and the analytics telemetry POSTs, sized to stop a
+ * noisy client rather than a real DDoS (edge limits live in `Caddyfile`). Two buckets per client,
+ * SSR exempt via [INTERNAL_HEADER], `requests=0` disables it — the numbers and why: PRD §8.
  */
 @Provider
 @Priority(Priorities.AUTHENTICATION + 100)
@@ -49,14 +28,14 @@ class RateLimitFilter(
     private val buckets = ConcurrentHashMap<String, Bucket>()
 
     override fun filter(ctx: ContainerRequestContext) {
-        if (maxRequests <= 0) return // выключен (тесты/дев)
+        if (maxRequests <= 0) return // disabled (tests and dev)
         // Internal SSR traffic is trusted: the header can only originate inside the compose
         // network, because the edge strips it from everything arriving from outside.
         if (!ctx.getHeaderString(INTERNAL_HEADER).isNullOrBlank()) return
 
         val path = ctx.uriInfo.path.trim('/')
-        // Лимитируем публичное чтение (GET) и публичную телеметрию аналитики (POST бикон/клики).
-        // Прочие методы (мутации владельца под /api/ingest) — не наш контур.
+        // Limit public reads (GET) and public analytics telemetry (beacon/click POSTs). Other
+        // methods are owner mutations under /api/ingest and out of this contour.
         val isPublicGet = ctx.method == "GET"
         val isAnalyticsPost = ctx.method == "POST" && path.startsWith("api/analytics")
         if (!isPublicGet && !isAnalyticsPost) return
@@ -82,7 +61,7 @@ class RateLimitFilter(
         }
     }
 
-    /** Токен-бакет с непрерывным дозаливом: [capacity] токенов за окно [windowSeconds]. */
+    /** Token bucket with continuous refill: [capacity] tokens per [windowSeconds] window. */
     private class Bucket(private val capacity: Int, windowSeconds: Long) {
         private val refillPerMs = capacity.toDouble() / (windowSeconds * 1000.0)
         private var tokens = capacity.toDouble()
@@ -104,9 +83,9 @@ class RateLimitFilter(
 
     companion object {
         /**
-         * Метка «этот запрос пришёл изнутри compose-сети» (SSR фронта). Доверие держится на
-         * одном инварианте: **edge обязан срезать этот заголовок с входящего трафика**
-         * (`header_up -X-Danchuo-Internal` в `Caddyfile`). Меняешь имя здесь — меняй и там.
+         * Marks a request as coming from inside the compose network (the frontend's SSR). The
+         * trust rests on one invariant: the edge MUST strip this header from incoming traffic
+         * (`header_up -X-Danchuo-Internal` in `Caddyfile`). Rename it here, rename it there.
          */
         const val INTERNAL_HEADER = "X-Danchuo-Internal"
 

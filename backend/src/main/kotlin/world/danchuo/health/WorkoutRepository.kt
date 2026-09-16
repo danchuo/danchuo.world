@@ -5,16 +5,15 @@ import jakarta.enterprise.context.ApplicationScoped
 import java.time.LocalDate
 
 /**
- * Доступ к тренировкам. Health отдаёт **весь день** целиком, поэтому ingest за дату
- * — это полная замена набора ([replaceForDate]): идемпотентно, повтор не плодит дубли
- * (PRD §5.4, §12 M1 exit).
+ * Access to workouts. Health hands over the WHOLE day, so ingest for a date is a full replacement
+ * of the set ([replaceForDate]): idempotent, and a repeat makes no duplicates (PRD §5.4).
  */
 @ApplicationScoped
 class WorkoutRepository : PanacheRepository<Workout> {
 
     fun listByDate(date: LocalDate): List<Workout> = list("date", date)
 
-    /** Полная замена тренировок дня: стираем прежние и кладём новые. */
+    /** Full replacement of a day's workouts: wipe the old ones, put the new ones. */
     fun replaceForDate(date: LocalDate, workouts: List<Workout>) {
         delete("date", date)
         workouts.forEach { it.date = date; persist(it) }

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { centerScroll, rollMotionStep } from "@/lib/dropRoll";
 
-/** Ось ленты: `x` — плёнка дропа, `y` — карусель архива. */
+/** The rail's axis: `x` is a drop's reel, `y` the archive carousel. */
 export type RollAxis = "x" | "y";
 
-/** Как читать и писать прокрутку выбранной оси. Всё остальное у обеих лент общее. */
+/** How to read and write the chosen axis's scroll. Everything else is shared by both rails. */
 interface AxisOps {
   pos(el: HTMLElement): number;
   setPos(el: HTMLElement, value: number): void;
@@ -31,39 +31,25 @@ const AXIS: Record<RollAxis, AxisOps> = {
   },
 };
 
-/** Чем лента отвечает на заказ «встань на эту ячейку». */
+/** How a rail answers the request "stand on this cell". */
 export interface RollMotion {
   /**
-   * Поехать к ячейке. Движение уже идёт ⇒ просто переставляем цель, скорость не обнуляется.
-   * [rate] — разовая тягучесть ЭТОГО заказа (по умолчанию — тягучесть самой ленты).
+   * Travel to a cell. If movement is already running the target is simply moved, without zeroing the
+   * speed. [rate] is the stickiness of THIS request alone (the rail's own by default).
    */
   to(index: number, rate?: number): void;
-  /** Встать на ячейку мгновенно: стартовая позиция и возврат руки — не переход. */
+  /** Stand on a cell instantly: a starting position and a hand's return are not transitions. */
   jump(index: number): void;
-  /** Остановить движение и вернуть ленте защёлкивание. */
+  /** Stop the movement and give the rail its snapping back. */
   stop(): void;
-  /** Ячейка, к которой лента едет прямо сейчас; `null` — стоит. */
+  /** The cell the rail is travelling to right now; `null` means it is still. */
   target(): number | null;
 }
 
 /**
- * Собственное движение ленты к ячейке — общий шов обеих лент дропов (DESIGN §7.5).
- *
- * Вместо нативного `scrollTo({behavior: "smooth"})`, который каждым новым вызовом **обрывает
- * текущую анимацию и начинает новую с нуля**: на серии щелчков колеса лента шла рывками
- * «стоп-ход-стоп», а быстрая прокрутка вязла совсем — очередной щелчок считал, откуда ехать,
- * по ЖИВОМУ положению ещё едущей ленты, то есть от кадра, который она давно проехала бы.
- * Здесь цель **движущаяся**: заказ лишь переставляет `target`, один цикл rAF каждый кадр
- * подтягивает позицию к ней ([rollMotionStep]), а откуда считать следующий шаг, звонящий
- * спрашивает у [RollMotion.target] — не у разметки.
- *
- * На время движения с ленты снят `scroll-snap-type`: Chrome защёлкивает КАЖДОЕ программное
- * присвоение прокрутки к ближайшей ячейке, и лента прыгала бы целыми кадрами (замер на
- * плёнке: скорость 0, 130, 0, 130 px за кадр).
- *
- * [rateBase] — тягучесть ленты (доля оставшегося пути за кадр отрисовки). Не задана ⇒ дефолт
- * плёнки из [rollMotionStep]: у карусели архива кадр крупный и едет вертикально, и та же доля
- * читалась там слишком резвой — она передаёт свою, `CAROUSEL_MOTION_RATE`.
+ * The ribbon's own motion towards a cell, shared by both drop ribbons. Native smooth scrolling
+ * ABORTS its animation on every new call, so a burst of wheel clicks moved in lurches. Here the
+ * TARGET moves instead, and callers ask this seam where they are, not the markup. DESIGN §7.5
  */
 export function useRollMotion(
   ref: RefObject<HTMLElement | null>,
@@ -88,8 +74,8 @@ export function useRollMotion(
       const el = ref.current;
       if (!el || !el.children[index]) return;
       if (motionRef.current) {
-        // Движение уже идёт — просто переставляем цель. Тягучесть заказа при этом важнее
-        // текущей: клик по кадру просит доехать БЫСТРО, даже если лента лениво ехала к соседу.
+        // Movement is already running, so the target is simply moved. The request's stickiness outranks
+        // the current one: a click on a frame asks to arrive FAST, even mid-lazy travel to a neighbour.
         motionRef.current.target = index;
         if (rate !== undefined) motionRef.current.rate = rate;
         return;
@@ -137,10 +123,10 @@ export function useRollMotion(
 
   const target = useCallback(() => motionRef.current?.target ?? null, []);
 
-  // Размонтировались посреди движения — кадры отрисовки больше некому обслуживать.
+  // Unmounted mid-movement: there is no longer anyone to serve the painted frames.
   useEffect(() => stop, [stop]);
 
-  // Ссылка на сам пульт — стабильная: звонящие держат его в зависимостях эффектов, и новый
-  // объект на каждый рендер пересобирал бы им слушатели (а карусели — ещё и раскладку).
+  // The handle itself is a stable reference: callers keep it in effect dependencies, and a new object
+  // per render would rebuild their listeners — and, for the carousels, their layout too.
   return useMemo(() => ({ to, jump, stop, target }), [to, jump, stop, target]);
 }

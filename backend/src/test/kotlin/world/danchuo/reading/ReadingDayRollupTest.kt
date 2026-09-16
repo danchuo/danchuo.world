@@ -4,14 +4,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * Свёртка суток чтения в отметки пункта «Чтение» (PRD §5.16).
- *
- * Порог тот же, что у подкастов, и по той же причине: полка читалки знает ВРЕМЯ чтения, а не
- * страницы, поэтому остановка закрывается каждыми полными 25 минутами за сутки. Схема переживает
- * и «две получасовые сессии», и «один час в присест», и «15 минут утром плюс 15 вечером».
- *
- * Считаем по СУММЕ дня, а не по сессиям: 20 минут утром и 20 вечером — это 40 минут чтения,
- * то есть одна закрытая остановка, хотя ни одна сессия порога не взяла.
+ * Rolling a day of reading up into marks of the "reading" item (PRD §5.16). The shelf knows TIME,
+ * not pages, so a stop closes on every full 25 minutes of the day's SUM — 20 minutes in the
+ * morning and 20 in the evening close one stop, though neither session reached the threshold.
  */
 class ReadingDayRollupTest {
 
@@ -39,7 +34,7 @@ class ReadingDayRollupTest {
 
     @Test
     fun `short stretches add up across the day`() {
-        // 15 + 15 минут: ни одна сессия порога не взяла, а день — взял.
+        // 15 + 15 minutes: no session reached the threshold, but the day did.
         assertEquals(1, ReadingDayRollup.occurrences(30 * 60, target))
     }
 
@@ -64,8 +59,8 @@ class ReadingDayRollupTest {
 
     @Test
     fun `one long sitting closes both stops but tells only one story`() {
-        // Час в присест — две отметки и ОДНА карточка: заход был один, второй остановке нечего
-        // рассказать сверх первой (то же правило и та же оговорка, что у подкастов).
+        // An hour in one sitting: two marks and ONE card — there was a single sitting, and the
+        // second stop has nothing to add over the first (the same rule as for podcasts).
         val cards = ReadingDayRollup.cards(listOf(session(60 * 60)), target)
 
         assertEquals(1, cards.size)
@@ -73,7 +68,7 @@ class ReadingDayRollupTest {
 
     @Test
     fun `a short session that tips the day over the threshold takes the card`() {
-        // 20 минут порога не берут, следующие 10 доводят сумму до 30 — карточку берёт вторая.
+        // 20 minutes misses the threshold, the next 10 bring the sum to 30 — the second takes the card.
         val cards = ReadingDayRollup.cards(listOf(session(20 * 60), session(10 * 60)), target)
 
         assertEquals(listOf(10 * 60), cards.map { it.readSeconds })

@@ -1,36 +1,28 @@
 import type { SleepStagesView } from "@/lib/api/types";
 
 /**
- * Фазы сна для плитки «сон» (§7.7): REM / deep / core с долей от суммарного сна. `awake`
- * (пробуждения) в сумму не входит — так же, как Apple считает «Time Asleep» (PRD §7). Проценты
- * округляются от total = rem+deep+light. Нет фаз (часы не носили) ⇒ `null`, плитка деградирует
- * до одной длительности (§5.4).
+ * Sleep phases for the sleep tile, as shares of total sleep. Wakings are NOT in that total, the
+ * same way Apple counts "Time Asleep". No phases at all — the watch was not worn — gives `null`,
+ * and the tile degrades to a single duration. DESIGN §7.7, PRD §5.4
  */
 export interface SleepPhase {
   /**
-   * Ключ — как фазу зовёт HealthKit и наш ingest (`asleepCore` приезжает в `light`), подпись —
-   * как её зовёт приложение «Здоровье». Имена разошлись намеренно: переименовывать ключ значило
-   * бы тронуть ingest, БД и API ради подписи, а подпись важнее — сверить её читателю не с чем,
-   * кроме самого приложения.
+   * The key is what HealthKit and our ingest call the phase, the label is what the Health app calls
+   * it. They diverge deliberately: renaming the key would mean touching ingest, DB and API for the
+   * sake of a caption, and the caption matters more — it is all the reader can check against.
    */
   key: "rem" | "deep" | "light";
   label: string;
   minutes: number;
   pct: number;
-  /** Что это за фаза — текст подсказки по наведению на подпись (§7.7). */
+  /** What this phase is — the hover hint's text on the label (§7.7). */
   hint: string;
 }
 
 /**
- * Подсказки к фазам. Три коротких фразы, каждая про своё: что тело или мозг делает в эту фазу
- * и когда её больше. Минуты и долю зритель уже видит рядом с подписью, поэтому текст отвечает
- * ровно на оставшийся вопрос — «а что это вообще такое».
- *
- * Длина — вопрос жанра, а не габарита: резать подсказку больше некому (она всплывает в
- * портале и меряется экраном), но подсказка на борде — это одна мысль, а не абзац.
- *
- * Регистр — строчный СКВОЗЬ точку: борд говорит строчными (ярлыки, подписи, статусы), и
- * заглавная во второй фразе подсказки звучала бы чужим голосом посреди своего.
+ * Phase hints: three short lines, each about what the body or brain does in that phase and when
+ * there is more of it. Minutes and share are already on screen beside the label, so the text
+ * answers only what is left — what this actually is. Lowercase throughout, as the board speaks.
  */
 const HINTS: Record<SleepPhase["key"], string> = {
   rem: "фаза снов: мозг разбирает прожитый день. под утро её больше",

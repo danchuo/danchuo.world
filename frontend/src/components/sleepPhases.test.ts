@@ -19,9 +19,9 @@ describe("sleepPhases (§7.7)", () => {
   });
 
   it("подписи фаз — те же, что в «Здоровье»: REM / DEEP / CORE", () => {
-    // Фазы читателю не с чем сверить, кроме приложения Apple, а там нет никакого «light»:
-    // самая долгая фаза называется Core. Ключ остаётся `light` (так её зовёт HealthKit
-    // в `asleepCore`≈light и наш ingest), подпись на борде — CORE.
+    // A reader has nothing to compare phases against but Apple's app, and there is no "light"
+    // there: the longest phase is called Core. The key stays `light` (HealthKit's `asleepCore`),
+    // while the board's label is CORE.
     const p = sleepPhases({ rem: 90, deep: 60, light: 150, awake: 10 });
     expect(p!.map((x) => x.label)).toEqual(["REM", "DEEP", "CORE"]);
   });
@@ -37,8 +37,8 @@ describe("sleepPhases — у каждой фазы своя подсказка",
   const stages = { rem: 90, deep: 60, light: 150, awake: 10 };
 
   it("подсказка есть у всех трёх фаз и у каждой своя", () => {
-    // Подсказка отвечает на вопрос «а что это за фаза вообще» — три одинаковых текста
-    // отвечали бы на него хуже, чем ни одного.
+    // The hint answers "what is this phase anyway" — three identical texts would answer it worse
+    // than none at all.
     const hints = sleepPhases(stages)!.map((p) => p.hint);
     expect(hints.every((h) => h.length > 0)).toBe(true);
     expect(new Set(hints).size).toBe(3);

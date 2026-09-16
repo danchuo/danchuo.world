@@ -2,8 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RideMonthSummaryView, RideView } from "@/lib/api/types";
 
-// Сводку месяца модалка тянет с бэка (`getRideMonthSummary`) — мокаем клиент. По умолчанию
-// «пусто» (rides 0 ⇒ строки нет); отдельные тесты переопределяют resolved-значение.
+// The month summary comes from the backend, so the client is mocked. The default is empty
+// (rides 0 ⇒ no row); individual tests override the resolved value.
 const getRideMonthSummary = vi.fn<() => Promise<RideMonthSummaryView>>(() =>
   Promise.resolve({ month: "2026-07", rides: 0, durationSeconds: 0, spentKopecks: 0 }),
 );
@@ -11,8 +11,8 @@ vi.mock("@/lib/api/client", () => ({
   getRideMonthSummary: () => getRideMonthSummary(),
 }));
 
-// RideMap тянет Leaflet динамически (client-only, не работает в jsdom) — мок-заглушка отдаёт
-// координаты выбранной поездки в data-атрибутах, чтобы проверять, ЧТО уходит на карту.
+// RideMap pulls Leaflet dynamically (client-only, dead in jsdom). The stub exposes the selected
+// ride's coordinates in data attributes so we can check WHAT reaches the map.
 vi.mock("./RideMap", () => ({
   RideMap: (props: {
     startLat: number;
@@ -57,7 +57,7 @@ const base = (over: Partial<RideView>): RideView => ({
   ...over,
 });
 
-// Список новыми сверху (как отдаёт API): [0] — самая свежая.
+// Newest first, as the API serves them: [0] is the freshest.
 const rides: RideView[] = [
   base({ id: 10, rideDate: "2026-07-11", startLat: 55.71, startAddress: "ул. Свежая, 1", finishAddress: "пл. Финиш, 2" }),
   base({ id: 11, rideDate: "2026-07-10", startLat: 55.82 }),
@@ -72,10 +72,10 @@ describe("RidesModal — карта выбранной поездки", () => {
 
     const selected = screen.getByRole("option", { selected: true });
     expect(within(selected).getByText("2026-07-11")).toBeInTheDocument();
-    // Карта получила координаты именно свежей поездки (id 10, startLat 55.71).
+    // The map got the freshest ride's coordinates (id 10, startLat 55.71).
     const map = screen.getByTestId("ride-map");
     expect(map).toHaveAttribute("data-start", "55.71");
-    // Пины на большой карте интерактивны, адреса уходят подписями (тултип на наведение).
+    // Pins on the large map are interactive, with addresses as hover labels.
     expect(map).toHaveAttribute("data-interactive", "true");
     expect(map).toHaveAttribute("data-start-label", "ул. Свежая, 1");
     expect(map).toHaveAttribute("data-finish-label", "пл. Финиш, 2");
@@ -95,7 +95,7 @@ describe("RidesModal — карта выбранной поездки", () => {
   it("у поездки без координат — заглушка вместо карты", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
-    fireEvent.click(within(screen.getAllByRole("option")[2]).getByRole("button")); // 2026-07-07, без гео
+    fireEvent.click(within(screen.getAllByRole("option")[2]).getByRole("button")); // 2026-07-07, no geo
 
     expect(screen.queryByTestId("ride-map")).toBeNull();
     expect(screen.getByText("нет данных о маршруте")).toBeInTheDocument();
@@ -103,14 +103,14 @@ describe("RidesModal — карта выбранной поездки", () => {
 
   it("в строке поездки показана стоимость (справа от ккал)", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
-    // 5243 копейки → «52 ₽»; строка метрик содержит и ккал, и стоимость.
+    // 5243 kopecks → "52 ₽"; the metrics line carries both calories and cost.
     expect(screen.getAllByText(/168 ккал · 52 ₽/).length).toBeGreaterThan(0);
   });
 
   it("бесплатная поездка под тарифом — «в рамках тарифа за N ₽» вместо «бесплатно»", () => {
     const covered: RideView[] = [
-      base({ id: 20, costKopecks: 0, coveredByTariffKopecks: 90000 }), // 900 ₽ покрывающий тариф
-      base({ id: 21, costKopecks: 0, coveredByTariffKopecks: null }), // покупки не нашлось → бесплатно
+      base({ id: 20, costKopecks: 0, coveredByTariffKopecks: 90000 }), // a 900 ₽ covering tariff
+      base({ id: 21, costKopecks: 0, coveredByTariffKopecks: null }), // no purchase found → free
     ];
     render(<RidesModal rides={covered} today="2026-07-13" onClose={() => {}} />);
     expect(screen.getAllByText(/в рамках тарифа за 900 ₽/).length).toBeGreaterThan(0);
@@ -131,7 +131,8 @@ describe("RidesModal — карта выбранной поездки", () => {
     ];
     render(<RidesModal rides={outside} today="2026-07-13" onClose={() => {}} />);
 
-    // Стрелка между станциями — свой узел (она тише имён), поэтому сверяем строку целиком.
+    // The arrow between stations is its own node (quieter than the names), so the whole string is
+    // compared at once.
     expect(
       screen.getByText(
         (_, el) => el?.textContent === "вне станции → ст. м. Молодёжная (выход № 2)" && el.tagName === "DIV",
@@ -156,9 +157,9 @@ describe("RidesModal — сводка за текущий месяц", () => {
   it("рисует строку под картой: поездки, минуты, рубли (с корректным склонением)", async () => {
     getRideMonthSummary.mockResolvedValueOnce({
       month: "2026-07",
-      rides: 4, // 4 → «поездки»
-      durationSeconds: 3660, // 61 мин → «минута» (61 % 10 === 1)
-      spentKopecks: 39900, // 399 ₽ → «рублей» (399 % 10 === 9)
+      rides: 4, // 4 takes the plural form
+      durationSeconds: 3660, // 61 min → singular form (61 % 10 === 1)
+      spentKopecks: 39900, // 399 ₽ → genitive plural (399 % 10 === 9)
     });
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
@@ -181,7 +182,7 @@ describe("RidesModal — сводка за текущий месяц", () => {
     });
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
-    // Дать промису сводки разрешиться, затем убедиться, что строки-сводки нет.
+    // Let the summary promise settle, then confirm there is no summary row.
     await Promise.resolve();
     expect(screen.queryByLabelText("Сводка за текущий месяц")).toBeNull();
   });
@@ -206,11 +207,11 @@ describe("RidesModal — редакция `map` (разворот)", () => {
 
     const body = container.querySelector(".ride-modal__body");
     expect(body).not.toBeNull();
-    // Обе половины разворота лежат В НЁМ — иначе карта осталась бы полосой над списком.
+    // Both halves of the spread live INSIDE it — otherwise the map would be a strip above the list.
     expect(body!.querySelector('[data-testid="ride-map"]')).not.toBeNull();
     expect(body!.querySelector(".ride-modal__list")).not.toBeNull();
 
-    // Сводка — сестра разворота, а не его часть: строка идёт во всю ширину окна.
+    // The summary is the spread's sibling, not its part: the row spans the window's full width.
     const strip = await screen.findByLabelText("Сводка за текущий месяц");
     expect(body!.contains(strip)).toBe(false);
     expect(strip.previousElementSibling).toBe(body);
@@ -224,7 +225,7 @@ describe("RidesModal — редакция `map` (разворот)", () => {
     const hero = container.querySelector("[data-morph-hero]");
     expect(hero).not.toBeNull();
     expect(hero!.querySelector('[data-testid="ride-map"]')).not.toBeNull();
-    // Лицо — то, что режется клипом на время полёта; у карты им работает её же контейнер.
+    // The face is what the clip cuts during the flight; for the map its own container serves.
     expect(hero!.hasAttribute("data-morph-face")).toBe(true);
   });
 
@@ -237,9 +238,9 @@ describe("RidesModal — редакция `map` (разворот)", () => {
 });
 
 /**
- * Разворот разводит два ответа: «сколько» — шапкой над картой, «когда и откуда куда» — строками
- * списка. Пока цифры стояли и там, и там, список читался таблицей одинаково громких строк.
- * В колоночной раскладке (волны 01/02) шапки с данными нет, и цифры остаются в строке.
+ * The spread separates two answers: "how much" in the header over the map, "when and from where
+ * to where" in the list rows. While the figures stood in both, the list read as a table of
+ * equally loud rows. The column layout has no data header, and the figures stay in the row.
  */
 describe("RidesModal — данные выбранной поездки в шапке разворота", () => {
   const withCost = [
@@ -289,9 +290,9 @@ describe("RidesModal — данные выбранной поездки в ша�
     const row = screen.getByRole("option");
     expect(within(row).getByText("2026-07-12")).toBeInTheDocument();
     expect(within(row).getByText(/ул. Свежая, 1/)).toBeInTheDocument();
-    // Километры стоят при имени дня: до выбора строки видно, сколько за ней проехано.
+    // The kilometres stand by the day's name: before a row is picked you can see how far it went.
     expect(within(row).getByText("6.9 км")).toBeInTheDocument();
-    // Остальные цифры по-прежнему живут только в шапке у карты — иначе список рябит.
+    // The other figures still live only in the header by the map, or the list flickers.
     expect(within(row).queryByText(/ккал/)).toBeNull();
     expect(within(row).queryByText(/мин/)).toBeNull();
   });

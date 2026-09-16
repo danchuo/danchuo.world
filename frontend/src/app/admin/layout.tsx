@@ -5,16 +5,14 @@ import { fetchDisplayTheme } from "@/lib/theme";
 import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 import "./admin.css";
 
-// Админка — приватный экран владельца; держим вне поиска (sitemap её и так не включает).
+// Keep the owner's admin screen out of search results.
 export const metadata: Metadata = {
   title: "admin · danchuo.world",
   robots: { index: false, follow: false },
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // The admin follows waves like the public board: the root layout already injects the
-  // displayed wave's tokens + data-wave, here we resolve the same wave (visitor cookie →
-  // owner's active) into WaveProvider so the switcher in the admin header can swap it live.
+  // Resolve the same cookie/default wave as the root layout so the admin switcher stays in sync.
   const preferredWave = decodeWaveCookie((await cookies()).get(WAVE_COOKIE)?.value);
   const theme = await fetchDisplayTheme(preferredWave);
   return (

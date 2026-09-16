@@ -8,16 +8,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Публичная лента [BikeRideService.publicList] — ось выдачи это **текущий календарный год** (MSK):
- * велосезон жмётся к лету, поэтому «последние N» заменены на «в этом году». Зимой/в начале года,
- * когда поездок ещё нет, показываем одну самую свежую (последняя прошлого сезона). Проверяем без
- * БД: фейковый репозиторий + фиксированные часы MSK (быстрый юнит, как [VelobikeMappingTest]).
+ * [BikeRideService.publicList] is axed on the CURRENT calendar year (MSK), not "the last N":
+ * before the season starts we still show the one freshest ride. Fake repos + fixed clock, no DB.
  */
 class BikeRideServiceYearTest {
 
     private val msk: ZoneId = ZoneId.of("Europe/Moscow")
 
-    /** Репозиторий над списком в памяти — реализует ровно то, что зовёт [BikeRideService.publicList]. */
+    /** Repository over an in-memory list — implements exactly what [BikeRideService.publicList] calls. */
     private class FakeRideRepo(private val all: List<Ride>) : RideRepository() {
         override fun listFrom(from: LocalDate): List<Ride> =
             all.filter { !it.rideDate.isBefore(from) }.sortedByDescending { it.startTime }
@@ -27,12 +25,12 @@ class BikeRideServiceYearTest {
         override fun latest(): Ride? = all.maxByOrNull { it.startTime }
     }
 
-    /** Покупки тарифов в памяти — новые сверху (как реальный [BikeTariffRepository.listOrderedDesc]). */
+    /** Tariff purchases in memory, newest first (as real [BikeTariffRepository.listOrderedDesc]). */
     private class FakeTariffRepo(private val all: List<BikeTariff>) : BikeTariffRepository() {
         override fun listOrderedDesc(): List<BikeTariff> = all.sortedByDescending { it.purchasedAt }
     }
 
-    /** Кэш координат станций в памяти — адрес → координаты (как [BikeStationRepository.foundCoords]). */
+    /** Station coordinate cache in memory: address → coords (as [BikeStationRepository.foundCoords]). */
     private class FakeStationRepo(private val coords: Map<String, Pair<Double, Double>>) : BikeStationRepository() {
         override fun foundCoords(): Map<String, Pair<Double, Double>> = coords
     }
@@ -85,9 +83,9 @@ class BikeRideServiceYearTest {
         val service = serviceAt(
             today = "2026-07-01",
             rides = listOf(
-                ride(1, "2025-08-10"), // прошлый сезон — не показываем
+                ride(1, "2025-08-10"), // last season — not shown
                 ride(2, "2026-06-21"),
-                ride(3, "2026-07-01"), // самая свежая в этом году
+                ride(3, "2026-07-01"), // the freshest this year
             ),
         )
 
@@ -100,10 +98,10 @@ class BikeRideServiceYearTest {
     @Test
     fun `в этом году поездок нет — показываем одну последнюю из прошлого сезона`() {
         val service = serviceAt(
-            today = "2026-01-15", // зима, сезон ещё не начался
+            today = "2026-01-15", // winter, the season has not started
             rides = listOf(
                 ride(1, "2025-06-01"),
-                ride(2, "2025-09-20"), // последняя прошлого сезона
+                ride(2, "2025-09-20"), // the last of last season
                 ride(3, "2025-07-15"),
             ),
         )
@@ -124,26 +122,26 @@ class BikeRideServiceYearTest {
     fun `точка рисуется по станции (по адресу), сырой GPS — фолбэк без станции`() {
         val ride = ride(1, "2026-07-05").apply {
             startAddress = "метро Кунцевская"
-            startLat = 55.95; startLon = 37.42 // «улетевший» GPS (Шереметьево) — должен быть перекрыт
-            finishAddress = "ст. м. Молодёжная (выход № 2)" // станции в кэше нет ⇒ остаётся GPS
+            startLat = 55.95; startLon = 37.42 // a GPS fix thrown to the airport — must be overridden
+            finishAddress = "ст. м. Молодёжная (выход № 2)" // not in the station cache ⇒ GPS stands
             finishLat = 55.74; finishLon = 37.42
         }
         val service = serviceAt(
             today = "2026-07-10",
             rides = listOf(ride),
-            stationCoords = mapOf("метро Кунцевская" to (55.7305 to 37.4460)), // настоящая станция
+            stationCoords = mapOf("метро Кунцевская" to (55.7305 to 37.4460)), // a real station
         )
 
         val out = service.publicList().single()
 
-        assertEquals(55.7305, out.startLat) // взято со станции, не с GPS-заброса
+        assertEquals(55.7305, out.startLat) // taken from the station, not from the stray GPS
         assertEquals(37.4460, out.startLon)
-        assertEquals(55.74, out.finishLat) // финиш-станции в кэше нет ⇒ фолбэк на GPS
+        assertEquals(55.74, out.finishLat) // the finish station is not cached ⇒ fall back to GPS
     }
 
     @Test
     fun `проекция несёт доступ, купленный ради поездки, и её полную стоимость`() {
-        // Ровно случай из витрины: «час за 399 ₽» + 2 минуты превышения (7,49 ₽) — 7 ₽ это НЕ вся цена.
+        // The case from the board: "an hour for 399 ₽" plus 2 minutes over (7.49 ₽) — 7 ₽ is NOT the whole price.
         val service = serviceAt(
             today = "2026-07-10",
             rides = listOf(ride(1, "2026-07-05", cost = 749, tariff = "Пакет 60 минут", at = "09:00:06")),
@@ -155,7 +153,7 @@ class BikeRideServiceYearTest {
         assertEquals(39900, out.accessKopecks)
         assertEquals(749, out.costKopecks)
         assertEquals(40649, out.totalKopecks)
-        assertEquals(null, out.coveredByTariffKopecks) // доступ куплен этой же поездкой
+        assertEquals(null, out.coveredByTariffKopecks) // this very ride bought the access
     }
 
     @Test
@@ -163,8 +161,8 @@ class BikeRideServiceYearTest {
         val service = serviceAt(
             today = "2026-07-10",
             rides = listOf(
-                ride(1, "2026-07-05", cost = 0, tariff = "Пакет 60 минут", at = "09:00:06"), // купила доступ
-                ride(2, "2026-07-05", cost = 15400, tariff = "Пакет 60 минут", at = "12:00:00"), // сверх пакета
+                ride(1, "2026-07-05", cost = 0, tariff = "Пакет 60 минут", at = "09:00:06"), // bought the access
+                ride(2, "2026-07-05", cost = 15400, tariff = "Пакет 60 минут", at = "12:00:00"), // over the package
             ),
             tariffs = listOf(tariff("2026-07-05", 39900, "Доступ Пакет 60 минут")),
         )
@@ -173,7 +171,7 @@ class BikeRideServiceYearTest {
 
         assertEquals(39900, out[1L]!!.accessKopecks)
         assertEquals(39900, out[1L]!!.totalKopecks)
-        assertEquals(null, out[2L]!!.accessKopecks) // те же 399 ₽ второй раз не считаем
+        assertEquals(null, out[2L]!!.accessKopecks) // the same 399 ₽ is not counted twice
         assertEquals(39900, out[2L]!!.coveredByTariffKopecks)
         assertEquals(15400, out[2L]!!.totalKopecks)
     }
@@ -197,9 +195,9 @@ class BikeRideServiceYearTest {
         val service = serviceAt(
             today = "2026-07-16",
             rides = listOf(
-                ride(1, "2026-06-30", duration = 900), // прошлый месяц — не в счёт
-                ride(2, "2026-07-02", duration = 600), // 10 мин
-                ride(3, "2026-07-14", duration = 1200), // 20 мин
+                ride(1, "2026-06-30", duration = 900), // last month — out of scope
+                ride(2, "2026-07-02", duration = 600), // 10 min
+                ride(3, "2026-07-14", duration = 1200), // 20 min
             ),
         )
 
@@ -207,7 +205,7 @@ class BikeRideServiceYearTest {
 
         assertEquals("2026-07", s.month)
         assertEquals(2, s.rides)
-        assertEquals(1800L, s.durationSeconds) // 600 + 1200, июньская не учтена
+        assertEquals(1800L, s.durationSeconds) // 600 + 1200; June's ride is not counted
     }
 
     @Test
@@ -215,23 +213,23 @@ class BikeRideServiceYearTest {
         val service = serviceAt(
             today = "2026-07-16",
             rides = listOf(
-                // Четыре бесплатные поездки «в рамках тарифа за 399 ₽» — деньги берём из покупки, не ×4.
+                // Four free rides covered by the 399 ₽ package: money comes from the purchase, not ×4.
                 ride(1, "2026-07-02", cost = 0),
                 ride(2, "2026-07-03", cost = 0),
                 ride(3, "2026-07-04", cost = 0),
                 ride(4, "2026-07-05", cost = 0),
-                ride(5, "2026-07-10", cost = 4200), // платная поездка — прямое списание, добавляется
+                ride(5, "2026-07-10", cost = 4200), // a paid ride — a direct charge, so it adds
             ),
             tariffs = listOf(
-                tariff("2026-07-01", 39900), // один купленный пакет 399 ₽ в этом месяце
-                tariff("2026-06-20", 39900), // пакет прошлого месяца — в сумму июля не входит
+                tariff("2026-07-01", 39900), // one 399 ₽ package bought this month
+                tariff("2026-06-20", 39900), // last month's package — not in July's total
             ),
         )
 
         val s = service.monthSummary()
 
         assertEquals(5, s.rides)
-        // 399 ₽ (один июльский пакет) + 42 ₽ (платная поездка) = 44100 коп; НЕ 4×399 и без июньского пакета.
+        // 399 ₽ (one July package) + 42 ₽ (a paid ride) = 44100 kopecks; NOT 4×399, and no June package.
         assertEquals(44100L, s.spentKopecks)
     }
 
@@ -242,11 +240,11 @@ class BikeRideServiceYearTest {
             rides = listOf(ride(1, "2026-07-05", cost = 0), ride(2, "2026-07-06", cost = 0)),
             tariffs = listOf(
                 tariff("2026-07-01", 39900),
-                tariff("2026-07-02", 39900), // второй пакет куплен подряд — обе покупки реальны
+                tariff("2026-07-02", 39900), // a second package bought right after — both are real
             ),
         )
 
-        // Атрибуция цепляет обе поездки к ближайшему пакету, но деньги считаем по покупкам: 2×399.
+        // Attribution hooks both rides to the nearest package, but money is counted by purchases: 2×399.
         assertEquals(79800L, service.monthSummary().spentKopecks)
     }
 

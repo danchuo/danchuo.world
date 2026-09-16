@@ -7,8 +7,8 @@ import org.hamcrest.Matchers.greaterThanOrEqualTo
 import org.junit.jupiter.api.Test
 
 /**
- * Бикон аналитики (PRD §5.11, §12 M4): публичный POST без токена; приватная сводка за bearer.
- * Cookieless, боты исключены из сводки. (Требует Docker — Dev Services Postgres.)
+ * Analytics beacon (PRD §5.11): public POST with no token, private summary behind the bearer,
+ * cookieless, bots excluded. Needs Docker — Dev Services Postgres.
  */
 @QuarkusTest
 class AnalyticsBeaconResourceTest {
@@ -19,7 +19,7 @@ class AnalyticsBeaconResourceTest {
 
     @Test
     fun `beacon is public and records a human visit visible in the private summary`() {
-        // Человеческий визит: есть Accept-Language и нормальный UA ⇒ не бот.
+        // A human visit: Accept-Language present and a normal UA ⇒ not a bot.
         given().contentType(ContentType.JSON)
             .header("Accept-Language", "en-US,en;q=0.9")
             .header("User-Agent", chrome)
@@ -27,11 +27,11 @@ class AnalyticsBeaconResourceTest {
             .post("/api/analytics/beacon")
             .then().statusCode(204)
 
-        // Приватная сводка живёт под api/ingest ⇒ без токена 401.
+        // The private summary lives under api/ingest ⇒ 401 without a token.
         given().get("/api/ingest/analytics/summary")
             .then().statusCode(401)
 
-        // С токеном — агрегаты по дням, человек учтён.
+        // With the token: per-day aggregates, the human counted.
         given().auth().oauth2(token).get("/api/ingest/analytics/summary")
             .then().statusCode(200)
             .body("size()", greaterThanOrEqualTo(1))

@@ -17,7 +17,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** Готовый кадр: два JPEG-варианта + размеры web (после применения EXIF-поворота). */
+/** A processed frame: two JPEG variants plus the web dimensions (after the EXIF rotation). */
 data class ProcessedImage(
     val webBytes: ByteArray,
     val thumbBytes: ByteArray,
@@ -26,9 +26,9 @@ data class ProcessedImage(
 )
 
 /**
- * Поворот кадра при выправлении ориентации (B9, PRD §9 п.13): применяется к уже сохранённым
- * web/thumb-вариантам, когда vision-LLM (или владелец вручную) решил, что кадр лежит на боку
- * или вверх ногами. Градусы — по часовой стрелке; [code] хранится в `film_photo.orientation_applied`.
+ * Frame rotation while straightening orientation (B9, PRD §9): applied to the already-stored web
+ * and thumb variants once the vision LLM, or the owner by hand, decided the frame lies sideways or
+ * upside down. Degrees are clockwise; [code] is stored in `film_photo.orientation_applied`.
  */
 enum class FrameRotation(val cwDegrees: Int, val code: String) {
     CW90(90, "cw90"),
@@ -36,7 +36,7 @@ enum class FrameRotation(val cwDegrees: Int, val code: String) {
     CCW90(270, "ccw90"),
     ;
 
-    /** Меняются ли местами стороны кадра (для swap width/height в БД). */
+    /** Whether the frame's sides swap (so width/height swap in the DB too). */
     val swapsDimensions: Boolean get() = this != R180
 
     companion object {
@@ -45,10 +45,9 @@ enum class FrameRotation(val cwDegrees: Int, val code: String) {
 }
 
 /**
- * Обработка кадров фото-дропа на загрузке (B1, PRD §5.12). Из оригинала телефонного JPEG делает
- * два даунскейл-варианта (web для модалки/борда, thumb для сетки/обложки) и отдаёт их размеры
- * для justified-композиции (§7.5). Применяет EXIF-ориентацию (телефоны пишут поворот тегом, а не
- * пикселями — ImageIO его не учитывает). Неподдерживаемый формат ⇒ `null` (кадр пропускается).
+ * Frame processing on upload: from a phone JPEG it makes two downscaled variants (web and thumb)
+ * and reports their sizes for the justified composition. It applies EXIF orientation itself, as
+ * phones record rotation as a tag and ImageIO ignores it. Unsupported format ⇒ `null`. PRD §5.12
  */
 @ApplicationScoped
 class FilmImaging(
@@ -57,7 +56,7 @@ class FilmImaging(
     @param:ConfigProperty(name = "danchuo.film.jpeg-quality") private val jpegQuality: Float,
 ) {
 
-    /** Обработать байты кадра; `null`, если ImageIO не смог декодировать (напр. HEIC/битый файл). */
+    /** Processes frame bytes; `null` when ImageIO cannot decode them (HEIC, a corrupt file). */
     fun process(bytes: ByteArray): ProcessedImage? {
         val src = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
         val oriented = applyOrientation(src, readOrientation(bytes))
@@ -67,17 +66,16 @@ class FilmImaging(
     }
 
     /**
-     * Повернуть JPEG-кадр на [rotation] (B9): декод → аффинный поворот → перекодирование с тем же
-     * качеством, что и при загрузке. `null`, если байты не декодируются. Одна лишняя
-     * JPEG-перекодировка на даунскейленных вариантах визуально незаметна; оригиналы не храним,
-     * так что вертеть больше нечего.
+     * Rotates a JPEG frame: decode, affine turn, re-encode at the same quality as upload. `null`
+     * if the bytes do not decode. One extra re-encode is invisible on downscaled variants, and
+     * originals are not kept, so there is nothing else left to turn.
      */
     fun rotate(bytes: ByteArray, rotation: FrameRotation): ByteArray? {
         val src = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
         return toJpeg(rotateCw(src, rotation.cwDegrees))
     }
 
-    /** Поворот по часовой стрелке на 90/180/270 градусов. */
+    /** Clockwise rotation by 90, 180 or 270 degrees. */
     private fun rotateCw(source: BufferedImage, cwDegrees: Int): BufferedImage {
         val img = toIntRgb(source) // see applyOrientation: byte-packed src breaks AffineTransformOp
         val w = img.width
@@ -95,14 +93,14 @@ class FilmImaging(
         return dest
     }
 
-    /** EXIF-ориентация (1..8); 1/отсутствует ⇒ нормальная. Ошибки чтения метаданных глотаем. */
+    /** EXIF orientation (1..8); 1 or absent means normal. Metadata read errors are swallowed. */
     private fun readOrientation(bytes: ByteArray): Int = runCatching {
         ImageMetadataReader.readMetadata(ByteArrayInputStream(bytes))
             .getFirstDirectoryOfType(ExifIFD0Directory::class.java)
             ?.getInt(ExifIFD0Directory.TAG_ORIENTATION) ?: 1
     }.getOrDefault(1)
 
-    /** Применить EXIF-поворот/отражение; для боковых ориентаций (5–8) меняем местами стороны. */
+    /** Applies the EXIF rotation/flip; sideways orientations (5-8) swap the sides. */
     private fun applyOrientation(source: BufferedImage, orientation: Int): BufferedImage {
         if (orientation <= 1) return source
         // AffineTransformOp does not accept byte-packed sources (TYPE_3BYTE_BGR from the JPEG
@@ -128,7 +126,7 @@ class FilmImaging(
         return dest
     }
 
-    /** Перегнать в TYPE_INT_RGB (no-op, если уже) — совместимый со всеми нашими операциями формат. */
+    /** Converts to TYPE_INT_RGB (a no-op if already) — the format all our operations accept. */
     private fun toIntRgb(img: BufferedImage): BufferedImage {
         if (img.type == BufferedImage.TYPE_INT_RGB) return img
         val out = BufferedImage(img.width, img.height, BufferedImage.TYPE_INT_RGB)
@@ -138,7 +136,7 @@ class FilmImaging(
         return out
     }
 
-    /** Даунскейл по большей стороне до `maxPx` (без апскейла) в TYPE_INT_RGB — готов к JPEG. */
+    /** Downscales the longer side to `maxPx` (never up) in TYPE_INT_RGB — ready for JPEG. */
     private fun scaleToRgb(img: BufferedImage, maxPx: Int): BufferedImage {
         val scale = min(1.0, maxPx.toDouble() / max(img.width, img.height))
         val nw = max(1, (img.width * scale).roundToInt())
@@ -152,7 +150,6 @@ class FilmImaging(
         return dst
     }
 
-    /** Кодировать в JPEG с заданным качеством. */
     private fun toJpeg(img: BufferedImage): ByteArray {
         val writer = ImageIO.getImageWritersByFormatName("jpeg").next()
         val param = writer.defaultWriteParam.apply {

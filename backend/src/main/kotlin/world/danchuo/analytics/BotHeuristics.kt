@@ -3,9 +3,9 @@ package world.danchuo.analytics
 import jakarta.enterprise.context.ApplicationScoped
 
 /**
- * Эвристики бота (PRD §5.11): бикон уже отсекает краулеров без JS; дополнительно метим
- * как бота по блоклисту User-Agent и по отсутствию `Accept-Language` (живые браузеры его шлют).
- * Помеченные строки хранятся (сырьё §5.11), но исключаются из приватной сводки.
+ * Bot heuristics (PRD §5.11): the beacon already drops crawlers without JS; on top of that we
+ * mark a bot by a User-Agent blocklist and by a missing `Accept-Language` (live browsers send it).
+ * Marked rows are still stored as raw material but stay out of the private summary.
  */
 @ApplicationScoped
 class BotHeuristics {
@@ -16,7 +16,6 @@ class BotHeuristics {
         return BLOCKLIST.any { it in ua }
     }
 
-    /** Тип устройства из User-Agent — грубая эвристика для разреза сводки. */
     fun deviceType(userAgent: String?): DeviceType {
         val ua = userAgent?.lowercase() ?: return DeviceType.DESKTOP
         return when {

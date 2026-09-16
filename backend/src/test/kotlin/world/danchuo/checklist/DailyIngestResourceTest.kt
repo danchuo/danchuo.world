@@ -13,9 +13,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * ingest/daily (PRD §5.6, §12 M1): имя дня, прогресс пунктов, отметка монстра.
- * Даты — относительные к «сегодня» MSK: эндпоинт принимает только окно
- * [сегодня − N, сегодня] (danchuo.checklist.ingest-window-days), фикс-даты бы протухли.
+ * ingest/daily (PRD §5.6): the day's name, item progress, the monster mark. Dates are relative
+ * to MSK today — the endpoint accepts only [today − N, today], so fixed dates would go stale.
  */
 @QuarkusTest
 class DailyIngestResourceTest {
@@ -68,7 +67,7 @@ class DailyIngestResourceTest {
         assertEquals(1, countFor(date, "stretch"))
         assertEquals(2, countFor(date, "reading"))
         assertEquals(1, countFor(date, "podcasts"))
-        // монстр прислан непустым ⇒ пункт = 1
+        // a non-empty monster value ⇒ the item counts 1
         assertEquals(1, countFor(date, "monster"))
     }
 
@@ -79,7 +78,7 @@ class DailyIngestResourceTest {
             .body("""{"date":"$date","items":{"reading":9}}""")
             .post("/api/ingest/daily")
             .then().statusCode(200)
-        // reading target = 2 → 9 зажимается до 2
+        // reading target = 2 → 9 clamps to 2
         assertEquals(2, countFor(date, "reading"))
     }
 
@@ -91,7 +90,7 @@ class DailyIngestResourceTest {
             .post("/api/ingest/daily")
             .then().statusCode(200)
 
-        // Именно 0, а не отсутствие строки: отметка и есть признак «шорткат за день отработал».
+        // Zero rather than a missing row: the mark itself is the proof the shortcut ran that day.
         assertEquals(0, countFor(date, "monster"))
     }
 
@@ -105,8 +104,8 @@ class DailyIngestResourceTest {
 
     @Test
     fun `any non-empty monster value counts as drunk - the name is not validated`() {
-        // Шорткат на телефоне до сих пор шлёт название вкуса и остаётся рабочим: справочника
-        // вкусов больше нет, значение ни с чем не сверяется, важна только непустота.
+        // The phone shortcut still sends a flavour name and stays valid: there is no flavour
+        // catalogue any more, the value is checked against nothing, only non-emptiness matters.
         val date = today.minusDays(4)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","monsterFlavorKey":"какой-то-снятый-вкус"}""")

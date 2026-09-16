@@ -14,8 +14,8 @@ import world.danchuo.days.DayRecordRepository
 import java.time.LocalDate
 
 /**
- * ingest/health (PRD §5.4, §5.6, §12 M1): bearer-защита, идемпотентность, null ≠ 0, генезис-гард.
- * Плюс производный пункт «дневник» — он ставится минутами «осознанности», а не галочкой.
+ * ingest/health (PRD §5.4, §5.6): bearer protection, idempotency, null ≠ 0, the genesis guard.
+ * Plus the derived "diary" item, which is set by mindfulness minutes rather than a checkbox.
  */
 @QuarkusTest
 class HealthIngestResourceTest {
@@ -65,7 +65,7 @@ class HealthIngestResourceTest {
             assertEquals(8421, day.steps)
             assertEquals(437, day.sleepMinutes)
             assertEquals(92, day.sleepRemMinutes)
-            // повтор не плодит дубли — ровно одна тренировка (замена набора за дату)
+            // a repeat replaces the date's set of workouts rather than adding to it
             assertEquals(1, workoutRepository.listByDate(date).size)
         }
     }
@@ -98,7 +98,7 @@ class HealthIngestResourceTest {
 
         QuarkusTransaction.requiringNew().call {
             val day = dayRecordRepository.findByDate(date)!!
-            assertEquals(9000, day.steps) // шаги — обычный ноль-неноль, не тронуты
+            assertEquals(9000, day.steps) // steps are an ordinary zero-or-not and stay untouched
             assertNull(day.sleepMinutes)
             assertNull(day.sleepRemMinutes)
             assertNull(day.sleepDeepMinutes)
@@ -125,7 +125,7 @@ class HealthIngestResourceTest {
 
         QuarkusTransaction.requiringNew().call {
             val day = dayRecordRepository.findByDate(date)!!
-            // 23:20 → 07:20 целиком, вечерний кусок не потерян; `In Bed` — не сон, ночь не удваивает
+            // 23:20 → 07:20 whole: the evening chunk is kept, and `In Bed` is not sleep and never doubles it
             assertEquals(480, day.sleepMinutes)
             assertEquals(60, day.sleepRemMinutes)
             assertEquals(50, day.sleepDeepMinutes)
@@ -147,8 +147,8 @@ class HealthIngestResourceTest {
 
         QuarkusTransaction.requiringNew().call {
             val day = dayRecordRepository.findByDate(date)!!
-            assertEquals(420, day.sleepMinutes) // посчитано по кускам, а не взято из sleepMinutes
-            assertEquals(420, day.sleepLightMinutes) // ночь без часов = неразмеченный сон
+            assertEquals(420, day.sleepMinutes) // computed from chunks, not taken from sleepMinutes
+            assertEquals(420, day.sleepLightMinutes) // a night without a watch is unlabelled sleep
         }
     }
 
@@ -163,8 +163,8 @@ class HealthIngestResourceTest {
             .post("/api/ingest/health")
             .then().statusCode(200)
 
-        // Пустой прогон (телефон был заблокирован / окно поиска мимо) — сон не трогаем,
-        // и ответ честно об этом говорит: его читают глазами в Show Result на телефоне
+        // An empty run (the phone was locked, or the search window missed) leaves sleep alone,
+        // and says so in the reply: it is read by eye in Show Result on the phone.
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":9100,"sleepSegments":[]}""")
             .post("/api/ingest/health")
@@ -173,8 +173,8 @@ class HealthIngestResourceTest {
 
         QuarkusTransaction.requiringNew().call {
             val day = dayRecordRepository.findByDate(date)!!
-            assertEquals(9100, day.steps) // шаги обновились
-            assertEquals(420, day.sleepMinutes) // ночь на месте
+            assertEquals(9100, day.steps) // the steps updated
+            assertEquals(420, day.sleepMinutes) // the night is still there
             assertEquals(420, day.sleepLightMinutes)
         }
     }
@@ -239,7 +239,7 @@ class HealthIngestResourceTest {
             .then().statusCode(200)
             .body("journalDays", org.hamcrest.Matchers.hasItem(date.toString()))
 
-        // Вечер прошит через полночь: 22 минуты принадлежат 20-му, а не 21-му (PRD §5.6).
+        // The evening runs through midnight: 22 minutes belong to the 20th, not the 21st (PRD §5.6).
         assertEquals(1, journalCount(date))
         assertNull(journalCount(date.plusDays(1)))
     }
@@ -255,14 +255,13 @@ class HealthIngestResourceTest {
             .post("/api/ingest/health")
             .then().statusCode(200)
 
-        // Не 0, а «нет отметки»: восемь минут не отличить от «открыл и закрыл», а ноль
-        // занял бы слот и заблокировал более поздний прогон того же вечера.
+        // Not 0 but "no mark": a zero would take the slot and block a later run the same evening.
         assertNull(journalCount(date))
     }
 
     @Test
     fun `a manual tick wins over mindful minutes`() {
-        // Окно ручного ввода — [сегодня − 31, сегодня], поэтому дата считается от «сейчас».
+        // The manual-entry window is [today − 31, today], so the date is counted from "now".
         val date = LocalDate.now(java.time.ZoneId.of("Europe/Moscow")).minusDays(2)
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","items":{"journal":0}}""")
@@ -276,7 +275,6 @@ class HealthIngestResourceTest {
             )
             .post("/api/ingest/health")
             .then().statusCode(200)
-            // Минуты честно посчитаны и видны в ответе, но отметку они не трогают
             .body("journalDays", org.hamcrest.Matchers.empty<String>())
 
         assertEquals(0, journalCount(date))
@@ -293,8 +291,8 @@ class HealthIngestResourceTest {
             .post("/api/ingest/health")
             .then().statusCode(200)
 
-        // Измерение и решение — разные вещи: отметки нет (9 < 15), но минуты записаны.
-        // Именно на них борд отвечает «почему не засчиталось» (PRD §5.6).
+        // Measuring and deciding differ: there is no mark (9 < 15) but the minutes are stored.
+        // They are what the board answers "why it did not count" with (PRD §5.6).
         QuarkusTransaction.requiringNew().call {
             assertEquals(9, dayRecordRepository.findByDate(date)!!.journalMinutes)
         }
@@ -329,8 +327,8 @@ class HealthIngestResourceTest {
             .post("/api/ingest/health")
             .then().statusCode(200)
 
-        // Пустая выборка неотличима от «не открывал дневник» — та же логика, что у сна:
-        // молчание прогона не должно стирать измеренное.
+        // An empty selection is indistinguishable from "did not open the diary" — the same rule
+        // as for sleep: a silent run must not erase what was measured.
         given().auth().oauth2(token).contentType(ContentType.JSON)
             .body("""{"date":"$date","steps":120,"mindfulSegments":[]}""")
             .post("/api/ingest/health")
@@ -359,7 +357,7 @@ class HealthIngestResourceTest {
             .post("/api/ingest/health")
             .then().statusCode(200)
 
-        // Ручной приоритет касается ОТМЕТКИ, а не измерения — иначе поле молчало бы без причины.
+        // Manual priority covers the MARK, not the measurement; otherwise the field would go silent.
         assertEquals(0, journalCount(date))
         QuarkusTransaction.requiringNew().call {
             assertEquals(31, dayRecordRepository.findByDate(date)!!.journalMinutes)
@@ -378,13 +376,13 @@ class HealthIngestResourceTest {
             .body("field", org.hamcrest.Matchers.equalTo("mindfulSegments[0].end"))
     }
 
-    /** Отметка пункта «дневник» за дату; `null` = отметки нет вовсе (пропуск, а не ноль). */
+    /** The "diary" item's mark for a date; `null` = no mark at all (a skip, not a zero). */
     private fun journalCount(date: LocalDate): Int? = QuarkusTransaction.requiringNew().call {
         val item = checklistItemRepository.findByKey("journal")!!
         checklistEntryRepository.listByDate(date).firstOrNull { it.itemId == item.id }?.count
     }
 
-    // --- сырые куски ночи доживают до базы (I-23) ---
+    // --- raw night chunks survive to the database (I-23) ---
 
     @Test
     fun `sleep chunks are stored, not just summed away`() {
@@ -402,7 +400,7 @@ class HealthIngestResourceTest {
         QuarkusTransaction.requiringNew().call {
             val stored = sleepSegmentRepository.listByWakeDate(date)
             assertEquals(3, stored.size)
-            // Ровно то, что прислали: пробуждение в 03:40 сохранилось как пробуждение.
+            // Exactly what was sent: the 03:40 waking is stored as a waking.
             assertEquals(1, stored.count { it.stage == SleepStage.AWAKE })
         }
     }
@@ -443,7 +441,7 @@ class HealthIngestResourceTest {
             .then().statusCode(200)
 
         QuarkusTransaction.requiringNew().call {
-            // Та же защита, что у суммы: пустой прогон неотличим от «не спал», ночь остаётся.
+            // The same guard as for the sum: an empty run is not "did not sleep", the night stays.
             assertEquals(1, sleepSegmentRepository.listByWakeDate(date).size)
         }
     }
@@ -465,7 +463,7 @@ class HealthIngestResourceTest {
             .then().statusCode(200)
 
         QuarkusTransaction.requiringNew().call {
-            // Стереть ночь можно по-прежнему одним явным каналом — и он стирает её целиком.
+            // A night can still be erased through one explicit channel, and it erases the whole night.
             assertNull(dayRecordRepository.findByDate(date)!!.sleepMinutes)
             assertEquals(0, sleepSegmentRepository.listByWakeDate(date).size)
         }

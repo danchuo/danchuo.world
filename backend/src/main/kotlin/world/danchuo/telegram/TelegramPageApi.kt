@@ -9,18 +9,15 @@ import jakarta.ws.rs.core.MediaType
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient
 
 /**
- * Публичная страница-визитка `t.me/{ник}` — та самая, что открывается по ссылке на профиль.
- * Отдаёт **HTML**, а не JSON: API под карточку пользователя у Telegram нет вовсе (разбор
- * канала — во врезе [TelegramProfileParser]).
- *
- * База — `quarkus.rest-client.telegram-page.url` (`https://t.me`).
- * Без Kotlin-дефолтов у параметров: REST-клиент их не поддерживает.
+ * The public `t.me/{name}` card page — the one a profile link opens. It returns HTML rather than
+ * JSON, because Telegram has no API for a user card at all (the parsing lives in
+ * [TelegramProfileParser]). No Kotlin default parameters: the REST client ignores them.
  */
 @RegisterRestClient(configKey = "telegram-page")
 @Produces(MediaType.TEXT_HTML)
 interface TelegramPageApi {
 
-    /** `GET /{ник}` — визитка с og-разметкой, без авторизации. */
+    /** `GET /{name}` — the card page with its OG tags, no authorization. */
     @GET
     @Path("/{username}")
     fun profilePage(

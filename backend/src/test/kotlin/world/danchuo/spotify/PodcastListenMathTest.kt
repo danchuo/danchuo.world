@@ -5,18 +5,9 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 /**
- * Чистая арифметика прослушанного времени (PRD §5.6). Опрос плеера даёт положение головки,
- * и минуты считаются по ЕГО дельте, а не по числу опросов — иначе пауза и перемотка врут.
- *
- * Проверяем четыре правила без БД и без Spotify:
- * - **ровное воспроизведение**: дельта головки = дельта реального времени;
- * - **кламп по реальному времени**: перемотка вперёд не может «наслушать» больше, чем прошло;
- * - **пауза и перемотка назад**: неположительная дельта не приносит ничего;
- * - **старт сессии**: первый семпл засчитывается, только если эпизод включён с начала;
- *   продолжение с середины дало бы «наслушано» всю прошлую часть разом.
- *
- * Замер на живой сессии (15 отсчётов раз в минуту): за 845 с реального времени головка
- * прошла ровно 845 с, отдельные шаги 60/61 с. Кламп на такой ряд не срабатывает.
+ * Pure arithmetic of listened time (PRD §5.6). Polling gives the playhead position, and minutes
+ * come from ITS delta rather than the number of polls, or a pause and a seek both lie. Forward
+ * seeks clamp to real time, and a first sample counts only if the episode started at the top.
  */
 class PodcastListenMathTest {
 
@@ -32,7 +23,7 @@ class PodcastListenMathTest {
 
     @Test
     fun `progress running a second ahead of the clock is clamped to real time`() {
-        // Наблюдалось живьём: шаги чередуются 60/61 с из-за округления долей секунды.
+        // Seen live: steps alternate 60/61 s because of sub-second rounding.
         assertEquals(60_000L, tick(1_911_000, 1_972_000, 60))
     }
 
@@ -43,7 +34,7 @@ class PodcastListenMathTest {
 
     @Test
     fun `skipping forward credits only the time actually elapsed`() {
-        // Промотал пять минут рекламы за один интервал опроса — слушал всё равно минуту.
+        // Five minutes of ads skipped inside one polling interval — still one minute listened.
         assertEquals(60_000L, tick(1_911_000, 2_211_000, 60))
     }
 
@@ -72,7 +63,7 @@ class PodcastListenMathTest {
 
     @Test
     fun `session resumed from the middle credits nothing`() {
-        // Продолжил вчерашний эпизод с 20-й минуты — засчитать эти 20 минут было бы враньём.
+        // Resuming yesterday's episode at minute 20: crediting those 20 minutes would be a lie.
         assertEquals(0L, PodcastListenMath.openingCredit(1_200_000))
     }
 }

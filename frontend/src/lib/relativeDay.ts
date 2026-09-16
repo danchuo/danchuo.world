@@ -1,38 +1,34 @@
 /**
- * Относительное имя дня по-русски (DESIGN §4) — подпись плитки «Сегодня» меняется под
- * выбранную в календаре дату. Приоритет: точные слова → день недели по календарным
- * неделям (пн–вс) → «N дней назад / через N дней». Канон дат — MSK (см. [./date]).
- *
- * «Прошлый/следующий» означают именно соседнюю КАЛЕНДАРНУЮ неделю, а не «±7 дней»:
- * день этой же недели — просто «в понедельник»; день следующей недели — «в следующий
- * понедельник»; дальше соседней недели — числом.
+ * A day's relative name in Russian, the caption of the Today tile as the calendar's selection
+ * moves. Priority: exact words, then a weekday within CALENDAR weeks, then a count of days. "Last"
+ * and "next" mean the adjacent calendar week, never plus or minus seven days. DESIGN §4
  */
 
 import { mskToday, startOfWeek } from "./date";
 
-/** Формы дня недели (по индексу `getUTCDay`: 0=вс): эта неделя / прошлая / следующая. */
+/** Weekday forms (indexed by `getUTCDay`, 0 = Sunday): this week, last week, next week. */
 const WEEKDAY: { bare: string; past: string; future: string }[] = [
-  { bare: "в воскресенье", past: "в прошлое воскресенье", future: "в следующее воскресенье" }, // 0 вс
-  { bare: "в понедельник", past: "в прошлый понедельник", future: "в следующий понедельник" }, // 1 пн
-  { bare: "во вторник", past: "в прошлый вторник", future: "в следующий вторник" }, // 2 вт
-  { bare: "в среду", past: "в прошлую среду", future: "в следующую среду" }, // 3 ср
-  { bare: "в четверг", past: "в прошлый четверг", future: "в следующий четверг" }, // 4 чт
-  { bare: "в пятницу", past: "в прошлую пятницу", future: "в следующую пятницу" }, // 5 пт
-  { bare: "в субботу", past: "в прошлую субботу", future: "в следующую субботу" }, // 6 сб
+  { bare: "в воскресенье", past: "в прошлое воскресенье", future: "в следующее воскресенье" }, // 0 Sun
+  { bare: "в понедельник", past: "в прошлый понедельник", future: "в следующий понедельник" }, // 1 Mon
+  { bare: "во вторник", past: "в прошлый вторник", future: "в следующий вторник" }, // 2 Tue
+  { bare: "в среду", past: "в прошлую среду", future: "в следующую среду" }, // 3 Wed
+  { bare: "в четверг", past: "в прошлый четверг", future: "в следующий четверг" }, // 4 Thu
+  { bare: "в пятницу", past: "в прошлую пятницу", future: "в следующую пятницу" }, // 5 Fri
+  { bare: "в субботу", past: "в прошлую субботу", future: "в следующую субботу" }, // 6 Sat
 ];
 
-/** Разница в днях: `date - today` (UTC-полночь, без дрейфа зоны). */
+/** The difference in days: `date - today` (UTC midnight, with no zone drift). */
 function dayDiff(date: string, today: string): number {
   const ms = Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
   return Math.round(ms / 86_400_000);
 }
 
-/** Разница в календарных неделях (пн–вс): 0 — та же неделя, −1 — прошлая, +1 — следующая. */
+/** The difference in calendar weeks (Mon–Sun): 0 the same week, −1 last, +1 next. */
 function weekDiff(date: string, today: string): number {
   return Math.round(dayDiff(startOfWeek(date), startOfWeek(today)) / 7);
 }
 
-/** Склонение «день/дня/дней» по числу. */
+/** The Russian plural form of "day" for a count. */
 export function pluralDays(n: number): string {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -42,9 +38,8 @@ export function pluralDays(n: number): string {
 }
 
 /**
- * Относительное имя дня. Точные термины (±2) приоритетнее, затем — день недели по
- * календарным неделям (эта/прошлая/следующая), дальше — числом. [today] по умолчанию —
- * сегодня MSK.
+ * A day's relative name. Exact terms (±2) win first, then the weekday by calendar week (this,
+ * last, next), then a plain count of days. [today] defaults to today in MSK.
  */
 export function relativeDayRu(date: string, today: string = mskToday()): string {
   const diff = dayDiff(date, today);

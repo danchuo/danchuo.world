@@ -3,24 +3,25 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 
 /**
- * Два прогона вместо одного — по тому, нужен ли тесту браузер.
- *
- * Замер, из-за которого это заведено: сами тесты чистой логики исполняются 0.29с на 154 штуки,
- * а поднятие jsdom под них — 35с суммарно по воркерам (по ~1.8с на файл). Окружение стоило
- * в сто раз дороже работы. `src/lib` под node вместо jsdom: 7.53с → 2.85с.
- *
- * Раскладка **по каталогу, а не по расширению**: `src/lib` — чистые модули (даты, склонения,
- * форматтеры), им DOM не нужен по определению слоя. Всё остальное (компоненты, хуки в
- * `src/components/*.test.ts`, стили) остаётся в jsdom, как было, — новый тест где угодно вне
- * `src/lib` ведёт себя ровно как раньше, помнить про раскладку не нужно.
- *
- * NB: `environmentMatchGlobs` для этого НЕ используем — в Vitest 3.2 он `@deprecated`
- * и уезжает в v4; штатная замена — `projects` (см. память `latest-stack-preference`).
+ * Two runs instead of one, split by whether a test needs a browser. The measurement behind it:
+ * pure-logic tests execute in 0.29s for 154 of them, while raising jsdom under them cost 35s across
+ * workers. `src/lib` on node instead of jsdom: 7.53s → 2.85s.
  */
 
-/** Единственный модуль в `src/lib`, которому нужен настоящий DOM: пишет токены темы в `:root`.
- *  Extglob-исключение держим одной константой — иначе набор пришлось бы вести в двух местах,
- *  и файл, выпавший из обоих проектов, молча перестал бы прогоняться. */
+/**
+ * The split is BY DIRECTORY, not by extension: `src/lib` holds pure modules, which need no DOM by
+ * the nature of the layer. Everything else stays in jsdom, so a new test anywhere outside `src/lib`
+ * behaves exactly as before and nobody has to remember the split.
+ */
+
+/**
+ * NB: `environmentMatchGlobs` is deliberately NOT used — it is `@deprecated` in Vitest 3.2 and
+ * leaves in v4; the supported replacement is `projects`.
+ */
+
+/** The one module in `src/lib` that needs a real DOM: it writes theme tokens into `:root`.
+ *  The extglob exception is held as a single constant, or the set would have to be maintained
+ *  in two places and a file falling out of both projects would silently stop running. */
 const LOGIC_TESTS = "src/lib/**/!(theme).test.ts";
 
 export default defineConfig({
@@ -32,26 +33,25 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    // Локально — точки: полсотни строк «✓ файл» на зелёном прогоне ничего не сообщают, а
-    // упавший тест печатается целиком при любом репортёре. В CI лог читают постфактум и без
-    // возможности переспросить — там оставляем поимённый список.
+    // Dots locally: fifty lines of "✓ file" on a green run say nothing, and a failing test prints
+    // in full under any reporter. In CI the log is read after the fact with nobody to ask, so
+    // there the by-name list stays.
     reporters: process.env.CI ? ["default"] : ["dot"],
-    // Консоль ПРОШЕДШИХ тестов не печатаем. Основной шум зелёного прогона — это не список
-    // файлов, а React-предупреждения `act(...)` из тестов, которые при этом зелёные: они
-    // ничего не требуют от читателя и приучают пролистывать вывод, не читая. У упавшего
-    // теста логи остаются целиком — именно там они и нужны.
+    // Console output of PASSING tests is dropped. The main noise of a green run is not the file
+    // list but React `act(...)` warnings from tests that are green anyway: they ask nothing of
+    // the reader and train them to skim. A failing test keeps its logs in full.
     silent: "passed-only",
     projects: [
       {
-        // extends: true — проект наследует plugins/resolve из этого же файла (иначе алиас `@`
-        // и react-плагин до него не доедут).
+        // extends: true — the project inherits plugins and resolve from this file, without which
+        // the `@` alias and the react plugin would never reach it.
         extends: true,
         test: {
           name: "logic",
           environment: "node",
           include: [LOGIC_TESTS],
-          // setupFiles нет намеренно: он тянет jest-dom и cleanup React — в node это и
-          // не нужно, и не заведётся.
+          // No setupFiles on purpose: it pulls in jest-dom and React cleanup, which are neither
+          // needed nor loadable under node.
         },
       },
       {
@@ -59,8 +59,8 @@ export default defineConfig({
         test: {
           name: "dom",
           environment: "jsdom",
-          // Ловим всё остальное, а не перечисляем: тест, не попавший ни в один проект,
-          // не падает — он просто не запускается, и это худший исход из возможных.
+          // Catch everything else rather than enumerate: a test that lands in no project does not
+          // fail, it simply never runs, which is the worst outcome available.
           include: ["src/**/*.test.{ts,tsx}"],
           exclude: [...defaultExclude, LOGIC_TESTS],
           setupFiles: ["./vitest.setup.ts"],

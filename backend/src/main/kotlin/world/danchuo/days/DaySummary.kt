@@ -4,19 +4,11 @@ import io.quarkus.runtime.annotations.RegisterForReflection
 import java.time.LocalDate
 
 /**
- * Лёгкая сводка дня для **календаря** и **мини-графика 15 дней** (PRD §5.4/§5.6, §12 M2).
- * Отдаётся списком из `GET /api/days?from=&to=`.
- *
- * Несёт ровно то, что нужно сетке календаря и ховер-превью, без тяжёлых частей полного
- * [DayView] (фазы сна, тренировки, поэлементная дисциплина):
- * - [steps]/[sleepMinutes] — ряды мини-графика (§5.4); null ≠ 0.
- * - [title] — маркер имени дня + ховер-превью (§5.6).
- * - [monsterDrunk] — вердикт монстра за день для линзы календаря (§5.3).
- * - [disciplineCounts] — счётчик по каждому активному пункту для **линзы календаря** (§5.3).
- *
- * Пустые/будущие дни диапазона тоже попадают в ответ ([hasData] = `false`) — календарь
- * рисует непрерывную сетку без дыр (§4: будущие дни пустые).
+ * Light day summary for the calendar and the 15-day mini-chart, served as a list by
+ * `GET /api/days?from=&to=`. It carries only what the grid and its hover need, without [DayView]'s
+ * heavy parts; empty and future days are included ([hasData] false) so the grid has no holes.
  */
+
 // Response-wrapped views need explicit reflection registration for native-image (else {} in JSON).
 @RegisterForReflection
 data class DaySummary(
@@ -26,26 +18,21 @@ data class DaySummary(
     val steps: Int?,
     val sleepMinutes: Int?,
     /**
-     * Вклады GitHub за день (§5.4) — «активность другого рода» рядом с шагами. `null` = день
-     * не собирали, `0` = собрали, вкладов не было. Плитка статов молчит в обоих случаях
-     * (чип появляется, только когда гит был), но линза календаря (§9 I-19) их различает.
+     * GitHub contributions for the day (§5.4) — activity of another kind beside steps. `null`
+     * means the day was never collected, `0` that it was and there were none. The stats tile is
+     * silent either way, but the calendar lens (§9 I-19) tells them apart.
      */
     val contributions: Int?,
     /**
-     * Счётчик выполнений по КАЖДОМУ активному пункту (`ключ пункта` → `count`), включая нулевые.
-     *
-     * Свёртки «N из M закрыто» здесь нет, и это осознанно: линзе календаря её мало (остановка
-     * карты закрывается порогом `count >= occurrence` — у пунктов с target=2 остановок две и они
-     * разные, а «пункт закрыт целиком» это только последняя из них), а больше её никто не читал:
-     * единственным потребителем оставалась лента холста волны 03, и та от дробей отказалась.
-     * Нули присутствуют намеренно: так «пункт был, но не сделан» отличимо от «пункта в этот
-     * период не существовало».
+     * Executions per ACTIVE item (`item key` -> `count`), zeros included: that is what keeps "the
+     * item existed but was not done" distinct from "the item did not exist then". Deliberately no
+     * "N of M" rollup — the calendar lens closes a stop by `count >= occurrence`. PRD §5.3, §5.6
      */
     val disciplineCounts: Map<String, Int>,
     /**
-     * Пил ли монстра за день — те же три состояния, что в `DayView.monsterDrunk`: `null` = не
-     * отмечали, `true` = пил, `false` = не пил. Третье нужно линзе календаря: без него день,
-     * за который шорткат не запускали, попадал бы в «не пил» наравне с честно чистым.
+     * Whether the monster was drunk: the same three states as `DayView.monsterDrunk`. The third
+     * is what the calendar lens needs — without it a day whose shortcut never ran would count as
+     * clean alongside an honestly clean one.
      */
     val monsterDrunk: Boolean?,
 )

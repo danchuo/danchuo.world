@@ -9,18 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Одна покупка тарифа/абонемента Велобайка (PRD §9 B4 — атрибуция бесплатных поездок).
- *
- * Зачем: часть поездок в истории стоит `cost = 0` — это **не** «бесплатно», а «в рамках уже
- * оплаченного тарифа на N минут» (куплен раньше, ещё не потрачен/не истёк). Чтобы честно
- * показать «в рамках тарифа за N ₽» вместо «бесплатно», рядом с поездками храним историю
- * **покупок** тарифов (страница `pwa.velobike.ru/profile/purchase-history`) и привязываем к
- * бесплатной поездке ближайшую **предшествующую** покупку по времени (см. [BikeRideService]).
- *
- * Источник — тот же внешний контур Велобайка, изолированный в слайсе `bike`; доставка — тем же
- * букмарклетом из авторизованного браузера владельца, что и поездки (серверный поллер за Qrator).
- * Покупки **идемпотентны** по [externalId] (id платежа/заказа Велобайка) — повтор обновляет строку.
- * Отдельным тайлом покупки НЕ показываются: они лишь уточняют слово «бесплатно» в истории поездок.
+ * One Velobike tariff purchase, idempotent by [externalId] (the payment id). It exists so a ride
+ * costing `0` reads as "within a tariff of N" rather than "free"; it is never shown as a tile of
+ * its own. PRD §7 (BikeTariff), §5.13
  */
 @Entity
 @Table(name = "bike_tariff")
@@ -29,24 +20,23 @@ class BikeTariff {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
-    /** Id покупки в системе Велобайка — ключ идемпотентности (upsert по нему). Строка: id заказа
-     *  может быть не числом; если API не даёт стабильный id, вызывающий синтезирует его из времени. */
+    /** Velobike purchase id, the idempotency key. A string because the order id need not be
+     *  numeric; with no stable id from the API the caller synthesises one from the timestamp. */
     @Column(name = "external_id", nullable = false, unique = true)
     lateinit var externalId: String
 
-    /** Момент покупки тарифа (ось привязки: к поездке цепляем ближайшую покупку с `purchasedAt <=` старт). */
+    /** Purchase moment: a ride is tied to the nearest purchase with `purchasedAt <=` its start. */
     @Column(name = "purchased_at", nullable = false)
     lateinit var purchasedAt: Instant
 
-    /** Уплаченная сумма в копейках (канон; конверсия из формы API — в маппере). */
+    /** Amount paid in kopecks (canonical; conversion from the API shape lives in the mapper). */
     @Column(name = "price_kopecks", nullable = false)
     var priceKopecks: Int = 0
 
-    /** Название тарифа/абонемента, как отдаёт API (кириллица), если есть. */
     @Column(name = "name")
     var name: String? = null
 
-    /** Пакет минут тарифа, если API его отдаёт (диагностика/будущее; для отображения не нужен). */
+    /** The tariff's minute package when the API gives one (diagnostics; not needed for display). */
     @Column(name = "minutes")
     var minutes: Int? = null
 

@@ -36,10 +36,9 @@ data class ChatRequest(
     val messages: List<ChatMessage>,
     val temperature: Double,
     /**
-     * Гасит «размышления вслух» у reasoning-моделей (`none`). Для qwen3.6 это обязательно:
-     * иначе она тратит весь лимит ответа на `<think>` и обрывается, не дойдя до полезной части —
-     * снаружи это выглядит как «модель не смогла», а не как обрезанный ответ. Заодно вдвое
-     * дешевле. Модели, не знающие параметра, отвергают запрос — поэтому он выключаем конфигом.
+     * Silences "thinking out loud" on reasoning models (`none`). Mandatory for qwen3.6: otherwise
+     * it spends the whole answer budget on `<think>` and is cut off before the useful part, which
+     * looks like "the model could not". Models unaware of the parameter reject the request.
      */
     @get:JsonProperty("reasoning_effort") val reasoningEffort: String? = null,
 )

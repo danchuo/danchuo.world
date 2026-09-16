@@ -9,13 +9,8 @@ import jakarta.ws.rs.core.MediaType
 import world.danchuo.core.config.MskTime
 
 /**
- * Приватная вьюха аналитики владельца (PRD §5.11) — `GET /api/ingest/analytics/…`.
- * Живёт под `api/ingest`, поэтому `IngestAuthFilter` требует bearer **автоматически** (тот же
- * шов «креды записи», что у мутаций): статистика приватна в v1, публичного счётчика нет.
- *
- * - `/summary` — по дням: заходы, уники (по суточному хэшу), среднее время на странице;
- * - `/heatmap` — потайловый агрегат кликов (B2): сколько раз кликнули в каждую плитку борда.
- *   Боты исключены в обоих; в хитмапе вклад одного посетителя в тайл ограничен (анти-абуз).
+ * The owner's private analytics views. They live under `api/ingest`, so `IngestAuthFilter`
+ * demands the bearer automatically — statistics are private in v1. PRD §5.11
  */
 @Path("/api/ingest/analytics")
 @Produces(MediaType.APPLICATION_JSON)
@@ -30,10 +25,9 @@ class AnalyticsSummaryResource(
     fun summary(): List<AnalyticsDailySummary> = service.summary()
 
     /**
-     * Хитмапа по странице за период (даты MSK, включительно). `from`/`to` опциональны:
-     * по умолчанию — **последние 7 дней**, окно [сегодня − 6, сегодня] включительно
-     * (за бóльшим окном — прямой запрос к БД); `path` по умолчанию — главная (`/`).
-     * Сами параметры в API остаются (forward-compat).
+     * Heatmap for a page over a period (MSK dates, inclusive). `from`/`to` default to the last
+     * 7 days and `path` to `/`; the parameters stay in the API for forward compatibility even
+     * though the UI does not expose them. PRD §5.11
      */
     @GET
     @Path("/heatmap")

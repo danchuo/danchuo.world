@@ -7,31 +7,13 @@ import { instagramCommentsUrl, instagramProfileUrl } from "@/lib/instagram";
 import { pluralRu } from "@/lib/rideFormat";
 import type { InstagramPostView } from "@/lib/api/types";
 
-/** Сколько держится отметка «скопировано» — ровно чтобы заметить и не залипнуть. */
+/** How long the "copied" mark holds — just enough to notice and not to linger. */
 const COPIED_MS = 1600;
 
 /**
- * Последний пост Instagram, всплывающий под маркой соцсети (PRD §5.17, DESIGN §7.9).
- *
- * ⚠️ **Это РЕПЛИКА чужого интерфейса, а не наша карточка.** Размеры и палитра сняты с живого
- * эмбеда `instagram.com/p/…/embed` и остаются такими на любой волне: аватар 30px в кольце 34px,
- * ник 14/18 полужирным, подпись 14/18, вставка 10px, системный шрифт Instagram. Поэтому здесь
- * НЕТ токенов волны — цвета и кегли живут в `.ig-peek` (common.css) как брендовые константы,
- * ровно как фирменные марки платформ лежат готовыми файлами. Причёсывать реплику под волну
- * значит потерять то единственное, ради чего она есть: узнаваемость с первого взгляда.
- * Волна решает лишь, ПОКАЗЫВАТЬ ли её (редакция `peek`, DESIGN §10.1).
- *
- * ⚠️ **Полоса действий — рабочая, но ведёт туда, куда Instagram пускает по ссылке.** Лайк и
- * закладка открывают сам пост (адреса, выполняющего действие, у платформы нет), комментарий —
- * `…/comments/`, а «поделиться» копирует ссылку: это единственное действие, которое мы правда
- * выполняем сами. Разбор — во врезе `lib/instagram.ts`.
- *
- * ⚠️ **Всё внутри — мышиное (`tabIndex={-1}`).** Карточка живёт в портале и помечена
- * `aria-hidden` (см. HoverTip): попади в неё фокус, табуляция прыгнула бы в конец документа,
- * мимо самой марки. Ссылки карточки ничего не добавляют к марке, которая и так ведёт в профиль.
- *
- * Счётчик, спрятанный владельцем у поста, приезжает `null` — строку не рисуем вовсе: ноль
- * соврал бы, а «—» в чужом интерфейсе выглядит поломкой.
+ * The latest Instagram post, popped up under the social mark. IT IS A REPLICA of someone else's
+ * interface: sizes and palette are taken from the live embed and carry NO wave tokens, because
+ * recognisability is the only reason it exists. Everything inside is mouse-only. DESIGN §7.9
  */
 export function InstagramPeek({ post }: { post: InstagramPostView }) {
   const likes = post.likes;
@@ -43,8 +25,8 @@ export function InstagramPeek({ post }: { post: InstagramPostView }) {
   useEffect(() => () => (timer.current ? clearTimeout(timer.current) : undefined), []);
 
   const copy = useCallback(() => {
-    // Буфер обмена есть не везде (http-контекст, старый браузер) — молчим и оставляем значок
-    // как был: ложная отметка «скопировано» хуже, чем отсутствие отметки.
+    // The clipboard is not everywhere (an http context, an old browser): stay silent and leave the
+    // icon as it was — a false "copied" is worse than no mark.
     navigator.clipboard?.writeText(post.permalink).then(() => {
       setCopied(true);
       if (timer.current) clearTimeout(timer.current);
@@ -57,7 +39,7 @@ export function InstagramPeek({ post }: { post: InstagramPostView }) {
       <a className="ig-peek__head" href={profile} target="_blank" rel="noreferrer" tabIndex={-1} aria-label={`Профиль ${post.username}`}>
         <span className="ig-peek__ring">
           {post.avatarUrl ? (
-            // Аватар снят к себе: подписанная ссылка Instagram живёт часами (PRD §5.17).
+            // The avatar is taken to our side: Instagram's signed link lives hours (PRD §5.17).
             <img className="ig-peek__avatar" src={mediaUrl(post.avatarUrl)} alt="" />
           ) : (
             <span className="ig-peek__avatar ig-peek__avatar--blank" />
@@ -105,8 +87,8 @@ export function InstagramPeek({ post }: { post: InstagramPostView }) {
         </p>
       )}
 
-      {/* Сами комментарии в карточку не едут — только их число: читать чужую переписку на борде
-          незачем, а счётчик говорит, живой ли пост. Ссылка ведёт туда, где они есть. */}
+      {/* The comments themselves do not travel into the card, only their count: reading someone
+          else's thread on the board is pointless, while a counter says whether the post is alive. */}
       {comments != null && comments > 0 && (
         <a className="ig-peek__comments" href={instagramCommentsUrl(post.permalink)} target="_blank" rel="noreferrer" tabIndex={-1}>
           {comments.toLocaleString("ru-RU")} {pluralRu(comments, ["комментарий", "комментария", "комментариев"])}

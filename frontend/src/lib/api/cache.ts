@@ -1,16 +1,8 @@
-/**
- * Лёгкий клиентский кэш ответов тайлов в `localStorage` (stale-while-revalidate, PRD §7 —
- * per-tile состояния). Цель — не обнулять борд, когда повторный запрос не прошёл (например,
- * сработал мягкий рейтлимит публичных GET после серии F5): тайл показывает последнюю удачную
- * копию, а не пустоту, и тихо обновляет её, когда сеть снова ответит.
- *
- * Это копия для отображения, не источник правды: версия схемы и TTL гасят протухшее, а сбой
- * хранилища (приватный режим/квота/SSR) глотается — кэш необязателен.
- */
+/** Optional localStorage display cache with schema versioning and expiry; stale data survives network failures. PRD §7. */
 
 const PREFIX = "dw:cache:v1:";
 
-/** Старше суток не показываем — лучше честный лоадер, чем вчерашний снимок. */
+/** Do not display snapshots older than one day. */
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 interface Entry<T> {
@@ -18,7 +10,7 @@ interface Entry<T> {
   v: T;
 }
 
-/** Последняя удачная копия для ключа, либо `null` (нет/протухла/хранилище недоступно). */
+/** Return the latest valid cached value, or null for missing, expired or unavailable storage. */
 export function readCache<T>(key: string): T | null {
   try {
     const raw = window.localStorage.getItem(PREFIX + key);
@@ -34,12 +26,12 @@ export function readCache<T>(key: string): T | null {
   }
 }
 
-/** Сохранить удачный ответ как копию для отображения. Сбой хранилища несущественен. */
+/** Cache a successful response; storage failure must not fail the tile. */
 export function writeCache<T>(key: string, value: T): void {
   try {
     const entry: Entry<T> = { t: Date.now(), v: value };
     window.localStorage.setItem(PREFIX + key, JSON.stringify(entry));
   } catch {
-    /* квота/приватный режим/SSR — кэш необязателен */
+    /** Quota, private mode and SSR may disable this optional cache. */
   }
 }

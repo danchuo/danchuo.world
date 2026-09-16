@@ -6,7 +6,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 
-/** Сводка за один день (PRD §5.11): заходы, уники, среднее время на странице. */
+/** One day's summary (PRD §5.11): visits, uniques, average time on page. */
 data class AnalyticsDailySummary(
     val date: String,
     val visits: Int,
@@ -15,9 +15,9 @@ data class AnalyticsDailySummary(
 )
 
 /**
- * Логика аналитики (PRD §5.11). Запись бикона — идемпотентна по визиту: load-строка
- * создаётся, добивка `dwellMs` обновляет её по [AnalyticsEvent.visitId] (а не плодит дубль).
- * Сводка считается в памяти (трафик мал, §5.11): группировка по дате MSK, боты исключены.
+ * Analytics logic (PRD §5.11). Beacon writes are idempotent per visit: the load row is created,
+ * and the `dwellMs` follow-up updates it by [AnalyticsEvent.visitId] rather than adding a dupe.
+ * The summary is computed in memory (traffic is small): grouped by MSK date, bots excluded.
  */
 @ApplicationScoped
 class AnalyticsService(
@@ -27,7 +27,7 @@ class AnalyticsService(
     private val clock: Clock,
 ) {
 
-    /** Записать событие бикона. [dwellMs] != null + известный [visitId] ⇒ добивка существующей строки. */
+    /** Records a beacon event. [dwellMs] != null with a known [visitId] updates the existing row. */
     @Transactional
     fun record(
         visitId: String?,
@@ -38,7 +38,6 @@ class AnalyticsService(
         userAgent: String?,
         acceptLanguage: String?,
     ) {
-        // Добивка времени: находим load-строку этого визита и дописываем dwell.
         if (dwellMs != null && visitId != null) {
             val existing = repository.findByVisitId(visitId)
             if (existing != null) {
@@ -60,7 +59,7 @@ class AnalyticsService(
         repository.persist(event)
     }
 
-    /** Приватная сводка по дням (заходы/уники/среднее время), боты исключены. */
+    /** Private per-day summary (visits/uniques/average time), bots excluded. */
     fun summary(): List<AnalyticsDailySummary> {
         val zone = clock.zone
         return repository.listAll()

@@ -7,24 +7,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Разговор с моделью про пройденный кусок (PRD §5.16): что мы ей даём и как читаем ответ.
- *
- * Модель отвечает **текстом**, а не JSON, и это осознанно: бесплатная полоса — это модели
- * попроще (сейчас gpt-oss-120b), у которых структурированный вывод либо не поддержан, либо
- * съедает половину бюджета ответа на скобки. Зато формат простой до неприличия — пункты списком и строка «Итог:», —
- * поэтому разбор терпит и markdown-звёздочки, и вводную фразу перед списком, и потерянный итог.
- *
- * Проверяем:
- * - **пункты вытаскиваются** из любого привычного маркера (`-`, `•`, `*`, «1.»);
- * - **итог отделён** от пунктов и не остаётся среди них;
- * - **болтовня вокруг** списка выбрасывается, а не едет пунктом;
- * - **итог узнаётся на языке источника**: пересказ пишется на языке ВЫДЕРЖКИ (решение
- *   владельца), и подпись к последней строке модель вправе перевести вместе с ним;
- * - **отказ модели** (`NO_CONTENT` и человеческие его формы) — это `null`, а не пересказ из
- *   одной пустой строки;
- * - **промпт несёт факты захода**: название, подпись и границы куска;
- * - **словарь следует виду источника**: у книги и у выпуска правила одни, а существительные
- *   разные — иначе дневник рассказывал бы про «книгу» под карточкой подкаста.
+ * The conversation with the model about a finished chunk (PRD §5.16): what we give it and how we
+ * read the answer. It replies in TEXT, not JSON, because the free lane runs simpler models where
+ * structured output is unsupported or eats half the answer budget on brackets.
+ */
+
+/**
+ * The format is deliberately crude — bullets and a final summary line — so parsing survives
+ * markdown asterisks, a preamble before the list and a lost summary line.
  */
 class SummaryPromptTest {
 
@@ -79,8 +69,8 @@ class SummaryPromptTest {
 
     @Test
     fun `the closing line survives a list marker in front of it`() {
-        // Модель нет-нет да и оформит итог пунктом. Без снятия маркера ДО проверки на итог он
-        // уезжал в пункты, а строка-итог оставалась пустой — поймано на живом заходе.
+        // The model sometimes formats the summary as a bullet. Without stripping the marker BEFORE
+        // the summary check it landed among the bullets and the summary line stayed empty.
         val parsed = SummaryPrompt.parse(
             """
             - Пауль уходит в пустыню.
@@ -117,11 +107,9 @@ class SummaryPromptTest {
 
     @Test
     fun `the closing line is asked for content, not for a description of the excerpt`() {
-        // Модель тянет на мета-формулировку — «разговор охватывает…» — и строка-итог
-        // превращается в оглавление вместо содержания (замерено на живых выпусках: так вышло у
-        // всех шести). Просим переформулировкой, а не запретом: замер показал, что запрет либо
-        // не работает, либо перетягивает ответ на язык инструкции.
-        // Переносы строк в промпте — дело вёрстки, а не смысла: сравниваем по словам.
+        // The model drifts to meta phrasing and the summary line turns into a table of contents
+        // (measured on all six live episodes). We ask by rephrasing rather than by prohibition,
+        // which measured worse. Line breaks in the prompt are layout, so compare by words.
         fun flat(kind: SummaryKind) = SummaryPrompt.system(kind).replace(Regex("""\s+"""), " ")
 
         assertTrue(flat(SummaryKind.READING).contains("не зная, что это книга"))
@@ -130,8 +118,8 @@ class SummaryPromptTest {
 
     @Test
     fun `the language rule comes first, ahead of the mass of russian instruction`() {
-        // Инструкция целиком по-русски, и её масса перетягивает ответ на русский даже для
-        // англоязычного источника (замер: 4 из 4). Поднятое вперёд правило это держит.
+        // The instruction is entirely in Russian and its mass drags the answer into Russian even
+        // for an English source (measured: 4 of 4). Hoisting the rule first holds it.
         for (kind in SummaryKind.entries) {
             val rules = SummaryPrompt.system(kind).substringAfter("Правила:")
             assertTrue(rules.trimStart().startsWith("1. ЯЗЫК ОТВЕТА"), "$kind: $rules")
@@ -145,7 +133,7 @@ class SummaryPromptTest {
         assertNull(SummaryPrompt.parse("не получилось: в куске одно оглавление"))
         assertNull(SummaryPrompt.parse(""))
         assertNull(SummaryPrompt.parse(null))
-        // Одна вводная фраза без единого пункта — тоже не пересказ.
+        // A lone preamble with no bullets is not a retelling either.
         assertNull(SummaryPrompt.parse("Конечно! Сейчас расскажу."))
     }
 
@@ -176,12 +164,11 @@ class SummaryPromptTest {
         assertTrue(prompt.contains("Подкаст: Hidden Brain"), prompt)
         assertTrue(prompt.contains("Прослушано за этот заход"), prompt)
         assertTrue(system.contains("прослушал"), system)
-        // Реклама садится в СЕРЕДИНУ прослушанного куска, поэтому отказа «тут одна реклама»
-        // мало: без отдельного правила модель тратит на спонсоров пункт пересказа (замерено
-        // на живом выпуске Huberman Lab). Книге это правило ни к чему — и его там нет.
+        // Ads sit in the MIDDLE of the listened chunk, so "it is all ads" is not enough: without
+        // its own rule the model spends a bullet on sponsors. A book needs no such rule.
         assertTrue(system.contains("спонсоров"), system)
         assertFalse(SummaryPrompt.system(SummaryKind.READING).contains("спонсоров"))
-        // Правила при этом те же самые — расходятся только существительные.
+        // The rules are the same across kinds; only the nouns differ.
         assertTrue(system.contains(SummaryPrompt.REFUSAL))
         assertTrue(system.contains(SummaryPrompt.TAKEAWAY_MARK))
         assertTrue(SummaryPrompt.system(SummaryKind.READING).contains("прочитал"))

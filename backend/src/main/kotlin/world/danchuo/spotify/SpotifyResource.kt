@@ -8,16 +8,9 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
 /**
- * Публичное чтение музыкального слоя Spotify (PRD §M3). Всё на чтение и без токена
- * (креды нужны лишь на `/api/ingest/…`, §3); кэш — в [SpotifyService].
- *
- * - `GET /api/spotify/now-playing` — [NowPlayingView] (тихий IDLE, если ничего не играет
- *   или слайс не подключён).
- * - `GET /api/spotify/recent?limit=` — недавние треки ([RecentTrackView]).
- * - `GET /api/spotify/top?limit=&range=short|medium|long` — топ треков ([TrackView]).
- *
- * Неготовый слайс (не сконфигурирован / не пройден OAuth) отдаёт пустую форму с 200 —
- * фронт рисует тихое пустое состояние, без спец-ветки на «нет интеграции».
+ * Public reads of the Spotify music layer — now-playing, recent and top — token-free like every
+ * read (§3), with caching in [SpotifyService]. A slice that is unconfigured or has never been
+ * authorized answers an empty shape with 200, so the frontend needs no special branch.
  */
 @Path("/api/spotify")
 @Produces(MediaType.APPLICATION_JSON)
@@ -47,13 +40,13 @@ class SpotifyResource(
         Response.ok(if (ready()) service.top(clampLimit(limit, DEFAULT_TOP), timeRange(range)) else emptyList<TrackView>())
             .build()
 
-    /** Слайс готов отдавать живые данные: сконфигурирован и прошёл OAuth. */
+    /** The slice is ready to serve live data: configured and past OAuth. */
     private fun ready(): Boolean = config.isConfigured() && tokenService.isConnected()
 
-    /** Spotify ограничивает выдачу 1..50; клампим, чтобы не ловить 400 от внешнего API. */
+    /** Spotify caps the page at 1..50; clamp it so the external API never answers 400. */
     private fun clampLimit(raw: Int?, fallback: Int): Int = (raw ?: fallback).coerceIn(1, MAX_LIMIT)
 
-    /** Маппинг дружелюбного `range` в окно Spotify; всё прочее — безопасный дефолт. */
+    /** Maps the friendly `range` to a Spotify window; anything else takes a safe default. */
     private fun timeRange(raw: String?): String = when (raw) {
         "short" -> "short_term"
         "long" -> "long_term"

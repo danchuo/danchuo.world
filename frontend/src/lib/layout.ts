@@ -1,16 +1,9 @@
 import type { CSSProperties } from "react";
 
 /**
- * Layout-конфиг bento-сетки (DESIGN §3) — **реестр тайлов** эры M2 (PRD §3.1, §12 M2).
- * Каждый тайл объявляет `{col, row, colSpan, rowSpan}`; волна может переопределять спаны
- * без правок компонентов. Новый виджет = запись здесь + компонент в `Board`.
- *
- * Координаты 1-индексные (как `grid-column-start`). Холст — **40 столбцов × 28 строк**:
- * исходная карта 20×14 раздроблена ×2, чтобы между каждой парой соседних тайлов лёг
- * пустой трек-прослойка (воздух). Преобразование каждой исходной величины — `v → 2v−1`:
- * координаты удваиваются (становятся нечётными), а спаны отдают по одному трейлинг-треку
- * (правый/нижний) под gutter. Где в исходнике уже был намеренный воздух (кол. 15, 18) —
- * прослойка пропорционально шире (3 трека). Пустые треки элементами не заняты — это фон.
+ * The bento grid's layout config — the TILE REGISTRY. Each tile declares its cell and span, and a
+ * wave may override spans with no component change. The canvas is 40x28: the original 20x14 map
+ * halved again so an empty track of air lies between every pair of neighbours. DESIGN §3
  */
 
 export type TileId =
@@ -31,10 +24,9 @@ export type TileId =
   | "marquee";
 
 /**
- * Ориентация содержимого тайла. Отдельное поле, а не вывод из пропорций спана: спан — про
- * место на сетке, ориентация — про то, как контент по нему течёт (лента может быть и широкой
- * вертикальной). Уважают её только тайлы, у которых есть оба режима (сейчас — marquee);
- * остальные молча игнорируют. Не задана ⇒ дефолт самого тайла.
+ * A tile's content orientation. A field of its own rather than a deduction from span proportions:
+ * a span is about space on the grid, orientation about how content flows through it. Only tiles
+ * with both modes honour it; the rest ignore it silently and fall back to their own default.
  */
 export type TileOrientation = "horizontal" | "vertical";
 
@@ -43,22 +35,20 @@ export interface TileSpan {
   row: number;
   colSpan: number;
   rowSpan: number;
-  /** Волна может скрыть тайл целиком (не рендерится ни в bento, ни в стеке). */
+  /** A wave may hide a tile entirely — it renders in neither bento nor the stack. */
   hidden?: boolean;
-  /** Волна может развернуть контент тайла (см. [TileOrientation]). */
+  /** A wave may turn a tile's content (see [TileOrientation]). */
   orientation?: TileOrientation;
   /**
-   * Чем одеты «планеты» проектов (DESIGN §12.5): `model` — объёмным артефактом у тех проектов,
-   * у кого есть модель (у остальных всё равно спрайт); не задано или незнакомо — плоский спрайт
-   * у всех. Отдельный ключ, а не часть [edition]: редакция — про вёрстку СТРОКИ (список против
-   * вывода `tree`), планета — про материал ЗНАЧКА, и волна вправе взять их независимо.
+   * How project "planets" are dressed: `model` gives a 3D artifact to projects that have one,
+   * anything else leaves every planet a flat sprite. A separate key from [edition] because an
+   * edition is about the ROW's layout while this is about the ICON's material. DESIGN §12.5
    */
   planet?: string;
   /**
-   * Редакция тайла (DESIGN §10.1): имя одной из нескольких вёрсток, которые тайл умеет сам
-   * (`latestDrop`: `mosaic` | `frame` | `sheet`; `photoDrops`: `spines`). Строка, а не перечисление здесь: набор
-   * редакций — знание тайла, реестр раскладки о нём не знает; незнакомое имя тайл трактует
-   * как дефолт. Тайлы с одной вёрсткой поле молча игнорируют.
+   * The tile's edition: the name of one of several layouts the tile knows itself. A string rather
+   * than an enum here, because the set of editions is the TILE's knowledge and the registry knows
+   * nothing of it; an unknown name means the default, and single-layout tiles ignore it. §10.1
    */
   edition?: string;
 }
@@ -67,8 +57,8 @@ export const BENTO_COLS = 40;
 export const BENTO_ROWS = 28;
 
 /**
- * Спаны волны 01 (DESIGN §3) на сетке 40×28. Значения = исходная карта 20×14, прогнанная
- * через `v → 2v−1` (см. шапку файла): между каждой парой соседей — пустой трек-прослойка.
+ * Wave 01 spans (DESIGN §3) on the 40×28 grid. The values are the original 20×14 map run through
+ * `v → 2v−1` (see the file header), leaving an empty track between every pair of neighbours.
  */
 export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // Brand signature plate retired from the board (owner's call) — kept in the registry hidden.
@@ -111,7 +101,7 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   marquee: { col: 1, row: 24, colSpan: 12, rowSpan: 5 },
 };
 
-/** Порядок одноколоночного стека на мобиле (<640px, DESIGN §8). */
+/** Order of the single-column stack on mobile (<640px, DESIGN §8). */
 export const MOBILE_ORDER: TileId[] = [
   "today",
   "calendar",
@@ -129,29 +119,28 @@ export const MOBILE_ORDER: TileId[] = [
   "freshness",
 ];
 
-/** CSS grid-area для тайла (`row / col / row-end / col-end`). */
+/** CSS grid-area for a tile (`row / col / row-end / col-end`). */
 export function gridArea(span: TileSpan): string {
   return `${span.row} / ${span.col} / ${span.row + span.rowSpan} / ${span.col + span.colSpan}`;
 }
 
 /**
- * Тайлы, чья высота идёт от СОДЕРЖИМОГО, а спан задаёт ей только потолок (DESIGN §3, §7.8).
- * Список проектов короткий и меняется раз в квартал: растянутый на весь спан, он оставлял
- * под последней строкой пустое поле в половину плитки — плитка обещала содержимое, которого
- * нет. Свойство самого тайла, а не волны: содержимое у него одно на все волны, и разнобой
- * здесь был бы разнобоем без причины.
+ * Tiles whose height comes from their CONTENT, with the span acting only as a ceiling. The
+ * projects list is short and changes quarterly: stretched across its span it left half a tile of
+ * blank, promising content that was not there. A property of the tile, not the wave. DESIGN §7.8
  */
 export const CONTENT_HEIGHT_TILES: ReadonlySet<TileId> = new Set<TileId>(["projects"]);
 
-/** Как тайл занимает свою ячейку bento: [cell] — обёртка в гриде, [tile] — сам виджет в ней. */
+/** How a tile fills its bento cell: [cell] is the grid wrapper, [tile] the widget inside it. */
 export interface TileBox {
   cell: CSSProperties;
   tile: CSSProperties;
 }
 
 /**
- * Стиль ячейки и тайла в ней. По умолчанию тайл растянут на весь спан — «сколько дали, столько
- * и занял». Тайл из [CONTENT_HEIGHT_TILES] меряется содержимым, а спан ему потолок.
+ * Style of the cell and of the tile within it. By default a tile stretches across its whole span —
+ * it takes what it was given. A tile from [CONTENT_HEIGHT_TILES] is sized by its content, with the
+ * span as its ceiling.
  */
 export function tileBox(id: TileId, span: TileSpan): TileBox {
   const cell: CSSProperties = { gridArea: gridArea(span), minHeight: 0 };
@@ -159,31 +148,25 @@ export function tileBox(id: TileId, span: TileSpan): TileBox {
   return {
     cell: {
       ...cell,
-      // `align-self: start` снимает растяжение грид-элемента, `max-height` возвращает потолок:
-      // процент у грид-элемента считается от ЯЧЕЙКИ, а она у борда определена (строки — доли
-      // фиксированной высоты). Колонка-flex нужна, чтобы упёршийся в потолок тайл СЖАЛСЯ до
-      // него, а не вылез за край: у секции плитки `overflow: hidden`, поэтому её авто-минимум
-      // по контенту равен нулю и сжатие проходит до самого потолка, а список внутри начинает
-      // прокручиваться — ровно прежнее поведение переполненной плитки.
+      // `align-self: start` removes the stretch and `max-height` restores the ceiling: a percentage
+      // on a grid item resolves against the CELL, which the board does define. The flex column then
+      // lets a tile at its ceiling SHRINK to it instead of spilling, and the list scrolls inside.
       alignSelf: "start",
       maxHeight: "100%",
       display: "flex",
       flexDirection: "column",
     },
-    // Высоту тайлу НЕ задаём: она и есть содержимое. Ширина — во всю ячейку, как у всех.
+    // The tile's height is NOT set: the content is the height. Width fills the cell, as for all.
     tile: { width: "100%" },
   };
 }
 
-/* ─────────────────────────── Layout-per-wave (DESIGN §3, §10) ───────────────────────────
- * Волна может нести свой layout (`ThemeView.layout`) и переопределять дефолт ниже: переставлять,
- * ресайзить и **прятать** тайлы, менять размер грида и порядок мобильного стека. Реестр тайлов
- * (`TileId`) остаётся за кодом — новый тайл = новый компонент; волна лишь раскладывает уже
- * существующие. Поэтому всё мержится ПОВЕРХ дефолта: волна задаёт только дельту, а тайлы,
- * добавленные в код позже, автоматически получают позицию даже на старых волнах (борд не ломается).
+/* A wave may carry its own layout and override the default below: move, resize and HIDE tiles,
+ * change the grid size and the mobile stack order. The tile registry stays in code — a new tile is
+ * a new component — so everything merges OVER the default and later tiles work on older waves.
  */
 
-/** Спан тайла из волны: каждое поле опционально — волна задаёт только то, что меняет. */
+/** A tile's span from a wave: every field is optional, so a wave states only what it changes. */
 export interface WaveTileSpan {
   col?: number;
   row?: number;
@@ -195,31 +178,31 @@ export interface WaveTileSpan {
   planet?: string;
 }
 
-/** Layout-блок волны (`ThemeView.layout`); любое поле опционально (фолбэк — дефолт ниже). */
+/** A wave's layout block (`ThemeView.layout`); every field is optional and falls back below. */
 export interface WaveLayout {
   grid?: { cols?: number; rows?: number };
-  /** Ключи — машинные id тайлов; неизвестные коду игнорируются (forward-compat). */
+  /** Keys are machine tile ids; ones the code does not know are ignored (forward compatibility). */
   tiles?: Record<string, WaveTileSpan>;
   mobileOrder?: string[];
   /**
-   * Редакция галереи дропа (DESIGN §10.1): `mosaic` (дефолт) | `roll` — плёнка. Поле волны, а
-   * не тайла: галерею открывают И плитка последнего дропа, И лента прошлых дропов, а редакция
-   * у волны одна — иначе один дроп открывался бы по-разному в зависимости от точки входа.
+   * Drop gallery edition (DESIGN §10.1): `mosaic` (default) or `roll`, the reel. A field of the wave
+   * rather than of a tile, because the gallery is opened BOTH by the latest-drop tile and by the rail
+   * of past drops, and a wave has one edition — otherwise one drop would open differently by entry point.
    */
   gallery?: string;
 }
 
-/** Разрешённый layout (волна, смерженная с дефолтом) — на нём рендерит борд. */
+/** The resolved layout (a wave merged over the default) — what the board renders from. */
 export interface ResolvedLayout {
   cols: number;
   rows: number;
   tiles: Record<TileId, TileSpan>;
   mobileOrder: TileId[];
-  /** Редакция галереи дропа; дефолт — `mosaic` (см. [WaveLayout.gallery]). */
+  /** Drop gallery edition; the default is `mosaic` (see [WaveLayout.gallery]). */
   gallery: string;
 }
 
-/** Тайлы, которые волна прятать НЕ вправе — иначе можно залочить переключение волн. */
+/** Tiles a wave may NOT hide, or wave switching itself could be locked away. */
 const UNHIDEABLE: ReadonlySet<TileId> = new Set<TileId>(["waveSwitcher"]);
 
 const ALL_TILE_IDS = Object.keys(TILE_LAYOUT) as TileId[];
@@ -228,26 +211,20 @@ function isTileId(key: string): key is TileId {
   return Object.prototype.hasOwnProperty.call(TILE_LAYOUT, key);
 }
 
-/** Ориентация из JSON волны: всё, кроме валидных значений, ⇒ `undefined` (дефолт тайла). */
+/** Orientation from a wave's JSON: anything but a valid value ⇒ `undefined`, the tile's default. */
 function sanitizeOrientation(value: unknown): TileOrientation | undefined {
   return value === "horizontal" || value === "vertical" ? value : undefined;
 }
 
-/** Имя редакции из JSON волны: короткий kebab-case идентификатор, всё остальное ⇒ `undefined`. */
+/** Edition name from a wave's JSON: a short kebab-case identifier, anything else ⇒ `undefined`. */
 function sanitizeEdition(value: unknown): string | undefined {
   return typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value) ? value : undefined;
 }
 
 /**
- * Мержит layout волны поверх дефолта [TILE_LAYOUT] и отдаёт готовый [ResolvedLayout].
- *
- * ⚠️ **Спан собирается по одному полю, поэтому НОВОЕ поле контракта надо перенести здесь явно.**
- * Забытый ключ волна теряет молча — не ошибкой, а возвратом к дефолту, и выглядит это как
- * «волна не сработала». Такой же список-allowlist есть на бэке (`TileSpanSpec`): ключ проходит
- * оба или не доезжает вовсе.
- * `null`/`undefined` (нет активной волны / бэк недоступен / волна без layout) ⇒ чистый дефолт
- * — graceful degradation, зеркалит фолбэк токенов на `globals.css`. Неизвестные коду тайлы
- * волны игнорируются; недостающие в mobileOrder добавляются в хвост по дефолтному порядку.
+ * Merges a wave's layout over the default and returns a resolved one. A SPAN IS ASSEMBLED FIELD BY
+ * FIELD, so a NEW contract field must be carried here explicitly — a forgotten key is lost
+ * silently, as a fallback to default, which looks like "the wave did not work". DESIGN §3, §10
  */
 export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
   const tiles = {} as Record<TileId, TileSpan>;
@@ -260,7 +237,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       colSpan: ov?.colSpan ?? base.colSpan,
       rowSpan: ov?.rowSpan ?? base.rowSpan,
       hidden: (ov?.hidden ?? base.hidden ?? false) && !UNHIDEABLE.has(id),
-      // Битые значения из JSON волны отбрасываем — тайл вернётся к своему дефолту.
+      // Broken values from a wave's JSON are dropped and the tile returns to its own default.
       orientation: sanitizeOrientation(ov?.orientation) ?? base.orientation,
       edition: sanitizeEdition(ov?.edition) ?? base.edition,
       planet: sanitizeEdition(ov?.planet) ?? base.planet,

@@ -8,8 +8,8 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 
 /**
- * Соцссылка (PRD §5.8, §7) — иконка + подпись + гиперссылка. Data-driven: новая = запись.
- * Порядок в блоке — [sortOrder]. [icon] — статика фронта (пиксель-иконка платформы).
+ * A social link (PRD §5.8, §7) — icon, caption, hyperlink. Data-driven: a new one is a new row.
+ * Order within the block is [sortOrder]. [icon] is frontend static (the platform's pixel icon).
  */
 @Entity
 @Table(name = "social_link")
@@ -18,11 +18,11 @@ class SocialLink {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
-    /** Машинный код платформы (`github`/`telegram`/…) — для дефолтной иконки на фронте. */
+    /** Machine code of the platform (`github`/`telegram`/...), for the default frontend icon. */
     @Column(nullable = false)
     lateinit var platform: String
 
-    /** Человекочитаемая подпись ссылки. */
+    /** Human-readable link caption. */
     @Column(nullable = false)
     lateinit var name: String
 

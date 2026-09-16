@@ -15,17 +15,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Сырой кусок ночи как его прислал HealthKit (PRD §5.4, реестр I-23) — N к дню **по дате
- * пробуждения** (плоская связь, без JPA-отношения: слайсы расцеплены, §3.1).
- *
- * Почему сырое, а не готовая полоса: агрегат ночи считался и раньше, но куски выбрасывались, и
- * задать им новый вопрос было нечем — ни «сколько раз просыпался», ни «во сколько обычно ложусь»
- * задним числом не восстановить. Хранение стоит десятков строк на ночь; вопросы к ним будут
- * появляться дальше (I-22 экстремумы, I-19 линза), а вторая попытка собрать эти данные — нет.
- *
- * Перекрытия и дубли источников здесь **не разбираются**: это делает [SleepSessionizer] на
- * чтении. В базе лежит то, что было прислано, — чтобы правило разбора можно было менять,
- * не теряя истории.
+ * A raw night segment exactly as HealthKit sent it, tied to the day by WAKING date (flat link, no
+ * JPA relation). Overlaps and duplicate sources are NOT resolved here — [SleepSessionizer] does
+ * that on read, so the parsing rule can change without losing history. PRD §5.4 (I-23)
  */
 @Entity
 @Table(name = "sleep_segment")
@@ -34,7 +26,7 @@ class SleepSegmentRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 
-    /** День пробуждения (§4): кусок принадлежит ночи, из которой проснулись в этот день. */
+    /** Waking day (§4): the chunk belongs to the night someone woke up from on that day. */
     @Column(name = "wake_date", nullable = false)
     lateinit var wakeDate: LocalDate
 
@@ -50,8 +42,8 @@ class SleepSegmentRecord {
 }
 
 /**
- * Доступ к кускам ночи. Приём за дату — **полная замена** набора ([replaceForWakeDate]):
- * идемпотентно, повтор прогона не плодит дубли (та же дисциплина, что у тренировок).
+ * Access to a night's chunks. Ingest for a date is a FULL REPLACEMENT of the set
+ * ([replaceForWakeDate]): idempotent, so a repeated run makes no duplicates, as with workouts.
  */
 @ApplicationScoped
 class SleepSegmentRepository : PanacheRepository<SleepSegmentRecord> {
@@ -60,10 +52,9 @@ class SleepSegmentRepository : PanacheRepository<SleepSegmentRecord> {
         list("wakeDate", date)
 
     /**
-     * Полная замена кусков ночи: стираем прежние и кладём новые.
-     *
-     * Гасит кэш детали ночи целиком: приём одной ночи двигает и профиль «обычной ночи»
-     * тридцати соседних дней — точечная инвалидация тут была бы дороже пересчёта.
+     * Full replacement of a night's chunks. Drops the whole night-detail cache: one night also
+     * moves the "typical night" profile of thirty neighbours, and targeted invalidation would
+     * cost more than the recomputation.
      */
     @CacheInvalidateAll(cacheName = "sleep-night")
     fun replaceForWakeDate(date: LocalDate, segments: List<SleepSegment>) {

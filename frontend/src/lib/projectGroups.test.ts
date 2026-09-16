@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { projectYearRows } from "./projectGroups";
 
-/** Минимальная запись: раскладке важен только край диапазона. */
+/** A minimal record: the layout cares only about the range's edge. */
 const p = (title: string, endYear: number | null) => ({ title, endYear });
 
 describe("projectYearRows", () => {
@@ -12,8 +12,8 @@ describe("projectYearRows", () => {
   });
 
   /**
-   * Открытый конец = «идёт по настоящее», значит последняя активность — сейчас. Иначе живой
-   * проект уехал бы в группу года своего НАЧАЛА и оказался внизу списка под завершёнными.
+   * An open end means "ongoing", so the last activity is now. Otherwise a live project would land
+   * in the group of its START year and sit at the bottom of the list under the finished ones.
    */
   it("открытый конец → текущий год", () => {
     expect(projectYearRows([p("danchuo.world", null)], 2026)).toEqual([
@@ -22,8 +22,8 @@ describe("projectYearRows", () => {
   });
 
   /**
-   * Год печатается ОДИН раз на группу — в поле первой её строки; у остальных поле пустое.
-   * Это и есть подавление повтора: колонка слева отбивает группы, ничего не повторяя.
+   * The year prints ONCE per group, in its first row's margin; the rest are empty. That is the
+   * suppression of repetition: the left column separates groups without repeating anything.
    */
   it("год печатается только у первой строки своей группы", () => {
     const rows = projectYearRows([p("a", null), p("b", 2026), p("c", 2024), p("d", 2024)], 2026);
@@ -36,8 +36,9 @@ describe("projectYearRows", () => {
   });
 
   /**
-   * Дерево у каждого года своё — ствол растёт от года вниз (DESIGN §7.8), поэтому строка
-   * несёт СВОЁ место внутри года, а не в общем списке: иначе угол закрыл бы чужую группу.
+   * Each year has its own tree, the trunk growing down from the year (DESIGN §7.8), so a row
+   * carries ITS place within the year rather than in the whole list — or the elbow would close a
+   * foreign group.
    */
   it("строка знает своё место внутри года, а не в общем списке", () => {
     const rows = projectYearRows([p("a", null), p("b", 2026), p("c", 2024)], 2026);
@@ -49,8 +50,8 @@ describe("projectYearRows", () => {
   });
 
   /**
-   * Строки одного года стоят подряд, даже если порядок сортировки их разорвал: иначе год
-   * пришлось бы печатать дважды, а он отбивает группу, а не подписывает строку.
+   * Rows of one year stand together even when the sort order separated them: otherwise the year
+   * would have to print twice, and it separates a group rather than labelling a row.
    */
   it("разорванный порядком проект едет к своим, год не повторяется", () => {
     const rows = projectYearRows([p("a", 2026), p("b", 2024), p("c", 2026)], 2026);

@@ -8,11 +8,9 @@ import world.danchuo.llm.LlmClient
 import world.danchuo.llm.LlmImage
 
 /**
- * Юниты разбора ответа модели. Реальных вызовов нет — [FakeLlm] отдаёт заранее записанные ответы,
- * поэтому тесты гоняются без ключа и без расхода квоты.
- *
- * Главное, что здесь закреплено: «проверили, ничего не нашли» и «провайдер не ответил» — **разные
- * исходы**. Смешать их значит записать сбой Gemini в данные как «артефакта на кадре нет».
+ * Units for parsing the model's reply; [FakeLlm] replays recorded answers, so no key is spent.
+ * Pinned here: "checked, found nothing" and "the provider did not answer" are DIFFERENT outcomes —
+ * merging them would record a Gemini failure as "no artifact on the frame".
  */
 class ArtifactDetectorTest {
 
@@ -46,7 +44,7 @@ class ArtifactDetectorTest {
 
     @Test
     fun `converts Gemini coordinates from y-first 0-1000 into x-first fractions`() {
-        // [ymin, xmin, ymax, xmax] — y идёт первым, шкала 0..1000
+        // [ymin, xmin, ymax, xmax] — y comes first, scale 0..1000
         val found = detect("""{"found":[{"artifact":"Белая футболка","box_2d":[250,100,750,600]}]}""")
         val boxes = assertInstanceOf(DetectionOutcome.Found::class.java, found).boxes
         assertEquals(1, boxes.size)
@@ -79,13 +77,13 @@ class ArtifactDetectorTest {
 
     @Test
     fun `unparseable reply is unavailable, not an empty result`() {
-        // Модель без структурного вывода может оборваться на полуслове — это сбой, не «пусто».
+        // A model without structured output can stop mid-word: that is a failure, not "empty".
         assertInstanceOf(DetectionOutcome.Unavailable::class.java, detect("""{"found":[{"artif"""))
     }
 
     @Test
     fun `unknown artifact name is skipped silently`() {
-        // Имена задаёт БД; выдуманное моделью имя не должно ронять разбор всего кадра.
+        // Names come from the DB; a name the model invented must not sink the whole frame.
         val outcome = detect(
             """{"found":[{"artifact":"Ничего подобного","box_2d":[1,1,9,9]},
                {"artifact":"YONEX ASTROX 10","box_2d":[100,100,900,900]}]}""",

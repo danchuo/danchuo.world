@@ -5,16 +5,13 @@ import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /**
- * Чистый маппинг сырья внешнего API ([RentItem]) в доменную [Ride] — без БД/времени, чтобы
- * покрываться юнит-тестом на реальной фикстуре. Времена API — epoch millis; `distance` — метры
- * (float→int); `cost` — копейки. [rideDate] считается в каноне MSK по [zone] (§4).
- *
- * Адреса станций приходят только из детального `getPopulatedRent`, поэтому ставим их **лишь когда
- * не null** — иначе обновление из списка затёрло бы уже сохранённый адрес.
+ * Pure mapping of [RentItem] into [Ride] — no DB, no clock, so a unit test on a real fixture
+ * covers it. API times are epoch millis, `distance` metres, `cost` kopecks. Station addresses
+ * are set ONLY when non-null, or an update from the list would wipe a stored one.
  */
 object RideMapper {
 
-    /** Перенести поля [item] в [ride] (старт/финиш уже извлечены и провалидированы вызывающим). */
+    /** Copies [item] onto [ride] (start/finish are already extracted and validated by the caller). */
     fun applyTo(ride: Ride, item: RentItem, start: Instant, finish: Instant, zone: ZoneId) {
         ride.externalId = item.id
         ride.startTime = start
@@ -37,20 +34,17 @@ object RideMapper {
 }
 
 /**
- * Чистый маппинг записи истории покупок ([PurchaseItem]) в [BikeTariff] — без БД/времени, под
- * юнит-тест на реальной фикстуре. Храним только **покупки тарифов** (`purchaseType == TARIFF`):
- * записи `RENTAL` — это списания за поездки, они у нас уже есть в истории поездок.
- *
- * `cost` — копейки (как у поездок); минуты пакета вытягиваем из названия («…60 минут» → 60), это
- * best-effort и для отображения не требуется (там нужна только цена покупки).
+ * Pure mapping of [PurchaseItem] into [BikeTariff], keeping only `TARIFF` rows — `RENTAL` ones
+ * are ride charges we already hold. `cost` is kopecks; the package minutes are best-effort from
+ * the name and are not needed for display.
  */
 object TariffMapper {
 
-    /** Годна к хранению только покупка тарифа с временем покупки (иначе её нельзя привязать по оси времени). */
+    /** Only a tariff purchase with a purchase time is storable — otherwise it has no time axis. */
     fun isTariffPurchase(item: PurchaseItem): Boolean =
         item.purchaseType.equals("TARIFF", ignoreCase = true) && item.createDate != null
 
-    /** Перенести поля [item] в [tariff] (вызывающий уже проверил [isTariffPurchase]). */
+    /** Copies [item] onto [tariff] (the caller has already checked [isTariffPurchase]). */
     fun applyTo(tariff: BikeTariff, item: PurchaseItem) {
         val orderItem = item.orderItems.firstOrNull { it.type.equals("tariff", ignoreCase = true) }
             ?: item.orderItems.firstOrNull()
@@ -61,55 +55,39 @@ object TariffMapper {
         tariff.minutes = orderItem?.name?.let(::parseMinutes)
     }
 
-    /** «Доступ Пакет 60 минут» → 60; «Доступ Поминутный» → null. Диагностика/будущее. */
+    /** "Access 60-minute package" gives 60; a per-minute access gives null. Diagnostics. */
     private fun parseMinutes(name: String): Int? =
         Regex("""(\d+)\s*мин""").find(name)?.groupValues?.get(1)?.toIntOrNull()
 }
 
-/** Деньги одной поездки: доступ, купленный ради неё, и цена пакета, под которым она едет. */
+/** One ride's money: the access bought for it, and the package price it rides under. */
 data class RideMoney(
-    /** Цена «Доступа», купленного ради этой поездки (копейки), или null — доступ куплен не ею. */
+    /** Price of the access bought for this ride (kopecks), or null when it bought none. */
     val accessKopecks: Int?,
-    /** Цена пакета, под которым едет поездка, не купившая доступ сама (копейки), или null. */
+    /** Price of the package a ride without its own access runs under (kopecks), or null. */
     val coveredByTariffKopecks: Int?,
 )
 
 /**
- * Кто за какую поездку заплатил (PRD §9 B4). Велобайк берёт деньги **двумя** записями, и обе нужны,
- * чтобы цена поездки не врала:
- *  - **«Доступ …»** ([BikeTariff]) — вход в тариф: «Доступ Поминутный» (платный старт, 40 ₽) или
- *    «Доступ Пакет 60 минут» (399 ₽ за час). Покупается за считанные секунды до старта поездки.
- *  - **`cost` самой поездки** — то, что натикало **сверх** доступа: минуты поминутного тарифа либо
- *    превышение пакета (7,49 ₽/мин на замерах истории).
- *
- * Отсюда две привязки. **Доступ** достаётся ровно одной поездке — той, ради которой куплен: первой
- * по времени поездке того же тарифа ([Ride.tariffName] = имя покупки без слова «Доступ»), стартующей
- * после покупки, до следующей покупки и не позже [OWN_WINDOW_SECONDS]. **Покрытие** — для остальных
- * поездок под уже оплаченным пакетом: ближайшая предшествующая покупка того же тарифа не старше
- * [COVER_WINDOW_SECONDS]; это только пояснение к строке — деньги за неё уже посчитаны у поездки,
- * купившей доступ, второй раз их не берём.
- *
- * Пакет живёт, пока не выкатаны его минуты (сроком не ограничиваем — на истории покупок видно, что
- * один «Пакет 60 минут» покрывает поездки и через сутки с лишним, а новый покупается ровно тогда,
- * когда минуты кончились). Поминутный доступ, наоборот, не покрывает никого: включённых минут в нём
- * нет, он открывает ровно одну поездку. Купленный и не откатанный доступ не липнет ни к какой
- * поездке — он просто потраченные деньги месяца ([BikeRideService.monthSummary]).
+ * Who paid for which ride. Velobike charges in TWO records — the "access" purchase (entry into a
+ * tariff) and the ride's own `cost` (what ran up beyond it) — and both are needed or the price
+ * lies. Access goes to the one ride it was bought for; the rest are covered. PRD §7, §5.13
  */
 object TariffAttribution {
 
-    /** Насколько поздно после покупки может стартовать поездка, ради которой доступ куплен. */
+    /** How late after a purchase the ride it was bought for may still start. */
     private const val OWN_WINDOW_SECONDS = 24L * 3600
 
-    /** Насколько старой может быть покупка, «покрывающая» поездку без своего доступа. */
+    /** How old a purchase may be while still covering a ride that bought no access. */
     private const val COVER_WINDOW_SECONDS = 7L * 24 * 3600
 
-    /** Часы покупки могут отстать от часов аренды — небольшой запас в обратную сторону. */
+    /** Purchase clocks may lag rental clocks — a small allowance in the other direction. */
     private const val CLOCK_GRACE_SECONDS = 120L
 
     /**
-     * Разложить деньги по поездкам: `externalId` поездки → [RideMoney]. Порядок входных списков не
-     * важен. Поездка, к которой покупок не нашлось (история до появления `bike_tariff`), получает
-     * пустой [RideMoney] — витрина покажет её как раньше, по одной лишь `cost`.
+     * Spreads money across rides: ride `externalId` to [RideMoney]. Input order does not matter.
+     * A ride with no matching purchase (history predating `bike_tariff`) gets an empty [RideMoney],
+     * and the board shows it as before, off `cost` alone.
      */
     fun attribute(rides: List<Ride>, purchases: List<BikeTariff>): Map<Long, RideMoney> {
         val byStart = rides.sortedBy { it.startTime }
@@ -136,7 +114,8 @@ object TariffAttribution {
         }
     }
 
-    /** «Доступ Пакет 60 минут» → «пакет 60 минут»; без слова «Доступ» покупку опознать нельзя. */
+    /** "Access 60-minute package" to "60-minute package"; without the word "Access" a purchase
+     *  cannot be recognised at all. */
     private fun tariffKind(purchaseName: String?): String? {
         val clean = normalize(purchaseName) ?: return null
         if (!clean.startsWith("доступ")) return null
@@ -148,17 +127,17 @@ object TariffAttribution {
 
     private fun matches(rideTariffName: String?, kind: String): Boolean = normalize(rideTariffName) == kind
 
-    /** Поминутный доступ включённых минут не несёт — покрывать им следующие поездки нечем. */
+    /** Per-minute access carries no included minutes — it can cover no following ride. */
     private fun isPerMinute(kind: String): Boolean = kind.startsWith("поминутн")
 
-    /** Доступ открывает поездку, если она стартует сразу за покупкой и до следующей покупки. */
+    /** An access opens a ride that starts right after the purchase and before the next one. */
     private fun opensRide(purchasedAt: Instant, rideStart: Instant, nextBuy: Instant?): Boolean {
         val delta = rideStart.epochSecond - purchasedAt.epochSecond
         if (delta < -CLOCK_GRACE_SECONDS || delta > OWN_WINDOW_SECONDS) return false
         return nextBuy == null || rideStart.isBefore(nextBuy)
     }
 
-    /** Ближайшая предшествующая покупка того же тарифа-пакета — под ним поездка и едет. */
+    /** The nearest preceding purchase of the same package — the one the ride runs under. */
     private fun covering(ride: Ride, buysAsc: List<BikeTariff>): Int? =
         buysAsc.lastOrNull { buy ->
             val kind = tariffKind(buy.name)

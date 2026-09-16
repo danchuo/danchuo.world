@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 /**
- * Разбор ответов Instagram: форма поля важнее его содержимого — рассинхрон роняет ВЕСЬ обмен
- * кода, а лечится он только повторным заходом владельца в браузер (PRD §5.17).
+ * Parsing Instagram replies: the shape of a field matters more than its content — a mismatch
+ * sinks the WHOLE code exchange, and only the owner re-authorising in a browser fixes it (PRD §5.17).
  */
 class InstagramClientsTest {
 
@@ -52,9 +52,8 @@ class InstagramClientsTest {
     }
 
     /**
-     * Время поста. Instagram пишет смещение БЕЗ двоеточия (`+0000`) — такую форму не берёт ни
-     * `OffsetDateTime.parse`, ни `Instant.parse`, и пост молча уезжает в Instant.EPOCH:
-     * на борде это «20710 дн назад».
+     * Instagram writes the offset WITHOUT a colon (`+0000`), which neither `OffsetDateTime.parse`
+     * nor `Instant.parse` accepts: the post silently lands on Instant.EPOCH, "20710 d ago" on the board.
      */
     @Test
     fun `время поста разбирается со смещением без двоеточия`() {

@@ -14,23 +14,9 @@ import world.danchuo.summary.SummaryTarget
 import world.danchuo.summary.SummaryWindows
 
 /**
- * Откуда берётся текст прослушанного куска (PRD §5.16.1) — половина пересказа, знающая про
- * подкасты. Вторая половина (очередь, попытки, промпт, разбор) живёт в слайсе `summary` и про
- * RSS с расшифровкой ничего не знает.
- *
- * **Готовых транскриптов нет.** Публичного API транскриптов у Spotify не существует, а тег
- * `<podcast:transcript>` по фонотеке владельца нашёлся у 0 выпусков из 6 — включая крупные
- * американские шоу, у которых он вероятнее всего. Поэтому текст добывается своей расшифровкой,
- * и путь такой: каталог Apple → RSS-фид → окна аудио по `Range` → распознавание на бесплатной
- * полосе.
- *
- * **Режем ДО расшифровки.** Час речи — 46 тысяч знаков при потолке выдержки в 12 тысяч, так что
- * расшифровка целого захода была бы выброшена нарезкой окон почти вся. Четыре окна по три
- * минуты стоят 720 аудиосекунд вместо нескольких тысяч и отвечают на тот же вопрос
- * ([AudioWindows]).
- *
- * **Мимо проходят Spotify-эксклюзивы.** У них нет открытого RSS, брать аудио неоткуда — кнопки
- * не будет, и это то же честное пустое место, что у книги без файла на полке.
+ * Where the text of a listened passage comes from — the half of summarising that knows podcasts.
+ * No ready transcripts exist, so the path is Apple catalogue, RSS, `Range` windows, then speech
+ * recognition. Spotify exclusives have no open RSS and simply get no button. PRD §5.16.1
  */
 @ApplicationScoped
 class PodcastSummarySource(
@@ -49,14 +35,9 @@ class PodcastSummarySource(
     override fun isConfigured(): Boolean = config.podcast().summary().enabled()
 
     /**
-     * Заходы, из которых МОЖНО вырезать кусок: известны оба конца окна внутри выпуска и его
-     * длительность. Свежие вперёд — борд смотрят с сегодняшнего дня.
-     *
-     * Начало окна пишется с той ветки, где появилась колонка `start_progress_ms`; у всего, что
-     * записано раньше, его нет и не появится — такие заходы в очередь не идут вовсе. Выдумать
-     * начало было бы тем же сортом вранья, что пересказ по памяти модели.
-     *
-     * Транзакция здесь и заканчивается: наружу уходит снимок, а не прицепленные сущности.
+     * Sittings a passage CAN be cut from: both ends of the window inside the episode are known,
+     * along with its duration, newest first. Rows predating the start column never qualify —
+     * inventing a beginning would be the same lie as summarising from memory. PRD §5.16.1
      */
     @Transactional
     override fun candidates(): List<SummaryTarget> {
@@ -67,11 +48,9 @@ class PodcastSummarySource(
     }
 
     /**
-     * Заход в цель очереди; `null` — резать нечего (нет начала окна, нет длительности, окно
-     * пустое).
-     *
-     * Доли считаются от длительности выпуска, а сама привязка к байтам — от размера файла
-     * ([AudioWindows]): так дрейф между длительностью в Spotify и в фиде не копится.
+     * A sitting turned into a queue target; `null` when there is nothing to cut. Fractions are
+     * taken from the EPISODE'S duration while the byte binding comes from file size
+     * ([AudioWindows]), so drift between Spotify's duration and the feed's never accumulates.
      */
     private fun targetOf(run: PodcastRun): SummaryTarget? {
         val duration = run.episodeDurationMs?.takeIf { it > 0 } ?: return null
@@ -86,23 +65,23 @@ class PodcastSummarySource(
             byline = run.showName,
             from = (start.toDouble() / duration).coerceIn(0.0, 1.0),
             to = (end.toDouble() / duration).coerceIn(0.0, 1.0),
-            // Длительность нужна на добыче — по ней сверяется выпуск в фиде и меряются окна.
+            // The duration is needed while fetching: it matches the episode in the feed and sizes the windows.
             ref = duration.toString(),
         )
     }
 
     /**
-     * Текст прослушанного куска. `null` на любом шаге пути — фида нет, выпуск не опознан,
-     * раздача не отдаёт куски, распознавание промолчало: всё это значит одно — рассказывать
-     * нечего, и очередь честно засчитает промах.
+     * Text of the listened stretch. `null` at any step of the path — no feed, unrecognised
+     * episode, a host that will not serve chunks, silent transcription — all mean the same: there
+     * is nothing to tell, and the queue honestly counts a miss.
      */
     override fun excerpt(target: SummaryTarget): SummaryExcerpt? {
         val duration = target.ref?.toLongOrNull()?.takeIf { it > 0 } ?: return null
         val show = target.byline ?: return null
 
-        // Обрыв на любом шаге логируем ОДНОЙ внятной строкой на уровне info, а не debug.
-        // Попыток у захода максимум три, так что шумом это не станет, зато «почему у этого
-        // выпуска нет кнопки» читается из логов, а не выясняется отладкой по месту.
+        // A break at any step is logged as ONE clear line at info, not debug. A sitting gets at
+        // most three attempts, so this never becomes noise, while "why has this episode no
+        // button" is readable from the logs instead of needing a debugging session.
         fun give(reason: String): SummaryExcerpt? {
             log.infof("podcast: пересказ не собрать («%s» / «%s»): %s", show, target.title, reason)
             return null
@@ -128,8 +107,8 @@ class PodcastSummarySource(
         val parts = windows.mapNotNull { transcribe(remote, it) }
         if (parts.isEmpty()) return give("ни одно окно не расшифровалось (${windows.size} шт.)")
 
-        // Пропуски между окнами отмечаем тем же маркером, что и у книги: модель должна видеть
-        // разрыв, а не сочинять мостик через него.
+        // Gaps between windows carry the same marker as a book's: the model must see the break
+        // rather than invent a bridge across it.
         val text = parts.joinToString(SummaryWindows.GAP)
         log.infof(
             "podcast: расшифровано %d окон выпуска «%s» (%d знаков)",
@@ -140,7 +119,7 @@ class PodcastSummarySource(
         return SummaryExcerpt(text = text)
     }
 
-    /** Одно окно: скачать кусок и распознать его. `null` — не вышло ни то, ни другое. */
+    /** One window: download the chunk and transcribe it. `null` when either did not work out. */
     private fun transcribe(remote: RemoteAudio, window: ByteWindow): String? {
         val bytes = audio.slice(remote.url, window) ?: return null
         return llm.transcribe(
@@ -151,15 +130,15 @@ class PodcastSummarySource(
 
     private companion object {
         /**
-         * Насколько глубоко в прошлое смотрит очередь. Дальше заглядывать незачем: колонка с
-         * началом окна появилась недавно, а старые заходы пересказа всё равно не получат.
+         * How far back the queue looks. There is no point going further: the window-start column
+         * is recent, and older sittings will not get a summary anyway.
          */
         const val HISTORY_DAYS = 60L
 
         /**
-         * Срез потока, а не файл целиком — но именно mp3 (все проверенные раздачи отдают его).
-         * Имя несущее: распознавание определяет формат по расширению и безымянную часть
-         * отвергает.
+         * A slice of the stream, not a whole file — but mp3 specifically (every host checked
+         * serves it). The name is load-bearing: transcription reads the format off the extension
+         * and rejects a nameless part.
          */
         const val AUDIO_TYPE = "audio/mpeg"
         const val AUDIO_NAME = "slice.mp3"

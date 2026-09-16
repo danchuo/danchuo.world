@@ -13,21 +13,9 @@ import world.danchuo.days.DayRecordService
 import java.time.LocalDate
 
 /**
- * `POST /api/ingest/health` (PRD §5.4, §12 M1) — push с iOS-шортката (авто 12/18/24 MSK).
- *
- * За токеном: защита прозрачна — [world.danchuo.core.security.IngestAuthFilter] ловит
- * префикс `api/ingest`, сам слайс про bearer не знает. Идемпотентно: статы дня
- * перезаписываются (upsert по дате), тренировки заменяются целиком — Health отдаёт
- * весь день, пропущенный прогон догоняется следующим.
- *
- * Семантика null ≠ 0 (§5.4): отсутствующая метрика остаётся `null` («нет данных»),
- * пришедший 0 — реальный ноль. Единственное исключение — сон: ночь в 0 минут «сна не было»,
- * нормализуется в `null` (см. [SleepNormalization]).
- *
- * Сон принимается в двух формах. Основная — сырые куски `sleepSegments`: шорткат ничего не
- * считает, ночь собирает [SleepSessionizer] (день = день пробуждения, §4). Легаси-форма
- * (готовые `sleepMinutes` + `sleepStages`) принимается как раньше — на ней ночь, начавшаяся
- * до полуночи, обрезалась фильтром шортката.
+ * `POST /api/ingest/health` — push from the iOS shortcut (12/18/24 MSK), idempotent: day stats
+ * upsert by date and workouts are replaced wholesale, as Health hands over the entire day. Null
+ * is not 0, with one exception — a 0-minute night normalises to `null`. PRD §5.4
  */
 @Path("/api/ingest/health")
 class HealthIngestResource(
@@ -53,14 +41,14 @@ class HealthIngestResource(
         val distanceMeters: Int? = null,
     )
 
-    /** Сырой кусок сна: имя фазы и границы строками (`2026-07-27T23:20:00+03:00`). */
+    /** A raw sleep chunk: phase name and bounds as strings (`2026-07-27T23:20:00+03:00`). */
     data class SleepSegmentDto(
         val stage: String? = null,
         val start: String? = null,
         val end: String? = null,
     )
 
-    /** Сырой кусок «осознанности» (время в приложении «Журнал»): только границы, фазы нет. */
+    /** A raw mindfulness chunk ("Journal" app time): bounds only, it carries no phase. */
     data class MindfulSegmentDto(
         val start: String? = null,
         val end: String? = null,
@@ -100,9 +88,9 @@ class HealthIngestResource(
         val parsed: List<SleepSegment>? = if (segments != null) {
             val out = ArrayList<SleepSegment>(segments.size)
             segments.forEachIndexed { i, dto ->
-                // Незнакомая фаза (в т.ч. `In Bed` — это не сон) молча пропускается: имена фаз
-                // задаёт Apple, новое имя не должно ронять весь приём. Битая дата — наоборот,
-                // это поломка шортката, и о ней надо узнать сразу.
+                // An unknown phase (including `In Bed`, which is not sleep) is skipped silently:
+                // Apple owns the phase names and a new one must not fail the whole ingest. A
+                // broken date is the opposite — that is a broken shortcut, and we want to know.
                 val stage = SleepStage.of(dto.stage) ?: return@forEachIndexed
                 val start = SleepSessionizer.parseInstant(dto.start, zone)
                     ?: return badRequest("bad_field", "sleepSegments[$i].start")
@@ -116,14 +104,14 @@ class HealthIngestResource(
         }
 
         val sleep = if (parsed != null) {
-            // Куски пришли — считаем ночь сами: только так вечернее начало (уснул до полуночи)
-            // попадает в день пробуждения независимо от того, каким окном их выбрал шорткат.
+            // With chunks in hand we compute the night ourselves: only then does an evening start
+            // (asleep before midnight) land on the waking day, whatever window the shortcut used.
             SleepSessionizer.summarize(parsed, date, zone)
         } else {
             val stages = req.sleepStages
-            // Ночь в 0 минут — не реальный ноль, а «сна не было» (шорткат шлёт 0 при пустом
-            // HealthKit): схлопываем длительность и фазы в null, чтобы плитки не показывали
-            // «0м» с пустыми фазами.
+            // A 0-minute night is not a real zero but "there was no sleep" (the shortcut sends 0
+            // on an empty HealthKit): collapse duration and phases to null so the tiles do not
+            // show "0m" with empty phases.
             SleepNormalization.normalize(
                 SleepInput(
                     minutes = req.sleepMinutes,
@@ -134,14 +122,14 @@ class HealthIngestResource(
                 ),
             )
         }
-        // Куски пришли, но ночи из них не собралось — это почти всегда пустой прогон (телефон был
-        // заблокирован, окно поиска промахнулось), а не «не спал»: отличить по данным нельзя,
-        // поэтому сон не трогаем. Стереть ночь по-прежнему можно явным `sleepMinutes = 0`.
+        // Chunks arrived but formed no night: that is almost always an empty run (a locked phone,
+        // a missed search window), not "did not sleep", and the data cannot tell them apart — so
+        // sleep is left alone. Erasing a night still takes an explicit `sleepMinutes = 0`.
         val blankRun = parsed != null && sleep.minutes == null
 
-        // «Осознанность» = время в приложении «Журнал». День выбирает бэк, как и у сна, но
-        // по другому правилу: не по пробуждению, а по вечерней корзине (§5.6). Поэтому один
-        // широкий прогон может закрыть и вчерашний день — дата запроса тут не ограничитель.
+        // Mindfulness is "Journal" app time. The backend picks the day as it does for sleep, but
+        // by another rule: not by waking, by the evening basket (§5.6). So one wide run may also
+        // close yesterday — the request date is no limit here.
         val mindful = req.mindfulSegments
         val journalMinutes = if (mindful == null) {
             emptyMap()
@@ -169,12 +157,12 @@ class HealthIngestResource(
         )
         workoutRepository.replaceForDate(date, workouts)
 
-        // Сырые куски ночи (I-23) — их же и храним, чтобы полосу ночи можно было показать
-        // позже и задать ей новые вопросы. Права те же, что у суммы: пустой прогон ночь не
-        // трогает, а единственный канал стереть её — явный `sleepMinutes = 0`.
+        // The night's raw chunks (I-23) are stored as they came, so the night band can be shown
+        // later and asked new questions. Same rights as the sum: an empty run leaves the night
+        // alone, and the only channel that erases it is an explicit `sleepMinutes = 0`.
         if (parsed != null) {
             if (!blankRun) {
-                // Куски сессий этого дня как есть — без разбора перекрытий: он делается на чтении.
+                // This day's session chunks as they are — overlaps are resolved on read.
                 val nightChunks = SleepSessionizer.sessionsEndingOn(parsed, date, zone).flatten()
                 sleepSegmentRepository.replaceForWakeDate(date, nightChunks)
             }
@@ -182,19 +170,18 @@ class HealthIngestResource(
             sleepSegmentRepository.replaceForWakeDate(date, emptyList())
         }
 
-        // Минуты — измерение, отметка — решение, и пишутся они независимо. Измерение идёт
-        // за каждый день с кусками (в т.ч. ниже порога: борд ими отвечает «почему не
-        // засчиталось»), а отметка — только «сделано» и только в пустоту: ручная галочка
-        // перекрывает минуты. Кэш проекции дня уже сброшен applyHealth выше.
+        // Minutes are a measurement, the mark is a decision, and they are written independently:
+        // minutes go in for every day with segments (below the threshold too — that is how the
+        // board answers "why it did not count"), the mark only into an empty slot. PRD §5.6
         journalMinutes.forEach { (day, minutes) -> dayRecordService.applyJournalMinutes(day, minutes) }
         val journalDays = journalMinutes
             .filterValues { it >= journalConfig.minMinutes() }
             .keys.sorted()
             .filter { journalMarker.markDone(it) }
 
-        // Ответ читается глазами в `Show Result` на телефоне — пусть сразу видно, что записалось:
-        // ночь в минутах, признак «прогон пустой, сон не тронут» (иначе пустота неотличима от
-        // нуля) и минуты дневника по дням — с ними видно и «не добрал порог», и «решено вручную».
+        // The reply is read by eye in `Show Result` on the phone, so it names what was written:
+        // the night in minutes, the "empty run, sleep untouched" flag (otherwise emptiness is
+        // indistinguishable from zero), and journal minutes per day.
         return Response.ok(
             mapOf(
                 "date" to date.toString(),

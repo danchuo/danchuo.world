@@ -6,19 +6,16 @@ import { laysOnSide } from "@/lib/artifactBox";
 import type { ArtifactBoxView } from "@/lib/api/types";
 
 /**
- * Рамки находок поверх кадра (§5.12). Позиция — **в процентах**: координаты приходят долями
- * кадра, а кадр рендерится в разном размере (мозаика, плёнка, полный экран), так что множитель
- * задаёт вёрстка. Держатель рамок обязан повторять пропорцию снимка — иначе проценты поедут.
- *
- * [shown] — чьи карточки сейчас раскрыты, **в порядке появления**: индекс задаёт высоту слоя,
- * поэтому в пересечении рамок сверху оказывается та, что открылась позже. В галерее это порядок
- * наведения, в полноэкранном кадре — просто все находки (тач-флоу, см. [PhotoLightbox]).
+ * Detection boxes over a frame. Positions are PERCENTAGES, since coordinates arrive as fractions
+ * while the frame renders at different sizes — so the holder must repeat the photo's aspect ratio
+ * or they drift. [shown] is in order of appearance, which is what layers overlapping boxes. §5.12
  */
 export function ArtifactBoxes({ boxes, shown }: { boxes: ArtifactBoxView[]; shown: number[] }) {
   return (
     <>
       {boxes.map((a) => {
-        // Рамка намеренно шире находки: показываем область, а не обводим предмет по краю.
+        // The box is deliberately wider than the find: it shows an AREA rather than outlining
+        // the object's edge.
         const r = padHighlight(a);
         return (
           <span
@@ -31,12 +28,12 @@ export function ArtifactBoxes({ boxes, shown }: { boxes: ArtifactBoxView[]; show
               height: `${r.height * 100}%`,
             }}
           >
-            {/* Имя — в разметке ВСЕГДА: подсказка живёт по наведению, а ховера у скринридера
-                нет, и без этого находка для него просто не существовала бы. */}
+            {/* The name is ALWAYS in the markup: the hint lives on hover, a screen reader has none,
+                and without this the finding would not exist for it. */}
             <span className="sr-only">{a.name}</span>
             {shown.includes(a.artifactId) && (
-              // Карточка предмета: сам предмет картинкой + имя под ней. Имя словами не объясняет,
-              // что это за надпись на фото, — знакомый вырезанный предмет объясняет сразу.
+              // The item card: the object itself as a picture with its name below. Words would not
+              // explain what that lettering on the photo is; the cut-out object explains at once.
               <span
                 className="artifact-card"
                 aria-hidden
@@ -56,15 +53,13 @@ export function ArtifactBoxes({ boxes, shown }: { boxes: ArtifactBoxView[]; show
 }
 
 /**
- * Предмет внутри карточки-подсказки. Слот карточки **лежачий**, а предмет бывает нарисован
- * стоймя (ракетка ~1:3.3) — в contain он вырождается в нитку и опознать его нельзя. Поэтому
- * карточка уважает тот же флаг «можно набок», что и лента (DESIGN §7.2): флаг разрешает,
- * решает пропорция самой картинки, и меряется она только по факту загрузки — до `onLoad`
- * пропорции нет, а повернуть «на всякий случай» значит показать предмет боком.
+ * The item inside a hint card. The slot is LANDSCAPE while an item may be drawn upright, where
+ * `contain` would shrink it to a thread — so the card honours the same "may lie on its side" flag
+ * as the ribbon, and measures the picture only on load. DESIGN §7.2
  */
 function ArtifactCardImage({ src, rotatable }: { src: string; rotatable: boolean }) {
   const [ratio, setRatio] = useState(0);
-  // Слот лежачий ⇒ vertical = false.
+  // The slot is landscape, hence vertical = false.
   const tilted = laysOnSide(ratio, rotatable, false);
   return (
     // eslint-disable-next-line @next/next/no-img-element

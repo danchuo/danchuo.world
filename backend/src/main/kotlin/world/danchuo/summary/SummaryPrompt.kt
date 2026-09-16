@@ -3,59 +3,51 @@ package world.danchuo.summary
 import kotlin.math.roundToInt
 
 /**
- * Слова, которыми подписывается выдержка. Правила разговора у книги и у выпуска одни и те же —
- * разными оказываются ровно существительные, и держать ради них два почти одинаковых промпта
- * значило бы чинить их потом по очереди.
+ * The words an excerpt is captioned with. The conversation rules for a book and an episode are
+ * identical and only the nouns differ, so keeping two near-identical prompts would just mean
+ * fixing them one after the other later.
  */
 data class SummaryVocabulary(
-    /** Чей это дневник: «личный дневник чтения» / «прослушанного». */
+    /** Whose diary this is: a personal reading diary, or a listening one. */
     val diary: String,
-    /** Что дают модели: «выдержку из книги» / «расшифровку куска выпуска». */
+    /** What the model is given: a book excerpt, or a transcript of an episode stretch. */
     val given: String,
-    /** Что человек с этим куском сделал: «прочитал» / «прослушал». */
+    /** What the person did with the stretch: read it, or listened to it. */
     val didVerb: String,
-    /** Целое, от которого взят кусок: «книгу» / «выпуск» (винительный падеж). */
+    /** The whole the stretch was taken from: the book, or the episode (accusative). */
     val wholeAccusative: String,
-    /** Оно же в родительном — для строки «с 12% до 30% книги». */
+    /** The same in the genitive — for the line "from 12% to 30% of the book". */
     val wholeGenitive: String,
-    /** И в именительном — для правила про строку-итог («не зная, что это книга»). */
+    /** And in the nominative — for the closing-line rule ("not knowing this is a book"). */
     val wholeNominative: String,
     val titleLabel: String,
     val bylineLabel: String,
     val passedLabel: String,
     val sectionsLabel: String,
-    /** Примеры кусков, в которых пересказывать нечего: они у книги и у выпуска разные. */
+    /** Examples of stretches with nothing to summarise: they differ for a book and an episode. */
     val emptyExamples: String,
     /**
-     * Что встречается ВНУТРИ куска, но содержанием не является. Пусто — у этого источника такой
-     * беды нет, и правило в промпт не едет: лишняя инструкция стоит внимания модели.
+     * What occurs INSIDE a stretch without being its content. Empty means this source has no such
+     * trouble and the rule stays out of the prompt: a spare instruction costs the model attention.
      */
     val skip: String = "",
 )
 
 /**
- * Разговор с моделью про пройденный за заход кусок (PRD §5.16).
- *
- * Ответ просим **текстом**, а не JSON: бесплатная полоса ([world.danchuo.llm.LlmLane]) — это
- * модели попроще (сейчас gpt-oss-120b), у которых структурированный вывод либо не поддержан
- * вовсе, либо съедает половину бюджета ответа на скобки. Формат зато простой до неприличия — список и
- * строка «Итог:», — а разбор терпит и markdown, и вводную фразу перед списком.
- *
- * Главное правило промпта: опираться ТОЛЬКО на выдержку. Пересказ «по памяти» здесь запрещён по
- * той же причине, по которой мы вообще возим epub с полки: на публичном борде уверенное враньё
- * про книгу неотличимо от правды.
+ * The conversation with the model about a passage. The answer is asked for as TEXT, not JSON: the
+ * free lane runs simpler models that either lack structured output or spend half the response
+ * budget on brackets. The one rule that matters: rely ONLY on the excerpt. PRD §5.16
  */
 object SummaryPrompt {
 
     /**
-     * Модель говорит это, когда пересказывать нечего (оглавление, копирайты, реклама). Слово
-     * служебное и намеренно не на языке пересказа: сам пересказ пишется на языке ИСТОЧНИКА, и
-     * русское «не получилось» модель, отвечающая по-английски, честно перевела бы — а мы бы
-     * приняли перевод за содержание.
+     * What the model says when there is nothing to retell (contents page, copyright, adverts). The
+     * word is deliberately NOT in the summary's language: a summary is written in the SOURCE's
+     * language, and a model answering in English would faithfully translate a Russian refusal.
      */
     const val REFUSAL = "NO_CONTENT"
 
-    /** Служебный маркер строки-итога — по той же причине один на все языки; наружу не идёт. */
+    /** The closing line's internal marker — one across all languages, and never served out. */
     const val TAKEAWAY_MARK = "TAKEAWAY:"
 
     private val READING = SummaryVocabulary(
@@ -84,9 +76,9 @@ object SummaryPrompt {
         passedLabel = "Прослушано за этот заход",
         sectionsLabel = "Темы в этом куске",
         emptyExamples = "реклама, джингл, перечисление спонсоров, анонс других выпусков",
-        // Рекламная вставка попадает в середину прослушанного куска, а не только в его края,
-        // поэтому отказа по пункту 6 мало: без этого правила модель тратит на спонсоров
-        // отдельный пункт пересказа (замерено на живом выпуске Huberman Lab).
+        // An ad insert lands in the middle of a listened stretch, not only at its edges, so
+        // refusing by rule 6 is not enough: without this rule the model spends a whole summary
+        // point on sponsors (measured on a live episode).
         skip = "Рекламные вставки и упоминания спонсоров содержанием выпуска не считаются — " +
             "пропускай их молча и пункта из них не делай.",
     )
@@ -97,21 +89,9 @@ object SummaryPrompt {
     }
 
     /**
-     * Инструкция разговора — своя на вид источника, но правила во всех одни. Девятое правило
-     * приезжает, только если источнику есть что пропускать ([SummaryVocabulary.skip]): лишняя
-     * инструкция стоит внимания модели, и книге она ни к чему.
-     *
-     * **Правило языка стоит ПЕРВЫМ, и это не вкусовщина.** Инструкция целиком написана
-     * по-русски, и её масса перетягивает ответ на русский даже для английского источника: на
-     * замере (по четыре прогона на вариант) длинное русское правило про строку-итог давало
-     * русский пересказ англоязычного выпуска 4 раза из 4. Поднятое вперёд и названное явно
-     * («инструкция по-русски, но это НЕ язык ответа») правило держит язык источника.
-     *
-     * **Строка-итог просится ПЕРЕФОРМУЛИРОВКОЙ, а не запретами.** Прямой запрет мета-оборотов
-     * либо не работал (короткий — мета 4 из 4), либо перетягивал язык (длинный). Замер: просьба
-     * сказать фразу так, «будто не знаешь, что это подкаст», плюс пара примеров даёт 0 из 4
-     * мета и 0 из 4 промахов языка — и формулировки выходят содержательнее всех прочих
-     * вариантов.
+     * Instructions per source kind, though the rules are the same for all. THE LANGUAGE RULE COMES
+     * FIRST and is named explicitly, because the instruction is written in Russian and its mass
+     * drags the answer into Russian. Measurements behind this and the closing line: PRD §5.16.
      */
     fun system(kind: SummaryKind): String = with(vocabularyOf(kind)) {
         val rules = """
@@ -140,7 +120,7 @@ object SummaryPrompt {
         if (skip.isBlank()) rules else "$rules\n9. $skip"
     }
 
-    /** Промпт захода: чем подписана выдержка и сама выдержка. */
+    /** The sitting's prompt: what captions the excerpt, and the excerpt itself. */
     fun user(target: SummaryTarget, excerpt: SummaryExcerpt): String =
         with(vocabularyOf(target.kind)) {
             buildString {
@@ -159,9 +139,9 @@ object SummaryPrompt {
         }
 
     /**
-     * Ответ модели → пересказ; `null` — пересказывать нечего (отказ, пустота, болтовня без
-     * единого пункта). Пустой результат ЛУЧШЕ пересказа из одной вводной фразы: карточка тогда
-     * просто не покажет кнопку, а не соврёт содержанием.
+     * Model reply to a summary; `null` when there is nothing to tell (a refusal, emptiness, chatter
+     * without a single point). An empty result BEATS a summary made of one introductory phrase:
+     * the card then simply shows no button rather than lying about the content.
      */
     fun parse(reply: String?): Retelling? {
         val text = reply?.trim().orEmpty()
@@ -174,9 +154,9 @@ object SummaryPrompt {
             val line = raw.trim()
             if (line.isEmpty()) continue
 
-            // Маркер списка снимаем ДО проверки на итог: модель нет-нет да и оформит закрывающую
-            // строку пунктом («- TAKEAWAY: …»), и без этого она уезжала в пункты, а итог
-            // оказывался пустым — на живом заходе это случилось на первом же прогоне.
+            // The list marker is stripped BEFORE the closing-line check: the model does now and
+            // then format the closing line as a point, and without this it drifted into the
+            // points while the closing line came out empty.
             val bullet = BULLET.find(line)
             val body = bullet?.groupValues?.get(2) ?: line
 
@@ -192,15 +172,16 @@ object SummaryPrompt {
         return if (kept.isEmpty()) null else Retelling(kept, takeaway)
     }
 
-    /** Доля 0..1 в целые проценты — тем же округлением, что на карточке борда. */
+    /** A 0..1 fraction to whole percent — the same rounding as on the board card. */
     private fun percent(value: Double): String = "${(value.coerceIn(0.0, 1.0) * 100).roundToInt()}%"
 
-    /** Модель нет-нет да и выделит слово: markdown в дневнике ни к чему, снимаем. */
+    /** The model does now and then emphasise a word: markdown has no place in the diary. */
     private fun clean(text: String): String = text.replace(EMPHASIS, "").trim()
 
     /**
-     * Отказ. Кроме служебного [REFUSAL] ловим и человеческие формулировки: модель поменьше
-     * нет-нет да и ответит фразой вместо кода, и принять её за пересказ было бы хуже всего.
+     * A refusal. Besides the internal [REFUSAL] we catch human phrasings too: a smaller model does
+     * now and then answer with a sentence instead of the code, and taking that for a summary
+     * would be the worst outcome of all.
      */
     private val REFUSAL_LINE = Regex(
         """^\W*(no[_\s]?content|не\s+получилось|no\s+summary)\b""",
@@ -208,8 +189,8 @@ object SummaryPrompt {
     )
 
     /**
-     * Строка-итог. Служебный маркер один, но разбор принимает и переводы: модель, пишущая
-     * пересказ на языке источника, вполне может перевести и подпись к последней строке.
+     * The closing line. The internal marker is one, but parsing accepts translations too: a model
+     * writing the summary in the source's language may well translate the last line's label.
      */
     private val TAKEAWAY = Regex(
         """^[*_\s]*(takeaway|summary|итог|вывод|fazit|résumé|resumen)[*_\s]*:[*_\s]*(.+)$""",

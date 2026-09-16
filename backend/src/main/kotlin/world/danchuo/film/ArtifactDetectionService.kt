@@ -12,26 +12,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Поиск артефактов на кадрах фото-дропа (PRD §5.12): фоновые прогоны по дропу, ручная правка
- * рамок из админки.
- *
- * Устроено как [FilmOrientationService] — один фоновый поток, дропы строго по очереди, статус
- * поллится админкой, — и по той же причине: у внешней модели общий рейт-лимит, а результат нужен
- * не сейчас, а когда-нибудь.
- *
- * **Темп задаёт последовательность, а не пауза.** `throttle-ms` по умолчанию ноль: воркер один,
- * кадры идут друг за другом, и латентность модели (замерено на проде — 3.5 с) сама держит около
- * 17 запросов в минуту. Пауза осталась ручкой на случай тарифа со злыми лимитами.
- *
- * ⚠️ **Параллелить это можно только вместе с ретраями.** Запросы независимы (вызов на кадр, без
- * состояния и без порядка), но `429` сейчас превращается в `Unavailable`, то есть в молча
- * пропущенный кадр без повторной попытки. Последовательно в лимит не упереться, а пул без
- * backoff'а дал бы «успешный» прогон с дырками — поэтому предварительное условие
- * распараллеливания это не пул потоков, а обработка отказов.
- *
- * Ключевой контракт: кадр помечается проверенным **только если модель ответила**. Молчание
- * провайдера оставляет кадр непроверенным, и его подхватит следующий прогон — иначе один сбой
- * Gemini записался бы в данные как «артефактов на кадре нет».
+ * Artifact search over a drop's frames: background runs, one drop at a time in a single worker,
+ * plus manual box edits from admin. A frame is marked checked ONLY if the model answered — a
+ * silent provider must never be recorded as "no artifacts here". Pace and limits: PRD §5.12.
  */
 @ApplicationScoped
 class ArtifactDetectionService(
@@ -53,8 +36,8 @@ class ArtifactDetectionService(
     private val jobs = ConcurrentHashMap<Long, DetectionJob>()
 
     /**
-     * Текущий прогон «по всему архиву»: очередь дропов уходит в исполнитель разом, поэтому
-     * сводку и отмену надо держать поверх отдельных дропов, а не внутри них.
+     * The current whole-archive run: the drop queue goes to the executor at once, so the summary
+     * and the cancellation must live above the individual drops rather than inside them.
      */
     @Volatile
     private var archiveRun: ScanRun? = null
@@ -64,12 +47,12 @@ class ArtifactDetectionService(
         executor.shutdownNow()
     }
 
-    // ── Публичное API слайса ──
+    // -- Public slice API --
 
     /**
-     * Запустить фоновый поиск по непроверенным кадрам дропа. Идемпотентно: бегущий прогон не
-     * дублируется. [recheck] — перепроверить и уже проверенные (после смены описаний артефактов
-     * или добавления нового предмета). `null` — дропа нет.
+     * Starts the background search over a drop's unchecked frames. Idempotent: a running pass is
+     * not duplicated. [recheck] revisits already-checked frames, after artifact descriptions
+     * changed or a new item was added. `null` when the drop does not exist.
      */
     fun start(dropId: Long, recheck: Boolean = false, onlyArtifactId: Long? = null): ArtifactScanStatusView? {
         drops.findById(dropId) ?: return null
@@ -91,21 +74,15 @@ class ArtifactDetectionService(
     }
 
     /**
-     * Прогнать **все** дропы — путь «добавили артефакт, ищем его в старых кадрах».
-     *
-     * Всегда `recheck`: у существующих кадров отметка о проверке уже стоит, и без него новый
-     * предмет не искался бы нигде. Дропы уходят в ту же одну очередь и идут друг за другом —
-     * прогон по всему архиву долгий и стоит денег, поэтому он только ручной.
-     *
-     * [onlyArtifactId] сужает прогон до одного предмета. **Дешевле от этого не становится** —
-     * вызов всё равно один на кадр, а цена зависит от числа кадров, — но такой прогон не трогает
-     * находки остальных предметов и задаёт модели один вопрос вместо списка.
+     * Runs EVERY drop — the "added an artifact, look for it in old frames" path. Always a
+     * `recheck`, since existing frames already carry the checked mark. Manual only: one paid call
+     * per frame across the archive. [onlyArtifactId] narrows the question asked, not the cost.
      */
     fun startAll(onlyArtifactId: Long? = null): ArtifactScanRunView {
         val name = onlyArtifactId?.let { id -> tx { artifacts.findById(id)?.name } }
         require(onlyArtifactId == null || name != null) { "artifact_not_found" }
         val ids = drops.listOrdered().mapNotNull { it.id }
-        // Новый прогон снимает отмену предыдущего — иначе он умер бы, не начавшись.
+        // A new pass clears the previous cancellation, or it would die before starting.
         val fresh = ScanRun(artifactName = name)
         archiveRun = fresh
         ids.forEach { start(it, recheck = true, onlyArtifactId = onlyArtifactId) }
@@ -114,9 +91,9 @@ class ArtifactDetectionService(
     }
 
     /**
-     * Остановить прогон по архиву. Кадр, начатый до отмены, дописывается — рвать его посреди
-     * записи незачем, — а очередь дальше не разбирается. Возвращает `false`, если останавливать
-     * нечего. Данные остаются согласованными: непроверенные кадры так и остаются непроверенными.
+     * Stops the archive pass. A frame begun before the cancellation is finished — there is no
+     * point tearing it up mid-write — and the queue is not taken further. Returns `false` when
+     * there is nothing to stop. Unchecked frames simply stay unchecked, so data stays consistent.
      */
     fun cancel(): Boolean {
         val current = archiveRun ?: return false
@@ -125,13 +102,13 @@ class ArtifactDetectionService(
         return true
     }
 
-    /** Сводка по последнему прогону архива; `idle`, если их ещё не было. */
+    /** Summary of the last archive pass; `idle` when there has not been one. */
     fun runStatus(): ArtifactScanRunView = archiveRun?.view() ?: ScanRun(artifactName = null).view()
 
-    /** Бежит ли прогон — гейт для ручной правки рамок (иначе гонка за одни и те же строки). */
+    /** Whether a pass is running — the gate for manual box edits, which would otherwise race. */
     fun isRunning(dropId: Long): Boolean = jobs[dropId]?.state in ACTIVE
 
-    /** Статус: бегущий/последний прогон, а без него — срез по БД. `null` — дропа нет. */
+    /** Status: the running or last pass, else a snapshot off the DB. `null` when no such drop. */
     fun status(dropId: Long): ArtifactScanStatusView? {
         drops.findById(dropId) ?: return null
         jobs[dropId]?.let { return it.view() }
@@ -146,8 +123,8 @@ class ArtifactDetectionService(
     }
 
     /**
-     * Поставить/подвинуть рамку руками. Перезаписывает находку модели по той же паре
-     * кадр-артефакт и помечает её ручной, чтобы перепрогон её не трогал.
+     * Places or moves a box by hand. It overwrites the model's finding for the same frame-artifact
+     * pair and marks it manual, so a re-run leaves it alone.
      */
     fun saveManual(dropId: Long, photoId: Long, artifactId: Long, box: BoxInput): Boolean {
         check(!isRunning(dropId)) { "artifacts_running" }
@@ -169,20 +146,17 @@ class ArtifactDetectionService(
             row.y1 = box.y1
             row.source = ArtifactDetection.SOURCE_MANUAL
             row.createdAt = Instant.now()
-            // Строка заполняется ДО вставки: при IDENTITY-генерации persist пишет в БД сразу,
-            // и незаполненный not-null `source` уронил бы вставку.
+            // The row is filled BEFORE insert: with IDENTITY generation persist writes at once,
+            // and an unfilled not-null `source` would fail the insert.
             if (existing == null) detections.persist(row)
             true
         }
     }
 
     /**
-     * Снять рамку с кадра (модель ошиблась или передумали).
-     *
-     * Строка не удаляется, а помечается `rejected`: удалённую находку следующий прогон нашёл бы
-     * заново, и рамка вернулась бы — снятие руками должно быть решением, а не косметикой.
-     * Вернуть предмет на кадр можно, поставив рамку руками: она перезапишет строку в `manual`.
-     * `false` — такой находки нет.
+     * Takes a box off a frame. The row is marked `rejected` rather than deleted, or the next run
+     * would find the pair again and the box would return; a manual box on the same pair rewrites
+     * it back to `manual`. `false` when no such detection exists. PRD §5.12
      */
     fun deleteDetection(dropId: Long, photoId: Long, artifactId: Long): Boolean {
         check(!isRunning(dropId)) { "artifacts_running" }
@@ -193,7 +167,7 @@ class ArtifactDetectionService(
         }
     }
 
-    // ── Фоновый прогон ──
+    // -- Background pass --
 
     private fun pendingIds(dropId: Long, recheck: Boolean): List<Long> =
         photos.listByDrop(dropId)
@@ -203,8 +177,8 @@ class ArtifactDetectionService(
     private fun execute(dropId: Long, recheck: Boolean, onlyArtifactId: Long?, job: DetectionJob) {
         val current = archiveRun
         try {
-            // Отмену проверяем и до первого кадра: очередь архива уходит в исполнитель разом,
-            // и на момент старта дропа №5 прогон могли уже остановить.
+            // Cancellation is checked before the first frame too: the archive queue goes to the
+            // executor at once, and the pass may already have been stopped by drop five.
             if (current?.cancelled?.get() == true) {
                 job.state = "cancelled"
                 return
@@ -238,26 +212,26 @@ class ArtifactDetectionService(
         job: DetectionJob,
     ) {
         val key = tx { photos.findById(photoId)?.storageKey } ?: return
-        // Модели хватает web-варианта; оригиналов мы не храним, а thumb теряет мелкие принты.
+        // The web variant is enough for the model; we keep no originals, and thumb loses prints.
         val bytes = storage.get(key, PhotoVariant.WEB)
         if (bytes == null) {
             job.skipped.incrementAndGet()
             return
         }
         when (val outcome = detector.detect(bytes, catalogue)) {
-            // Провайдер молчит — кадр остаётся непроверенным до следующего прогона.
+            // The provider stayed silent — the frame stays unchecked until the next pass.
             DetectionOutcome.Unavailable -> job.skipped.incrementAndGet()
             is DetectionOutcome.Found -> {
                 tx {
-                    // Прогон ради одного предмета сносит только его находки: у остальных они
-                    // могли быть удачными, а спрашивали про них в прошлый раз, не сейчас.
+                    // A single-item pass clears only that item's findings: the others may have
+                    // been good, and they were asked about last time, not now.
                     if (onlyArtifactId == null) {
                         detections.deleteLlmByPhoto(photoId)
                     } else {
                         detections.deleteLlmByPhotoAndArtifact(photoId, onlyArtifactId)
                     }
-                    // Остались строки, решённые человеком: ручные рамки и отклонённые находки.
-                    // И те и другие перепрогон не трогает — иначе снятая рамка вернулась бы.
+                    // Rows decided by a human remain: manual boxes and rejected findings. A
+                    // re-run touches neither, or a removed box would come back.
                     val decided = detections.listByPhoto(photoId).map { it.artifactId }.toSet()
                     outcome.boxes
                         .filterNot { it.artifactId in decided }
@@ -275,9 +249,9 @@ class ArtifactDetectionService(
                             )
                             job.found.incrementAndGet()
                         }
-                    // Отметку «кадр проверен» ставит только полный прогон. Прогон по одному
-                    // предмету ничего не говорит про остальной каталог, а отметка нужна ровно
-                    // затем, чтобы кнопка по дропу пропускала уже проверенное.
+                    // Only a full pass marks a frame checked. A single-item pass says nothing
+                    // about the rest of the catalogue, and the mark exists precisely so the
+                    // per-drop button can skip what is already done.
                     if (onlyArtifactId == null) {
                         photos.findById(photoId)?.artifactsCheckedAt = Instant.now()
                     }
@@ -292,7 +266,7 @@ class ArtifactDetectionService(
 
     private fun <T> tx(block: () -> T): T = QuarkusTransaction.requiringNew().call(block)
 
-    /** Счётчики прогона по одному дропу (поллятся админкой). */
+    /** Counters of a single-drop pass (polled by the admin UI). */
     private class DetectionJob(val dropId: Long, val total: Int) {
         val checked = AtomicInteger()
         val found = AtomicInteger()
@@ -311,11 +285,9 @@ class ArtifactDetectionService(
     }
 
     /**
-     * Прогон по всему архиву: набор дропов + флаг отмены на всех сразу.
-     *
-     * Состояние выводится из дропов, а не хранится: у прогона нет собственного потока — очередь
-     * разбирает тот же единственный исполнитель, — и любое отдельно хранимое состояние
-     * разъезжалось бы с настоящим.
+     * An archive-wide run: the set of drops plus one cancel flag covering all of them. State is
+     * derived from those drops rather than stored — the run owns no thread, the same single
+     * executor drains the queue, and separately stored state would drift from the real one.
      */
     private class ScanRun(val artifactName: String?) {
         val jobs = java.util.concurrent.CopyOnWriteArrayList<DetectionJob>()
@@ -344,12 +316,12 @@ class ArtifactDetectionService(
     }
 
     private companion object {
-        /** Состояния, в которых дроп ещё занимает очередь: правку рамок в это время не пускаем. */
+        /** States in which a drop still holds the queue: box edits are refused meanwhile. */
         val ACTIVE = setOf("queued", "running")
     }
 }
 
-/** Рамка, пришедшая из админки: доли кадра, левый-верхний строго раньше правого-нижнего. */
+/** A box from the admin UI: frame fractions, top-left strictly before bottom-right. */
 data class BoxInput(
     val x0: Double,
     val y0: Double,

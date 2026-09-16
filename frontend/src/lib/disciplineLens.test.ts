@@ -58,19 +58,18 @@ describe("линза дисциплины", () => {
   });
 
   it("монстра за день не отмечали — ответа нет, а не «не пил»", () => {
-    // Запись дня есть (её создаёт health-ingest), но интерактивный шорткат не запускали.
+    // The day has a record (health ingest creates it) but the interactive shortcut never ran.
     expect(lensMatch(day({ hasData: true, monsterDrunk: null }), MONSTER)).toBe(
       "unknown",
     );
-    // Старый кэш поля не несёт — молчим так же, а не объявляем день чистым.
+    // An old cache carries no such field — stay silent rather than declare the day clean.
     expect(lensMatch(day({ hasData: true }), MONSTER)).toBe("unknown");
   });
 
   it("подпись линзы для ячейки: монстр — тем же вердиктом, что на карте; «нет ответа» молчит", () => {
     expect(lensNote("yes", READING_1)).toBe("чтение: сделано");
     expect(lensNote("no", READING_1)).toBe("чтение: не сделано");
-    // Было «без монстра» / «монстр выпит» — третий словарь на тот же факт.
-    // Отметки у чистого дня нет, но в ховер-сводке ответ остаётся — там он не шумит.
+    // A clean day gets no mark, but the hover summary still answers — there it is not noise.
     expect(lensNote("yes", MONSTER)).toBe("не пил монстр");
     expect(lensNote("no", MONSTER)).toBe("пил монстр");
     expect(lensNote("unknown", MONSTER)).toBeNull();
@@ -78,22 +77,22 @@ describe("линза дисциплины", () => {
   });
 
   it("имя линзы в ярлыке — подпись остановки, и у монстра тоже", () => {
-    // Отмечены оба ответа и цветом, так что ярлыку остаётся называть предмет линзы, а не её
-    // полярность; разворот «не пил монстр» отклонён (DESIGN §5.1).
+    // Both answers are marked by colour, so the label names the lens's subject rather than its
+    // polarity; inverting it was rejected (DESIGN §5.1).
     expect(lensTitle(MONSTER)).toBe("монстр");
     expect(lensTitle(READING_1)).toBe("чтение");
   });
 
   it("тон отметки: у монстра метится ТОЛЬКО «пил», у прочих — только «да»", () => {
-    // Для обычного пункта «не совпал» — просто отсутствие: отмечать нечего, день гаснет.
+    // For an ordinary item "no match" is simply an absence: nothing to mark, the day dims.
     expect(lensTone("yes", READING_1)).toBe("match");
     expect(lensTone("no", READING_1)).toBeNull();
     expect(lensTone("unknown", READING_1)).toBeNull();
 
-    // У монстра «не совпал» — это СОБЫТИЕ (пил), и именно его ищут глазами по сетке.
+    // For the monster "no match" is an EVENT (drunk), and that is what the eye looks for.
     expect(lensTone("no", MONSTER)).toBe("drunk");
-    // Чистый день отметки НЕ получает: их подавляющее большинство, и сплошная зелёная
-    // сетка превращала отметку в обои — на них терялось единственное красное.
+    // A clean day gets NO mark: they are the vast majority, and a solid green grid turned the mark
+    // into wallpaper that the single red one was lost in.
     expect(lensTone("yes", MONSTER)).toBeNull();
     expect(lensTone("unknown", MONSTER)).toBeNull();
   });

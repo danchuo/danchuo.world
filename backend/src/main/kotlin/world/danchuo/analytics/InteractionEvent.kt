@@ -9,17 +9,9 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Сырое событие клика для хитмапы (PRD §5.11, B2) — cookieless, без третьих сторон, своё
- * решение в Postgres. Сестринская сущность [AnalyticsEvent]: тот же приватно-аналитический
- * контур (сырой IP не хранится — только суточный хэш [visitorDayHash], боты метятся [isBot]).
- *
- * Модель **потайловая**, не пиксельная: храним, по какому тайлу борда кликнули ([tileId] —
- * машинный id из реестра фронта, напр. `today`/`music`), а координаты [offsetXPct]/[offsetYPct]
- * — **внутри** тайла (доля 0..1 от его bounding box). Это стабильно через все вьюпорты и волны
- * (адаптивный bento ломал бы сырые экранные пиксели), а внутритайловые доли позволяют позже
- * дорисовать пиксель-облачко *внутри* конкретной плитки, не завися от размера экрана.
- *
- * Клик вне любого тайла ⇒ [tileId] == null (учитывается как «мимо плиток»).
+ * A raw click event for the heatmap, sibling of [AnalyticsEvent] and under the same private
+ * contour. The model is PER TILE, not per pixel, and the offsets are fractions inside the tile;
+ * a click outside every tile leaves [tileId] null. PRD §5.11
  */
 @Entity
 @Table(name = "interaction_event")
@@ -31,23 +23,23 @@ class InteractionEvent {
     @Column(name = "occurred_at", nullable = false)
     lateinit var occurredAt: Instant
 
-    /** Страница, на которой случился клик (обычно `/`). */
+    /** The page the click happened on (usually `/`). */
     @Column(nullable = false)
     lateinit var path: String
 
-    /** Машинный id тайла борда (`today`, `music`, …); `null` — клик мимо плиток. */
+    /** Machine id of the board tile (`today`, `music`, ...); `null` means a click off the tiles. */
     @Column(name = "tile_id")
     var tileId: String? = null
 
-    /** Доля X внутри bounding box тайла, 0..1; `null` — клик мимо плиток. */
+    /** X fraction inside the tile bounding box, 0..1; `null` means a click off the tiles. */
     @Column(name = "offset_x_pct")
     var offsetXPct: Double? = null
 
-    /** Доля Y внутри bounding box тайла, 0..1; `null` — клик мимо плиток. */
+    /** Y fraction inside the tile bounding box, 0..1; `null` means a click off the tiles. */
     @Column(name = "offset_y_pct")
     var offsetYPct: Double? = null
 
-    /** Ширина вьюпорта в момент клика (px) — для будущего разреза по брейкпоинтам. */
+    /** Viewport width at click time (px), for a future breakpoint slice. */
     @Column(name = "viewport_w")
     var viewportW: Int? = null
 
@@ -57,7 +49,7 @@ class InteractionEvent {
     @Column(name = "is_bot", nullable = false)
     var isBot: Boolean = false
 
-    /** Служебная корреляция с визитом бикона (клиентский UUID); может быть `null`. */
+    /** Internal correlation with the beacon visit (client-side UUID); may be `null`. */
     @Column(name = "visit_id")
     var visitId: String? = null
 }

@@ -1,28 +1,24 @@
-/* ═══════════════════ СКИН ВОЛНЫ 02 «Obscura» (DESIGN §10.2) ═══════════════════
- * Всё в этом файле включается ТОЛЬКО когда на <html> стоит data-wave="wave-02"
- * (ставит SSR-layout или переключатель волн). Волна 01 не видит ни строчки отсюда —
- * это и есть «разные CSS-стили под разные волны»: волна несёт не только цвет-токены,
- * но и свой СКИН (рамки, фон, декор-слой, шрифт меток). 8-бит здесь живёт в шрифте и
- * облаках, а карточки — мягкая «облачная бумага» (рамки Obscura скруглённые, не ступенчатые).
- *
- * Переопределяет базовый скин волны 01 (styles/waves/wave-01.css) по специфичности
- * (`[data-wave="wave-02"] .pixel-tile` > `.pixel-tile`). @import-ится ПОСЛЕ волны 01.
- */
+/* WAVE 02 "OBSCURA" SKIN (DESIGN §10.2). Everything here applies only when <html> carries
+ * data-wave="wave-02"; wave 01 sees not a line of it. A wave carries not only colour tokens but a whole
+ * SKIN — frames, ground, decor layer, label face. */
 
-/* Своя ТИПОГРАФИКА волны 02 (не только цвета): UI-текст — Manrope (primary-шрифт Obscura),
-   данные/цифры — IBM Plex Mono. Переопределяем сами var-токены шрифтов, поэтому ВСЕ компоненты,
-   читающие var(--font-sans)/var(--font-mono), переключаются разом — без правок. Волна 01 (Inter/
-   JetBrains) не затронута. --font-display (пиксельный Jersey) приходит из токенов волны. */
+/* The 8-bit voice lives in the font and the clouds here, while the cards are soft "cloud paper":
+ * Obscura's frames are rounded, not stepped. It overrides wave 01's base skin by specificity and is
+ * imported AFTER it. */
+
+/* Wave 02 has TYPOGRAPHY of its own, not only colours: Manrope for UI text, IBM Plex Mono for data. The
+   font tokens themselves are overridden, so EVERY component reading `var(--font-sans)`/`var(--font-mono)`
+   switches at once, with no edits. `--font-display` (the pixel Jersey) arrives in the wave's tokens. */
 :root[data-wave="wave-02"] {
   --font-sans: var(--font-manrope), "Manrope", system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
-  /* Свой «код-канал» вместо мшистого персикового: у Obscura один сигнальный оранжевый на
-     весь борд, поэтому вклады берут холодный аркадный зелёный — отдельный голос, но из
-     той же 8-битной палитры (§7.4, токен по роли — см. wave-01.css). */
+  /* Its own "code channel" instead of the mossy peach one: Obscura has a single signal orange across the
+     board, so contributions take a cold arcade green — a separate voice from the same 8-bit palette
+     (DESIGN §7.4; the token is named by role, see wave-01.css). */
   --accent-code: #2fb27a;
 }
 
-/* Небо вместо персикового зерна: мягкий облачный градиент. */
+/* Sky instead of peach grain: a soft cloud gradient. */
 :root[data-wave="wave-02"] body {
   background-color: var(--bg-page);
   background-image: radial-gradient(120% 85% at 50% -8%, #ffffff 0%, rgba(255, 255, 255, 0) 58%),
@@ -30,10 +26,9 @@
   background-attachment: fixed;
 }
 
-/* Пиксельные облака ПЛЫВУТ слева направо за бордом (чистый CSS-SVG, без ассетов). z-index:-1 —
-   за карточками: облако подмигивает сквозь воздух-каналы сетки и уходит за карты — «живое небо».
-   Три слоя на разной высоте/скорости/размере дают глубину (параллакс). 4 псевдоэлемента: облака
-   на html (:root) и body. Старт разнесён отрицательной задержкой, чтобы не стартовали кучей. */
+/* Pixel clouds DRIFT left to right behind the board (pure CSS-SVG, no assets). `z-index:-1` puts them
+   behind the cards, so a cloud winks through the grid's air channels and passes behind the tiles. Three
+   layers at different heights, speeds and sizes give parallax, with negative delays to stagger the start. */
 :root[data-wave="wave-02"]::before,
 :root[data-wave="wave-02"]::after,
 :root[data-wave="wave-02"] body::before {
@@ -48,7 +43,7 @@
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2014%208'%20shape-rendering='crispEdges'%3E%3Cg%20fill='%23ffffff'%3E%3Crect%20x='5'%20y='1'%20width='4'%20height='1'/%3E%3Crect%20x='3'%20y='2'%20width='8'%20height='1'/%3E%3Crect%20x='2'%20y='3'%20width='10'%20height='1'/%3E%3Crect%20x='1'%20y='4'%20width='12'%20height='1'/%3E%3Crect%20x='1'%20y='5'%20width='12'%20height='1'/%3E%3C/g%3E%3Crect%20x='2'%20y='6'%20width='10'%20height='1'%20fill='%23cbe1f6'/%3E%3C/svg%3E");
   animation: obscura-sail linear infinite;
 }
-/* верхнее — крупное и ближе (быстрее) */
+/* top — large and nearer, so faster */
 :root[data-wave="wave-02"]::before {
   top: 92px;
   width: 90px;
@@ -57,7 +52,7 @@
   animation-duration: 70s;
   animation-delay: -8s;
 }
-/* среднее — мелкое и дальнее (медленнее), за центральной плиткой, мелькает в каналах */
+/* middle — small and far, so slower; behind the central tile, glimpsed in the channels */
 :root[data-wave="wave-02"]::after {
   top: 446px;
   width: 58px;
@@ -66,7 +61,7 @@
   animation-duration: 108s;
   animation-delay: -62s;
 }
-/* нижнее — среднее */
+/* bottom — medium */
 :root[data-wave="wave-02"] body::before {
   top: 772px;
   width: 74px;
@@ -83,7 +78,7 @@
     transform: translateX(calc(100vw + 90px));
   }
 }
-/* reduced-motion: облака не плывут — замирают в «карманах» неба между карточками. */
+/* reduced-motion: the clouds do not drift, they settle in the sky's pockets between the cards. */
 @media (prefers-reduced-motion: reduce) {
   :root[data-wave="wave-02"]::before {
     left: 28%;
@@ -96,11 +91,9 @@
   }
 }
 
-/* Мягкие «облачные» карты вместо ступенчатой пиксель-рамки волны 01: скруглённые углы,
-   тонкий кант, многослойная сине-тонированная тень (feature card Obscura).
-   Край — параметр скина (см. врез «Как волна выбирает край» в wave-01.css): Obscura идёт
-   путём 2 — рисует край сама (border+radius), поэтому и плашка-линия, и вложенный слой
-   поверхности волны 01 здесь не нужны. `background` возвращает карте свою заливку. */
+/* Soft "cloud" cards instead of wave 01's stepped pixel frame: rounded corners, a thin border, a layered
+   blue-tinted shadow. The edge is a skin parameter (see "how a wave chooses its edge" in wave-01.css) and
+   Obscura takes the second path, drawing its own with border and radius. */
 :root[data-wave="wave-02"] .pixel-tile {
   clip-path: none;
   border: 1px solid var(--border);
@@ -110,91 +103,85 @@
     0 18px 40px rgba(15, 34, 52, 0.06);
   filter: none;
 }
-/* Отказ от обведённой ступеньки волны 01: гасим ОБА слоя силуэта — линию (::before) и
-   поверхность (::after, вместе с ней вложение по --tile-line, ступенчатый clip-path,
-   световой кант --rim и скан-блик). Иначе поверх облачной карты легли бы ступенчатая
-   clay-плашка и прямоугольник заливки. Свой край Obscura рисует border+radius выше. */
+/* Refusing wave 01's outlined step: BOTH silhouette layers are hidden — the line (`::before`) and the
+   surface (`::after`, and with it the `--tile-line` inset, the stepped `clip-path`, the `--rim` light
+   border and the scan sheen). Otherwise a clay plate and a rectangle of fill would lie over the card. */
 :root[data-wave="wave-02"] .pixel-tile::before,
 :root[data-wave="wave-02"] .pixel-tile::after {
   display: none;
 }
-/* Лоадер-шиммер: волна 01 клипает его ступенчатым силуэтом; у облачных (круглых) карт
-   ступенчатый полигон ни к чему — сбрасываем клип (край держит border-radius самой карты). */
+/* Loader shimmer: wave 01 clips it with the stepped silhouette, which round cloud cards have no use for,
+   so the clip is reset — the card's own `border-radius` holds the edge. */
 :root[data-wave="wave-02"] .pixel-shimmer {
   clip-path: none;
-  /* …и подъём под нижний торец волны 01: --tile-depth приезжает с :root-фолбэка даже при
-     активной Obscura, а у облачных карт торца нет — шиммер снова до самого низа. */
+  /* …and so is the lift over wave 01's lower side: `--tile-depth` arrives from the `:root` fallback even
+     with Obscura active, and cloud cards have no side, so the shimmer reaches the bottom again. */
   bottom: 0;
 }
 :root[data-wave="wave-02"] .pixel-tile[data-elevated="true"] {
   box-shadow: 0 2px 4px rgba(15, 34, 52, 0.05), 0 14px 30px rgba(15, 34, 52, 0.1),
     0 30px 60px rgba(15, 34, 52, 0.09);
 }
-/* Угловая осыпь, белая внутренняя рамка и нижняя подложка «коробочки» — пиксель-детали
-   волны 01; на облачных картах нет ни одной из них. Все — элементы (не псевдо, слоты
-   .pixel-tile заняты силуэтом волны 01), их и гасим. */
+/* The corner scatter, the white inner frame and the box's lower ground are wave-01 pixel details, and
+   cloud cards have none of them. All three are elements rather than pseudo-elements (the `.pixel-tile`
+   slots are taken by wave 01's silhouette), so all three are hidden here. */
 :root[data-wave="wave-02"] .pixel-scatter,
 :root[data-wave="wave-02"] .pixel-lid,
 :root[data-wave="wave-02"] .pixel-slab {
   display: none;
 }
-/* Цветные пиксель-спрайты соцсетей — деталь скина волны 01 (тёплый персик спорил бы с
-   графитом Obscura): возвращаем базовую одноцветную маску токеном (см. .social-icon
-   в common.css — здесь её значения восстановлены поверх спрайт-правила wave-01.css). */
+/* The coloured social pixel sprites are a wave-01 skin detail — warm peach would argue with Obscura's
+   graphite — so the base single-colour mask is restored by token (see `.social-icon` in common.css; its
+   values are reinstated here over the wave-01 sprite rule). */
 :root[data-wave="wave-02"] .social-icon--sprite {
-  /* Обратно к базовой доле маски (common.css) — крупный спрайт волны 01 тут не нужен. */
+  /* Back to the mask's base share (common.css): wave 01's large sprite is of no use here. */
   --social-icon-size: clamp(12px, calc(6.5px + 19cqw), 36px);
   background: var(--text-primary);
   -webkit-mask: var(--social-mask) center / contain no-repeat;
   mask: var(--social-mask) center / contain no-repeat;
 }
-/* …и плашка-подложка карточки соцссылки возвращается (волна 01 гасит её под спрайты). */
+/* …and the social link card's ground plate returns, which wave 01 hides for its sprites. */
 :root[data-wave="wave-02"] .social-card {
   --social-card-bg: var(--bg-surface-muted);
 }
 
-/* ── Чип волны 02 в переключателе (DESIGN §2.6) ─────────────────────────────────────────
-   ⚠️ ЕДИНСТВЕННЫЙ блок этого файла БЕЗ обёртки `:root[data-wave="wave-02"]` — и это не
-   недосмотр: чип Obscura обязан выглядеть облачным и тогда, когда на борде лежит волна 01,
-   иначе превью врёт — показывает ступеньку соседней волны вместо своего края. Селектор
-   цепляется за `[data-chip-wave]`, который переключатель ставит по ключу волны, поэтому
-   правило бьёт только по чипу этой волны и никогда — по борду.
+/* Wave 02's chip in the switcher (DESIGN §2.6). ⚠️ The ONLY block in this file WITHOUT a
+   `:root[data-wave="wave-02"]` wrapper, and not by oversight: Obscura's chip must look cloudy even when
+   wave 01 is on the board, or the preview shows the neighbour's step instead of its own edge. */
 
-   Тот же выбор, что и для края плитки (путь 2 «нарисовать свой край», врез в wave-01.css):
-   гасим ступенчатый силуэт и рисуем миниатюру Obscura — белая скруглённая карта на небе.
-   Цвета приходят `--chip-*` из токенов волны, здесь только форма. */
+/* The same choice as for the tile edge (path 2, "draw your own", in wave-01.css): the stepped silhouette
+   is hidden and an Obscura miniature drawn instead — a white rounded card on sky. Colours arrive as
+   `--chip-*` from the wave's tokens; only the shape lives here. */
 .wave-chip[data-chip-wave="wave-02"] .wave-chip__slab,
 .wave-chip[data-chip-wave="wave-02"] .wave-chip__face {
   clip-path: none;
   border-radius: var(--chip-radius);
 }
-/* Верхняя карта у Obscura — само НЕБО (--chip-bg), а не глиняная плашка-линия: у облачных
-   карт нет обводки-канта, край держат радиус и тень. Без этой строки чип оставался серым —
-   заливкой служил --chip-line (у волны 02 это полупрозрачный графит), а небо не проступало
-   нигде, потому что ::after ниже занят облачной карточкой. */
+/* Obscura's upper card is the SKY itself (`--chip-bg`) rather than a clay line plate: cloud cards have no
+   outline, their edge held by radius and shadow. Without this line the chip stayed grey — the fill was
+   `--chip-line`, and the sky showed nowhere, `::after` below being taken by the cloud card. */
 .wave-chip[data-chip-wave="wave-02"] .wave-chip__face {
-  /* Не плоская заливка, а само небо волны — тот же градиент, что у `body` выше. На свотче
-     в 34px разницы не было; на карте во всю плитку (борд PRIME, §2.6) плоский цвет читается
-     пустой картонкой, а холст — узнаётся. */
+  /* Not a flat fill but the wave's actual sky — the same gradient as `body` above. On a 34px swatch there
+     was no difference; on a full-tile card (PRIME's board, DESIGN §2.6) a flat colour reads as an empty
+     piece of cardboard, while the canvas is recognised. */
   background-color: var(--chip-bg);
   background-image: radial-gradient(120% 85% at 50% -8%, #ffffff 0%, rgba(255, 255, 255, 0) 58%),
     linear-gradient(180deg, #eef6ff 0%, #e3f1fe 52%, #dcebfb 100%);
 }
-/* Кант ступеньки волне 02 не нужен — край держат радиус и тень, а не обводка: гасим
-   вложенный слой заливки, карточка остаётся ОДНИМ прямоугольником. Вложенная белая карта
-   («миниатюра борда») здесь пробовалась и снята — вместе с мини-бордом волны 01 она давала
-   «картинку в картинке» в три уровня (замечание владельца). */
+/* Wave 02 needs no step border — its edge is held by radius and shadow, not an outline — so the inset fill
+   layer is hidden and the card stays ONE rectangle. Rejected: a nested white card ("a board miniature") —
+   together with wave 01's mini-board it gave a picture inside a picture three levels deep. */
 .wave-chip[data-chip-wave="wave-02"] .wave-chip__face::after {
   display: none;
 }
 
-/* Ховер волны 02 — НЕ физический подъём (как в волне 01), а аркадная «подсветка выбора»:
-   оранжевое пиксель-кольцо вокруг карты (Obscura orange-ring), без сдвига. Кольцо — box-shadow
-   spread (повторяет скруглённый угол), не меняет поток (нет наезда на соседей). */
-/* Жест объявляется токенами (контракт — во врезе у `.pixel-tile` в wave-01.css): подъёма и
-   смены тени у Obscura нет, поэтому все четыре — нейтральные. Прежде эти же строки стояли
-   внутри `:hover` и гасили чужой жест вручную; разница в том, что теперь волне не нужно
-   знать, чем именно поднята плитка. */
+/* Wave 02's hover is NOT a physical lift as in wave 01 but an arcade "selection glow": an orange pixel
+   ring around the card, with no displacement. The ring is a `box-shadow` spread, so it follows the rounded
+   corner and does not change the flow or crowd its neighbours. */
+
+/* The gesture is declared in tokens (the contract is in the note at `.pixel-tile` in wave-01.css): Obscura
+   has neither lift nor shadow change, so all four are neutral. These same lines used to sit inside
+   `:hover` and cancel the other gesture by hand; now the wave need not know what raised the tile. */
 :root[data-wave="wave-02"] .pixel-tile {
   --tile-hover-top: auto;
   --tile-press-top: auto;
@@ -210,16 +197,15 @@
   }
 }
 
-/* Метки-подписи тайлов («волны», «свежесть», …) во 2-й волне НЕ показываем — это
-   «параметр волны» (скин решает): персиковая дашбордная мета убрана, основной контент
-   виджета растягивается на освободившееся место. Различие с волной 01 заметнее. */
+/* Tile meta captions are NOT shown on wave 02 — a "wave parameter" the skin decides: the peach dashboard
+   meta is removed and the widget's main content stretches into the space, which makes the difference from
+   wave 01 more visible. */
 :root[data-wave="wave-02"] .tile-label {
   display: none;
 }
-/* Исключение: строка ярлыка календаря несёт ЛИСТАНИЕ недель (§5.3), а это навигация, а не
-   подпись — спрятав её вместе с мета-ярлыками, скин отобрал бы у Obscura доступ к истории.
-   Возвращается только ряд управления; сама подпись («календарь» / имя месяца / линза)
-   остаётся скрытой, как и все мета-ярлыки волны. */
+/* Exception: the calendar's label row carries WEEK PAGING (PRD §5.3), which is navigation rather than a
+   caption — hiding it with the meta labels would take Obscura's access to history away. Only the control
+   row returns; the caption itself (the word, the month name, the lens) stays hidden like every meta label. */
 :root[data-wave="wave-02"] .tile-label:has(.cal-nav) {
   display: flex;
   justify-content: flex-end;
@@ -228,14 +214,13 @@
   display: none;
 }
 
-/* Пиксельный «голос» аркады остаётся на бренде (identity) и на ИМЕНИ дня (не данные/цифры):
-   имя дня берёт --font-display прямо в TodayTile (кегль общий с датой), отдельный
-   оверрайд скину больше не нужен. */
+/* The arcade's pixel "voice" stays on the brand identity and on the DAY'S NAME (not on data or figures):
+   the day name takes `--font-display` directly in TodayTile, at the same size as the date, so the skin
+   needs no override of its own. */
 
-/* ── Карта-тропа дисциплины в небе Obscura (QuestMap; структура — common.css) ──────────
-   Геометрия и логика те же, что в волне 01 — меняется только «кожа»: остановки встают
-   на пиксель-облака, флажки уступают солнцу и луне (утро → ночь), под подписями
-   появляются дроби прогресса, сделанное светится аркадным оранжевым кольцом. */
+/* The discipline trail map in Obscura's sky (QuestMap; the structure is in common.css). Geometry and logic
+   are wave 01's — only the skin changes: stops stand on pixel clouds, flags give way to a sun and a moon,
+   progress fractions appear under the captions, and what is done glows in an arcade orange ring. */
 :root[data-wave="wave-02"] .quest-flag {
   display: none;
 }
@@ -245,7 +230,7 @@
   display: inline;
 }
 
-/* облака-подставки: белое тело + сине-тонированная нижняя грань (в тон плывущим облакам фона) */
+/* stop clouds: a white body with a blue-tinted lower face, matching the drifting background clouds */
 :root[data-wave="wave-02"] .quest-cloud__body {
   color: #f4faff;
 }
@@ -253,7 +238,7 @@
   color: #cbe1f6;
 }
 
-/* небо маршрута: пиксель-солнце утром, луна со звёздами ночью */
+/* the route's sky: a pixel sun in the morning, a moon with stars at night */
 :root[data-wave="wave-02"] .quest-sun,
 :root[data-wave="wave-02"] .quest-star {
   color: #f2b93b;
@@ -262,87 +247,73 @@
   color: #ecd28e;
 }
 
-/* сделанная остановка — «выбор в аркаде»: светлое кольцо + оранжевое свечение (токен волны) */
+/* a completed stop as an "arcade selection": a light ring plus an orange glow (the wave's token) */
 :root[data-wave="wave-02"] .quest-stop--done circle {
   stroke: color-mix(in srgb, var(--accent) 40%, #ffffff);
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
 }
-/* ещё не пройденное — пунктирное пиксель-кольцо (как контуры в макете аркады) */
+/* not yet done — a dashed pixel ring, like the outlines in the arcade mock-up */
 :root[data-wave="wave-02"] .quest-stop--pending circle {
   stroke-dasharray: 2.5 3;
 }
 
-/* тропа — квадратные пиксель-стежки вместо круглых точек волны 01 */
+/* the trail — square pixel stitches instead of wave 01's round dots */
 :root[data-wave="wave-02"] .quest-seg path {
   stroke-dasharray: 2.5 3.5;
   stroke-linecap: butt;
 }
 
-/* подписи — моно-капс аркадного табло; итог дня — сигнальный оранжевый */
+/* captions — the mono caps of an arcade scoreboard; the day's total in signal orange */
 :root[data-wave="wave-02"] .quest-label {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 9px;
 }
 
-/* ══════════ МУЗЫКА: ОБЛОЖКА ПОД ОБЛАКОМ (DESIGN §7.5, §10.2) ══════════
- * Под играющий трек виджет перестаёт быть облачной бумагой с текстом и становится КАДРОМ:
- * обложка альбома во всю карту, а поверх неё — то самое облако, которым живёт вся волна.
- * От Obscura остаётся ровно её примета: тонкий кант, крупный радиус и сине-тонированная
- * многослойная тень. Обложка приезжает переменной `--music-cover` (её ставит [MusicTile]),
- * рисует её общий шов `.music-art` — в базе он выключен.
- *
- * ⚠️ НЕСУЩЕЕ ОГРАНИЧЕНИЕ: обложка приходит какая угодно — белая, чёрная, кислотная, с текстом
- * поперёк, — и чернила волны обязаны читаться на любой. Первый заход клал пелену на текстовый
- * блок, и он же показал, чего это стоит: блок ростом не во всю карту, поэтому под верхними
- * строками пелены не оказывалось вовсе, и «сейчас играет» лежало прямо на кадре.
- *
- * Поэтому облако висит на СЛОЕ ОБЛОЖКИ (`.music-art::after`), а не на тексте: слой прибит к
- * карте по `inset: 0`, его размер не зависит ни от числа строк, ни от кегля волны. Под
- * чернилами всегда три вещи сразу, и каждая закрывает дыру предыдущей:
- *   1) `backdrop-filter: blur` — сбивает рисунок, иначе буква гибнет на контрастной границе
- *      обложки даже под плотной пеленой;
- *   2) `saturate` вниз — гасит кислотные обложки, спорящие с текстом цветом, а не светлотой;
- *   3) белая пелена до 0.95 — задаёт саму светлоту фона под строками.
- * Одного блюра мало (чёрная обложка останется чёрной), одной пелены мало (сквозь неё лезет
- * рисунок).
- *
- * ⚠️ Блюру есть что размывать не вопреки правилу Backdrop Root, а благодаря ему: `.music-art`
- * несёт `filter`, значит она сама и есть backdrop root, и `backdrop-filter` внутри берёт
- * содержимое слоя — то есть обложку. Тот же приём, что у ленты в картах переключателя
- * (`docs/pitfalls.md`).
- *
- * Режим `recent` не трогаем: обложки у списка нет, кадру взяться неоткуда.
- */
+/* MUSIC: THE COVER UNDER A CLOUD (DESIGN §7.5, §10.2). Under a playing track the widget stops being cloud
+ * paper with text and becomes a FRAME: the album cover fills the card, with the wave's own cloud over it.
+ * All that is left of Obscura is its mark — a thin border, a large radius and a blue-tinted shadow. */
+
+/* ⚠️ LOAD-BEARING CONSTRAINT: a cover can be anything — white, black, acid, with text across it — and the
+ * wave's ink has to read on all of them. Rejected: a veil over the TEXT BLOCK — the block is not the card's
+ * full height, so under the upper lines there was no veil at all and "now playing" lay on the photograph. */
+
+/* So the cloud hangs on the COVER LAYER (`.music-art::after`), not on the text: that layer is pinned by
+ * `inset: 0` and its size depends on neither line count nor type size. Three things always sit under the
+ * ink, each closing the previous one's gap — blur, `saturate` down, and a white veil to 0.95. */
+
+/* Blur alone is not enough (a black cover stays black) and veil alone is not enough (the picture shows
+ * through). ⚠️ The blur has something to blur because of the Backdrop Root rule, not despite it:
+ * `.music-art` carries a `filter`, so `backdrop-filter` inside takes the layer's own content, the cover. */
+
+/* `recent` mode is untouched: the list has no cover, so there is no frame to make. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .music-art,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .music-art {
   display: block;
   background-image: var(--music-cover, none);
-  /* Слой обложки — САМ квадрат, прибитый к верху кадра во всю его ширину, а не вписанная
-     в кадр картинка. Так «ширина кадра» и «ширина картинки» — одно и то же число при любой
-     геометрии сетки: полос по краям не бывает по построению. Раньше слой лежал во всю плитку
-     с `contain`, и обложка вписывалась в неё, оставляя по краям пятипиксельные поля — плитка
-     под квадрат подобрана целыми треками и точным квадратом не бывает (замечание владельца).
-     Под квадратом остаётся полоса, где живёт текст. */
+  /* The cover layer is the SQUARE itself, pinned to the top of the frame across its full width, rather than
+     a picture fitted inside the frame. That way "frame width" and "picture width" are one number at any grid
+     geometry, and there can be no strips at the edges by construction. */
+
+  /* Previously the layer covered the whole tile with `contain` and the cover fitted into it, leaving
+     five-pixel margins: a tile is sized in whole tracks and is never exactly square. Under the square there
+     remains a strip where the text lives. */
   inset: 0 0 auto 0;
   aspect-ratio: 1;
-  /* `cover` при квадратном слое равен `contain` — картинка не кадрируется, — но не оставляет
-     субпиксельной каймы на дробной ширине. */
+  /* With a square layer `cover` equals `contain` — the picture is not cropped — but it leaves no subpixel
+     fringe at a fractional width. */
   background-size: cover;
-  /* Приглушение минимальное — кадр остаётся почти собой. `filter` тут стоит ещё и по делу:
-     он делает слой backdrop root, без чего блюру облака нечего было бы размывать (врез
-     выше). */
+  /* Minimal muting: the frame stays almost itself. The `filter` is also here on purpose — it makes the layer
+     a backdrop root, without which the cloud's blur would have nothing to blur (see the note above). */
   filter: saturate(0.97);
 }
-/* Заливка полей: та же обложка, кадрированная и размытая до цветового пятна. Поля получаются
-   её собственного цвета — кадр читается цельным, а не наклеенным на карту. Масштаб чуть
-   больше единицы: блюр съедает края слоя, и без запаса по контуру шла светлая кайма. */
-/* ⚠️ Слой заливки (`.music-art-fill`) эта волна БОЛЬШЕ НЕ ВКЛЮЧАЕТ, и это не потеря, а
-   следствие. Он существовал ровно ради полей, которые оставляла вписанная в плитку обложка:
-   размытая копия закрывала их её же цветом. Теперь слой обложки сам квадратный, полей нет
-   вовсе, и заливка красила бы только полосу под квадратом — ту самую, куда лёг текст. Текст
-   на размытой обложке нечитаем при светлой картинке (та же беда, из-за которой над кадром
-   висит облако), а полоса фона карты под ним чиста по построению. */
+/* ⚠️ This wave NO LONGER switches on the fill layer (`.music-art-fill`), and that is a consequence rather
+   than a loss. It existed purely for the margins a fitted cover left, closing them with a blurred copy in
+   the cover's own colour. */
+
+/* Now the cover layer is square, there are no margins at all, and the fill would paint only the strip under
+   the square — the very strip the text lies in. Text on a blurred cover is unreadable against a light
+   picture, while the card's ground there is clean by construction. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .music-art::after,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .music-art::after {
   content: "";
@@ -350,11 +321,12 @@
   inset: 0;
   -webkit-backdrop-filter: blur(16px) saturate(0.7);
   backdrop-filter: blur(16px) saturate(0.7);
-  /* Полоса облака узкая: под текстом ровно столько пелены, сколько нужно строкам, а выше —
-     чистый кадр. Числа считаны от содержимого этого режима (три строки: состояние,
-     название, исполнитель) — шкалы головки здесь нет, и полоса ужалась вместе с ней.
-     Максимум кадра — это про площадь, а не про прозрачность: под самими строками пелена
-     остаётся глухой, иначе обложка сожрала бы чернила. */
+  /* The cloud band is narrow: under the text there is exactly as much veil as the lines need, and above it
+     clean frame. The numbers come from this mode's content (three lines: status, title, artist) — there is
+     no playhead scale here, and the band shrank with it. */
+
+  /* The frame's maximum is about area, not transparency: under the lines themselves the veil stays opaque,
+     or the cover would eat the ink. */
   background: linear-gradient(
     to top,
     rgba(255, 255, 255, 0.96) 0%,
@@ -362,37 +334,33 @@
     rgba(255, 255, 255, 0.55) 50%,
     rgba(255, 255, 255, 0) 70%
   );
-  /* Маска у блюра своя и НЕ равна градиенту: пелена сходит на нет плавно, а размытие
-     обязано кончиться раньше — иначе верх кадра читался бы просто расфокусированным. */
+  /* The blur has its own mask, NOT equal to the gradient: the veil fades out gradually while the blur has to
+     end sooner, or the top of the frame would simply read as out of focus. */
   -webkit-mask-image: linear-gradient(to top, #000 0%, #000 32%, transparent 64%);
   mask-image: linear-gradient(to top, #000 0%, #000 32%, transparent 64%);
 }
 
-/* Карта отдаёт свою заливку кадру, но кант, радиус и тень — на месте: это и есть «видна
-   только характерная рамка». Ширина фиксируется по ячейке: кадр не должен ездить от длины
-   названия трека (см. `--music-card-w` в common.css). Заливка под кадром приглушённая, а не
-   белая: пока обложка не приехала, карта не мигает белым прямоугольником. */
+/* The card gives its fill to the frame, but border, radius and shadow stay: that is what "only the
+   characteristic frame shows" means. The width is fixed to the cell so the frame does not travel with a
+   track title's length, and the fill under it is muted so no white rectangle flashes before the cover. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .pixel-tile,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .pixel-tile {
   width: 100%;
-  /* Полоса под квадратом обложки — БЕЛАЯ, в цвет глухого конца облака над картинкой
-     (`rgba(255,255,255,0.96)`). Прежняя приглушённая заливка карты давала на стыке видимую
-     ступеньку: белая пелена обрывалась на границе квадрата, а под ней шла голубоватая
-     подложка. Совпадение цветов делает полосу продолжением облака, а не второй плашкой.
-     В списке недавних кадра нет, и там карта остаётся заливкой волны (правило ниже). */
+  /* The strip under the cover square is WHITE, matching the opaque end of the cloud over the picture. The
+     card's former muted fill gave a visible step at the joint, so matching the colours makes the strip a
+     continuation of the cloud rather than a second plate. In the recents list the card keeps the wave's fill. */
   background: #ffffff;
 }
 
-/* Текст прижат к низу — в полосу под квадратом обложки; сверху остаётся чистая картинка. */
+/* The text is pinned to the bottom, into the strip under the cover square; above it the picture stays clean. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .music-body,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .music-body {
   justify-content: flex-end;
 }
 
-/* Кадру хватает трёх строк: название, исполнитель, шкала. Альбом обложка уже назвала — она
-   и есть его лицо; плейлист на кадре лишний. Строки не просто лишние, а вредные: каждая
-   поднимает текстовый блок выше по карте, съедая ту самую чистую полосу обложки, ради
-   которой всё затевалось. Марка обложки в углу текста по той же причине уходит целиком. */
+/* Three lines are enough for the frame: title, artist, scale. The cover has already named the album — it is
+   its face — and a playlist on a frame is surplus. The extra lines are not merely surplus but harmful: each
+   raises the text block up the card, eating the clean strip of cover the whole thing was done for. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .np-album,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .np-album,
 :root[data-wave="wave-02"] [data-music-mode="playing"] .music-source,
@@ -404,53 +372,45 @@
   display: none;
 }
 
-/* …а кликать по обложке по-прежнему можно: ссылка ложится на САМ кадр. Низ оставлен тексту —
-   там свои ссылки (название, исполнитель), и накрыть их значило бы их отобрать. Граница зоны
-   совпадает с той, где облако уже глухое, поэтому «картинка» и «место клика» — одно и то же
-   на глаз. */
+/* …and the cover is still clickable: the link lies on the FRAME itself. The bottom is left to the text,
+   which has links of its own (title, artist), and covering them would take them away. The zone's boundary
+   coincides with where the cloud is already opaque, so "picture" and "click target" look like one thing. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .music-art-link,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .music-art-link {
   display: block;
-  /* Зона клика повторяет слой обложки: «картинка» и «место клика» совпадают буквально, а не
-     на глаз долей высоты, как было при обложке во всю плитку. Полоса текста под квадратом
-     остаётся тексту — там свои ссылки, и накрыть их значило бы их отобрать. */
+  /* The click zone repeats the cover layer, so "picture" and "click target" coincide literally rather than
+     by a guessed fraction of the height, as they did when the cover filled the whole tile. */
   inset: 0 0 auto 0;
   aspect-ratio: 1;
 }
 
-/* Знак сервиса: на белом облаке он обязан быть тёмным — зелёный по гайдлайну живёт только
-   на чистом чёрном или белом, а тут под ним пелена. Дуги — в цвет облака. */
-/* Знак включён на ВСЕЙ плитке, а не только под играющим треком: атрибуция сервиса не зависит
-   от того, играет ли что-то, и в списке недавних знак ровно так же обязателен. Тёмный он и
-   на кадре, и на карточке списка — зелёный по гайдлайну живёт только на чистом чёрном или
-   белом, а тут под ним пелена облака (на кадре) и приглушённая заливка карты (в списке). */
+/* The service mark is switched on across the WHOLE tile, not only under a playing track: attribution does
+   not depend on whether anything is playing, and the recents list needs it just as much. */
+
+/* It is dark in both places — on the frame and on a list card — because the green logo may by the guidelines
+   live only on pure black or white, and here it sits over the cloud's veil or the card's muted fill. The
+   arcs take the cloud's colour. */
 :root[data-wave="wave-02"] .t-music-vars .spotify-mark {
   display: block;
   color: #121212;
   --spotify-mark-hole: #ffffff;
 }
 
-/* Шкалы головки на этой волне НЕТ, и это решение, а не пропуск. Шов включает волна, и
-   Obscura его не включает: каждая строка на кадре — это отнятая у обложки полоса, а «сколько
-   осталось до конца трека» кадру не нужно. Спрашивать это ходят в PRIME, где виджет и есть
-   плеер. Здесь виджет — обложка. */
+/* This wave has NO playhead scale, and that is a decision rather than an omission. The wave switches the seam
+   on and Obscura does not: every line on the frame is a strip taken from the cover, and a frame does not need
+   "how long is left". That question is asked on PRIME, where the widget IS a player; here it is a cover. */
 
-/* ── Кадра нет: обложка не приехала (DESIGN §7.1, §10.2) ───────────────────────────────
- * Виджет этой волны — не плитка с картинкой, а САМА картинка: квадрат под квадратную обложку,
- * от которого на виду остаётся только характерная рамка да облако с текстом внизу. Когда CDN
- * обложку не отдал (или её нет вовсе — например, показывается список недавних), от квадрата
- * остаётся пустой квадрат, и держать под него девять строк сетки не за что.
- *
- * Поэтому карточка сжимается **по вертикали к своему содержимому** — тем же приёмом, каким она
- * уже сжимается по горизонтали (§7.1): высоту считает компонент и отдаёт переменной
- * `--music-card-h`, а волна решает, брать её или нет. Волне 01 вертикальное сжатие не нужно, и
- * она переменную не читает — карточка там как была во всю ячейку.
- *
- * Ячейку карточка не покидает: обёртка становится колонкой и центрирует её в оставшемся месте —
- * ровно как `margin-inline: auto` центрирует сжатую по ширине. Рассмотрено и отклонено: прижать
- * к низу ячейки. Прижатая карточка висела бы над пустотой соседних плиток и читалась бы
- * съехавшей, а не компактной.
- */
+/* NO FRAME: THE COVER DID NOT ARRIVE (DESIGN §7.1, §10.2). This wave's widget is not a tile with a picture
+ * but the PICTURE ITSELF. When the CDN serves no cover (or there is none, as in the recents list), all that
+ * is left is an empty square, and nothing justifies holding nine grid rows for it. */
+
+/* So the card shrinks VERTICALLY to its content, by the same device it already shrinks horizontally
+ * (DESIGN §7.1): the component computes the height and hands it over in `--music-card-h`, and the wave
+ * decides whether to take it. Wave 01 does not need vertical shrink and does not read the variable. */
+
+/* The card does not leave its cell: the wrapper becomes a column and centres it in the remaining space,
+ * exactly as `margin-inline: auto` centres one shrunk by width. Rejected: pinning it to the bottom of the
+ * cell — a pinned card would hang over the emptiness of its neighbours and read as slipped, not compact. */
 :root[data-wave="wave-02"] .t-music-vars {
   display: flex;
   flex-direction: column;
@@ -460,48 +420,41 @@
   height: var(--music-card-h, 100%);
 }
 
-/* ⚠️ А вот с ПРИЕХАВШЕЙ обложкой карточка обязана остаться во всю ячейку: здесь виджет и есть
-   картинка, и рост по тексту оставил бы от кадра полоску с подписью — ровно то, от чего эта
-   волна и уходила. Общее сжатие под играющий трек (common.css) поэтому отклоняем параметром,
-   а не боремся с ним: `--music-fit-h` перебивает рост по содержимому, не трогая правило базы. */
+/* ⚠️ With the cover PRESENT the card must stay full-cell: here the widget IS the picture, and growing to the
+   text would leave a strip with a caption instead of a frame. The shared shrink for a playing track
+   (common.css) is declined by parameter rather than fought — `--music-fit-h` overrides it. */
 :root[data-wave="wave-02"] .t-music-vars[data-music-art="ok"] {
   --music-fit-h: 100%;
 }
 
 
 
-/* Запасная плашка Spotify (§7.1) здесь не нужна: на этой волне обложка — фон кадра, а не
-   марка в углу текста, и марку волна гасит вместе с `img`. Показать вместо неё цветной
-   квадрат значило бы вернуть ту самую картинку, из-за отсутствия которой кадр и сжался. */
+/* The fallback Spotify plate (DESIGN §7.1) is of no use here: on this wave the cover is the frame's ground
+   rather than a mark in the corner of the text, and the wave hides the mark along with the `img`. Showing a
+   coloured square instead would put back the very picture whose absence shrank the frame. */
 :root[data-wave="wave-02"] [data-music-mode="playing"] .cover-plate,
 :root[data-wave="wave-02"] [data-music-mode="paused"] .cover-plate {
   display: none;
 }
 
-/* ⚠️ Ссылка по всему кадру снимается вместе с кадром. Она лежит на верхних 66% карточки, и на
-   сжатой карточке эти 66% — уже не «картинка», а название с исполнителем: невидимый слой
-   перехватывал бы клики у их собственных ссылок. Открыть трек по-прежнему можно — с названия. */
+/* ⚠️ The full-frame link goes with the frame. It lies over the card's upper 66%, and on a shrunk card those
+   66% are no longer "the picture" but the title and artist: an invisible layer would intercept clicks from
+   their own links. The track can still be opened — from its title. */
 :root[data-wave="wave-02"] [data-music-art="missing"] .music-art-link {
   display: none;
 }
 
-/* ── Кадр в мобильном стеке: карточка несёт СВОЮ высоту (DESIGN §8, §10.2) ─────────────
- * Тот же контракт, что у `.quest-map` и соседей в common.css, только материал здесь —
- * волны. Обложка на этой волне лежит АБСОЛЮТНЫМ квадратом (`.music-art`, inset-0-auto-0
- * + aspect-ratio), то есть карточку по высоте не распирает вовсе: в бенто рост даёт плитка,
- * а в стеке — никто, и от кадра оставалась горизонтальная полоска в три строки текста с
- * верхней шапкой обложки под ней (замер: карточка 358×102 при обложке 356×356; замечание
- * владельца с телефона — «виджет спотифая горизонтальный, не очень»).
- *
- * Квадрат — не подгонка под телефон, а собственная форма виджета этой волны: он и есть
- * обложка. `aspect-ratio` берётся ровно там, где высоты нет (в бенто высота определена и
- * правило до неё не доходит — оно под `.board-stack`), поэтому бенто не трогает.
- *
- * ⚠️ Только когда обложка ЕСТЬ (`[data-music-art="ok"]`). Нет картинки — нет и квадрата:
- * пустой квадрат в пол-экрана хуже полоски. Там карточка остаётся сжатой к содержимому
- * (правило `--music-card-h` выше) — то есть компактной горизонтальной, чего владелец и
- * просил. Список недавних сюда не попадает по построению: обложки у него нет.
- */
+/* THE FRAME IN THE MOBILE STACK: THE CARD CARRIES ITS OWN HEIGHT (DESIGN §8, §10.2). The same contract as
+ * `.quest-map` and its neighbours in common.css. The cover lies as an ABSOLUTE square and does not stretch
+ * the card at all: in bento the tile supplies height, in the stack nobody does, and the frame became a strip. */
+
+/* The square is not a phone adjustment but this widget's own shape — it IS the cover. `aspect-ratio` is taken
+ * exactly where there is no height (in bento the height is definite and the rule, scoped to `.board-stack`,
+ * never reaches it), so bento is untouched. */
+
+/* ⚠️ Only when the cover EXISTS (`[data-music-art="ok"]`). No picture, no square: an empty half-screen square
+ * is worse than a strip. There the card stays shrunk to its content by the `--music-card-h` rule above, i.e.
+ * compact and horizontal. The recents list never reaches here by construction — it has no cover. */
 :root[data-wave="wave-02"] .board-stack [data-music-mode="playing"][data-music-art="ok"] .music-card,
 :root[data-wave="wave-02"] .board-stack [data-music-mode="paused"][data-music-art="ok"] .music-card {
   aspect-ratio: 1;

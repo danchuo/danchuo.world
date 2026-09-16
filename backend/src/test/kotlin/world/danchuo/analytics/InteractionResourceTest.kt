@@ -8,8 +8,8 @@ import org.hamcrest.Matchers.greaterThanOrEqualTo
 import org.junit.jupiter.api.Test
 
 /**
- * Сбор кликов хитмапы (PRD §5.11, B2): публичный батч-POST без токена; приватная хитмапа за
- * bearer, потайловый агрегат. Cookieless, боты исключены. (Требует Docker — Dev Services Postgres.)
+ * Heatmap click collection (PRD §5.11): public batch POST with no token, private per-tile
+ * heatmap behind the bearer, cookieless, bots excluded. Needs Docker — Dev Services Postgres.
  */
 @QuarkusTest
 class InteractionResourceTest {
@@ -35,11 +35,11 @@ class InteractionResourceTest {
             .post("/api/analytics/interactions")
             .then().statusCode(204)
 
-        // Приватная хитмапа под api/ingest ⇒ без токена 401.
+        // The private heatmap sits under api/ingest ⇒ 401 without a token.
         given().get("/api/ingest/analytics/heatmap")
             .then().statusCode(401)
 
-        // С токеном — потайловый агрегат для нашей страницы.
+        // With the token: the per-tile aggregate for our page.
         given().auth().oauth2(token)
             .get("/api/ingest/analytics/heatmap?path=/heatmap-test")
             .then().statusCode(200)
@@ -59,7 +59,7 @@ class InteractionResourceTest {
 
     @Test
     fun `empty or coordinateless clicks are tolerated`() {
-        // Пустой батч — приём ок (204), просто ничего не пишем.
+        // An empty batch is accepted (204); we simply write nothing.
         given().contentType(ContentType.JSON)
             .header("Accept-Language", "en")
             .header("User-Agent", chrome)

@@ -1,15 +1,10 @@
 /**
- * Случайная выборка со СТАБИЛЬНЫМ зерном (DESIGN §7.5).
- *
- * Плитка дропа показывает случайные кадры и рендерится дважды на загрузку: сначала копией из
- * кэша (stale-while-revalidate), потом ответом сети — те же кадры, но новый массив. Жребий на
- * каждый массив давал два разных выбора, и снимок на глазах менялся дважды (замечание
- * владельца на волне 03, где кадр один и крупный). Зерно берётся один раз на монтирование,
- * а выбор из него детерминирован: одинаковый список ⇒ одинаковая выборка, новая загрузка
- * страницы ⇒ новое зерно ⇒ новый жребий.
+ * Random sampling with a STABLE seed. The drop tile renders twice per load — a cached copy, then
+ * the network answer with the same frames in a new array — and drawing lots per array changed the
+ * photo twice before the viewer's eyes. The seed is taken once per mount. DESIGN §7.5
  */
 
-/* mulberry32 — маленький детерминированный генератор; качества «для жребия» хватает с запасом. */
+/* mulberry32 — a small deterministic generator; more than good enough for drawing lots. */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -21,7 +16,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** [count] случайных элементов [items] по зерну [seed] ∈ [0, 1) (перемешивание Фишера–Йетса копии). */
+/** [count] random items of [items] by the seed ∈ [0, 1) (a Fisher–Yates shuffle of a copy). */
 export function pickSeeded<T>(items: readonly T[], count: number, seed: number): T[] {
   const rnd = mulberry32(Math.floor(seed * 4294967296));
   const copy = [...items];

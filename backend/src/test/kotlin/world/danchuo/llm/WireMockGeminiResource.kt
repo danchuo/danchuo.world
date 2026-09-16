@@ -10,8 +10,7 @@ import io.quarkus.test.common.QuarkusTestResourceLifecycleManager
 /**
  * Stands in for Google's Generative Language API so the real [GeminiLlmClient] HTTP/JSON path is
  * exercised without spending quota (sibling of [WireMockGroqResource]). Gemini puts the model in
- * the path and separates it from the verb with a colon — `/v1beta/models/{model}:generateContent`
- * — so the stub matches by pattern rather than an exact path.
+ * the path and separates it from the verb with a colon, so the stub matches by pattern.
  */
 class WireMockGeminiResource : QuarkusTestResourceLifecycleManager {
 

@@ -21,18 +21,18 @@ dependencies {
     implementation("io.quarkus:quarkus-rest-jackson")
     implementation("io.quarkus:quarkus-kotlin")
 
-    // Исходящий HTTP к внешним API (Spotify Web API + accounts OAuth, PRD §M3).
-    // Живёт только в слайсе spotify — ядро внешних источников не знает.
+    // Outgoing HTTP to external APIs (Spotify Web API plus accounts OAuth, PRD §M3).
+    // Lives only in the spotify slice — the core knows nothing of external sources.
     implementation("io.quarkus:quarkus-rest-client-jackson")
 
-    // Постоянство: Hibernate ORM Panache (Kotlin) + PostgreSQL
+    // Persistence: Hibernate ORM Panache (Kotlin) plus PostgreSQL
     implementation("io.quarkus:quarkus-hibernate-orm-panache-kotlin")
     implementation("io.quarkus:quarkus-jdbc-postgresql")
 
-    // Миграции схемы — Liquibase (вместо Flyway)
+    // Schema migrations are Liquibase (which replaced Flyway)
     implementation("io.quarkus:quarkus-liquibase")
 
-    // In-process кэш (Caffeine) — Redis сознательно не нужен в v1 (PRD §8)
+    // In-process cache (Caffeine) — Redis is deliberately unnecessary in v1 (PRD §8)
     implementation("io.quarkus:quarkus-cache")
 
     implementation("io.quarkus:quarkus-arc")
@@ -45,24 +45,23 @@ dependencies {
     // (java.awt), which native-image can't compile without this extension. No-op in JVM mode.
     implementation("io.quarkus:quarkus-awt")
 
-    // Планировщик (@Scheduled) — фоновый поллинг истории поездок Велобайка (слайс bike).
-    // Живёт только в слайсе bike; ядро о нём не знает.
+    // The scheduler (@Scheduled) polls Velobike's ride history in the background.
+    // Lives only in the bike slice; the core knows nothing of it.
     implementation("io.quarkus:quarkus-scheduler")
 
-    // EXIF-ориентация фото-дропов (B1, слайс film): телефонные JPEG несут поворот в EXIF,
-    // ImageIO его не применяет — читаем тег и доворачиваем при ресайзе. Лёгкая зависимость,
-    // живёт только в слайсе film (ядро о ней не знает).
+    // EXIF orientation for photo drops (the film slice): phone JPEGs carry rotation in EXIF and
+    // ImageIO does not apply it, so we read the tag and rotate while resizing. A light dependency
+    // living only in the film slice.
     implementation("com.drewnoakes:metadata-extractor:2.19.0")
 
-    // Чтение полки Anx Reader (PRD §5.16, слайс reading): читалка синкает по WebDAV свою
-    // SQLite-базу целиком, и статистика чтения живёт только внутри неё. Драйвер нужен ровно
-    // для этого одного файла — в JDBC-датасорсы Quarkus не подключается, слайс открывает его
-    // сам, read-only. Живёт только в слайсе reading; ядро о нём не знает.
+    // Reading the Anx Reader shelf (PRD §5.16): the reader syncs its whole SQLite over WebDAV and
+    // all reading statistics live inside it. The driver is for that one file only — it is not
+    // wired into Quarkus datasources; the slice opens it itself, read-only.
     implementation("org.xerial:sqlite-jdbc:3.51.0.0")
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
-    // Десериализация Kotlin-DTO в чистых юнит-тестах (рантайм-модуль quarkus не виден компилятору теста).
+    // Deserialising Kotlin DTOs in pure unit tests (Quarkus's runtime module is invisible there).
     testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     // Stub for Groq's OpenAI-compatible API in llm-slice tests — exercises the real HTTP/JSON
     // path of GroqLlmClient without spending tokens (same approach as proxemics).
@@ -70,29 +69,22 @@ dependencies {
 }
 
 group = "world.danchuo"
-// M3: бэк и фронт получили рабочие версии — версии разведены (CLAUDE.md §версионирование).
-// 1.1.0 — окно ручного ввода дня (ingest-window) + фикс варнингов docker-сборок.
-// 1.2.0 — слайс llm: клиент внешней LLM (Groq, текст + vision) за интерфейсом LlmClient.
-// 1.3.0 — B9: LLM-валидация/автоисправление поворота кадров фото-дропов (слайс film).
-// 1.4.0 — удаление одного кадра дропа (админка) + лимит выдачи GET /api/rides (67 последних).
-// 1.4.2 — GET /api/rides отдаёт поездки текущего года (фолбэк — последняя, если года пустой); лимит 67 снят.
-// 1.7.1 — сон в 0 минут при ingest'е нормализуется в «сна не было» (null + null-фазы).
-// 1.7.2 — перекомпоновка layout волны 02 «Obscura» (миграция 0170, данные): «аркадный автомат в небе».
-version = "1.26.4"
+// Backend and frontend carry independent versions (CLAUDE.md, "Versioning").
+version = "1.26.5"
 
-// Самый свежий LTS — Java 25 (toolchain/рантайм). См. память проекта latest-stack-preference.
+// The freshest LTS is Java 25 (toolchain and runtime).
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
-// Байткод-таргет 25 (Kotlin 2.3 умеет JVM 25). Java и Kotlin держим консистентно.
+// Bytecode target 25, kept consistent for Java and Kotlin.
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(25)
 }
 
-// CDI/JAX-RS/JPA требуют open-классов; Kotlin-классы final по умолчанию.
+// CDI, JAX-RS and JPA need open classes; Kotlin classes are final by default.
 allOpen {
     annotation("jakarta.ws.rs.Path")
     annotation("jakarta.enterprise.context.ApplicationScoped")
@@ -111,7 +103,8 @@ tasks.test {
     systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
     // Tests must never call an external model. Quarkus reads backend/.env at a HIGHER precedence
     // than application.properties (even the %test profile), so a developer's real keys would leak
-    // into the suite: it would spend paid quota and its results would depend on the network.
+    // into the suite and it would spend paid quota.
+
     // Blank the environment variables the .env feeds, not the properties themselves — env beats
     // .env, while tests that stub a provider still set `danchuo.*.api-key` directly and win.
     environment("DANCHUO_LLM_API_KEY", "")

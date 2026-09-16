@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Эвристики бота (PRD §5.11) — чистая логика, без Quarkus/Docker. Нет `Accept-Language` или
- * бот-UA ⇒ бот; обычный браузер ⇒ не бот; тип устройства по UA.
+ * Bot heuristics (PRD §5.11) — pure logic, no Quarkus or Docker. No `Accept-Language` or a
+ * bot UA ⇒ a bot; a normal browser ⇒ not; device type from the UA.
  */
 class BotHeuristicsTest {
 

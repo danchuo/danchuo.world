@@ -8,7 +8,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Один клик из батча бикона (B2). Все поля «грязные» — валидируются на записи. */
+/** One click from a beacon batch (B2). Every field is dirty — validated on write. */
 data class ClickInput(
     val tileId: String? = null,
     val offsetXPct: Double? = null,
@@ -16,14 +16,14 @@ data class ClickInput(
     val viewportW: Int? = null,
 )
 
-/** Потайловый агрегат хитмапы: клики уже **обрезаны** по вкладу одного посетителя (анти-абуз). */
+/** Per-tile heatmap aggregate: clicks are already CAPPED per visitor's contribution (anti-abuse). */
 data class HeatmapTile(
     val tileId: String?,
     val clicks: Int,
     val uniques: Int,
 )
 
-/** Сводка хитмапы для одной страницы за период (приватная вьюха владельца, B2). */
+/** Heatmap summary for one page over a period (the owner's private view, B2). */
 data class HeatmapView(
     val path: String,
     val from: String,
@@ -33,13 +33,9 @@ data class HeatmapView(
 )
 
 /**
- * Логика хитмапы (PRD §5.11, B2). Симметрична [AnalyticsService], но про **клики по тайлам**.
- *
- * Защита публичного POST — эшелонированная (PRD §11): рейтлимит на IP (`RateLimitFilter`) +
- * жёсткая валидация на записи здесь (размер батча, длина `tileId`, координаты в [0,1]; брак
- * молча отбрасывается, не роняя батч) + **cap-вклада-на-чтении**: в агрегате один посетитель
- * (суточный хэш) добавляет в тайл не больше [visitorCap] кликов. Поэтому даже залитый спамом
- * визит не «перекрашивает» картину — данные совещательные, и устойчивая агрегация важнее блока.
+ * Heatmap logic, symmetric to [AnalyticsService] but about clicks on tiles. The public POST is
+ * defended in echelons — rate limit, validation on write, and a read-side cap of [visitorCap]
+ * clicks per visitor per tile, so one spammed visit cannot repaint the picture. PRD §5.11, §11
  */
 @ApplicationScoped
 class InteractionService(
@@ -51,7 +47,7 @@ class InteractionService(
     @param:ConfigProperty(name = "danchuo.analytics.heatmap.visitor-cap") private val visitorCap: Int,
 ) {
 
-    /** Записать батч кликов. Брак (битые координаты/слишком длинный tileId) отбрасывается поэлементно. */
+    /** Writes a click batch. Junk (broken coordinates, over-long tileId) is dropped per item. */
     @Transactional
     fun record(
         visitId: String?,
@@ -67,7 +63,7 @@ class InteractionService(
         val now = Instant.now(clock)
 
         clicks.asSequence()
-            .take(maxBatch) // потолок батча — анти-абуз (длинный массив отрезаем, не падаем)
+            .take(maxBatch) // a batch ceiling against abuse: a long array is trimmed, not rejected
             .mapNotNull { sanitize(it) }
             .forEach { clean ->
                 val event = InteractionEvent().apply {
@@ -86,19 +82,18 @@ class InteractionService(
     }
 
     /**
-     * Потайловый агрегат за период (полуинтервал дат MSK `[from, to]` включительно по дню).
-     * Клики каждого посетителя в тайл обрезаются до [visitorCap] — спам одного визита не плывёт.
+     * Per-tile aggregate over a period (MSK dates `[from, to]`, inclusive by day). Each visitor's
+     * clicks into a tile are capped at [visitorCap], so one visit's spam cannot skew the map.
      */
     fun heatmap(path: String, from: LocalDate, to: LocalDate): HeatmapView {
         val zone: ZoneId = clock.zone
         val fromInstant = from.atStartOfDay(zone).toInstant()
-        val toInstant = to.plusDays(1).atStartOfDay(zone).toInstant() // конец дня `to` включительно
+        val toInstant = to.plusDays(1).atStartOfDay(zone).toInstant() // the end of day `to`, inclusive
 
         val events = repository.listForHeatmap(path, fromInstant, toInstant)
         val tiles = events
             .groupBy { it.tileId }
             .map { (tileId, group) ->
-                // Cap-вклада: на каждого посетителя — не больше visitorCap кликов в этот тайл.
                 val cappedClicks = group
                     .groupingBy { it.visitorDayHash }
                     .eachCount()
@@ -121,13 +116,12 @@ class InteractionService(
         )
     }
 
-    /** Чистит один клик: длина `tileId` ≤ 64, координаты строго в [0,1] (иначе поле гасится). null ⇒ выбросить. */
+    /** Cleans one click: `tileId` up to 64 chars, coordinates strictly in [0,1]. null means drop. */
     private fun sanitize(input: ClickInput): ClickInput? {
         val tileId = input.tileId?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_TILE_ID }
         val x = input.offsetXPct?.takeIf { it in 0.0..1.0 }
         val y = input.offsetYPct?.takeIf { it in 0.0..1.0 }
         val viewport = input.viewportW?.takeIf { it in 1..MAX_VIEWPORT }
-        // Клик без тайла И без координат — пустышка, не пишем.
         if (tileId == null && x == null && y == null) return null
         return ClickInput(tileId = tileId, offsetXPct = x, offsetYPct = y, viewportW = viewport)
     }

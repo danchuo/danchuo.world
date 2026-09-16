@@ -35,20 +35,7 @@ import type {
   OrientationStatusView,
 } from "@/lib/api/types";
 
-/**
- * Админка (B1+B2, PRD §5.11–5.12, §5.14) под общим bearer-токеном ingest: **экран на раздел**,
- * переключаются рядом вкладок [AdminTabs] — дропы (zip ≈36 кадров с названием/датой, клик по
- * кадру — обложка, удаление) · артефакты [ArtifactSection] · велопоездки [BikeImportSection] ·
- * статистика [HeatmapSection]. Одной простынёй это было до реестра I-64: длина страницы росла
- * с каждой фичей, и до нижнего блока надо было скроллить мимо всей сетки кадров.
- * Токен хранится в sessionStorage. Дизайн следует волнам (токены из корневого layout,
- * свитчер в шапке). Не SSR/SEO.
- *
- * Страница держит только то, что секции **делят между собой**: токен, выбранный раздел, список
- * дропов с выбранным, его кадры и статус проверки поворота (их меняют сразу несколько
- * действий), плюс одну строку ошибки на весь экран. Состояние форм живёт внутри своих секций.
- * Поллинги фоновых прогонов живут тут же — уход на другой раздел их не прерывает.
- */
+/** Shared admin state and background polling survive section changes; forms own their local state. PRD §5.14. */
 export default function AdminPage() {
   const [token, setToken] = useState("");
   const [authed, setAuthed] = useState(false);
@@ -58,8 +45,7 @@ export default function AdminPage() {
   const [photos, setPhotos] = useState<AdminPhotoView[]>([]);
   const [orientation, setOrientation] = useState<OrientationStatusView | null>(null);
   const [artifactScan, setArtifactScan] = useState<ArtifactScanStatusView | null>(null);
-  // Ручная разметка (§5.12): размечаемый кадр и каталог предметов. Каталог живёт тут, а не в
-  // разметчике, — открывать его на каждый кадр значило бы ходить за одним и тем же списком.
+  // Keep the annotation catalog outside the marker to reuse it across photos.
   const [markingId, setMarkingId] = useState<number | null>(null);
   const [catalogue, setCatalogue] = useState<AdminArtifactView[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +57,7 @@ export default function AdminPage() {
     setAuthed(true);
   }, []);
 
-  // Подхватываем сохранённый токен и сразу пробуем войти.
+  // Try the saved session token on mount.
   useEffect(() => {
     const saved = sessionStorage.getItem(TOKEN_KEY);
     if (!saved) return;
@@ -79,7 +65,7 @@ export default function AdminPage() {
     loadDrops(saved).catch((e) => setError(describe(e)));
   }, [loadDrops]);
 
-  /** Вход: токен запоминаем только после успешной загрузки списка (бросок покажет [AdminLogin]). */
+  /** Persist the token only after a successful list request; AdminLogin displays rejection. */
   const onLogin = useCallback(
     async (t: string) => {
       await loadDrops(t);
@@ -102,7 +88,7 @@ export default function AdminPage() {
     async (drop: AdminDropView) => {
       setSelected(drop);
       setPhotos([]);
-      setMarkingId(null); // разметчик принадлежит кадру покинутого дропа
+      setMarkingId(null); // the marker belongs to a frame of the drop we left
       setOrientation(null);
       setArtifactScan(null);
       try {
@@ -116,8 +102,7 @@ export default function AdminPage() {
     [token],
   );
 
-  // Поллинг статуса LLM-проверки поворота (B9), пока прогон бежит; по завершении — свежие
-  // кадры (у повёрнутых новые ?v=-URL, кэш не мешает).
+  // Refresh photos after orientation completes; versioned URLs invalidate their image caches.
   useEffect(() => {
     if (!selected || orientation?.state !== "running") return;
     const dropId = selected.id;
@@ -135,8 +120,7 @@ export default function AdminPage() {
     return () => window.clearInterval(timer);
   }, [token, selected, orientation?.state]);
 
-  // Поллинг поиска артефактов, пока прогон бежит. Отдельный от поворота: прогоны независимы,
-  // и объединять их значило бы дёргать оба эндпоинта, когда бежит только один.
+  // Artifact and orientation scans run independently; poll only the active job.
   useEffect(() => {
     if (!selected || artifactScan?.state !== "running") return;
     const dropId = selected.id;
@@ -150,7 +134,7 @@ export default function AdminPage() {
     return () => window.clearInterval(timer);
   }, [token, selected, artifactScan?.state]);
 
-  /** Поиск артефактов по кадрам дропа — только по кнопке: платная модель на каждый кадр. */
+  /** Explicit action only: scanning charges a model call per photo. */
   async function onScanArtifacts() {
     if (!selected) return;
     setError(null);
@@ -161,10 +145,7 @@ export default function AdminPage() {
     }
   }
 
-  /**
-   * Открыть кадр в разметчике. Каталог тянем при первом открытии: он нужен только тут, а
-   * заводят предметы в соседнем разделе — свежий список важнее сэкономленного запроса.
-   */
+  /** Fetch the catalog on opening the marker so items added in another section are available. */
   async function onMarkPhoto(photoId: number) {
     setError(null);
     setMarkingId(photoId);
@@ -175,7 +156,7 @@ export default function AdminPage() {
     }
   }
 
-  /** Снять с кадра рамку одного предмета: ручное решение главнее находки модели. */
+  /** Manual rejection overrides model detections. */
   async function onDeleteArtifact(photoId: number, artifactId: number) {
     if (!selected) return;
     setError(null);
@@ -196,7 +177,7 @@ export default function AdminPage() {
     }
   }
 
-  /** Ручной поворот кадра на 90° по часовой; ответ — свежий список кадров (новые ?v=-URL). */
+  /** Rotate clockwise 90 degrees and receive photos with refreshed versioned URLs. */
   async function onRotate(photoId: number) {
     if (!selected) return;
     setError(null);
@@ -207,14 +188,14 @@ export default function AdminPage() {
     }
   }
 
-  /** Удалить один кадр (неудачный). Возврата нет — предупреждаем; в ответ свежий список кадров. */
+  /** Deletion is irreversible: confirm, then refresh photos. */
   async function onDeletePhoto(photoId: number) {
     if (!selected) return;
     if (!confirm("Удалить этот кадр? Вернуть нельзя — если что, перезалей дроп из zip.")) return;
     setError(null);
     try {
       setPhotos(await deletePhoto(token, selected.id, photoId));
-      await loadDrops(token); // счётчик кадров/обложка в списке дропов
+      await loadDrops(token); // the frame count and cover in the drop list
     } catch (err) {
       setError(describe(err));
     }
@@ -246,7 +227,7 @@ export default function AdminPage() {
     }
   }
 
-  /** Свежезалитый дроп: перечитываем список и сразу открываем его кадры. */
+  /** Reload the list and open the newly uploaded drop. */
   const onUploaded = useCallback(
     async (drop: AdminDropView) => {
       await loadDrops(token);
@@ -261,16 +242,15 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl p-6">
-      {/* Одна шапка на всё: разделы слева, служебное справа (свитчер волн + выход). Заголовка
-          страницы нет намеренно. Раньше вкладки шли отдельной полосой ПОД шапкой — верх экрана
-          занимали две линии подряд, а навигация начиналась со второй; теперь ряд разделов и есть
-          шапка, а служебные кнопки прижаты к её правому краю. */}
+      {/* One header for everything: sections on the left, utilities on the right. There is
+          deliberately no page title — the row of sections IS the header, so the top of the screen
+          carries one line instead of two. */}
       <header
         className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-4"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        {/* Смена раздела гасит ошибку: она принадлежит покинутому экрану, на новом читалась бы
-            как его собственная поломка. */}
+        {/* Switching section clears the error: it belongs to the screen we left and would read as
+            the new one's own breakage. */}
         <AdminTabs
           active={tab}
           onSelect={(next) => {
@@ -280,13 +260,9 @@ export default function AdminPage() {
         />
 
         <div className="flex items-center gap-4">
-          {/* Same wave switcher tile as the board — the admin follows waves too.
-              The tile needs an explicit HEIGHT, not just a width: on the board it is a grid
-              cell, here it is a header item, and a wave whose chip fills the plate (PRIME
-              cards are `height: 100%`) collapsed to zero-height buttons — the switcher
-              rendered as an empty pill that could not be clicked at all. 160×62 is measured,
-              not guessed: it is the smallest box where wave-01 square chips still land at a
-              44px tap target once the row splits it three ways. */}
+          {/* The same wave switcher tile as the board's. It needs an explicit HEIGHT, not just a
+              width: here it is a header item, and a wave whose chip fills the plate collapsed to
+              zero-height buttons. 160×62 is measured — the smallest box keeping a 44px tap target. */}
           <WaveSwitcher className="admin-wave-switcher" style={{ width: 160, height: 62 }} />
           <button type="button" onClick={logout} style={{ ...mono, background: "none", border: "none", cursor: "pointer", color: "var(--accent)" }}>
             выйти
@@ -294,7 +270,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      {/* Ошибка — над разделом: её ставят все секции, и на любой из них она должна быть видна. */}
+      {/* The error sits above the section: every section sets it, and it must be visible on any. */}
       {error && <p className="mb-4" style={{ ...mono, color: "var(--accent)" }}>{error}</p>}
 
       {tab === "drops" && (
@@ -323,9 +299,9 @@ export default function AdminPage() {
               onMarkPhoto={onMarkPhoto}
             />
           </div>
-          {/* Разметчик берёт кадр из общего списка, а не копию: сохранённая рамка возвращается
-              свежими кадрами и появляется и в нём, и в чипах под сеткой разом. Кадр удалили —
-              разметчик закрывается сам (кадра в списке больше нет). */}
+          {/* The marker takes its frame from the shared list rather than a copy: a saved box comes
+              back with fresh frames and appears both there and in the chips at once. Delete the
+              frame and the marker closes itself. */}
           {marking && selected && (
             <ArtifactMarker
               token={token}
@@ -340,12 +316,10 @@ export default function AdminPage() {
         </>
       )}
 
-      {/* Артефакты (§5.8): раньше новый предмет означал миграцию, теперь — форма. */}
       {tab === "artifacts" && <ArtifactSection token={token} onError={setError} />}
 
       {tab === "rides" && <BikeImportSection token={token} onError={setError} />}
 
-      {/* Хитмапа кликов (B2). */}
       {tab === "stats" && <HeatmapSection token={token} />}
     </main>
   );

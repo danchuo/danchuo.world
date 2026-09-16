@@ -10,20 +10,15 @@ import java.time.Clock
 import java.time.Instant
 
 /**
- * Фоновый геокодер станций (PRD §9 B4 — исправление точек поездки). Карта рисует пины по сырому
- * GPS велосипеда, который в Москве часто «улетает» (Шереметьево); адрес станции надёжный, но её
- * координат Велобайк не отдаёт. Поэтому надёжный адрес геокодим (OSM Nominatim) и кэшируем в
- * [BikeStation]; лента затем предпочитает координаты станции сырому GPS ([BikeRideService]).
- *
- * Работает **фоном по одному адресу за тик** ([Scheduled], интервал в конфиге) — так укладываемся
- * в usage policy публичного Nominatim (не чаще ~1 запроса/сек) и не блокируем приём. Уникальный
- * адрес геокодится **один раз** (результат, включая «не найдено», пишется в кэш — повторно не
- * дёргаем). Любой сбой геокодера деградирует тихо: без матча точка остаётся на GPS-фолбэке.
- *
- * Московские адреса с корпус/строение/буквенным домом («д. 22к1», «д. 18А стр. 1») Nominatim берёт
- * плохо, поэтому пробуем несколько [candidates] по убыванию точности (с корпусом → без → только
- * улица) — первый удачный побеждает. Пин по улице стоит рядом (метры), но это несравнимо точнее
- * заброса GPS в Шереметьево.
+ * Background station geocoder: ONE address per tick, which keeps us inside public Nominatim's
+ * usage policy and never blocks ingest. A unique address is geocoded once, "not found" included,
+ * and any failure degrades quietly to the GPS fallback. Why at all: PRD §7 (BikeStation).
+ */
+
+/*
+ * Moscow addresses with a block or letter suffix geocode poorly, so [candidates] tries several
+ * forms from precise to coarse and the first hit wins — a pin on the street is metres off, which
+ * still beats a GPS fix thrown across the city.
  */
 @ApplicationScoped
 class StationGeocoder(
@@ -38,9 +33,9 @@ class StationGeocoder(
     private val log = Logger.getLogger(StationGeocoder::class.java)
 
     /**
-     * Один тик: взять адрес поездки, ещё не пробованный геокодером, и записать его в кэш (координаты
-     * или «не найдено»). Сетевой сбой ⇒ выходим без записи (ретрай на следующем тике); все варианты
-     * пусты ⇒ пишем `found = false`, чтобы не долбить повторно.
+     * One tick: take a ride address not yet attempted and write it to the cache (coordinates or
+     * "not found"). A network failure exits without writing, to retry next tick; all variants
+     * empty writes `found = false` so the address is never hammered again.
      */
     @Transactional
     @Scheduled(every = "{danchuo.bike.geocode.interval}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
@@ -50,7 +45,7 @@ class StationGeocoder(
         val address = rides.distinctAddresses().firstOrNull { it !in known } ?: return
 
         val coords = try {
-            // Заглушку «просто город» не геокодим: центроид перекрыл бы точный GPS (см. isCityPlaceholder).
+            // A bare-city placeholder is not geocoded: its centroid would mask the exact GPS.
             if (isCityPlaceholder(address)) null else geocode(address)
         } catch (e: Exception) {
             log.warn("Nominatim geocode failed for '$address' (retry next tick): ${e.message}")
@@ -67,10 +62,10 @@ class StationGeocoder(
         log.info("Geocoded station '$address' → ${if (coords != null) "$coords" else "not found"}")
     }
 
-    /** Пробуем варианты запроса по убыванию точности; первый непустой матч побеждает. */
+    /** Tries query variants from precise to coarse; the first non-empty match wins. */
     private fun geocode(address: String): Pair<Double, Double>? {
         for ((i, query) in candidates(address).withIndex()) {
-            if (i > 0) Thread.sleep(THROTTLE_MS) // Nominatim: не чаще ~1 запроса/сек
+            if (i > 0) Thread.sleep(THROTTLE_MS) // Nominatim: no more than ~1 request/sec
             val coords = parseCoords(
                 nominatim.search(
                     query = query, userAgent = userAgent,
@@ -83,13 +78,13 @@ class StationGeocoder(
     }
 
     companion object {
-        /** Пауза между вариантами одного адреса — держим ~1 запрос/сек к Nominatim. */
+        /** Pause between variants of one address — holds about one request per second. */
         private const val THROTTLE_MS = 1100L
 
         /**
-         * Адрес-заглушка «просто город» («Москва») — так PWA помечает велосипед, оставленный вне
-         * именованной станции. Геокодить нельзя: Nominatim отдаст центроид города (Красная площадь),
-         * а он в [BikeRideService.toView] перекроет точный GPS. Признак: одно слово без цифр/запятых.
+         * A bare-city placeholder ("Moscow") is how the PWA marks a bike left off a named station.
+         * It must not be geocoded: Nominatim returns the city centroid, which would then mask the
+         * exact GPS in [BikeRideService.toView]. Detected as one word with no digits or commas.
          */
         fun isCityPlaceholder(raw: String): Boolean {
             val trimmed = raw.trim()
@@ -97,18 +92,18 @@ class StationGeocoder(
         }
 
         /**
-         * Кандидаты-запросы для адреса, от точного к грубому: убираем уточнение в скобках и маркер
-         * дома «д.», затем варианты «улица дом-с-корпусом» → «улица дом» → «улица», каждый с городом.
-         * Московские «22к1»/«18А стр. 1» плохо матчатся целиком — грубые варианты дают пин рядом.
+         * Query candidates from precise to coarse: drop the parenthesised qualifier and the house
+         * marker, then street+house-with-block, street+house, street, each with the city. Moscow
+         * forms like "22k1" match poorly whole, and the coarse variants land a pin nearby.
          */
         fun candidates(raw: String): List<String> {
             val noParen = raw.replace(Regex("""\s*\([^)]*\)"""), "").trim()
-            // Срезаем маркер дома «д.» перед номером. \b не годится (не работает перед кириллицей в
-            // Java-regex), поэтому якоримся на пробел/запятую слева и цифру справа — «пр-д.» не заденет.
+            // Strip the house marker before the number. \b is no use (it fails before Cyrillic in
+            // Java regex), so anchor on space/comma left and a digit right, sparing similar words.
             val noMarker = noParen.replace(Regex("""(?<=[\s,])д\.\s*(?=\d)"""), "").trim()
             val noCorpus = noMarker
                 .replace(Regex("""\s*(стр|корп|соор)\.?\s*\d+""", RegexOption.IGNORE_CASE), "")
-                .replace(Regex("""(\d+)\s*к\s*\d+"""), "$1") // «22к1» → «22»
+                .replace(Regex("""(\d+)\s*к\s*\d+"""), "$1") // a building's block suffix is dropped
                 .trim()
             val streetOnly = noCorpus.substringBefore(",").trim()
             return listOf(noMarker, noCorpus, streetOnly)
@@ -118,7 +113,7 @@ class StationGeocoder(
                 .map { "$it, Москва" }
         }
 
-        /** Первый результат Nominatim → пара (lat, lon); `lat`/`lon` там строки. null, если нет/битый. */
+        /** First Nominatim result to a (lat, lon) pair; both arrive as strings. null when absent. */
         fun parseCoords(result: NominatimResult?): Pair<Double, Double>? {
             val lat = result?.lat?.toDoubleOrNull() ?: return null
             val lon = result.lon?.toDoubleOrNull() ?: return null

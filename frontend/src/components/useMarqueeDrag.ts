@@ -12,53 +12,43 @@ import {
 } from "@/lib/marqueeMotion";
 
 interface MarqueeDragOptions {
-  /** Трек ленты — то, что едет внутри окна тайла. */
+  /** The rail's track — what travels inside the tile's window. */
   trackRef: RefObject<HTMLElement | null>;
-  /** Окно ленты — над ним ловится колесо (жест без нажатия принадлежит месту, а не предмету). */
+  /** The rail's window, over which the wheel is caught: a gesture without a press belongs to the place. */
   containerRef: RefObject<HTMLElement | null>;
-  /** Размер одной копии контента вдоль ленты (px). `0` ⇒ лента влезла: ни хода, ни протяжки. */
+  /** Size of one copy of the content along the rail (px). `0` ⇒ it fits: no travel and no drag. */
   span: number;
-  /** Вертикальная лента едет и тянется по Y (ориентация тайла из layout волны, DESIGN §10.1). */
+  /** A vertical rail travels and drags along Y (tile orientation from the wave layout, DESIGN §10.1). */
   vertical: boolean;
-  /** Время полного прохода копии — тот же темп, что задавала CSS-анимация. */
+  /** Time for one full pass of a copy — the same tempo the CSS animation used to set. */
   seconds: number;
 }
 
 /**
- * Собственный ход ленты + протяжка рукой (DESIGN §7.2).
- *
- * Ход считает JS покадрово, а не CSS-анимация: CSS-кадры не остановить на середине и не сдвинуть
- * пальцем, а лента обязана слушаться руки в обе стороны и продолжать с того места, где её
- * отпустили. Позиция едет свойством `left`/`top`, а **не** `transform`, — по правилу из
- * `docs/pitfalls.md`: анимируемый `transform` уезжает в композитный слой WebKit, и `overflow`
- * плитки перестаёт его обрезать (уже ловили на бегущей строке карточки подкаста).
- *
- * Сдвиг применяется прямо в обработчике `pointermove`, а не в следующем кадре: лента идёт за
- * рукой, а не догоняет её.
- *
- * Третий вход в тот же механизм — колесо/тачпад при наведении, без нажатия: то же смещение,
- * так что все три способа продолжают ленту с одного места.
+ * The ribbon's own motion plus hand dragging. JS drives it frame by frame rather than a CSS
+ * animation, which cannot be stopped mid-way or pushed by a finger. Position moves through
+ * `left`/`top`, NOT `transform` — an animated transform escapes the tile's clip (docs/pitfalls.md).
  */
 export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds }: MarqueeDragOptions) {
   const state = useRef({
-    /** Текущее смещение ленты в пределах копии (px, растёт «вперёд»). */
+    /** Current offset of the rail within a copy (px, growing "forward"). */
     offset: 0,
-    /** Скорость докатывания после броска (px/мс); 0 ⇒ идёт собственный ход. */
+    /** Coasting speed after a throw (px/ms); 0 means the rail's own travel is running. */
     velocity: 0,
-    /** Указатель прижат к ленте. Ведётся и у ленты, которая никуда не едет: по этому же флагу
-     *  отличается фокус от мыши (браузер даёт его на нажатии) от клавиатурного. */
+    /** The pointer is pressed on the rail. Tracked even for a rail that goes nowhere: this same flag
+     *  tells mouse focus (the browser gives it on press) from keyboard focus. */
     pressing: false,
-    /** Путь указателя от нажатия — по нему жест делится на тап и протяжку. */
+    /** Distance the pointer has travelled since the press, which splits a tap from a drag. */
     moved: 0,
-    /** Жест уже признан протяжкой ⇒ следующий клик гасим (иначе протяжка откроет меню). */
+    /** The gesture already counts as a drag ⇒ the next click is swallowed, or a drag opens a menu. */
     dragged: false,
-    /** Указатель над лентой — собственный ход стоит, чтобы предмет можно было разглядеть. */
+    /** The pointer is over the rail, so its own travel stops and an item can be looked at. */
     hover: false,
     last: 0,
     samples: [] as DragSample[],
   });
-  /** Опция «меньше движения»: собственный ход выключен, но рукой листать по-прежнему можно —
-   *  это движение затеял сам зритель, а не борд. */
+  /** The "reduced motion" preference: the rail's own travel is off, but it can still be paged by hand —
+   *  that movement was started by the viewer, not by the board. */
   const reduced = useRef(false);
 
   const axis = vertical ? "top" : "left";
@@ -76,15 +66,14 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
-  // Кадры: собственный ход и докатывание после броска. Пока тянут рукой — кадр ничего не считает,
-  // позицию в этот момент ведёт сам `pointermove`.
+  // Frames: the rail's own travel and the coast after a throw. While a hand is dragging, the frame
+  // computes nothing — the position is driven by `pointermove` itself.
   useEffect(() => {
     const track = trackRef.current;
     const s = state.current;
-    /* Лента больше не едет (другая волна — другой размер плитки, предметы влезли): смещения
-       быть не может, и оставлять его в стиле нельзя. Единственная копия контента стояла бы
-       наполовину за краем виджета — с каждым переключением волн всё дальше (замечание
-       владельца). Обнуляем и позицию, и накопленное смещение: ходу неоткуда взяться. */
+    /* The rail no longer travels (another wave, another tile size, the items fit): there can be no
+       offset, and leaving one in the style is not allowed — the single copy of the content would stand
+       half past the widget's edge, further with every wave switch. */
     if (!track || span <= 0) {
       if (track) track.style[axis] = "";
       s.offset = 0;
@@ -95,10 +84,9 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     let frame = 0;
     let prev = performance.now();
     const tick = (now: number) => {
-      // Шаг кадра зажат в [0, 64]. Потолок — на случай, когда вкладка была в фоне и кадры не
-      // шли: лента не должна прыгать за раз на всё пропущенное. Пол — потому что метка кадра
-      // и `performance.now()` считаются от разных начал (в jsdom это видно сразу: первый шаг
-      // выходил в минус на пару секунд, и лента стартовала уехавшей назад).
+      // The frame step is clamped to [0, 64]. The ceiling covers a backgrounded tab, where the
+      // ribbon must not leap through everything it missed. The floor exists because the frame stamp
+      // and `performance.now()` count from different origins — in jsdom the first step went negative.
       const dt = Math.min(Math.max(now - prev, 0), 64);
       prev = now;
       if (!s.pressing) {
@@ -119,27 +107,24 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     };
   }, [trackRef, span, seconds, axis]);
 
-  /* Смена ориентации (её задаёт волна, DESIGN §10.1) уводит ленту на ДРУГУЮ ось, и позицию
-     по прежней надо снять — иначе она остаётся в стиле навсегда: вертикальная лента ехала бы
-     по `top`, сохраняя сдвиг по `left` от горизонтальной, и предметы стояли бы вбок от окна.
-     Эффект чистит именно ТУ ось, которую вёл (`axis`), — раньше здесь чистилась
-     противоположная, то есть та, которой этот эффект никогда не касался, и сдвиг копился от
-     переключения к переключению. */
+  /* A change of orientation (set by the wave, DESIGN §10.1) moves the rail to the OTHER axis, and the
+     position on the previous one has to be cleared, or a vertical rail would travel by `top` while
+     keeping a `left` shift and stand the items off to the side. It clears the axis it drove. */
   useEffect(() => {
     return () => {
       const track = trackRef.current;
       if (!track) return;
       track.style[axis] = "";
-      /* Смещение считано в пикселях ПРЕЖНЕЙ оси, и на новой оно значит другое расстояние
-         (копия вдоль высоты короче, чем вдоль ширины). Начинаем с нуля. */
+      /* The offset is counted in pixels of the FORMER axis, and on the new one it means a different
+         distance (a copy along the height is shorter than along the width). It starts from zero. */
       state.current.offset = 0;
       state.current.velocity = 0;
     };
   }, [trackRef, axis]);
 
-  // Протяжка. Слушаем окно, а не сам трек: рука почти всегда уходит за пределы ленты, и на
-  // `pointerleave` жест обрывался бы на полпути. Слушатели живут независимо от того, едет ли
-  // лента: отпускание указателя надо ловить и у неподвижной — на нём гасится `pressing`.
+  // Dragging. The window is listened to rather than the track itself: a hand almost always leaves the
+  // rail, and on `pointerleave` the gesture would break off halfway. The listeners live whether or not
+  // the rail travels — a pointer release must be caught on a still one too, to clear `pressing`.
   useEffect(() => {
     const s = state.current;
     const onMove = (e: PointerEvent) => {
@@ -171,15 +156,12 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     };
   }, [trackRef, span, axis, posOf]);
 
-  // Колесо и тачпад при наведении: листать, не прижимая указателя. Слушатель вешается руками и
-  // НЕ пассивным — React регистрирует `wheel` на корне пассивно, и `preventDefault` из `onWheel`
-  // молча ничего бы не дал: лента поехала бы вместе со страницей под ней.
-  //
-  // Своей инерции у колеса нет и не надо: докат после броска тачпад присылает сам, отдельными
-  // событиями, — свой поверх него читался бы как разгон после конца жеста.
+  // Wheel and trackpad on hover, to page without holding the pointer down. The listener is attached
+  // by hand and NOT passive: React registers `wheel` on the root passively, so `preventDefault`
+  // would silently do nothing and the ribbon would travel along with the page beneath it.
   useEffect(() => {
     const box = containerRef.current;
-    // Лента влезла целиком ⇒ листать нечего, и колесо над тайлом остаётся страницы.
+    // The rail fits entirely ⇒ there is nothing to page, and the wheel over the tile stays the page's.
     if (!box || span <= 0) return;
     const s = state.current;
     const onWheel = (e: WheelEvent) => {
@@ -205,14 +187,14 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
       s.dragged = false;
       s.last = posOf(e);
       s.samples = [{ t: performance.now(), pos: s.last }];
-      // Мышь иначе тащит саму картинку предмета вместо ленты. На тач `preventDefault` тут
-      // не нужен: поперечный скролл страницы отдан браузеру через `touch-action`.
+      // Otherwise the mouse drags the item's picture instead of the rail. On touch `preventDefault` is
+      // not needed here: cross-axis page scrolling is handed to the browser through `touch-action`.
       if (e.pointerType === "mouse") e.preventDefault();
     },
     [span, posOf],
   );
 
-  /** Клик, родившийся из протяжки, до предмета не доходит — иначе лента открывала бы меню. */
+  /** A click born out of a drag never reaches the item, or the rail would open a menu. */
   const onClickCapture = useCallback((e: ReactMouseEvent<HTMLElement>) => {
     if (!state.current.dragged) return;
     state.current.dragged = false;
@@ -227,12 +209,12 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     state.current.hover = false;
   }, []);
 
-  /** Прижат ли сейчас указатель — по нему отличается фокус от мыши от клавиатурного. */
+  /** Whether the pointer is pressed right now, which tells mouse focus from keyboard focus. */
   const isPointerDown = useCallback(() => state.current.pressing, []);
 
   return useMemo(
     () => ({
-      /** Пропсы окна ленты. */
+      /** Props for the rail's window. */
       handlers: { onPointerDown, onClickCapture, onPointerEnter, onPointerLeave },
       isPointerDown,
     }),

@@ -1,29 +1,15 @@
-/* ═══════════════════ СКИН ВОЛНЫ 03 «PRIME» (DESIGN §10.2) ═══════════════════
- * Всё в этом файле включается ТОЛЬКО когда на <html> стоит data-wave="wave-03"
- * (ставит SSR-layout или переключатель волн). Прежние волны отсюда не видят ни строчки.
- *
- * PRIME — первая ТЁМНАЯ волна борда. Её холст — не орнамент, а сами данные: лента
- * прожитых дней через точку, повторённая до края экрана. Рисует её общий шов
- * [WaveBackdrop] (механика — в common.css), а эта волна его включает и одевает.
- *
- * @import-ится ПОСЛЕ волн 01 и 02, поэтому перекрывает их по специфичности
- * (`:root[data-wave="wave-03"] body` > `body`).
+/* WAVE 03 "PRIME" SKIN (DESIGN §10.2). Applies only when <html> carries data-wave="wave-03";
+ * earlier waves see not a line of it, and it is imported AFTER them, so it wins by specificity.
+ * PRIME is the board's first DARK wave, and its canvas is the data itself — the lived-days ribbon.
  */
 
-/* Холст: тёмный градиент с подсветкой. Четыре мягких источника света дают глубину,
-   которую преломляет стекло плиток; ровная заливка под стеклом читалась бы плоско.
-   Первый — «подсветка сзади»: широкое световое пятно ровно за бордом, чтобы стеклу было
-   что нести. Три остальных уходят за края экрана (центры вынесены за 0%/100%), поэтому
-   на холсте видно их склон, а не круг с краем.
-   `fixed` — пятна не едут при скролле стека на тач-устройствах.
+/* Canvas: a dark gradient with four soft light sources, so the tiles' glass has something to refract —
+   a flat fill under glass reads flat. Three of them have centres pushed past 0%/100%, so their slope
+   shows rather than a circle with an edge. `fixed`, so they do not travel as the stack scrolls. */
 
-   ⚠️ `background-repeat`/`background-size` перечислены ЯВНО, и это несущая строчка, а не
-   гигиена. Базовое правило `body` живёт в скине волны 01 (тёплый свет + зерно-тайл) и
-   ставит `background-size: auto, 140px 140px` под свои ДВА слоя. Волна 03 меняет только
-   `background-image`, а список размеров остаётся прежним и циклически растягивается на её
-   ЧЕТЫРЕ слоя: 2-й и 4-й получают 140×140 и повторяются сеткой — холст покрывался ровными
-   светящимися точками, обрезанными по правому краю. Волна, переопределяющая `background-image`
-   базы, обязана переопределить и обе эти longhand-строки (DESIGN §10.2). */
+/* ⚠️ `background-repeat`/`background-size` are listed EXPLICITLY, and that is load-bearing. The base
+   `body` rule in the wave-01 skin sizes its TWO layers, and wave 03 changes only `background-image`, so
+   that list cycles onto its FOUR — the canvas came out covered in an even grid of glowing dots. */
 :root[data-wave="wave-03"] body {
   background-color: var(--bg-page);
   background-image: radial-gradient(52% 46% at 50% 44%, rgba(80, 132, 196, 0.3) 0%, rgba(48, 88, 142, 0.13) 48%, rgba(10, 16, 26, 0) 80%),
@@ -36,20 +22,19 @@
   background-attachment: fixed;
 }
 
-/* ── Лента прожитых дней: холст волны ─────────────────────────────────────────────
-   Включаем общий шов (по умолчанию он `display: none`, см. common.css). */
+/* Lived-days ribbon, this wave's canvas: switch on the shared seam, which is `display: none` by
+   default (see common.css). */
 :root[data-wave="wave-03"] .wave-backdrop {
   display: block;
 }
 
-/* Набор — моноширинный, как цифры данных на плитках: лента и борд говорят одним голосом.
-   Прозрачность низкая намеренно: это подложка, а не второй текст на экране. Замер на
-   макете показал, что на 17% лента честно выигрывает у мелкого текста — 11.5% берём как
-   потолок, на котором лента ещё читается СКВОЗЬ стекло: за ним она проигрывает блюру. */
+/* Monospace, like the data figures on the tiles: ribbon and board speak in one voice. The opacity is
+   deliberately low — this is a ground, not a second text on the screen. 11.5% is the ceiling at which
+   the ribbon still reads THROUGH the glass; past it the blur wins. */
 :root[data-wave="wave-03"] .wave-backdrop-ribbon {
-  /* Сверху лента начинается почти от края страницы: пустая полоса над первой строкой
-     читалась полем макета, которого у холста нет. Снизу запас оставлен — там лента уходит
-     под виньетку, и обрезанная на полбуквы строка у самого края выглядела бы браком. */
+  /* At the top the ribbon starts almost at the page edge: an empty strip above the first line read as a
+     layout margin, which a canvas does not have. At the bottom there is slack — the ribbon runs under the
+     vignette, and a line cut through its middle right at the edge would look like a defect. */
   padding: 2px 22px 18px;
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -58,26 +43,20 @@
   word-spacing: 0.08em;
   color: rgba(210, 229, 241, 0.115);
 }
-/* Выключка ЧЕРЕЗ СТРОКУ: нечётные прижаты влево, чётные вправо. Перенос по словам оставляет
-   рваный край, и при выключке в одну сторону он весь собирался справа — слева ровная стена,
-   справа пила. Разведённый по очереди рваный край перестаёт читаться браком и становится
-   плетением: ровной колонки, за которую цепляется глаз, у холста не остаётся ни одной.
-   Строки для этого ломает сам шов — CSS отдельной строкой управлять не умеет. */
+/* Justification ALTERNATES: odd lines left, even lines right. Word wrapping leaves a ragged edge, and
+   justified one way it all collected on the right — a flat wall on the left, a saw on the right.
+   Alternating turns the rag into weave and leaves no straight column for the eye to catch on. */
 :root[data-wave="wave-03"] .wave-backdrop-line:nth-child(even) {
   text-align: right;
 }
 
-/* Виньетка: тьма собирается по КРАЯМ кадра, центр остаётся освещённым.
-   Прежде здесь стоял обратный скрим — затемнение к центру. Он гасил ленту ровно там, где
-   стоит борд, и стекло плиток размывало уже почти чёрное поле: смазанного текста за плиткой
-   не было видно вовсе, а стекло читалось непрозрачной панелью. Свет и тьма поменялись
-   местами: подсветка холста и лента живут под бордом, а к рамке экрана кадр закрывается.
+/* Vignette: the dark gathers at the EDGES of the frame and the centre stays lit. Rejected: the inverse
+   scrim, darkening towards the centre — it killed the ribbon exactly where the board stands, and the
+   tiles' glass then blurred an almost black field, so it read as an opaque panel. */
 
-   `fixed` — единственный слой волны, оставленный прибитым к вьюпорту, и это по смыслу:
-   виньетка — рамка ЭКРАНА, а не страницы. Уехав вместе с лентой, она затемняла бы середину
-   прокрутки и оставляла светлыми настоящие края. Разъезда слоёв, из-за которого лента
-   переехала на страницу (врез у `.wave-backdrop` в common.css), тут не возникает: у ровного
-   градиента без букв нет заметного глазу положения. */
+/* `fixed` is the one layer of this wave left pinned to the viewport, and by meaning: the vignette frames
+   the SCREEN, not the page, and travelling with the ribbon it would darken the middle of the scroll. The
+   layer split that moved the ribbon onto the page cannot arise for an even letterless gradient. */
 :root[data-wave="wave-03"] .wave-backdrop::after {
   content: "";
   position: fixed;
@@ -90,49 +69,39 @@
   );
 }
 
-/* ══════════════════ СТЕКЛО НА ПЛИТКАХ ══════════════════
- * Край — параметр скина (врез «Как волна выбирает край» в wave-01.css): PRIME идёт путём 2,
- * рисует край сама и гасит слои ступеньки волны 01.
- *
- * ГЛАВНОЕ ПРАВИЛО ЭТОГО БЛОКА: на самой плитке не должно остаться ни `filter`, ни
- * `clip-path`, ни `mask`, ни `opacity` — каждое из них делает её **Backdrop Root**, и
- * `backdrop-filter` внутри начинает размывать пустоту. Волна 01 держит на `.pixel-tile`
- * `filter: var(--rest-elev)`, поэтому снятие фильтра здесь несущее, а не косметическое
- * (docs/pitfalls.md).
- *
- * Приём — прогрессивный блюр: три прохода с нарастающим радиусом под градиентными масками,
- * поэтому плитка не «панель с блюром», а стекло, которое густеет книзу. Проходы кладём в те
- * же три слота, что волна 01 занимала под ступеньку, — разметка не меняется ни на узел:
- *   ::before → .pixel-lid → ::after  (порядок отрисовки = порядок в дереве при равном z).
- * Четвёртый слот (.pixel-slab) под проход НЕ годится: у него z-index:-2, то есть он лёг бы
- * ПОД ленту холста (.wave-backdrop, z-index:-1) и размывал бы не её, а пустоту.
- *
- * Светящаяся кромка — не отдельный слой, а inset-тени самой плитки: на тёмном именно она,
- * а не блюр, читается как «стекло», и стоит она ноль композитных слоёв.
- */
-/* Плотность материала — ТОКЕНЫ волны (сид 0460): приглушить служебные плитки или снять
-   блюр целиком можно правкой БД, без единой строчки CSS. Фолбэк стоит прямо в `var()`, а не
-   отдельным объявлением на `:root[data-wave]`: токены из БД приезжают инлайн-стилем (клиентский
-   своп) и `:root{}`-блоком (SSR), и своё объявление в скине дралось бы с ними по специфичности
-   по-разному в этих двух случаях. Фолбэк в `var()` от специфичности не зависит вовсе. */
+/* GLASS ON THE TILES. The edge is a skin parameter (see "how a wave chooses its edge" in wave-01.css):
+ * PRIME takes the second path, drawing its own and hiding wave 01's step layers. */
 
-/* ── ХОВЕР: КРОМКА ЛОВИТ СВЕТ ───────────────────────────────────────────────────────────
- * Опт-ин для общего шва [TileEdgeLight]: он вешает слушателя, ТОЛЬКО если волна объявила
- * это свойство, и пишет в плитку под курсором `--tile-dx`/`--tile-dy` — вектор от её центра
- * к указателю в [-1, 1]. Волна, которой ховер не нужен, свойство не объявляет и не платит
- * ни одним слушателем. Ключа волны в коде шва нет — правило §10.1 цело.
+/* ⚠️ MAIN RULE OF THIS BLOCK: the tile itself must keep no `filter`, `clip-path`, `mask` or `opacity` —
+ * each makes it a Backdrop Root, and `backdrop-filter` inside then blurs emptiness. Wave 01 holds
+ * `filter: var(--rest-elev)` on `.pixel-tile`, so clearing it here is load-bearing (docs/pitfalls.md). */
+
+/* Progressive blur: three passes of growing radius under gradient masks, so the tile is glass thickening
+ * downward rather than a panel with blur. They go into the same three slots wave 01 used for its step —
+ * ::before → .pixel-lid → ::after — so the markup does not change by a node. */
+
+/* `.pixel-slab` will not do as a fourth pass: its z-index:-2 puts it UNDER the canvas ribbon (z-index:-1),
+ * so it would blur emptiness rather than the ribbon. The glowing edge is inset shadows on the tile itself:
+ * on dark it is the edge and not the blur that reads as glass, and it costs zero compositing layers. */
+
+/* Material density lives in the wave's TOKENS: muting service tiles or dropping the blur is a database
+   edit. The fallback sits inside `var()` rather than a `:root[data-wave]` declaration — DB tokens arrive
+   both inline and as a `:root{}` block, and a `var()` fallback does not depend on specificity at all. */
+
+/* HOVER: THE EDGE CATCHES LIGHT. An opt-in for the shared TileEdgeLight seam: it attaches a listener ONLY
+ * if the wave declares this property, and writes `--tile-dx`/`--tile-dy` into the hovered tile — the vector
+ * from its centre to the pointer in [-1, 1]. No wave key lives in the seam's code, so §10.1 stands.
  */
 :root[data-wave="wave-03"] {
   --tile-edge-light: 1;
 }
 
-/* Сам свет — четвёртая (у приглушённой плитки вторая) `inset`-тень в списке. Она стоит и в
-   покое, с нулевой альфой: списки теней интерполируются, только если РАВНОЙ длины, иначе
-   переход схлопывается в скачок.
-   Знак смещения обратный вектору: `inset` с положительным X кладёт тень на ЛЕВУЮ внутреннюю
-   грань, поэтому курсор справа (`--tile-dx` = +1) должен давать отрицательный сдвиг.
-   `--tile-dx` по умолчанию 0 — и это рабочий фолбэк, а не заглушка: без шва (тач, «меньше
-   движения», волна-без-опт-ина) тень ложится ровным свечением по всей кромке. */
+/* The light itself is the fourth `inset` shadow in the list (the second on a muted tile). It stands there at
+   rest too, with zero alpha: shadow lists interpolate only at EQUAL length, otherwise the transition
+   collapses into a jump. The offset sign is inverted — `inset` with positive X lies on the LEFT face. */
+
+/* `--tile-dx` defaults to 0, and that is a working fallback rather than a stub: with no seam (touch, reduced
+   motion, a wave without the opt-in) the shadow lies as an even glow along the whole edge. */
 :root[data-wave="wave-03"] .pixel-tile,
 :root[data-wave="wave-03"] .muted-tile {
   --edge-a: 0;
@@ -148,32 +117,26 @@
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.04), var(--glass-tint, rgba(120, 160, 190, 0.13)));
   box-shadow: inset 0 1px 0 var(--glass-sheen, rgba(190, 230, 250, 0.22)), inset 0 -1px 0 rgba(190, 230, 250, 0.08),
     var(--edge-light), 0 24px 60px -28px rgba(0, 0, 0, 0.9);
-  /* 120ms, а не 180: тень тянется и за появлением света, и за его ездой по кромке. На 180
-     свет заметно отставал от курсора и читался лагом; на 120 отставание работает на материал —
-     стекло тяжёлое и свет по нему течёт, а не прыгает.
-     Размер плиты в списке переходов стоит с НУЛЕВОЙ длительностью по умолчанию: гребёнка теней
-     в WebKit (docs/pitfalls.md) заводится у фильтрованного бокса, и раздавать анимацию размера
-     всем плиткам подряд незачем. Ненулевой её делает та плитка, которой это нужно по существу
-     (карточка-кадр ниже, где пропорция и есть содержимое), объявив `--drop-frame-fit-ms`.
-     Список переходов — ЗДЕСЬ, а не у самой карточки: правило волны перебивает базовое
-     (`.drop-card--frame`, common.css) специфичностью, и переход, объявленный там, до неё
-     не доезжает. */
+  /* 120ms, not 180: the shadow trails both the light's appearance and its travel along the edge. At 180 the
+     light lagged visibly behind the cursor and read as jank; at 120 the lag works for the material — heavy
+     glass, with light flowing over it rather than jumping. */
+
+  /* Plate size stands in the transition list with a ZERO default duration: the WebKit shadow comb
+     (docs/pitfalls.md) arises on a filtered box. The list lives HERE and not on the card — a wave rule
+     outweighs the base one, and a transition declared there never reaches it. */
   transition: box-shadow 120ms ease, border-color 160ms ease,
     width var(--drop-frame-fit-ms, 0ms) cubic-bezier(0.22, 0.61, 0.36, 1),
     height var(--drop-frame-fit-ms, 0ms) cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* Исключение из правила выше: карточка-кадр меняет пропорцию (лежачий ⇄ стоячий снимок), и
-   эта смена едет переходом, а не рывком — листая плёнку прямо на плитке, зритель видит
-   движение, а не прыжок соседей по колонке. Волна вправе это включить именно потому, что её
-   плитка обходится без `filter`: гребёнка теней в WebKit, из-за которой переход выключен по
-   умолчанию (common.css, docs/pitfalls.md), заводится у ФИЛЬТРОВАННОГО бокса, а здесь тень
-   рисует `box-shadow`. */
+/* Exception to the rule above: a frame card changes ratio (landscape ⇄ portrait) and that change travels by
+   transition rather than a jerk. The wave may switch it on precisely because its tile does without `filter`:
+   the WebKit shadow comb arises on a FILTERED box, and here the shadow is `box-shadow`. */
 :root[data-wave="wave-03"] .drop-card--frame {
   --drop-frame-fit-ms: 320ms;
 }
 
-/* Общее для трёх проходов: слои-невидимки строго по коробке плитки, за контентом. */
+/* Shared by the three passes: invisible layers strictly on the tile's box, behind the content. */
 :root[data-wave="wave-03"] .pixel-tile::before,
 :root[data-wave="wave-03"] .pixel-lid,
 :root[data-wave="wave-03"] .pixel-tile::after {
@@ -182,29 +145,29 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* Скругление живёт НА СЛОЕ БЛЮРА, а не на предке: обрезать предком нельзя (см. выше). */
+  /* The rounding lives ON THE BLUR LAYER, not on the parent: the parent may not clip (see above). */
   border-radius: var(--radius-lg);
   clip-path: none;
   background: none;
   box-shadow: none;
 }
 
-/* Проход 1 — верх стекла почти прозрачен: сквозь него читается лента холста. */
+/* Pass 1 — the top of the glass is nearly clear: the canvas ribbon reads through it. */
 :root[data-wave="wave-03"] .pixel-tile::before {
   -webkit-backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.15));
   backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.15));
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 48%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 48%);
 }
-/* Проход 2 — середина. */
+/* Pass 2 — the middle. */
 :root[data-wave="wave-03"] .pixel-lid {
   -webkit-backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.45)) saturate(1.15);
   backdrop-filter: blur(calc(var(--glass-blur, 11px) * 0.45)) saturate(1.15);
   -webkit-mask-image: linear-gradient(to bottom, transparent 14%, #000 42%, #000 66%, transparent 88%);
   mask-image: linear-gradient(to bottom, transparent 14%, #000 42%, #000 66%, transparent 88%);
 }
-/* Проход 3 — низ: полный радиус, под цифрами данных фон уже глухой. Насыщенность добавлена
-   намеренно: блюр без неё делает цвета мутными. */
+/* Pass 3 — the bottom: full radius, and under the data figures the ground is already opaque. Saturation is
+   added deliberately — without it the blur leaves the colours muddy. */
 :root[data-wave="wave-03"] .pixel-tile::after {
   -webkit-backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.3);
   backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.3);
@@ -212,22 +175,22 @@
   mask-image: linear-gradient(to bottom, transparent 52%, #000 92%);
 }
 
-/* Нижняя подложка «коробочки» и угловая осыпь — пиксель-детали волны 01, стеклу чужие. */
+/* The box's lower ground and the corner scatter are wave-01 pixel details, foreign to glass. */
 :root[data-wave="wave-03"] .pixel-scatter,
 :root[data-wave="wave-03"] .pixel-slab {
   display: none;
 }
 
-/* Лоадер-шиммер: ступенчатый клип волны 01 и подъём под её торец стеклу не нужны. */
+/* Loader shimmer: wave 01's stepped clip and the lift under its side are of no use to glass. */
 :root[data-wave="wave-03"] .pixel-shimmer {
   clip-path: none;
   bottom: 0;
   border-radius: var(--radius-lg);
 }
 
-/* «Сегодня» — доминанта: стекло чище (меньше тинта), кромка ярче, тень глубже. Иерархия
-   закодирована в ПЛОТНОСТИ материала, а не в ещё одном цвете. Скан-блик волны 01 снимаем:
-   слот ::after теперь несёт проход блюра, и градиент блика лёг бы поверх него. */
+/* "Today" is the dominant: cleaner glass (less tint), a brighter edge, a deeper shadow. The hierarchy is
+   encoded in the material's DENSITY rather than in one more colour. Wave 01's scan sheen is removed — the
+   `::after` slot now carries a blur pass, and the sheen gradient would lie over it. */
 :root[data-wave="wave-03"] .pixel-tile[data-elevated="true"] {
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.02), rgba(120, 160, 190, 0.09));
   border-color: rgba(160, 205, 230, 0.26);
@@ -239,9 +202,9 @@
   background-size: auto;
 }
 
-/* Приглушённая плитка — то же стекло, но глуше и в два прохода: своих слотов у неё
-   ровно два (::before/::after), и оба заняты пиксель-декором волны 01 — перебиваем
-   и геометрию (искра в углу задавала свои width/height), и фоновые картинки. */
+/* A muted tile is the same glass, duller and in two passes: it has exactly two slots of its own
+   (`::before`/`::after`), both taken by wave 01's pixel decor, so both the geometry (the corner spark set its
+   own width and height) and the background images have to be overridden. */
 :root[data-wave="wave-03"] .muted-tile {
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.03), rgba(120, 160, 190, 0.09));
   border: 1px solid rgba(160, 205, 230, 0.12);
@@ -273,18 +236,17 @@
   mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
 }
 
-/* ── Переключатель волн: чипы во всю плитку (DESIGN §2.6) ─────────────────────────────
- * Это правка ряда НА БОРДЕ PRIME (обёртка `:root[data-wave="wave-03"]`), а не вида чипа
- * этой волны на чужом борде — тот блок ниже и живёт по `[data-chip-wave]`.
- *
- * Ряд перестаёт быть строчкой мелких свотчей: три карты делят плитку поровну, тянутся на её
- * высоту и отделены друг от друга и от края одним и тем же просветом. Плитка волн — теперь
- * единственный виджет на борде, и мелкие квадраты по центру пустого экрана читались значком,
- * а не выбором. Крупная карта показывает волну тем, чем волна и является: холст, край, акцент.
- *
- * `flex: 1 1 0` вместо ширины из `--chip-size`: доля контейнера, а не clamp от `cqw` — карта
- * обязана делить плитку поровну при любом зуме, а демпфер §8.1 держал бы её мельче ряда.
- * `aspect-ratio` снят намеренно: квадрат был формой свотча, у карты форму задаёт плитка. */
+/* Wave switcher: full-tile chips (DESIGN §2.6). This edits the row ON PRIME'S BOARD (the
+ * `:root[data-wave="wave-03"]` wrapper), not this wave's chip on someone else's board — that block is below
+ * and keys off `[data-chip-wave]`. */
+
+/* The row stops being a line of small swatches: three cards split the tile evenly and stretch to its height.
+ * The wave tile is now the only widget on the board, and small squares in the middle of an empty screen read
+ * as a badge rather than a choice. A large card shows a wave as what it is: canvas, edge, accent. */
+
+/* `flex: 1 1 0` instead of a width from `--chip-size`: a share of the container rather than a `cqw` clamp —
+ * the card has to split the tile evenly at any zoom, whereas the §8.1 damper would keep it smaller than the
+ * row. `aspect-ratio` is dropped deliberately: the square was the swatch's shape, a card takes the tile's. */
 :root[data-wave="wave-03"] .wave-chip-row {
   gap: var(--chip-gutter, 8px);
 }
@@ -293,30 +255,22 @@
   flex: 1 1 0;
   width: auto;
   height: 100%;
-  /* Пол высоты — страховка от хозяина БЕЗ собственной высоты. `height: 100%` от ряда,
-     высота которого выведена из контента, разрешается в ноль, а вся карта нарисована
-     абсолютными слоями — контента, который бы её распёр, нет вовсе. Так переключатель
-     в шапке админки схлопывался в пустую плашку: кнопки были в разметке, но нулевой
-     высоты, то есть не видны, не нажимаемы и не видны даже дереву доступности.
-     Значение — нижняя граница clamp'а свотча волны 01, а не сам `--chip-size`: это
-     страховка «не исчезнуть», а не вторая система размеров, и на честной высоте она
-     не должна распирать карту выше того, что дал хозяин. */
+  /* A height floor, insuring against a host with NO height of its own: `height: 100%` of a content-height row
+     resolves to zero, and the card is drawn entirely in absolute layers with no content to prop it up. That is
+     how the admin header's switcher collapsed into an empty strip of zero-height, unreachable buttons. */
   min-height: 20px;
   aspect-ratio: auto;
-  /* Торец «коробочки» — единственный носитель сигнального цвета волны (врез в common.css).
-     На карте вчетверо крупнее прежнего свотча двухпиксельная полоска пропадала совсем,
-     поэтому глубина растёт вместе с картой: выбор по-прежнему читается и формой, и цветом. */
+  /* The box's side is the only carrier of a wave's signal colour (see the note in common.css). On a card four
+     times the old swatch a two-pixel strip vanished altogether, so the depth grows with the card and the
+     choice still reads as both shape and colour. */
   --chip-depth: 5px;
-  /* Ступень силуэта — ОТ ШИРИНЫ РЯДА, а не константой. Базовые 2/4px рисовались под свотч
-     в 34px и на карте в восемьдесят с лишним вырождались в скруглённый угол; но и обратная
-     беда реальна: фиксированный срез в 8px на узкой карте отъедает по четверти угла и
-     возвращает «крестик» из вреза §2.6. Плитка переключателя — число в дельте волны, скину
-     оно не видно, поэтому шаг считается от контейнера (`cqw` разрешается на `.tile-frame`,
-     см. common.css): три карты с просветами делят ряд, то есть карта ≈ треть его ширины,
-     а ступень ≈ десятая часть карты.
-     `round(down, …, 1px)` обязателен: полушаг попадает между физическими пикселями и на краю
-     исчезает в антиалиасинге — лесенка теряет зуб (та же пара приёмов, что у `--chip-size`).
-     Бьёт только по волне 01: волны 02 и 03 рисуют свой край сами и силуэт гасят. */
+  /* The silhouette's step comes FROM THE ROW'S WIDTH rather than a constant: the base 2/4px were drawn for a
+     34px swatch and degenerate into a rounded corner on a card of eighty-odd, while a fixed 8px cut eats a
+     quarter of each corner on a narrow card and brings back the "cross" from the §2.6 note. */
+
+  /* Three cards with gaps split the row, so a card is about a third of its width and a step about a tenth of a
+     card. `round(down, …, 1px)` is mandatory: a half-step falls between physical pixels and vanishes into
+     antialiasing at the edge. This bears on wave 01 only — waves 02 and 03 draw their own edge. */
   --chip-step: clamp(2px, 3.2cqw, 5px);
   --chip-step: round(down, clamp(2px, 3.2cqw, 5px), 1px);
   --chip-cut: calc(var(--chip-step) * 2);
@@ -347,33 +301,24 @@
   --chip-depth: 9px;
 }
 
-/* ── Карта волны в мобильном стеке: своя высота (DESIGN §8, §2.6) ───────────────────────
-   Тот же контракт §8, что и у соседей в common.css: карта нарисована АБСОЛЮТНЫМИ слоями
-   (торец + лицо + лента), собственного контента у неё нет вовсе, поэтому `height: 100%` от
-   ряда, чью высоту в стеке не задаёт никто, разрешается в подпорку `min-height: 20px` —
-   ряд карт вырождался в двадцатипиксельную полоску (замер: карта 103×20, плитка 358×46;
-   замечание владельца — «переключатель волн на телефоне слишком сжат по высоте»).
+/* Wave card in the mobile stack: its own height (DESIGN §8, §2.6). The same §8 contract as its neighbours in
+   common.css — the card is drawn in ABSOLUTE layers with no content of its own, so `height: 100%` of a row
+   nobody sizes in the stack falls through to the `min-height: 20px` prop and the row became a strip. */
 
-   Форма — карта, а не полоска, но не бордовая: на опоре 1536 карта меряется 57×95 (3:5),
-   и ровно эта пропорция в стеке дала 102×171 — ряд ростом с плитку музыки над ним, орган
-   управления перевешивал содержимое («сделай чуть поменьше», владелец). Стек шире борда
-   отдаёт карте ширину (треть экрана против трети плитки), поэтому пропорцию борда переносить
-   нельзя буквально: 4:5 даёт 102×128 — карта осталась портретной, но на четверть ниже.
-   `aspect-ratio` действует только при неопределённой высоте, поэтому в бенто правило
-   безвредно — но под `.board-stack` оно и так не видно бенто. */
+/* A card rather than a strip, but not the board's: at the 1536 reference the board card is 3:5, and that
+   ratio in the stack gave a row as tall as the music tile above it. The stack gives a card more width than
+   the board does, so 4:5 keeps it portrait and a quarter shorter. */
 :root[data-wave="wave-03"] .board-stack .wave-chip {
   height: auto;
   aspect-ratio: 4 / 5;
 }
 
-/* Просвет ряда — ОДНО число и для зазора между картами, и для отступа от края плитки:
-   ряд читается одной сеткой, а не «контентом внутри отступов вёрстки». Плиточный `p-4` (16px) под
-   это не годится: он задавался под подпись сверху, которой у PRIME нет. Чтобы два места не разошлись,
-   оба берут `--chip-gutter`; число живёт на САМОЙ плитке, поэтому ряд в шапке админки (там
-   нет `data-tile-id`, а поля свои, 8px) остаётся на фолбэке и не жмётся вместе с бордовым.
-   Карта размер не выбирает — она берёт весь остаток плитки, поэтому просвет здесь и есть
-   единственная ручка её роста при неизменной плитке: шире зазор ⇒ мельче карты. На опоре 1536
-   плитка 222×86, три карты по 55×58. */
+/* ONE number for both the gap between cards and the inset from the tile edge: the row reads as a single grid
+   rather than "content inside layout padding". The tile's `p-4` will not do — it was set for a caption above,
+   which PRIME does not have. The number lives on the TILE, so the admin header's row keeps its own fallback. */
+
+/* A card does not choose its size, it takes whatever is left of the tile, so the gutter is the only handle on
+   its growth at an unchanged tile: a wider gap means smaller cards. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] {
   --chip-gutter: 14px;
 }
@@ -381,38 +326,26 @@
   padding: var(--chip-gutter);
 }
 
-/* ── Лента дропов без плиты (DESIGN §7.5, §10.2) ────────────────────────────────────────
-   У ленты стекла нет вовсе: ни канта, ни фона, ни тени, ни проходов блюра, ни
-   отступов — снимки лежат прямо на холсте, как отпечатки на стене. Решение владельца по
-   живому борду («полки шире, без подложки вообще»), и тот же довод, что у галереи без рамки
-   выше: плита делала из архива обычный виджет поверх сайта, а материалом здесь работают сами
-   кадры. Своя кромка у каждого кадра остаётся (`--border-tile` в common.css) — без плиты
-   именно она отделяет кадр от кадра.
+/* Drops rail with no slab (DESIGN §7.5, §10.2): no border, ground, shadow, blur passes or padding — the
+   photographs lie straight on the canvas, like prints on a wall. The same argument as the frameless gallery
+   above: a slab turned the archive into an ordinary widget, while here the frames are the material. */
 
-   Гасим проходы поимённо, а не через `background: none` у плитки: проходы живут в
-   `::before`/`.pixel-lid`/`::after`, и пустой фон их не выключает — блюр остался бы висеть
-   прямоугольником по коробке плитки, размывая ленту холста вокруг снимков.
+/* The passes are killed BY NAME rather than with `background: none` on the tile: they live in
+   `::before`/`.pixel-lid`/`::after`, and an empty background does not switch them off — the blur would stay
+   hanging as a rectangle over the tile's box, blurring the canvas ribbon around the photographs. */
 
-   Снято во ВСЕХ состояниях, а не только в загруженном: у TileShell нет атрибута состояния,
-   а заводить его ради скина — лишний шов. Строка «пока нет дропов» и «повторить» читаются
-   на холсте сами (цвета берутся из токенов волны).
-
-   ⚠️ `:not(.drop-modal__panel)` — несущее, а не украшение. Модалка дропа рендерится ВНУТРИ
-   плитки, из которой её открыли (она сестра TileShell, а не портал), и сама носит
-   `.pixel-tile` со своими слоями. Без этого исключения правило снимало стекло и с НЕЁ:
-   галерея, открытая из ленты дропов, приезжала без блюра, а та же галерея из плитки
-   последнего дропа — со стеклом (замечено владельцем: «вроде должен один компонент
-   переиспользоваться?»). Компонент и правда один — расходился скин. */
+/* ⚠️ `:not(.drop-modal__panel)` is load-bearing. The drop modal renders INSIDE the tile it was opened
+   from (a sibling of TileShell, not a portal) and carries `.pixel-tile` with layers of its own; without
+   the exception the same gallery had blur from one tile and none from the other. */
 :root[data-wave="wave-03"] [data-tile-id="photoDrops"] .pixel-tile:not(.drop-modal__panel) {
   padding: 0;
   border: none;
   background: none;
   box-shadow: none;
 }
-/* Шиммер загрузки — деталь ПЛИТЫ, и без плиты ему не на чем лежать: на холсте он читался
-   пустым прямоугольником, мигающим на жёсткой перезагрузке (замечание владельца). Лента
-   вместо него появляется сама, когда доедет первая обложка (`.is-ready` в common.css):
-   пустого места на холсте не бывает — бывает холст. */
+/* The loading shimmer is a detail of the SLAB, and without a slab it has nothing to lie on: on the canvas it
+   read as an empty rectangle flashing on a hard reload. The rail appears by itself once the first cover
+   arrives (`.is-ready` in common.css) — there is no empty space on a canvas, there is canvas. */
 :root[data-wave="wave-03"] [data-tile-id="photoDrops"] .pixel-shimmer {
   display: none;
 }
@@ -422,15 +355,13 @@
   display: none;
 }
 
-/* ── Переключатель волн: снята ПЛИТА, но не геометрия (DESIGN §2.6, §10.2) ──────────────
-   С ряда карт убраны фон, кант, тень и проходы блюра — карты и так нарисованы краем и
-   палитрой своих волн, то есть читаются предметами сами по себе, а стекло добавляло им
-   второй край поверх трёх собственных.
+/* Wave switcher: the SLAB is removed but not the geometry (DESIGN §2.6, §10.2). Ground, border, shadow and
+   blur passes come off the row of cards — they are already drawn with their own waves' edge and palette, so
+   glass added a second edge over their three. */
 
-   ⚠️ Отступ плитки (`--chip-gutter` выше) при этом ОСТАЁТСЯ. Первый заход снимал плиту тем же
-   правилом, что и у ленты дропов, — вместе с `padding: 0`; карты растянулись на всю плитку и
-   выросли (замер: 66×103 против прежних), а ряд перестал быть тем рядом, который владелец
-   просил не трогать. Снимаем ровно материал, а размеры и форма карт остаются как были. */
+/* ⚠️ The tile's inset (`--chip-gutter` above) STAYS. The first attempt removed the slab with the same rule as
+   the drops rail, `padding: 0` included; the cards stretched across the tile and grew, and the row stopped
+   being the row it was asked to remain. Exactly the material comes off, the sizes and shapes stay. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .pixel-tile {
   border: none;
   background: none;
@@ -441,42 +372,28 @@
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .pixel-tile::after {
   display: none;
 }
-/* ⚠️ Тень самих карт — тоже часть снятой плиты, и снимается ВМЕСТЕ с ней. Плита ушла, а
-   `--drop-2/--drop-3` (общий язык «коробочки» из common.css) остались висеть на картах: три
-   мягких чёрных пятна сливались под рядом в тёмное поле снизу и по бокам, тающее кверху, —
-   ровно та подложка, от которой волна отказалась, только нарисованная тенью (замечание
-   владельца: «подложка всё равно видна, какая-то остаточная тень»). Карта и без неё стоит на
-   холсте: её держат собственный край, торец сигнального цвета и палитра своей волны.
+/* ⚠️ The cards' own shadow is part of the removed slab and goes WITH it. The slab left while `--drop-2`/
+   `--drop-3` (the shared box language from common.css) stayed on the cards: three soft black patches merged
+   under the row into exactly the ground this wave renounced, only drawn in shadow. */
 
-   Фильтр при этом НЕ `none`: им карта делается Backdrop Root, и только поэтому проходы блюра
-   внутри неё размывают ЛЕНТУ САМОЙ КАРТЫ, а не борд за ней (см. врез у `.wave-chip__ribbon::after`
-   ниже). Поэтому здесь не снятие фильтра, а пустой фильтр: тени нет, корень остался.
-   Подъём под курсором не трогаем — он жест, а не материал. */
+/* The filter is NOT `none`, though: it is what makes a card a Backdrop Root, and only because of that do the
+   blur passes inside it blur THE CARD'S OWN RIBBON rather than the board behind it (see the note at
+   `.wave-chip__ribbon::after`). So this is an empty filter, not a removed one: no shadow, root intact. */
 :root[data-wave="wave-03"] .wave-chip {
   filter: opacity(1);
 }
 
-/* ── Проекты: не стекло, а КОНСОЛЬ (DESIGN §7.8, §10.2) ─────────────────────────────────
-   Третий случай в этой волне, когда плитка отказывается от стекла, и по той же причине, что
-   у ленты дропов и переключателя: материалом здесь работает САМ ПРЕДМЕТ. У ленты это кадры,
-   у переключателя — карты волн, здесь — окно терминала. Стекло с лентой холста, просвечивающей
-   сквозь вывод команды, спорило с предметом дважды: консоль по природе непрозрачна, а
-   размытые буквы под моноширинными буквами читались вторым текстом.
+/* Projects: not glass but a CONSOLE (DESIGN §7.8, §10.2). The third tile in this wave to refuse glass, for the
+   same reason as the drops rail and the switcher — the SUBJECT is the material. Here it is a terminal window,
+   and a console is opaque by nature. */
 
-   Решение владельца по артефакту «Три консоли для проектов»: содержимое — вывод `tree`,
-   а фон и формат рамки — не волны, а консоли.
+/* Glass argued with it twice over: the canvas ribbon showing through the command output read as a second text
+   under the monospace letters, being monospace itself and merely smeared by the blur. The first attempt left
+   14% of the canvas showing, and that is exactly what happened on the live board. */
 
-   Плитка тут ЕДИНСТВЕННАЯ на борде PRIME со своим краем, и это осознанно: она и должна
-   читаться врезкой чужого языка. Чтобы врезка не кричала, все три её отличия взяты
-   минимальными — на ступень, а не в противоход:
-     · радиус — `--radius-sm` вместо `--radius-lg`: окно терминала квадратнее борда, но не
-       рубленый прямоугольник, который поссорился бы с соседями по всей сетке;
-     · фон — свой же `--bg-page` почти без просвета (4% холста): панель ТЕМНЕЕ окружения, как
-       и положено терминалу, а местная подсветка её едва подкрашивает, и она не читается дырой
-       в борде. Первый заход оставлял 14% — и лента холста читалась СКВОЗЬ вывод команды
-       вторым текстом (замечено на живом борде): без блюра под моноширинными буквами оказались
-       такие же моноширинные, только смазанные фоном. Консоль по природе непрозрачна;
-     · тень мельче стеклянной: панель лежит на холсте, а не парит над ним. */
+/* The ONLY tile on PRIME's board with an edge of its own, deliberately — it should read as an inset in a
+   foreign language. All three differences are a step rather than a reversal: `--radius-sm` instead of
+   `--radius-lg`, its own `--bg-page` at 4% canvas, and a shadow smaller than the glass one. */
 :root[data-wave="wave-03"] [data-tile-id="projects"] .pixel-tile {
   padding: 0;
   border-radius: var(--radius-sm);
@@ -484,24 +401,23 @@
   background: color-mix(in srgb, var(--bg-page) 96%, transparent);
   box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.07), var(--edge-light), 0 14px 32px -22px rgba(0, 0, 0, 0.85);
 }
-/* Проходы блюра гасим поимённо: пустой фон их не выключает (тот же врез, что у ленты дропов) —
-   блюр остался бы висеть прямоугольником поверх непрозрачной панели. */
+/* The blur passes are killed by name: an empty background does not switch them off (the same note as at the
+   drops rail) — the blur would stay hanging as a rectangle over the opaque panel. */
 :root[data-wave="wave-03"] [data-tile-id="projects"] .pixel-tile::before,
 :root[data-wave="wave-03"] [data-tile-id="projects"] .pixel-lid,
 :root[data-wave="wave-03"] [data-tile-id="projects"] .pixel-tile::after {
   display: none;
 }
-/* Поля панели живут в СКИНЕ, а не в редакции, и это то же разделение: сколько воздуха у
-   текста до края окна — свойство окна. Плиточный `p-4` снят выше, потому что он задавался
-   под подпись сверху, которой у PRIME нет, и полосу заголовка под ним пришлось бы врезать
-   отрицательными полями. */
+/* The panel's padding lives in the SKIN, not the edition, and it is the same division: how much air the text
+   has to the window's edge is a property of the window. The tile's `p-4` is removed above because it was set
+   for a caption PRIME does not have, and the title bar under it would then need negative margins. */
 :root[data-wave="wave-03"] .projects-console-frame {
-  /* Полоса заголовка отделена линейкой, поэтому просвет между нею и выводом не нужен. */
+  /* The title bar is set off by a rule, so no gap is needed between it and the output. */
   gap: 0;
 }
-/* Полоса заголовка: приглашение прижато к верхнему краю окна и отбито волосяной линейкой
-   ВО ВСЮ ширину панели. Именно линейка до краёв, а не подчёркнутая строка внутри полей,
-   и делает из плитки окно: у терминала заголовок — часть рамы. */
+/* Title bar: the prompt is pinned to the window's top edge and set off by a hairline rule across the FULL width
+   of the panel. It is that full-width rule, rather than an underlined line inside the padding, that turns the
+   tile into a window: in a terminal the title is part of the frame. */
 :root[data-wave="wave-03"] .projects-prompt {
   padding: 8px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border-tile) 70%, transparent);
@@ -509,10 +425,9 @@
 :root[data-wave="wave-03"] .projects-console {
   padding: 10px 12px 12px;
 }
-/* Ховер-кромка на этой плитке гасится: у окна терминала край держит собственный кант, и
-   свет, перетекающий по нему за курсором, читается стеклянным жестом соседей — тем самым
-   материалом, от которого редакция и уходила. Тот же приём, что у панели галереи ниже:
-   ровно та же специфичность, что у общего жеста волны, но ниже по файлу. */
+/* The hover edge light is switched off on this tile: a terminal window's edge is held by its own border, and
+   light flowing along it behind the cursor reads as the neighbours' glass gesture — the very material this
+   edition was leaving. The same device as the gallery panel below: equal specificity, but later in the file. */
 @media (hover: hover) {
   :root[data-wave="wave-03"] [data-tile-id="projects"] .pixel-tile:hover {
     --edge-a: 0;
@@ -520,26 +435,21 @@
   }
 }
 
-/* ── Чип волны 03 в переключателе (DESIGN §2.6) ─────────────────────────────────────────
-   ЕДИНСТВЕННЫЙ блок этого файла БЕЗ обёртки `:root[data-wave="wave-03"]`, и это не
-   недосмотр: чип PRIME обязан выглядеть стеклянной картой и тогда, когда на борде лежит
-   волна 01, иначе превью врёт — показывает ступеньку соседней волны вместо своего края.
-   Селектор цепляется за `[data-chip-wave]`, который переключатель ставит по ключу волны,
-   поэтому правило бьёт только по чипу этой волны и никогда — по борду.
+/* Wave 03's chip in the switcher (DESIGN §2.6). The ONLY block in this file WITHOUT a
+   `:root[data-wave="wave-03"]` wrapper, and not by oversight: PRIME's chip has to look like a glass card even
+   when wave 01 is on the board, or the preview lies and shows the neighbour's step instead of its own edge. */
 
-   Тот же выбор, что и для края плитки: PRIME рисует край сама, поэтому ступенчатый силуэт
-   гасим и оставляем скруглённую карту. Сигнальный циан остаётся на нижнем торце — на
-   тридцати пикселях именно торец, а не пятно внутри, читается как «цвет этой волны». */
+/* The same choice as for the tile edge: PRIME draws its own, so the stepped silhouette is killed and a rounded
+   card remains. The signal cyan stays on the lower side — at thirty pixels it is the side, and not a patch
+   inside, that reads as "this wave's colour". */
 .wave-chip[data-chip-wave="wave-03"] .wave-chip__slab,
 .wave-chip[data-chip-wave="wave-03"] .wave-chip__face {
   clip-path: none;
   border-radius: var(--chip-radius);
 }
-/* Верхняя карта — сам холст волны: у стеклянных карт нет обводки-канта, край держат радиус
-   и светлая кромка. Без этой строки заливкой служил бы --chip-line.
-   Холст берётся градиентом, а не одним `--chip-bg`: на тёмном плоская заливка сливается
-   с бордом PRIME в чёрный прямоугольник, у которого читается только цветной торец. Те же
-   четыре источника света, что у `body` волны, сжатые в коробку карты. */
+/* The upper card is the wave's canvas itself: glass cards have no outline, their edge held by radius and a light
+   rim, and without this line the fill would be `--chip-line`. The canvas is a gradient rather than one
+   `--chip-bg` — flat on dark it merges with PRIME's board into a black rectangle with only a coloured side. */
 .wave-chip[data-chip-wave="wave-03"] .wave-chip__face {
   background-color: var(--chip-bg);
   background-image: radial-gradient(58% 50% at 50% 44%, rgba(80, 132, 196, 0.34) 0%, rgba(10, 16, 26, 0) 78%),
@@ -549,61 +459,46 @@
     linear-gradient(168deg, #0b1018 0%, #0a0f16 55%, #080b10 100%);
   box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.22);
 }
-/* Вложенный слой заливки стеклу не нужен — карта остаётся одной поверхностью. */
+/* Glass needs no inset fill layer — the card stays one surface. */
 .wave-chip[data-chip-wave="wave-03"] .wave-chip__face::after {
   display: none;
 }
 
-/* ══════════════ МАТЕРИАЛ КАРТ ПЕРЕКЛЮЧАТЕЛЯ (DESIGN §2.6) ══════════════
- * На борде PRIME карта волны занимает треть плитки, и две трети её площади до сих пор были
- * ровной заливкой: волна показывалась ровно тем же, чем показывался свотч в 34 пикселя,
- * только крупнее. Карта получает НАПОЛНЕНИЕ — и не эмблему волны, а её ПОВЕРХНОСТЬ: зерно
- * и пиксель-сетку у 01, гряду облаков у 02, ленту прожитых дней под стеклом у 03. Карта
- * перестаёт быть иконкой волны и становится вырезанным куском её холста.
- *
- * Рассмотрено и отклонено: эмблема волны (пиксельный персик у 01, облако у 02, микротекст
- * у 03) — узнаётся быстрее, но ставит на плитку три разных знака вместо трёх поверхностей
- * одного борда, а знака у волн в языке нет вовсе: волна — это холст, край и набор, не логотип.
- *
- * ⚠️ Обёртка `:root[data-wave="wave-03"]` здесь ОБЯЗАТЕЛЬНА — в отличие от блока выше,
- * где чип PRIME рисует свой край на любом борде. Материал привязан не к волне, а к РАЗМЕРУ
- * карты: он существует только там, где карта растянута на плитку. На бордах волн 01 и 02
- * переключатель остаётся рядом свотчей, и зерно, гряда и микротекст выродились бы в грязь.
- */
+/* MATERIAL OF THE SWITCHER CARDS (DESIGN §2.6). On PRIME's board a wave card takes a third of the tile, and two
+ * thirds of its area were flat fill. The card gets CONTENT — not the wave's emblem but its SURFACE: grain and
+ * pixel grid for 01, a bank of cloud for 02, the lived-days ribbon under glass for 03. */
 
-/* Волна 01 — зерно и пиксель-сетка. Оба слоя у волны уже есть: зерно стоит на её `body`
-   (тот же тайл feTurbulence), а точка-сетка — снятый с холста пиксель-слой (см. врез у
-   `body` в wave-01.css: на большом фоне она спорила со ступенчатым краем). В масштабе
-   карты спорить не с чем — сетка держит пиксельный голос волны на площади в полсотни
-   пикселей, где сама ступенька читается уже еле-еле.
-   Тёплый свет холста перечислен заново: правило волны 01 бьётся сюда по специфичности. */
+/* Rejected: a wave emblem (a pixel peach for 01, a cloud for 02, microtext for 03) — recognised faster, but it
+ * puts three different signs on the tile instead of three surfaces of one board, and the waves have no sign in
+ * the language at all: a wave is canvas, edge and setting, never a logo. */
+
+/* ⚠️ The `:root[data-wave="wave-03"]` wrapper is MANDATORY here, unlike the block above. The material is tied
+ * not to a wave but to the card's SIZE: it exists only where a card is stretched across a tile. On the boards of
+ * waves 01 and 02 the switcher stays a row of swatches, where grain, bank and microtext degenerate into dirt. */
+
+/* Wave 01 — grain and pixel grid, both of which the wave already has: the grain on its `body` (the same
+   feTurbulence tile) and the dot grid a pixel layer taken off its canvas, where it argued with the stepped
+   edge. The warm canvas light is relisted, since wave 01's own rule reaches here by specificity. */
 :root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-01"] .wave-chip__face::after {
   background-image: radial-gradient(circle at 1px 1px, rgba(33, 26, 22, 0.15) 0.75px, rgba(33, 26, 22, 0) 0.85px),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E"),
     radial-gradient(120% 120% at 12% 0%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%);
-  /* Шаг сетки — константа, а не доля карты: это ПИКСЕЛЬНАЯ сетка, её шаг равен модулю
-     волны (`--px` = 4px, взято с запасом в полтора модуля), и растягиваться вместе с
-     картой ему нельзя — иначе он перестанет быть модулем. */
+  /* The grid step is a constant, not a share of the card: this is a PIXEL grid, its step equals the wave's module
+     (`--px` = 4px, taken at one and a half modules), and stretching it with the card would stop it being one. */
   background-size: 6px 6px, 70px 70px, auto;
 }
 
-/* Волна 02 — не одно облако, а ГРЯДА до края карты: небо Obscura ниже по списку остаётся
-   на месте, поверх него ложатся размытые эллипсы, уходящие за оба края. Одиночное облако
-   было бы эмблемой (и уже пробовалось на свотче как «картинка в картинке»); гряда —
-   состояние неба, то есть та же поверхность, что у соседних карт.
-   ⚠️ Гряда рисуется на СВОЁМ холсте, высота которого выведена из ШИРИНЫ ряда (`cqw`), а не
-   из высоты карты. Доли коробки переживают равномерное масштабирование, но не смену
-   пропорции: стоит карте стать ниже, и вертикальный радиус эллипса падает вместе с высотой —
-   облака расплющиваются, вместо того чтобы обрезаться краем. Холст постоянной пропорции
-   разводит эти два поведения: форма облака держится, лишнее срезает карта.
-   Сам холст в зуме не ломается по той же причине, по какой держится шаг сетки выше: `cqw`
-   растёт вместе с рядом.
+/* Wave 02 — not one cloud but a BANK running off both edges of the card: Obscura's sky stays in place below with
+   blurred ellipses over it. A single cloud would be an emblem, and was already tried on the swatch as a picture
+   inside a picture; a bank is a state of the sky, the same kind of surface as the neighbouring cards. */
 
-   У каждого облака СВОЯ подложка-тень, идущая в списке сразу за ним (в `background-image`
-   первый слой — верхний, значит тень ложится под своё облако). Без неё гряда не читалась
-   вовсе: небо Obscura само почти белое (#eef6ff→#dcebfb), и белое на белом пропадало —
-   первый заход с одними светлыми эллипсами дал ровную пустую карту. Облако на светлом небе
-   видно по нижней кромке, а не по телу. */
+/* ⚠️ The bank is drawn on ITS OWN canvas, whose height derives from the ROW's width (`cqw`) and not from the
+   card's height. Box fractions survive uniform scaling but not a change of ratio: make the card shorter and an
+   ellipse's vertical radius falls with it, so the clouds flatten instead of being cropped by the edge. */
+
+/* Every cloud has its OWN shadow immediately after it in the list (in `background-image` the first layer is the
+   topmost, so a shadow lands under its own cloud). Without them the bank did not read at all: Obscura's sky is
+   nearly white, and a cloud on a light sky is seen by its lower edge rather than by its body. */
 :root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-02"] .wave-chip__face {
   background-image: radial-gradient(44% 8% at 12% 24%, #ffffff 0%, #ffffff 40%, rgba(255, 255, 255, 0) 66%),
     radial-gradient(46% 7% at 12% 30%, rgba(139, 176, 214, 0.42) 0%, rgba(139, 176, 214, 0) 68%),
@@ -613,21 +508,17 @@
     radial-gradient(44% 5% at 32% 73%, rgba(139, 176, 214, 0.32) 0%, rgba(139, 176, 214, 0) 68%),
     radial-gradient(120% 85% at 50% -8%, #ffffff 0%, rgba(255, 255, 255, 0) 58%),
     linear-gradient(180deg, #eef6ff 0%, #e3f1fe 52%, #dcebfb 100%);
-  /* Шесть облачных слоёв (облако + его тень, трижды) считаются от холста 46cqw; небо и
-     верхний размыв берут карту целиком — это поверхность, а не предмет, и ей положено
-     тянуться. `no-repeat` обязателен: холст ниже карты не бывает сейчас, но повторись он —
-     снизу проступила бы вторая гряда. */
+  /* Six cloud layers (a cloud and its shadow, three times) count from the 46cqw canvas, while the sky and the top
+     blur take the whole card, being surface rather than object. `no-repeat` is mandatory: the canvas is never
+     shorter than the card today, but were it to be, a second bank would show through below. */
   background-size: 100% 46cqw, 100% 46cqw, 100% 46cqw, 100% 46cqw, 100% 46cqw, 100% 46cqw,
     100% 100%, 100% 100%;
   background-repeat: no-repeat;
 }
 
-/* Волна 03 — своя лента прожитых дней под своим же стеклом. Включаем шов материала
-   (в базе он `display: none`, см. common.css): текст ленты кладёт в карту переключатель,
-   строка — та же, что на холсте борда (`buildRibbon`), поэтому карта показывает НЕ похожий
-   узор, а ровно то, что сейчас лежит за плиткой.
-   Набор — моноширинный и в том же приглушении, что холст, только плотнее: на площади в
-   полсотни пикселей лента с холстовыми 11.5% не проступила бы вовсе. */
+/* Wave 03 — its own lived-days ribbon under its own glass; switch on the material seam (`display: none` in
+   the base). The switcher puts the same line into the card as the board's canvas (`buildRibbon`), so the
+   card shows exactly what lies behind the tile rather than a similar pattern. Denser than the canvas. */
 :root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-03"] .wave-chip__ribbon {
   display: block;
   position: absolute;
@@ -635,10 +526,9 @@
   overflow: hidden;
   padding: 4px 3px;
   border-radius: inherit;
-  /* Кегль — доля РЯДА карт (`cqw` разрешается на `.tile-frame`, как у `--chip-step` выше):
-     плитка переключателя приходит числом в дельте волны, скину её ширина не видна. Потолок
-     и пол — не гигиена: ниже 2.6px строка перестаёт быть строкой и становится шумом, выше
-     4.5px лента начинает читаться вторым текстом на плитке и спорить с холстом борда. */
+  /* Size is a share of the card ROW (`cqw` resolves on `.tile-frame`, as with `--chip-step`): the switcher
+     tile arrives as a number in the wave's delta, invisible to the skin. Floor and ceiling are not hygiene
+     — below 2.6px a line becomes noise, above 4.5px the ribbon reads as a second text on the tile. */
   font-family: var(--font-mono);
   font-size: clamp(2.6px, 1.9cqw, 4.5px);
   line-height: 2;
@@ -649,10 +539,9 @@
   pointer-events: none;
 }
 
-/* Первый проход блюра — по ВСЕЙ карте, без маски. Слабый, «на единицу»: лента не должна
-   быть резкой нигде. Резкий верх при мутном низе читался не материалом, а расфокусом объектива
-   — глаз цеплялся за чёткие буквы и пытался их прочесть (замечание владельца). Теперь текст
-   проглядывается везде и нигде не зовёт себя читать. */
+/* First blur pass, over the WHOLE card and unmasked. Weak, "by one unit": the ribbon must be sharp nowhere.
+   A sharp top over a hazy bottom read as a lens out of focus rather than as material — the eye caught on
+   the crisp letters and tried to read them. Now the text shows through everywhere and invites reading nowhere. */
 :root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-03"] .wave-chip__ribbon::before {
   content: "";
   position: absolute;
@@ -661,42 +550,38 @@
   backdrop-filter: blur(0.7px);
 }
 
-/* Второй проход — тот же приём, что держит стекло плиток, сжатый в карту: книзу муть
-   густеет, и на ней стоит сигнальный торец волны.
-   Блюру есть что размывать, хотя карта и не окно наружу: `.wave-chip` несёт `filter`
-   (тень «коробочки»), а значит она — Backdrop Root, и backdrop-filter внутри неё берёт
-   содержимое САМОЙ карты, то есть ленту. Обычно это ловушка (docs/pitfalls.md), здесь —
-   ровно то, что нужно. */
+/* Second pass — the device that holds the tiles' glass, compressed into a card: the haze thickens downward,
+   and the wave's signal side stands on it. */
+
+/* The blur has something to blur even though a card is no window outwards: `.wave-chip` carries a `filter`
+   (the box's shadow) and is therefore a Backdrop Root, so `backdrop-filter` inside it takes THE CARD'S OWN
+   content, i.e. the ribbon. Usually that is a trap (docs/pitfalls.md); here it is exactly what is wanted. */
 :root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-03"] .wave-chip__ribbon::after {
   content: "";
   position: absolute;
   inset: 0;
   -webkit-backdrop-filter: blur(1.6px) saturate(1.2);
   backdrop-filter: blur(1.6px) saturate(1.2);
-  /* Маска начинается не с нуля, а с частичной альфы: проход подмешивается к первому уже
-     сверху и нарастает вниз — переход идёт по всей высоте карты, без границы, на которой
-     лента вдруг становилась чёткой. */
+  /* The mask starts at partial alpha rather than zero: the pass blends into the first one from the top and
+     grows downward, so the transition runs the card's full height with no boundary at which the ribbon
+     suddenly became crisp. */
   -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.7) 46%, #000 88%);
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.7) 46%, #000 88%);
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0), rgba(120, 160, 190, 0.18));
 }
 
-/* ── Подписи плиток: в PRIME их нет ────────────────────────────────────────────────────
-   «Параметр волны», как и у Obscura: дашбордная мета сверху виджета убрана, содержимое
-   растягивается на освободившееся место. Стекло держит структуру борда само — светящаяся
-   кромка отделяет плитку от холста лучше, чем слово над ней, а на тёмном лишняя строка
-   мелкого текста спорит с лентой холста, просвечивающей сквозь верх стекла.
+/* Tile captions: PRIME has none. A "wave parameter", as with Obscura — the dashboard meta line above a
+   widget is gone and the content stretches into the space. The glass holds the board's structure by itself,
+   and on dark an extra line of small text argues with the ribbon showing through the top of the glass. */
 
-   Уходит вместе с подписью и сценка дозвона на плитке свежести (§7.3): она стоит В СТРОКЕ
-   ЯРЛЫКА вместо слова «свежесть», то есть она ярлык, а не содержимое плитки. Тот же размен,
-   что приняла волна 02. */
+/* The freshness dial-up scene (DESIGN §7.3) goes with the caption: it stands IN the label row in place of the
+   word, so it is a label rather than tile content. The same trade wave 02 accepted. */
 :root[data-wave="wave-03"] .tile-label {
   display: none;
 }
-/* Исключение ровно одно, и то же, что у волны 02: строка ярлыка календаря несёт ЛИСТАНИЕ
-   недель (§5.3) — это навигация, а не подпись, и спрятать её значило бы отобрать доступ
-   к истории. Возвращается только ряд управления; само слово «календарь» (и имя месяца,
-   и линза) остаётся скрытым, как все мета-ярлыки волны. */
+/* Exactly one exception, the same as wave 02's: the calendar's label row carries WEEK PAGING (PRD §5.3),
+   which is navigation rather than a caption, and hiding it would take away access to history. Only the
+   control row returns; the word itself, the month name and the lens stay hidden like every meta label. */
 :root[data-wave="wave-03"] .tile-label:has(.cal-nav) {
   display: flex;
   justify-content: flex-end;
@@ -704,22 +589,20 @@
 :root[data-wave="wave-03"] .cal-label-row > :not(.cal-nav) {
   display: none;
 }
-/* Ряд ярлыка у волны прижат вправо (см. правило выше), но сам `.cal-label-row` — это флекс
-   с `justify-between`, и, оставшись единственным ребёнком, листание уезжало в левый угол.
-   Выравнивание надо назначать ТОМУ элементу, который раскладывает кнопки. */
+/* The wave pins the label row right (see the rule above), but `.cal-label-row` is itself a flex with
+   `justify-between`, and left as the only child the paging drifted into the left corner. The alignment has
+   to be set on the element that lays the buttons out. */
 :root[data-wave="wave-03"] .cal-label-row {
   justify-content: flex-end;
 }
 
-/* ── Календарь в редакции «поле» (§5.2, §10.2) ─────────────────────────────────────────
-   Волна берёт правило редакции как есть и назначает ему материал: тон будней — акцент волны,
-   тон выходного — её же вторая, холодная лиловая нота. Акцентом здесь работает СВЕТ, а не
-   мазок, поэтому день и рисуется свечением — тем же приёмом, что кромка плитки.
+/* Calendar in the "field" edition (DESIGN §5.2, §10.2). The wave takes the edition's rule as it stands and
+   gives it material: weekdays in the wave's accent, weekends in its second, cold lilac note. The accent works
+   here as LIGHT rather than a stroke, so a day is drawn by glow — the same device as the tile's edge. */
 
-   Пол приподнят против дефолта: на тёмном холсте клетка с весом около нуля иначе сливается
-   с плитой, и прожитый пустой день переставал отличаться от пропуска. Потолок, наоборот,
-   выше — под стеклом свет теряет в силе, и замер на живом борде показал, что дефолтные 0.55
-   дают плотному дню тот же тон, что среднему. */
+/* The floor is raised against the default: on a dark canvas a cell of near-zero weight merges into the plate
+   and a lived empty day stopped differing from a gap. The ceiling is raised for the opposite reason — under
+   glass the light loses strength, and the default 0.55 gave a dense day the same tone as a middling one. */
 :root[data-wave="wave-03"] .cal-grid--field {
   --cal-field-hue: var(--accent);
   --cal-field-hue-weekend: var(--accent-warm);
@@ -728,21 +611,22 @@
   --cal-field-ring: var(--tile-line, 1px);
 }
 
-/* Ход окна волна анимирует: стекло — материал тяжёлый, и окно, меняющееся мгновенно, спорит
-   с ним само по себе. 240мс — ровно столько, чтобы движение прочиталось на шаг колеса и не
-   отстало от следующего: порог жеста (`useWheelPaging`) держит шаги реже. */
+/* The wave animates the window roll: glass is a heavy material, and a window changing instantly argues with
+   it. 240ms is just enough for the movement to read on one wheel click without lagging into the next — the
+   gesture threshold (`useWheelPaging`) keeps the steps further apart. */
 :root[data-wave="wave-03"] [data-tile-id="calendar"] {
   --cal-roll-ms: 240ms;
 }
 
-/* Имя месяца в пустом куске — тем же голосом, что подписи дней недели: это указатель по
-   полю, а не данные. Ярче делать нечего, рядом с ним пусто, и он читается уже на тертиари. */
+/* The month name in an empty stretch takes the same voice as the weekday captions: it is a pointer across the
+   field, not data. There is nothing to brighten it against — the space beside it is empty, and it already
+   reads at tertiary. */
 :root[data-wave="wave-03"] .cal-grid--field {
   --cal-month-gap-ink: var(--text-tertiary);
 }
 
-/* Таблетка возврата — то же стекло, что плитки, только в масштабе кнопки: плотная подложка
-   нужна ей потому, что она лежит на кромке и на краю карточки разом. */
+/* The home pill is the same glass as the tiles, at button scale: it needs a dense ground because it lies on
+   the edge strip and on the card's margin at once. */
 :root[data-wave="wave-03"] .cal-home-pill {
   border-color: var(--glass-edge, rgba(160, 205, 230, 0.18));
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.1), rgba(10, 18, 28, 0.82));
@@ -754,41 +638,34 @@
   color: var(--accent);
 }
 
-/* ── Соцсети: четыре фирменные марки на холсте (DESIGN §7.7, §10.2) ────────────────────
-   Цветные пиксель-спрайты соцсетей — деталь скина волны 01: тёплый персик спорит с холодной
-   палитрой PRIME. Базовый вид волны — одноцветная маска common.css в чернилах волны; марки
-   платформ включаются ниже поимённо (`.social-icon--brand`), и сброс здесь нужен для
-   платформы, у которой своей марки нет. */
+/* Social links: four brand marks on the canvas (DESIGN §7.7, §10.2). The coloured pixel sprites are a
+   wave-01 detail — warm peach argues with PRIME's cold palette. The base look is the common.css
+   single-colour mask; platform marks are switched on by name below, and this reset is the fallback. */
 :root[data-wave="wave-03"] .social-icon--sprite {
   --social-icon-size: clamp(12px, calc(6.5px + 19cqw), 36px);
   background: var(--text-primary);
   -webkit-mask: var(--social-mask) center / contain no-repeat;
   mask: var(--social-mask) center / contain no-repeat;
 }
-/* Марка платформы — картинкой, а не маской: перекрашенный градиент Instagram и синий кружок
-   Telegram узнаются именно цветом, и одноцветная копия читалась бы значком интерфейса, а не
-   знаком сервиса. GitHub и X приезжают белыми (`BRAND_MARKS` в SocialTile) — их штатный
-   вариант для тёмной подложки; чёрные марки на стекле PRIME пропали бы.
-   Правило стоит ПОСЛЕ сброса выше: обе метки висят на одном узле, и марка обязана перебить
-   маску. */
+/* A platform mark as a picture, not a mask: Instagram's gradient and Telegram's blue disc are recognised by
+   colour, and a single-colour copy would read as an interface icon. GitHub and X arrive white, their
+   standard dark-ground variant. The rule stands AFTER the reset — both flags hang on one node. */
 :root[data-wave="wave-03"] .social-icon--brand {
   background: var(--social-brand) center / contain no-repeat;
   -webkit-mask: none;
   mask: none;
 }
-/* Плита плитки снята целиком — тот же довод, что у ленты дропов, переключателя, консоли
-   проектов и карты велобайка: материалом работает сам предмет. Четыре марки уже нарисованы
-   своим цветом и краем, и стеклянная карточка вокруг них была бы рамой у рамы.
-   Проходы блюра гасим ПОИМЁННО: пустой фон их не выключает (врез у ленты дропов). */
+/* The tile's slab is removed entirely — the same argument as the drops rail, the switcher, the projects
+   console and the ride map: the subject is the material. Four marks already carry their own colour and
+   edge. The blur passes are killed BY NAME: an empty background does not switch them off. */
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile {
   padding: 0;
   border: none;
   background: none;
   box-shadow: none;
-  /* Отсечка снята вслед за плитой. Знак меряется от ШИРИНЫ плитки (ниже), а высоты ему
-     отведена одна строка сетки — и знак оказывается выше неё на пару пикселей: круг GitHub
-     от этого плющился сверху и снизу. Резать тут нечем и незачем — фона, канта и тени у
-     плитки нет, границы ячейки на экране не существует, а соседние строки пусты. */
+  /* The clip goes with the slab. A mark is sized from the TILE's width while its height gets one grid row,
+     so it comes out a couple of pixels taller and flattened GitHub's circle. There is nothing left to clip
+     against: no ground, border or shadow, and the neighbouring rows are empty. */
   overflow: visible;
 }
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile::before,
@@ -796,21 +673,20 @@
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile::after {
   display: none;
 }
-/* Шиммер загрузки — деталь плиты: без неё он мигал бы пустым прямоугольником на холсте
-   (тот же случай, что у ленты дропов и карты велобайка). */
+/* The loading shimmer is a slab detail: without one it would flash as an empty rectangle on the canvas (the
+   same case as the drops rail and the ride map). */
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-shimmer {
   display: none;
 }
-/* Плиты нет ⇒ свет зажигать не на чем. Отказ идёт ДВАЖДЫ, и это разные механизмы.
+/* No slab ⇒ nothing to light. The refusal happens TWICE, by two different mechanisms. */
 
-   1. Шов курсора (`TileEdgeLight`) пропускает плитку целиком. Он пишет в неё `--tile-dx`/
-      `--tile-dy` на каждое движение мыши, а они НАСЛЕДУЮТСЯ: каждая запись метит на перерасчёт
-      всё поддерево. Здесь это чистый убыток, а на WebKit ещё и заново растрирует марки
-      (`background: var(--social-brand)`) — все четыре моргают, пока курсор над плиткой
-      (docs/pitfalls.md).
-   2. Ховер волны не меняет на плитке ничего: вычисленный стиль наведения равен обычному,
-      поэтому вход курсора не стоит и разового перерасчёта. Тот же приём, что у плитки
-      проектов; специфичность выше общего жеста волны, так что правило работает и стоя выше. */
+/* 1. The cursor seam (`TileEdgeLight`) skips this tile entirely. It writes `--tile-dx`/`--tile-dy` into it on
+      every mouse move, and those INHERIT: each write marks the whole subtree for recalculation. That is pure
+      loss here, and on WebKit it re-rasterises the marks as well, so all four flicker (docs/pitfalls.md). */
+
+/* 2. The wave's hover changes nothing on the tile: the computed hover style equals the resting one, so the
+      cursor entering costs not even a single recalculation. The same device as the projects tile; the
+      specificity is above the wave's shared gesture, so the rule works even standing earlier. */
 :root[data-wave="wave-03"] [data-tile-id="social"] {
   --tile-edge-light: 0;
 }
@@ -820,40 +696,37 @@
     border-color: transparent;
   }
 }
-/* Подложка карточки-ссылки — параметр скина (`--social-card-bg` в common.css): плашка под
-   маркой вернула бы ту же плиту, только вчетверо. */
+/* The link card's ground is a skin parameter (`--social-card-bg` in common.css): a plate under a mark would
+   bring the slab back, only four times over. */
 :root[data-wave="wave-03"] .social-card {
   --social-card-bg: transparent;
 }
-/* Имена платформ сняты: марка называет сервис сама, а подпись под ней — тот же мета-ярлык,
-   от которых волна отказалась всюду (`.tile-label` выше). Ссылке имя остаётся в `aria-label`.
-   Марки идут РЯДОМ, а не квадратом 2×2: плитка стоит короткой полосой в правом верхнем углу,
-   и четыре знака в ней читаются строкой ссылок. Число колонок — из числа ссылок
-   (`--social-count`), тем же приёмом, что в мобильном стеке (§8). */
+/* Platform names are removed: a mark names its service itself, and a caption under it is the same meta label
+   the wave dropped everywhere else. The link keeps its name in `aria-label`. */
+
+/* The marks stand in a ROW rather than a 2×2 square: the tile is a short strip in the top right corner, where
+   four signs read as a line of links. The column count comes from the number of links (`--social-count`), the
+   same device as in the mobile stack (DESIGN §8). */
 :root[data-wave="wave-03"] .social-label {
   display: none;
 }
 :root[data-wave="wave-03"] .social-grid {
   grid-template-columns: repeat(var(--social-count, 4), minmax(0, 1fr));
 }
-/* Без подписи и без плашки марке достаётся почти вся карточка — и доля тут отвечает не только
-   за размер знака, но и за ПРОСВЕТ между знаками: пустует ровно то, что знак не занял в своей
-   ячейке. Поэтому просвет правят вдвоём: долей здесь и шириной плитки в раскладке волны —
-   одна ширина ужимает ячейки вместе со знаками и оставляет соотношение прежним.
-   Замер на опорной ширине 1536px (§8.1): знак ~31px. */
+/* With no caption and no plate a mark gets almost the whole card, so this share governs the GAP between
+   signs as much as the sign's size: what is empty is exactly what the sign did not take in its cell. The
+   gap is therefore tuned by this share together with the tile's width in the wave's layout. */
 :root[data-wave="wave-03"] .social-icon {
   --social-icon-size: clamp(16px, calc(6px + 47cqw), 46px);
 }
 
-/* Жест наведения PRIME объявляется ТОКЕНАМИ (контракт — во врезе у `.pixel-tile` в
-   wave-01.css), а не отменой чужого правила. Волна 01 поднимает плитку и углубляет тень;
-   здесь всё четыре значения нейтральны, потому что жест этой волны — свет, а не движение.
+/* PRIME's hover gesture is declared in TOKENS (the contract is in the note at `.pixel-tile` in wave-01.css)
+   rather than by cancelling someone else's rule. Wave 01 lifts the tile and deepens the shadow; here all four
+   values are neutral, because this wave's gesture is light, not movement. */
 
-   Это не косметика. `filter` на наведённой плитке делает её **Backdrop Root**, то есть у
-   стеклянной карты на ховере пропадал бы сам блюр — три прохода размывали бы пустоту
-   (docs/pitfalls.md). Пока подъём волны 01 доставался PRIME по наследству, плитка на ховере
-   и подпрыгивала, и теряла стекло.
-   Приглушённая плитка поднималась `transform`-ом — та же история и то же лечение. */
+/* This is not cosmetic. A `filter` on a hovered tile makes it a Backdrop Root, so a glass card would lose
+   its blur on hover — three passes blurring emptiness (docs/pitfalls.md). While wave 01's lift reached
+   PRIME by inheritance, a hovered tile both jumped and lost its glass. */
 :root[data-wave="wave-03"] .pixel-tile {
   --tile-hover-top: auto;
   --tile-press-top: auto;
@@ -864,12 +737,9 @@
   --muted-hover-shift: 0px;
 }
 
-/* Ховер — ТОЛЬКО свет в торце: ни подъёма, ни густеющего тинта.
- * Подъём был жестом волны 01, перекрашенным; густеющее стекло вдобавок врало про материал —
- * стекло от прикосновения не мутнеет. Здесь плитка не двигается вовсе, а меняется освещение:
- * зажигается кромка со стороны курсора. Из всей плитки правится РОВНО альфа света и цвет
- * канта — потому этот ховер и не стоит ни композитного слоя, ни лишнего узла.
- * Выбран владельцем из пяти прототипов; отвергнутые — в DESIGN §10.2. */
+/* Hover is ONLY light in the side: no lift, no thickening tint — a lift was wave 01's gesture repainted,
+ * and thickening glass lies about the material. Exactly the light's alpha and the border colour change, so
+ * it costs no compositing layer. Chosen from five prototypes; the rejected ones are in DESIGN §10.2. */
 @media (hover: hover) {
   :root[data-wave="wave-03"] .pixel-tile:hover,
   :root[data-wave="wave-03"] .muted-tile:hover {
@@ -878,9 +748,9 @@
   }
 }
 
-/* Читатель попросил меньше прозрачности — лента уходит целиком, стекло становится плотной
-   поверхностью. Она декоративна, и именно она даёт борду переменный контраст, от которого
-   этот режим и защищает (DESIGN §9). Градиент холста остаётся: он ровный и не мешает. */
+/* The reader asked for less transparency, so the ribbon goes entirely and the glass becomes a dense surface.
+   It is decorative, and it is precisely what gives the board the variable contrast this mode guards against
+   (DESIGN §9). The canvas gradient stays: it is even and gets in nobody's way. */
 @media (prefers-reduced-transparency: reduce) {
   :root[data-wave="wave-03"] .wave-backdrop {
     display: none;
@@ -900,25 +770,20 @@
     display: none;
   }
 }
-/* ══════════ МУЗЫКА: ЧЁРНАЯ ПЛАШКА SPOTIFY (DESIGN §7.5, §10.2) ══════════
- * Единственная плитка борда, которая ВЫХОДИТ из стекла. Решение владельца: виджет должен
- * читаться плеером Spotify, а не плиткой борда с зелёной полоской, — поэтому здесь нет ни
- * одного из трёх проходов блюра, нет стеклянной кромки и нет тинта. Чёрный корпус #121212,
- * крупный радиус, зелёное на своих местах.
- *
- * Скоуп — ВСЯ плитка (`.t-music-vars`), а не отдельные её режимы. Сперва плашка стояла
- * только под играющим треком: список недавних тогда ещё не был решён, и подменять его
- * заодно значило бы решить за владельца. Теперь решён (очередь ниже), и привязка к режиму
- * стала вредной — виджет мигал бы стеклом ровно в ту секунду, когда трек кончился. Корпус
- * прибора не зависит от того, что внутри него сейчас звучит.
- *
- * ⚠️ Зелёный знак Spotify стоит здесь по гайдлайну, а не вопреки ему: зелёный логотип
- * разрешён на чёрном и белом, и чёрный корпус — единственное место на этом борде, где он
- * законен. На стекле знак пришлось бы делать монохромным (так он и сделан у Obscura).
- */
+/* MUSIC: THE BLACK SPOTIFY PLATE (DESIGN §7.5, §10.2). The one tile on the board that LEAVES the glass:
+ * the widget should read as a Spotify player, not a board tile with a green stripe — so no blur passes,
+ * no glass edge and no tint, just a black #121212 body with green in its own places. */
+
+/* The scope is the WHOLE tile (`.t-music-vars`), not its individual modes. At first the plate stood only under
+ * a playing track, but tying it to a mode became harmful once the recents list was settled: the widget would
+ * flash glass in the very second a track ended. A device's body does not depend on what is playing inside it. */
+
+/* ⚠️ The green Spotify mark stands here BY the guidelines, not against them: the green logo is permitted on
+ * black and white, and a black body is the only place on this board where it is legal. On glass the mark would
+ * have to be monochrome, as it is on Obscura. */
 :root[data-wave="wave-03"] .t-music-vars .pixel-tile {
-  /* Сжатие-к-контенту отменяем: плашка — корпус прибора, её ширина не должна ездить
-     от длины названия трека (см. `--music-card-w` в common.css). */
+  /* Shrink-to-content is cancelled: the plate is the device's body, and its width must not travel with the
+     length of a track title (see `--music-card-w` in common.css). */
   width: 100%;
   background: #121212;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -926,66 +791,62 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 26px 60px -26px rgba(0, 0, 0, 0.92);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  /* Поля ужаты по вертикали (было 16): 16px снизу складывались с запасом подгонки списка
-     (§7.1) в 29px воздуха под последней строкой — при 12px над шапкой. Плашка читалась
-     недозаполненной, а треков в неё влезало меньше, чем позволяла её высота. */
+  /* Vertical padding is tightened: 16px at the bottom added to the list's fitting slack (DESIGN §7.1) made
+     29px of air under the last row against 12px above the header. The plate read as underfilled, and fewer
+     tracks fitted into it than its height allowed. */
   padding: 12px 18px 8px;
 }
-/* Три прохода блюра (::before → .pixel-lid → ::after) и подложка «коробочки» — всё, чем
-   стекло держится. Гасим целиком: под плашкой холста быть не должно. */
+/* The three blur passes (::before → .pixel-lid → ::after) and the box's ground are everything the glass rests
+   on. All of it goes: there must be no canvas under the plate. */
 :root[data-wave="wave-03"] .t-music-vars .pixel-tile::before,
 :root[data-wave="wave-03"] .t-music-vars .pixel-tile::after,
 :root[data-wave="wave-03"] .t-music-vars .pixel-lid {
   display: none;
 }
 
-/* Своя шкала светлот вместо токенов волны: на #121212 работает палитра Spotify, а не
-   холодная сине-серая лестница PRIME — иначе плашка выглядит куском борда, покрашенным
-   в чёрный. Красим по ролям, значениями Spotify. */
+/* Its own lightness scale instead of the wave's tokens: on #121212 it is Spotify's palette that works, not
+   PRIME's cold blue-grey ladder — otherwise the plate looks like a piece of the board painted black. Painted
+   by role, in Spotify's values. */
 :root[data-wave="wave-03"] .t-music-vars .music-body {
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.62);
   --text-tertiary: rgba(255, 255, 255, 0.42);
 }
 
-/* Обложка крупнее: 44px рисовались под тесную плитку в ряду виджетов, а на плашке, где
-   больше ничего нет, эта марка выглядит приколотой булавкой. Ширину/высоту у `img` задают
-   АТРИБУТЫ (см. [Cover]), поэтому CSS их перебивает без `!important` — в отличие от радиуса,
-   который там inline и остаётся токеном волны. */
+/* A larger cover: 44px was drawn for a cramped tile in a row of widgets, and on a plate with nothing else on
+   it that mark looks pinned on. Width and height on the `img` come from ATTRIBUTES (see Cover), so CSS beats
+   them without `!important` — unlike the radius, which is inline there and stays a wave token. */
 :root[data-wave="wave-03"] .t-music-vars [data-testid="now-playing"] img,
 :root[data-wave="wave-03"] .t-music-vars [data-testid="now-playing"] .cover-plate {
-  /* 84px оказались на шаг больше, чем держит плашка: блок трека вырастал и выдавливал шкалу
-     головки за нижний край (замечание владельца). 72 — размер, при котором шкала стоит
-     внутри со своим воздухом, а обложка всё ещё крупнее прежней марки в 44px. */
+  /* 84px proved one step more than the plate holds: the track block grew and pushed the playhead scale past the
+     bottom edge. At 72 the scale stands inside with its own air, and the cover is still larger than the former
+     44px mark. */
   width: 72px;
   height: 72px;
 }
-/* Блок трека отодвинут от служебной строки: «сейчас играет» и атрибуция — это шапка прибора,
-   а обложка с названием — его содержимое, и на общем `gap` в 4px они читались одним столбцом.
-   Отступ идёт сверху блока, а не снизу шапки: шкала головки прижата к низу `margin-top: auto`,
-   и всё, что добавлено выше, забирает воздух у неё, а не у плашки. */
+/* The track block is moved away from the service row: "now playing" and the attribution are the device's
+   header while the cover and title are its content, and at the shared 4px gap they read as one column. The
+   offset sits on top of the block, because the playhead scale is pinned down by `margin-top: auto`. */
 :root[data-wave="wave-03"] .t-music-vars [data-testid="now-playing"] {
   margin-top: 10px;
-  /* Блок трека отодвинут от левого поля плашки — на волосок, не на отступ. Служебная строка
-     идёт от самого края (она рамка прибора), а содержимое стоит чуть внутри: у плеера Spotify
-     так же, и без сдвига обложка читалась приклеенной к канту. */
+  /* The track block is moved off the plate's left margin — by a hair, not by an indent. The service row runs
+     from the very edge, being the device's frame, while the content stands slightly inside: Spotify's own
+     player does the same, and without the shift the cover read as glued to the border. */
   margin-left: 6px;
-  /* Исполнитель и альбом на шаг крупнее общих. Кегли приходят в блок ИНЛАЙНОМ (`artistsStyle`,
-     `albumStyle` в [NowPlayingCard]), поэтому скин правит не сами правила, а переменные, из
-     которых те инлайны считаны, — и только внутри блока трека: в служебной строке и в списке
-     недавних эти же переменные означают другое. Формулы те же, что в `.t-music-vars`,
-     умноженные примерно на 1.12. */
+  /* Artist and album a step larger than the shared sizes. The sizes reach the block INLINE (`artistsStyle`,
+     `albumStyle` in NowPlayingCard), so the skin edits the variables they are computed from, and only inside
+     the track block — in the service row and the recents list the same variables mean something else. */
   --fs-music-artists: clamp(11px, calc(6.7px + 2.26cqw), 29px);
   --fs-music-meta: clamp(10px, calc(6.2px + 2.07cqw), 27px);
 }
 
-/* Строка состояния и атрибуция — ЕДИНСТВЕННОЕ место плашки, где набор не моноширинный.
-   Моноширинный — голос данных борда (цифры шагов, минуты сна), и на плашке Spotify он звучал
-   чужим: «СЕЙЧАС ИГРАЕТ» вразрядку читалось строкой дашборда, а не подписью плеера. Ставим
-   гротеск (Manrope — он уже грузится ради Obscura, новых шрифтов не заводим): у Spotify
-   геометрический гротеск, и это ближайшее, что есть в наборе проекта.
-   Название трека, исполнитель и альбом остаются моноширинными: это данные, и они говорят
-   голосом борда — плашка отвечает за материал, а не за содержание. */
+/* The status row and the attribution are the ONLY place on the plate not set in monospace. Monospace is the
+   board's data voice (step counts, sleep minutes) and on a Spotify plate it sounded foreign — letter-spaced
+   "NOW PLAYING" read as a dashboard line rather than a player caption. */
+
+/* A grotesque is used instead (Manrope, already loaded for Obscura, so no new font is added): Spotify sets in
+   a geometric grotesque and this is the closest the project has. Title, artist and album stay monospace —
+   they are data and speak in the board's voice; the plate answers for material, not for content. */
 :root[data-wave="wave-03"] .t-music-vars .music-status-row {
   font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
   font-size: var(--fs-music-meta);
@@ -994,7 +855,7 @@
   text-transform: none;
   color: #1ed760;
 }
-/* …а слово «Spotify» рядом со знаком остаётся тихим: знак уже назвал сервис. */
+/* …while the word "Spotify" beside the mark stays quiet: the mark has already named the service. */
 :root[data-wave="wave-03"] .t-music-vars .spotify-credit {
   font-size: var(--fs-music-meta);
   font-weight: 500;
@@ -1006,7 +867,7 @@
   --spotify-mark-hole: #121212;
 }
 
-/* Шкала головки: включаем шов и красим зелёным Spotify. */
+/* Playhead scale: switch on the seam and paint it Spotify green. */
 :root[data-wave="wave-03"] .t-music-vars .music-progress {
   display: flex;
   color: rgba(255, 255, 255, 0.45);
@@ -1019,19 +880,15 @@
   background: #1ed760;
 }
 
-/* ── Плашка Spotify: без бегущей строки и без плейлиста ────────────────────────────────
- * Оба решения владельца, и оба про одно: плашка должна читаться плеером Spotify, а не
- * виджетом борда.
- *
- * Бегущая строка — приём БОРДА: она заведена, чтобы в тесной плитке не терять длинное
- * название (§7.1). Spotify длинное название просто усекает многоточием и никуда не едет,
- * и на чёрной плашке едущий текст сразу выдаёт, что это чужой виджет. Гасим анимацию и
- * возвращаем строке обычное усечение: `.marquee-inner` шринк-врапнут под текст
- * (`width: max-content`), поэтому одного `text-overflow` мало — сперва ширина.
- *
- * Плейлист уходит целиком: у плеера в этой строке стоит источник только тогда, когда он
- * часть управления. У нас он справочный, и на плашке из четырёх строк четвёртая — лишняя.
- */
+/* Spotify plate: no marquee and no playlist row, both because the plate has to read as a Spotify player
+ * rather than as a board widget. */
+
+/* The marquee is a BOARD device, introduced so a long title is not lost in a cramped tile (DESIGN §7.1);
+ * Spotify simply truncates, and travelling text on a black plate gives away at once that this is someone
+ * else's widget. `.marquee-inner` is shrink-wrapped (`width: max-content`), so width has to come first. */
+
+/* The playlist row goes entirely: a player shows the source in that line only when it is part of the
+ * controls. Here it is reference material, and on a four-line plate the fourth line is one too many. */
 :root[data-wave="wave-03"] .t-music-vars .marquee-inner {
   animation: none;
   left: 0;
@@ -1043,33 +900,25 @@
   display: none;
 }
 
-/* ── «Недавно»: очередь плейлиста (DESIGN §10.2) ───────────────────────────────────────
- * Список недавних на плашке перестаёт быть перечнем строк и становится тем, чем он и был по
- * смыслу, — очередью: обложка · название над исполнителем · альбом · сколько времени назад.
- * Из трёх разобранных вариантов (очередь / последнее крупно / полка обложек) владелец выбрал
- * этот: он единственный влезает в плитку как есть, без торга за её высоту.
- *
- * Бюджет высоты жёсткий и определяет всю геометрию. Плитка 10×6 треков = 175px, поля плашки
- * съедают 32, служебная строка и отступ до списка — ещё ~27 ⇒ списку достаётся 111px, из
- * которых 6 держит запас подгонки (FIT_MARGIN в [MusicTile]: строка обязана кончиться ВЫШЕ
- * края, иначе гасится целиком) ⇒ 105px под ряды.
- *
- * Рядов ДВА, а не три (решение владельца): очередь — не перечень, и крупный ряд читается
- * с расстояния, как строка плеера, а не как строка таблицы. Обложка 46px + 8px между рядами
- * укладывает два ряда в 100px — 5px слака, третьему нужно ещё 54px, поэтому он гасится
- * подгонкой сам, без правок разметки. Кегли ряда подняты в той же пропорции, что обложка
- * (×1.1 к базовым переменным плашки): текстовая колонка ряда остаётся ниже обложки, значит
- * рост ряда по-прежнему задаёт она одна.
- */
+/* "Recently" as a playlist QUEUE (DESIGN §10.2): cover · title over artist · album · how long ago. Of the
+ * three variants examined (queue / last one large / shelf of covers) this is the only one that fits the
+ * tile as it stands, with no bargaining over its height. */
+
+/* The height budget is tight and sets the whole geometry: a 10×6 tile is 175px, the plate's padding takes
+ * 32, the service row and its gap another ~27, leaving 111px — of which 6 is the fitting slack (FIT_MARGIN
+ * in MusicTile: a row must end ABOVE the edge or it is hidden entirely) ⇒ 105px for the rows. */
+
+/* TWO rows, not three: a queue is not a list, and a large row reads from a distance as a player's line
+ * rather than a table's. A 46px cover plus an 8px gap fits two rows into 100px, while a third needs 54px
+ * more, so the fitting hides it without any markup change. Row type rises in the cover's proportion (×1.1). */
 :root[data-wave="wave-03"] .t-music-vars .music-recent {
-  /* Меньше, чем у блока играющего трека (10px): там шапку от содержимого отделяет пустота,
-     здесь — обложка первого ряда, которая и так держит границу. */
+  /* Smaller than the playing block's 10px: there the header is separated from the content by emptiness,
+     here by the first row's cover, which holds the boundary already. */
   margin-top: 4px;
 }
-/* Зазор между рядами — не вкусовое число, а способ РАСПРЕДЕЛИТЬ остаток: 105px минус два ряда
-   по 46 оставляют 13, из которых 8 уходят в зазор и 5 в слак (сдвиг метрик шрифта не должен
-   ронять второй ряд). Больший зазор превратил бы очередь в две оторванные друг от друга
-   карточки. */
+/* The gap between rows is not a taste number but a way of DISTRIBUTING the remainder: 105px minus two rows
+   of 46 leaves 13, of which 8 go to the gap and 5 to slack, so a shift in font metrics cannot drop the
+   second row. A larger gap would turn the queue into two cards torn apart from each other. */
 :root[data-wave="wave-03"] .t-music-vars .music-recent > ul {
   gap: 8px;
 }
@@ -1081,32 +930,30 @@
 }
 :root[data-wave="wave-03"] .t-music-vars .recent-cover img,
 :root[data-wave="wave-03"] .t-music-vars .recent-cover .cover-plate {
-  /* Крупнее разметочных 30px: высота списка поделена между ДВУМЯ рядами, а не тремя, и
-     обложка забирает почти весь их рост (см. бюджет выше). */
+  /* Larger than the markup's 30px: the list's height is split between TWO rows rather than three, and the
+     cover takes almost all of their height (see the budget above). */
   width: 46px;
   height: 46px;
 }
 :root[data-wave="wave-03"] .t-music-vars .recent-cover {
   display: block;
   flex: none;
-  /* Строчный бокс вокруг картинки добавляет пару пикселей под ней — ряд от этого выше
-     обложки, и три ряда перестают влезать. */
+  /* An inline box around the image adds a couple of pixels beneath it — enough to make the row taller than
+     its cover, at which point three rows stop fitting. */
   line-height: 0;
 }
-/* Текстовая колонка ряда. `min-width: 0` обязателен: внутри `white-space: nowrap`, поэтому
-   min-content колонки равен ПОЛНОЙ ширине названия, и без него flex-строка не сжималась бы —
-   название выдавливало бы альбом и время за край.
-   Базис 0, а не `auto`: с `auto` стартовая ширина колонки равна длине самого названия, и
-   сжатие делится между колонками пропорционально ей — у двух рядов одного альбома и одного
-   исполнителя колонки выходили разной ширины, и одинаковый текст усекался по-разному
-   («FRIENDLY THUG…» против «FRIENDLY THU…», замечание владельца). С нулевым базисом колонка
-   просто забирает остаток ряда, и ширина её не зависит от того, что в ней написано. */
+/* The row's text column. `min-width: 0` is mandatory: inside is `white-space: nowrap`, so the column's
+   min-content equals the title's FULL width and the flex row would not shrink — the title would push the
+   album and the time past the edge. */
+
+/* Basis 0 rather than `auto`: with `auto` the column's start width equals the title's own length and the
+   shrink divides in proportion to it, so two rows of one album and one artist came out with columns of
+   different widths and identical text truncated differently. At basis zero the column takes the remainder. */
 :root[data-wave="wave-03"] .t-music-vars .recent-row .marquee-clip {
   flex: 1 1 0%;
   min-width: 0;
 }
-/* Название над исполнителем, как в списке Spotify. Разделитель «·» гасим — он держал их
-   в одной строке. */
+/* Title over artist, as in Spotify's list. The "·" separator goes — it held them on one line. */
 :root[data-wave="wave-03"] .t-music-vars .recent-row .marquee-inner {
   display: flex;
   flex-direction: column;
@@ -1123,138 +970,124 @@
   white-space: nowrap;
 }
 :root[data-wave="wave-03"] .t-music-vars .recent-title {
-  /* Белым, а не `--text-secondary`: в очереди название — главное, что читают. Ссылка внутри
-     наследует цвет (у неё inline `color: inherit`). */
+  /* White rather than `--text-secondary`: in a queue the title is the main thing read. The link inside
+     inherits the colour, carrying inline `color: inherit`. */
   color: #ffffff;
-  /* Кегли ряда — множители к переменным плашки, а не свои числа: плашка остаётся
-     пропорциональной ширине плитки на любой раскладке, ряд просто идёт на ступень выше. */
+  /* Row type sizes are multipliers of the plate's variables rather than numbers of their own: the plate stays
+     proportional to the tile's width on any layout, and the row simply goes a step above it. */
   font-size: calc(var(--fs-music-artists) * 1.1);
 }
 :root[data-wave="wave-03"] .t-music-vars .recent-artists {
   font-size: calc(var(--fs-music-source) * 1.1);
 }
 
-/* Альбома в ряду недавнего у этой волны НЕТ (решение владельца по живому борду). Пробовали
-   колонкой посередине ряда, прижатой вправо, — она занимала пустое место, но платила за это
-   тем, что ряд начинал читаться таблицей из трёх колонок вместо строки «что слушал». Название
-   и давность — обязательные, альбом всё это время был уточнением, за которым никто не шёл.
-   Гасим скином, а не разметкой: ряд остаётся общим, альбом вернётся любой другой волне
-   одной строкой (`display: block`), как и было. */
+/* This wave has NO album in a recents row. Rejected: a column in the middle of the row, pinned right — it
+   filled the empty space but made the row read as a three-column table instead of a line saying what was
+   played. Hidden by the skin, not the markup: any other wave gets it back with `display: block`. */
 :root[data-wave="wave-03"] .t-music-vars .recent-album {
   display: none;
 }
 
-/* Давность прослушивания. Табличные цифры — чтобы «9 мин» и «14 мин» стояли колонкой,
-   а не плясали по ширине. */
+/* How long ago it was played. Tabular figures, so "9 min" and "14 min" stand in a column rather than
+   dancing about in width. */
 :root[data-wave="wave-03"] .t-music-vars .recent-ago {
   display: block;
   flex: none;
   font-size: calc(var(--fs-music-source) * 1.05);
   font-variant-numeric: tabular-nums;
-  /* Колонка фиксированной ширины с прижимом вправо. Без неё «3 ч» у́же «14 мин», левый край
-     колонки времени гуляет от ряда к ряду — и вместе с ним гуляет правый край альбома,
-     который к этой колонке прижат. Ширина взята по самой длинной метке лестницы («59 мин»)
-     в моноширинном наборе: 6 знаков ≈ 3.7em. */
+  /* A fixed-width column pinned right. Without it "3 h" is narrower than "14 min", the left edge of the time
+     column wanders from row to row, and the album's right edge wanders with it. The width comes from the
+     longest label on the ladder ("59 min") in monospace: 6 characters ≈ 3.7em. */
   min-width: 3.7em;
   text-align: right;
   color: rgba(255, 255, 255, 0.42);
 }
-/* Верхний ряд ничем НЕ помечен. Зелёная метка «самого свежего» тут была (в плеере Spotify так
-   светится строка, ближайшая к «сейчас»), но на борде она читалась статусом — будто этот трек
-   играет прямо сейчас, — а очередь недавнего говорит о прошедшем. Снято по замечанию
-   владельца; какой ряд свежее, отвечает сам порядок рядов и время рядом с ним. */
+/* The top row is NOT marked in any way. Rejected: a green "freshest" mark (Spotify's player glows the line
+   nearest "now") — on the board it read as a status, as though that track were playing right now, whereas
+   the recents queue speaks of the past. Order and the time beside it answer which row is fresher. */
 
-/* ── ПРОЯВКА ГАЛЕРЕИ ДРОПА (DESIGN §7.5) ────────────────────────────────────────────────
- * Опт-ин для общего шва [useDropMorph], ровно как `--tile-edge-light` выше: механика живёт
- * в коде, а решает волна. Кадр галереи растёт из кадра на плитке и наводится на резкость —
- * это тот же blur-up, которым галерея и так грузит снимки, только поводом ему теперь служит
- * открытие. Волна вправе назвать свои числа; волна, которая молчит, открывает галерею как
- * прежде — без единой правки в компонентах.
- *
- * Почему проявка досталась именно PRIME: плитка дропа здесь в редакции `frame`, то есть
- * показывает ОДИН кадр и открывает плёнку именно на нём (`startAt`). Тот самый снимок уже
- * на экране — морф просто перестаёт делать вид, что это два разных объекта.
- */
+/* DROP GALLERY DEVELOP TRANSITION (DESIGN §7.5). An opt-in for the shared useDropMorph seam, exactly like
+ * `--tile-edge-light` above: the mechanics live in code, the wave decides. A wave that stays silent opens
+ * the gallery as before, with no edit in any component. */
+
+/* Why PRIME got it: the drop tile here is in the `frame` edition, i.e. it shows ONE frame and opens the film
+ * on exactly that one (`startAt`). That very photo is already on screen — the morph simply stops pretending
+ * there are two different objects. */
 :root[data-wave="wave-03"] {
   --drop-morph: 1;
-  /* 440мс — движение через полборда, и потолок «интерактивного отклика» (≲200мс) тут не
-     применим: это не отклик на клик, а смена сцены. Начинали с 520мс и укоротили по владельцу:
-     дорога знакомая уже со второго захода, и лишняя пятая доля секунды читается ожиданием. */
+  /* 440ms is a move across half the board, and the ≲200ms "interactive response" ceiling does not apply here:
+     this is a change of scene, not an answer to a click. Started at 520ms and shortened — the road is familiar
+     from the second time on, and the extra fifth of a second reads as waiting. */
   --drop-morph-ms: 440ms;
   --drop-morph-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  /* Срез раскрывается РОВНО, а не рывком: кривая полёта сильно фронт-лоадед (59% раскрытия за
-     первые 110мс из 440), и на ленте дропов, где плитка показывает 38.7% высоты снимка, это
-     читалось подменой кадра, а не его ростом. Кончается раскрытие всё равно вместе с полётом. */
+  /* The crop opens EVENLY rather than in a burst: the flight curve is heavily front-loaded (59% of the opening
+     in the first 110ms of 440), and on the drops rail, where the tile shows 38.7% of the photo's height, that
+     read as the frame being swapped rather than grown. The opening still ends together with the flight. */
   --drop-morph-clip-ease: cubic-bezier(0.4, 0, 0.2, 1);
-  /* Расфокус ПОСАДКИ (на взлёте его нет, см. common.css). Насыщенность подсажена вместе с
-     резкостью — плёнка проявляется целиком, а не только по контуру. */
+  /* LANDING defocus (there is none on take-off, see common.css). Saturation is pulled down along with
+     sharpness — the film develops whole, not only along its contours. */
   --drop-morph-focus: blur(14px) saturate(0.7);
-  /* Хром выходит примерно на середине пути кадра — доля от длительности, а не своя жизнь. */
+  /* The chrome arrives about halfway along the frame's path — a share of the duration, not a life of its own. */
   --drop-morph-chrome-delay: 200ms;
-  /* Уход короче прихода: назад кадр едет по уже знакомой дороге, и 520мс там читаются
-     задержкой между «закрыл» и «закрылось» (замечание владельца). */
+  /* Leaving is shorter than arriving: the frame travels a road it already knows, and 520ms there reads as a
+     delay between "closed it" and "it closed". */
   --drop-morph-out-ms: 320ms;
-  /* Досадка: приехав, кадр ещё 160мс растворяется в плитке — сквозь него проступают полоса
-     блюра и подпись. Движение по-прежнему кончается на 320мс, растворяется уже неподвижный. */
+  /* Settling: having arrived, the frame spends another 160ms dissolving into the tile, with the blur band and
+     the caption showing through it. The movement still ends at 320ms; what dissolves is already still. */
   --drop-morph-settle-ms: 160ms;
-  /* Плитка дропа здесь — сам кадр во всю карточку (редакция `frame`), и на замере она выходит
-     выше галерейной: 473px против 398. Кадр, «выросший» из плитки в меньший размер, отменяет
-     собой всю механику, поэтому высота кадра галереи поднята — с запасом на ленту и гребёнку
-     под ним (замер на 1536×864: кадр 536px, панель 796px, экран не переполнен). */
+  /* The drop tile here is the frame filling the whole card (`frame` edition) and measures taller than the
+     gallery's: 473px against 398. A frame that "grew" out of a tile into a smaller size cancels the whole
+     mechanic, so the gallery frame's height is raised, with slack for the strip and comb below it. */
   --drop-roll-hero-h: clamp(220px, 62vh, 720px);
-  /* Проявочная: свет остаётся в середине — под растущим кадром виден борд, из которого он
-     вышел, — а темнота собирается по краям, как виньетка холста (§10.2). Ровная заливка
-     отвергнута по той же причине, что и на холсте: под ней борд исчезает целиком, и кадру
-     неоткуда расти. */
+  /* A darkroom: the light stays in the middle, so the board the frame came out of is visible under it, and the
+     dark gathers at the edges like the canvas vignette (DESIGN §10.2). An even fill is rejected for the same
+     reason as on the canvas: under it the board disappears and the frame has nowhere to grow from. */
   --modal-scrim: radial-gradient(120% 92% at 50% 44%, rgba(6, 10, 16, 0.74), rgba(2, 4, 7, 0.96) 100%);
 }
 
-/* ── Галерея дропа без рамки ────────────────────────────────────────────────────────────
- * У галереи здесь НЕТ панели как предмета: ни канта, ни тени, ни проходов блюра, ни фона.
- * Кадр выходит из борда прямо в проявочную, и стеклянная карточка вокруг него возвращала бы
- * ровно то «ещё одно окно», от которого уводит проявка: окна нет, есть снимок, подошедший
- * ближе. От панели остаётся только раскладка — ширина, отступы и порядок строк.
- *
- * Это же снимает и хвост на закрытии: пока рамка была, она держалась на экране всё время,
- * пока кадр ехал домой, и уезжала последней (замечание владельца). Рамки нет — держаться
- * нечему; на закрытии остаётся один кадр и гаснущая проявочная.
- *
- * Правило §10.1 цело: гасится не «модалка вообще», а материал ОДНОЙ панели у ОДНОЙ волны;
- * волна 01 со своей «коробочкой» и волна 02 со своей облачной картой не тронуты.
- */
+/* Drop gallery with no frame: there is NO panel as an object here — no border, shadow, blur passes or ground.
+ * The frame steps out of the board straight into the darkroom, and a glass card around it would bring back
+ * the very "one more window" the transition leads away from. Only the layout remains. */
+
+/* This also removes the tail on closing: while the frame existed it stayed on screen the whole time the photo
+ * was travelling home and left last of all. With no frame there is nothing to stay; closing leaves one photo
+ * and a fading darkroom. */
+
+/* §10.1 stands: what is switched off is not "modals in general" but the material of ONE panel on ONE wave.
+ * Wave 01 with its box and wave 02 with its cloud card are untouched. */
 :root[data-wave="wave-03"] .drop-modal__panel,
 :root[data-wave="wave-03"] .ride-modal__panel {
   background: none;
-  /* Кант прозрачный, а не снятый: ширина рамки остаётся в раскладке, и кадр не прыгает. */
+  /* The border is transparent rather than removed: its width stays in the layout, so the frame does not jump. */
   border-color: transparent;
   box-shadow: none;
 }
-/* Стекло галереи живёт на СЦЕНЕ, а не на панели: размывается весь экран, а не прямоугольник
-   окна. Панель — 1024px в окне 1536, и три её прохода рисовали ровно свой след: по бокам
-   оставался чёткий борд, и у размытия читалась форма («блюр только на квадрате модалки» —
-   замечание владельца). Размывает теперь затемняющий слой сцены: он и так `fixed inset: 0`,
-   лежит под содержимым (`z-index: -3`) и приезжает вместе с затемнением, то есть по мере
-   полёта кадра. Один проход по экрану вместо трёх по панели — заодно и дешевле.
+/* The gallery's glass lives on the SCENE, not on the panel: the whole screen blurs rather than the window's
+   rectangle. The panel is 1024px inside 1536, and its three passes drew exactly their own footprint — sharp
+   board at the sides, so the blur had a visible shape. */
 
-   Смысл материала не изменился: рамки у галереи нет, вокруг снимка просто размытый борд. */
+/* The scene's darkening layer blurs instead: it is already `fixed inset: 0`, lies under the content
+   (`z-index: -3`) and arrives together with the darkening, i.e. as the frame flies. One pass over the screen
+   instead of three over a panel, and cheaper besides. The material's meaning is unchanged. */
 :root[data-wave="wave-03"] .drop-scene::before {
   -webkit-backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
   backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
 }
-/* Собственные проходы панели сняты — иначе поверх экранного стекла лёг бы ещё один слой,
-   и прямоугольник панели проступил бы снова, теперь уже как пятно поверх размытого. */
+/* The panel's own passes are removed — otherwise another layer would lie over the screen glass and the
+   panel's rectangle would show again, now as a patch on top of the blur. */
 :root[data-wave="wave-03"] :is(.drop-modal__panel, .ride-modal__panel)::before,
 :root[data-wave="wave-03"] :is(.drop-modal__panel, .ride-modal__panel) .pixel-lid,
 :root[data-wave="wave-03"] :is(.drop-modal__panel, .ride-modal__panel)::after {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-/* Проявлять и гасить слои панели больше нечего — они пусты. Стекло приходит и уходит вместе
-   с затемнением сцены, у которого свой переход (common.css), и это тот же такт, что был у
-   панели: до начала полёта нет ни затемнения, ни размытия. */
-/* Ховер-кромка панели тоже гасится: карточка-`.pixel-tile` ловит общий жест волны (выше), и
-   у галереи без рамки от него оставался единственный видимый след — светящийся кант под
-   курсором. Ровно та же специфичность, что у жеста, но ниже по файлу. */
+/* There is nothing left to fade in and out on the panel — its layers are empty. The glass comes and goes with
+   the scene's darkening, which has a transition of its own (common.css): before the flight begins there is
+   neither darkening nor blur, which is the same beat the panel had. */
+
+/* The panel's hover edge is switched off too: the `.pixel-tile` card catches the wave's shared gesture (above),
+   and on a frameless gallery its only visible trace was a glowing border under the cursor. The same
+   specificity as the gesture, but later in the file. */
 @media (hover: hover) {
   :root[data-wave="wave-03"] .drop-modal__panel:hover,
   :root[data-wave="wave-03"] .ride-modal__panel:hover {
@@ -1263,20 +1096,16 @@
   }
 }
 
-/* ── Велобайк: карта вместо плитки (DESIGN §7.6, §10.2) ─────────────────────────────────
-   Материал снят по той же причине, что у ленты дропов выше: содержимое виджета — карта, и
-   она занимает всё до кромки. Стеклянная карточка вокруг неё была бы окном в окне: у карты
-   уже есть своя поверхность, свой край (скругление плитки её и режет) и свой блюр — полоса
-   данных сверху (common.css). Кант, фон, тень и три прохода стекла отсюда уходят; скругление
-   и `overflow` остаются — ими карта и обрезается.
+/* Velobike: a map instead of a tile (DESIGN §7.6, §10.2). The material is removed for the same reason as on
+   the drops rail: the widget's content is the map, and it runs to the edge. A glass card around it would be a
+   window inside a window — the map has its own surface, its own edge and its own blur in the data band. */
 
-   Гасим проходы поимённо, а не пустым фоном: они живут в `::before`/`.pixel-lid`/`::after`,
-   и без `display: none` блюр остался бы висеть прямоугольником по коробке плитки, размывая
-   ленту холста ВОКРУГ карты.
+/* The passes are killed BY NAME rather than with an empty background: they live in
+   `::before`/`.pixel-lid`/`::after`, and without `display: none` the blur would stay hanging as a rectangle
+   over the tile's box, blurring the canvas ribbon AROUND the map. */
 
-   Зацепка — класс редакции (`.ride-card--map`), а не id тайла: материал уходит именно потому,
-   что плитку заняла карта. Волна, которая возьмёт у велобайка редакцию `card`, останется со
-   стеклом, и это правило её не тронет. */
+/* The hook is the edition class (`.ride-card--map`), not the tile id: the material goes precisely because a
+   map has taken the tile. A wave that gives Velobike the `card` edition keeps its glass, untouched by this. */
 :root[data-wave="wave-03"] .pixel-tile.ride-card--map {
   border: none;
   background: none;
@@ -1287,43 +1116,38 @@
 :root[data-wave="wave-03"] .pixel-tile.ride-card--map::after {
   display: none;
 }
-/* Шиммер загрузки — деталь стеклянной плиты, и без плиты ему не на чем лежать (тот же размен,
-   что у ленты дропов): на холсте он читался бы пустым мигающим прямоугольником. Карта
-   появляется сама, когда доедут данные поездки. */
+/* The loading shimmer is a detail of the glass slab and has nothing to lie on without one (the same trade as
+   the drops rail): on the canvas it would read as an empty flashing rectangle. The map appears by itself once
+   the ride's data arrives. */
 :root[data-wave="wave-03"] .ride-card--map .pixel-shimmer {
   display: none;
 }
 
-/* Отметка выбранной поездки в списке модалки. Волны 01/02 ставят слева засечку — короткий
-   жирный штрих у края строки; здесь он читался бы чужим приёмом: у волны 03 акцентом работает
-   не мазок, а СВЕТ — тонкая линия, подсвеченный текст, край стекла.
-   Поэтому: рамка в один пиксель по всей строке (внутренней тенью — та ничего не занимает и
-   не двигает список при выборе) и совсем тихая заливка. Дату строки подсвечивает сам компонент
-   тем же акцентом — это остаётся, и вдвоём они дают ровно ту громкость, что нужна: строку
-   видно, а список не рябит. */
+/* Selected-ride mark in the modal's list. Waves 01/02 put a notch on the left — a short heavy stroke at the
+   row's edge; here that would read as a foreign device, since this wave's accent is LIGHT rather than a
+   stroke: a thin line, lit text, the edge of glass. */
+
+/* Hence a one-pixel frame around the whole row (as an inset shadow, which takes no space and does not move the
+   list on selection) and a very quiet fill. The component lights the row's date in the same accent, and
+   together they give exactly the loudness wanted: the row is visible and the list does not shimmer. */
 :root[data-wave="wave-03"] .ride-modal__row.is-selected {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
-/* Значки зумера карты приходят чёрным SVG — на тёмном стекле волны их попросту не видно.
-   Инверсия дешевле подмены картинки и не заводит второго набора иконок. */
+/* The map zoomer's glyphs arrive as black SVG and are simply invisible on the wave's dark glass. Inversion is
+   cheaper than substituting the picture and introduces no second set of icons. */
 :root[data-wave="wave-03"] .ride-map {
   --map-ctrl-icon-filter: invert(1);
 }
 
-/* Подложка карты — СВЕТЛАЯ, как на всех волнах (общий `MAP_STYLE`, DESIGN §7.6), и фильтром
-   она не трогается. Пройдено и снято двумя заходами: растровая серая канва, досаженная
-   `brightness(0.6)` (карта выходила не тёмной, а ЗАТЕМНЁННОЙ), и
-   векторный тёмный стиль «eclipse» (тёмный сам по себе, но золотые магистрали на чёрном
-   забирали внимание себе, и от города оставались одни проспекты).
+/* The map's ground stays LIGHT, as on every wave (the shared `MAP_STYLE`, DESIGN §7.6), and no filter touches
+   it. Rejected twice over: a raster grey canvas dimmed with `brightness(0.6)` (the map came out darkened
+   rather than dark), and the vector "eclipse" style, whose gold arterials on black took all the attention. */
 
-   Полоса данных при этом одевается ПОД КАРТУ, а не под волну: светлое матовое стекло и тёмный
-   текст на нём. Тёмная полоса поверх светлой карты (первый заход: скрим цветом страницы,
-   82/68%) читалась чужой плашкой, наклеенной на город, — на светлой бумаге полосе положено
-   быть светлой, как подпись кадра в плитке дропа лежит на самом кадре. Цвет текста тут не
-   «язык волны», а контраст к подложке, на которой текст стоит: подложка карты одна на все
-   волны, и полоса следует ей. */
+/* The data band therefore dresses FOR THE MAP and not for the wave: light matte glass with dark text. A dark
+   band over a light map read as someone else's plate stuck onto the city — on light paper a band belongs
+   light, just as a drop caption lies on its own photo. The ground is the same on every wave. */
 :root[data-wave="wave-03"] .ride-frame {
   --ride-band-scrim-color: #faf8f4;
   --ride-band-scrim: 78%;
@@ -1331,39 +1155,37 @@
   --ride-band-ink: #161b21;
   --ride-band-ink-dim: #5a646f;
 }
-/* Полоса набрана РОВНО: километры, день и минуты одного кегля — у полосы один ответ
-   («последняя поездка: столько, тогда-то, столько-то»), и делить его на главное и мелочь
-   незачем. Строй общий с подписью кадра в плитке дропа (§7.5), и кегль у них теперь тоже
-   общий — НА ЭКРАНЕ, а не в записи: обе доли считаются от ширины СВОЕЙ плитки (§8.1), а
-   плитки разной ширины, и одна и та же запись давала на карте текст мельче, чем на кадре.
-   Коэффициент подобран замером на 1536px (опорная ширина владельца): плитка дропа 411px
-   даёт 13.6px, плитка велобайка 260px — столько же. Потолок тот же, что у подписи кадра. */
+/* The band is set EVENLY: kilometres, day and minutes at one size — the band gives one answer ("the last ride:
+   this far, then, this long"), and there is no reason to split it into headline and detail. The build is shared
+   with the drop tile's frame caption (DESIGN §7.5). */
+
+/* The size is now shared ON SCREEN rather than in the declaration: both shares count from THEIR OWN tile's
+   width (§8.1), and the tiles differ, so one declaration gave smaller text on the map than on the photo. The
+   coefficient comes from a measurement at 1536px — a 411px drop tile and a 260px Velobike tile both give 13.6px. */
 :root[data-wave="wave-03"] .ride-frame__caption {
   --fs-band-title: clamp(11px, calc(6.5px + 2.74cqw), 28px);
   --fs-band-meta: var(--fs-band-title);
 }
 
-/* ── Сон в редакции «эхолот» (§7.7, §10.2) ───────────────────────────────────────────────
-   Волна даёт промеру СВОЙ спуск глубины вместо общих цветов борда. Повод не косметический:
-   по умолчанию глубокий сон одет краем плитки, а край у этой волны — почти прозрачное
-   стекло (`rgba(160,205,230,0.22)`), и самый ценный горизонт ночи пропадал с рисунка вовсе.
+/* Sleep in the "echo sounder" edition (DESIGN §7.7, §10.2). The wave gives the sounding ITS OWN descent of
+   depth instead of the board's shared colours, and not cosmetically: by default deep sleep is dressed in the
+   tile's edge, which here is near-transparent glass, so the night's deepest horizon vanished from the drawing. */
 
-   Спуск собран из источников света самого холста: лёд у поверхности, бирюза акцента на REM,
-   индиго на базовом сне и слива у дна. Читается он порядком и светлотой, а не памятью на
-   цвета, — тот же довод, что у дорожек в полосе ночи: фазы упорядочены, и порядок обязан
-   быть виден. Акцент волны при этом остаётся на месте (REM = `--accent`), новых нот две.
+/* The descent is assembled from the canvas's own light sources: ice at the surface, the accent's turquoise on
+   REM, indigo on base sleep and plum at the floor. It reads by order and lightness rather than by memorising
+   colours — the same argument as the tracks in the night band. The wave's accent stays in place (REM). */
 
-   Стекло плитке при этом ОСТАЁТСЯ, в отличие от карты велобайка: у промера нет своей
-   поверхности — он рисуется прозрачным SVG, и плита под ним и есть его материал. Сквозь
-   верх стекла просвечивает лента холста, и ночь ложится прямо на прожитые дни. */
+/* The tile KEEPS its glass, unlike the Velobike map: the sounding has no surface of its own, being drawn as a
+   transparent SVG, so the slab under it is its material. The canvas ribbon shows through the top of the glass,
+   and the night lies straight on the lived days. */
 :root[data-wave="wave-03"] {
   --sleep-awake: #dbeaf4;
   --sleep-rem: var(--accent);
   --sleep-core: #4f74c8;
   --sleep-deep: #9a5ad0;
-  /* Горизонты — гравировка по стеклу, а не линия поверх него: ровно на пороге видимости. */
+  /* The horizons are engraved into the glass rather than drawn over it: right at the threshold of visibility. */
   --sleep-floor: rgba(190, 230, 250, 0.09);
-  /* Акцентом этой волны работает СВЕТ, а не мазок (§10.2), поэтому профиль дна не утолщается,
-     а светится — тем же приёмом, что кромка плитки и день в календаре. */
+  /* This wave's accent works as LIGHT rather than a stroke (DESIGN §10.2), so the floor profile glows instead of
+     thickening — the same device as the tile's edge and the day in the calendar. */
   --sleep-trace-glow: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 65%, transparent));
 }

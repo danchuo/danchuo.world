@@ -7,19 +7,12 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
-/** Тело SMS-логина: код из присланного SMS. */
 data class AuthorizeRequest(val code: String)
 
 /**
- * Приватный приём поездок Велобайка (PRD §9 B4). Всё под `/api/ingest/…` ⇒ за статическим
- * bearer-токеном (фильтр ядра, §11) — отдельная авторизация не нужна.
- *
- * Два канала к одной модели ([BikeRideService.upsert]):
- * 1. **Push (работает уже сейчас, без Qrator):** `POST /api/ingest/bike/rides` принимает массив
- *    сырых поездок — ровно `content[]` из ответа приложения. Отдаёт iOS-шорткат или букмарклет на
- *    pwa.velobike.ru (уже прошедший Qrator и авторизацию в браузере владельца).
- * 2. **Серверный поллинг (за Qrator):** SMS-логин (`/authorize/code` → `/authorize`) сохраняет
- *    refresh-токен; `/poll` дёргает проход вручную. Поедет только через резидентный прокси (§13).
+ * Private Velobike ride ingest, behind the core's bearer filter like everything under
+ * `/api/ingest`. Two delivery channels reach one model ([BikeRideService.upsert]): a push of raw
+ * rides that works today, and server polling that needs a residential proxy. PRD §9 B4
  */
 @Path("/api/ingest/bike")
 @Produces(MediaType.APPLICATION_JSON)
@@ -30,26 +23,25 @@ class BikeIngestResource(
     private val poller: VelobikePoller,
 ) {
 
-    /** Push-канал: массив поездок (`content[]` из приложения) → идемпотентный upsert. */
     @POST
     @Path("/rides")
     fun ingestRides(rides: List<RentItem>): UpsertResult = service.upsert(rides)
 
     /**
-     * Push-канал: массив записей истории покупок (`content[]` из `purchases/history`) → идемпотентный
-     * upsert покупок тарифов. Записи `RENTAL` отсеивает сам сервис — можно слать всё как есть.
-     * Нужны для атрибуции бесплатных поездок «в рамках тарифа за N ₽».
+     * Push channel: purchase-history records (`content[]` from `purchases/history`) to an
+     * idempotent tariff upsert. The service drops `RENTAL` records itself, so send everything
+     * as is. Needed to attribute free rides to the tariff that paid for them.
      */
     @POST
     @Path("/tariffs")
     fun ingestTariffs(purchases: List<PurchaseItem>): UpsertResult = service.upsertTariffs(purchases)
 
-    /** Серверный поллинг: запросить SMS-код на телефон владельца (из конфига). */
+    /** Server polling: request an SMS code to the owner's phone (from config). */
     @POST
     @Path("/authorize/code")
     fun requestCode(): VelobikeCodeResponse = tokenService.requestCode()
 
-    /** Серверный поллинг: завершить логин кодом из SMS — сохранить refresh-токен. */
+    /** Server polling: finish the login with the SMS code and store the refresh token. */
     @POST
     @Path("/authorize")
     fun authorize(req: AuthorizeRequest): Response {
@@ -57,7 +49,7 @@ class BikeIngestResource(
         return Response.ok(mapOf("connected" to true)).build()
     }
 
-    /** Ручной триггер прохода поллинга (диагностика/догон). */
+    /** Manual polling trigger (diagnostics / catching up). */
     @POST
     @Path("/poll")
     fun poll(): UpsertResult = poller.pollOnce()

@@ -2,21 +2,16 @@ import { useEffect, useRef, type RefObject } from "react";
 import { initialWheelState, wheelStep, wheelTravel } from "@/lib/wheelPaging";
 
 interface WheelPagingGate {
-  /** Есть куда листать назад (жест вверх / свайп вправо). */
+  /** There is somewhere to page back to (a gesture up, or a swipe right). */
   back: boolean;
-  /** Есть куда листать вперёд (жест вниз / свайп влево). */
+  /** There is somewhere to page forward to (a gesture down, or a swipe left). */
   forward: boolean;
 }
 
 /**
- * Листание колесом и тачпадом поверх элемента (PRD §5.3). Арифметика жеста — в
- * `lib/wheelPaging`; здесь только DOM-шов.
- *
- * Слушатель нативный и `passive: false`, а не `onWheel` React: React вешает `wheel` пассивно,
- * и `preventDefault` из него не работает — страница прокручивалась бы вместе с листанием.
- * Перехватывается ТОЛЬКО жест, которому есть куда листать: дома колесо вниз, у генезиса —
- * вверх уходят странице, как если бы плитки под курсором не было. Иначе на ноутбуке, где
- * борд чуть выше экрана, курсор над календарём запирал бы прокрутку.
+ * Wheel and trackpad paging over an element; the gesture arithmetic lives in `lib/wheelPaging`.
+ * The listener is native and `passive: false`, since React registers `wheel` passively and
+ * `preventDefault` would not work. ONLY a gesture with somewhere to go is intercepted. PRD §5.3
  */
 export function useWheelPaging(
   ref: RefObject<HTMLElement | null>,

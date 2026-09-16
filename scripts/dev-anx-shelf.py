@@ -72,11 +72,9 @@ def png(width: int, height: int, top: tuple[int, int, int], bottom: tuple[int, i
     )
 
 
-# Текст книг полки. Настоящий Anx синкает epub вместе с базой, и пересказ прочитанного куска
-# (PRD 5.16) собирается ТОЛЬКО по нему - без файла на полке кнопки на карточке просто нет.
-# Поэтому фикстуре нужен не заглушечный zip, а связная проза: по ней видно, попал ли пересказ
-# в тот кусок, который "прочитан", или уехал в соседнюю главу. Текст оригинальный, чтобы у
-# скрипта не было ни сети, ни вопросов о правах.
+# Shelf book text. Anx syncs the epub with its database and the retelling (PRD 5.16) is built
+# ONLY from it, so the fixture needs coherent prose rather than a stub zip: prose shows whether
+# the retelling hit the chunk marked read. The text is original — no network, no rights question.
 CHAPTERS: list[tuple[str, list[str]]] = [
     (
         "Глава первая. Смотритель",
@@ -278,8 +276,8 @@ def main() -> None:
         for remote, body in covers.items():
             upload(args.url, args.user, args.password, remote, body, "PUT")
 
-        # Сами книги: без них пересказ прочитанного куска собрать не из чего (PRD 5.16).
-        # Текст у обеих один - фикстуре важен не сюжет, а то, что кусок вырезается по процентам.
+        # The books themselves: without them there is nothing to build a retelling from (PRD 5.16).
+        # Both share one text — what matters is that a chunk is cut out by percentages, not the plot.
         files = {
             "anx/data/file/lovecraft.epub": epub("Хребты безумия", "Говард Лавкрафт"),
             "anx/data/file/dune.epub": epub("Дюна", "Фрэнк Херберт"),

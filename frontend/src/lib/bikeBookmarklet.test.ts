@@ -7,7 +7,7 @@ describe("bikeBookmarklet", () => {
   });
 
   it("JWT-regex пережил экранирование строки (\\w и \\. на месте, не схлопнулись в w/.)", () => {
-    // Если бы бэкслэши потерялись, regex стал бы eyJ[w-]+.[w-]+.[w-]+ и ловил бы мусор.
+    // Lose the backslashes and the regex becomes eyJ[w-]+.[w-]+.[w-]+, which catches junk.
     expect(BIKE_CONSOLE_SNIPPET).toContain("/eyJ[\\w-]+\\.[\\w-]+\\.[\\w-]+/");
   });
 
@@ -33,7 +33,7 @@ describe("bikeBookmarklet", () => {
   });
 
   it("обогащает адреса через getPopulatedRent/{id} и подставляет их в поездку", () => {
-    // Список адрес не отдаёт — тянем детальный getPopulatedRent и мержим адреса станций.
+    // The list serves no address — we fetch the detailed getPopulatedRent and merge station addresses.
     expect(BIKE_CONSOLE_SNIPPET).toContain("/api/rent/v2/rents/getPopulatedRent/");
     expect(BIKE_CONSOLE_SNIPPET).toContain("it.startParkingAddress=pj.startParkingAddress");
     expect(BIKE_CONSOLE_SNIPPET).toContain("it.finishParkingAddress=pj.finishParkingAddress");

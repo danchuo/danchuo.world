@@ -8,29 +8,20 @@ import { fetchDisplayTheme, serializeTokensToCss } from "@/lib/theme";
 import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 import "./globals.css";
 
-// Inter — UI/заголовки (§2.2, насыщенности 400/500). JetBrains Mono — цифры/данные/имена дней.
+// Inter for UI/headings; JetBrains Mono for numbers and day names. DESIGN §2.2.
 const inter = Inter({ subsets: ["latin", "cyrillic"], weight: ["400", "500"], variable: "--font-inter" });
-// 600 — для мест, где цифра обязана весить больше подписи рядом (проценты на карточке книги,
-// §5.16). Без настоящего начертания браузер синтезировал бы жирность, и моноширинные цифры
-// поплыли бы по ширине.
+// Load a real 600 weight: synthetic bold changes the width of monospace digits.
 const jetbrains = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "600"], variable: "--font-jetbrains" });
-// Jersey 10 — чанковый пиксельный дисплей-шрифт волны 02 «Obscura» (DESIGN §10.2). Грузится
-// глобально (next/font), но через токен --font-display проявляется только на активной волне 02;
-// на волне 01 --font-display = mono, так что начертание остаётся прежним.
+// Jersey 10 is enabled by wave-02's display token. DESIGN §10.2.
 const jersey = Jersey_10({ subsets: ["latin"], weight: ["400"], variable: "--font-jersey" });
-// Шрифты волны 02 «Obscura» (DESIGN §10.2): Manrope — UI-текст (primary-шрифт Obscura),
-// IBM Plex Mono — данные/цифры. Грузятся глобально, но включаются только под data-wave="wave-02"
-// (скин переопределяет --font-sans/--font-mono). Cyrillic-сабсет — для русских подписей.
+// Wave-02 switches to Manrope and IBM Plex Mono via its skin tokens. DESIGN §10.2.
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700"], variable: "--font-manrope" });
 const plexMono = IBM_Plex_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"], variable: "--font-plex-mono" });
 
-// Базовый URL сайта для абсолютных ссылок в OG/canonical/sitemap (PRD §12 M5). Прод —
-// домен; локально/в превью переопределяется env. metadataBase делает OG-картинку и
-// canonical абсолютными (соцсети требуют абсолютный URL картинки).
+// Absolute metadata URLs are required by social previews; override SITE_URL for local or preview builds.
 const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
 
-// Minimal social preview by owner's request: no description/author meta at all — messengers
-// (Telegram etc.) should show only the domain and the OG image, no extra text lines.
+// Social previews show only the domain and OG image; omit description and author metadata.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "danchuo.world",
@@ -51,36 +42,28 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // SSR token inject into <head> (M4, DESIGN §10) — no flash. The rendered wave is the
-  // visitor's cookie pick when present, otherwise the owner's active wave. Backend down or
-  // no wave ⇒ tokens=null ⇒ stay on globals.css defaults (graceful).
+  // SSR resolves the visitor's wave before the owner's default; missing backend data falls back to CSS defaults. DESIGN §10.
   const preferredWave = decodeWaveCookie((await cookies()).get(WAVE_COOKIE)?.value);
   const theme = await fetchDisplayTheme(preferredWave);
   const tokens = theme?.tokens ?? null;
 
   return (
-    // data-wave — ключ активной волны на <html>: помимо цвет-токенов волна может нести
-    // СВОЙ СКИН (рамки/фон/декор/шрифт) — CSS под `[data-wave="…"]` в globals.css (DESIGN §10.2).
-    // SSR ставит ключ владельца; переключатель волн меняет его вживую (WaveProvider).
-    // suppressHydrationWarning — про `data-fonts`: его ставят ВОРОТА ШРИФТА (ниже) ещё до
-    // гидрации, поэтому серверная разметка и живой <html> расходятся по этому атрибуту
-    // заведомо. Иначе React репортит это ошибкой на каждой загрузке в деве и глушит собой
-    // настоящие расхождения.
+    // The font gate sets data-fonts before hydration; suppress this expected root-attribute mismatch. DESIGN §7.10.
     <html suppressHydrationWarning lang="ru" data-wave={theme?.key ?? undefined} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
       <head>
-        {/* Ворота шрифта (DESIGN §8.3). Стоят ПЕРВЫМИ в голове и до разметки: из эффекта
-            React они выполнились бы уже после первой отрисовки, и борд успел бы мелькнуть
-            системным начертанием — ровно то, что ворота и лечат. */}
+        {/* The font gate (DESIGN §8.3) stands FIRST in the head and before the markup: from a
+            React effect it would run after the first paint, and the board would flash in the
+            system typeface — exactly what the gate cures. */}
         <script dangerouslySetInnerHTML={{ __html: FONT_GATE_SCRIPT }} />
         {tokens && (
-          // Переопределяет :root-дефолты globals.css значениями активной волны из БД.
+          // Override CSS defaults with the resolved wave's database tokens.
           <style id="wave-tokens" dangerouslySetInnerHTML={{ __html: serializeTokensToCss(tokens) }} />
         )}
       </head>
       <body>
         {children}
-        {/* Крутит Землю в иконке вкладки по активной волне (DESIGN §10.3). Ничего не рендерит;
-            статическая планета `app/icon.png` остаётся, если JS/канвас недоступны. */}
+        {/* Spins the Earth in the tab icon for the active wave (DESIGN §10.3). It renders nothing;
+            the static planet `app/icon.png` remains if JS or canvas are unavailable. */}
         <FaviconSpinner />
         <AnalyticsBeacon />
       </body>

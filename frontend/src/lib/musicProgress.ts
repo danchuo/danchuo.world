@@ -1,31 +1,23 @@
 /**
- * Головка воспроизведения (PRD §5.5): где Spotify сейчас внутри трека.
- *
- * Бэкенд отдаёт `progressMs` мгновенным снимком в момент ответа, а опрос идёт раз в ~20с —
- * если рисовать снимок как есть, шкала будет дёргаться раз в двадцать секунд. Поэтому между
- * ответами головку **досчитываем по часам**: сервер даёт опору, клиент — ход. Модуль чистый
- * (ни React, ни таймеров) — в нём вся арифметика, которую иначе пришлось бы проверять
- * скриншотом.
+ * The playhead: where Spotify is inside a track. The backend gives `progressMs` as a snapshot while
+ * polling runs every ~20s, so between answers the head is ADVANCED BY THE CLOCK — the server gives
+ * the anchor, the client the motion. A pure module, which is what makes the arithmetic testable.
  */
 
-/** Снимок головки: что сказал сервер и в какой момент этот ответ приехал. */
+/** Playhead snapshot: what the server said, and the moment that answer arrived. */
 export interface ProgressSample {
-  /** Головка из ответа `/api/spotify/now-playing`; `null` — сервер её не дал. */
+  /** The playhead from `/api/spotify/now-playing`; `null` means the server did not give one. */
   progressMs: number | null;
-  /** `Date.now()` в момент приёма ответа — опора, от которой отсчитывается ход. */
+  /** `Date.now()` at the moment the answer arrived — the anchor the travel is counted from. */
   atMs: number;
-  /** Стоит на паузе ⇒ головка не едет, сколько бы времени ни прошло. */
+  /** Paused ⇒ the playhead does not move, however much time passes. */
   isPlaying: boolean;
 }
 
 /**
- * Головка **сейчас**: снимок плюс время, прошедшее с него, — и только пока трек играет.
- *
- * Два потолка, оба из жизни, а не из гигиены:
- * - вкладка может простоять скрытой полчаса (опрос там намеренно стоит, §5.5), и без потолка
- *   по длительности головка уехала бы далеко за конец трека;
- * - системные часы умеют прыгать назад (синхронизация времени), и отрицательная дельта
- *   отматывала бы головку к началу — берём её не меньше нуля.
+ * The head NOW: a snapshot plus the time since it, and only while playing. Two ceilings, both from
+ * life: a tab may sit hidden for half an hour with polling deliberately stopped, and system clocks
+ * can jump backwards, so a negative delta is floored at zero rather than rewinding the head.
  */
 export function elapsedMs(
   sample: ProgressSample,
@@ -40,18 +32,16 @@ export function elapsedMs(
   return durationMs != null ? Math.min(elapsed, durationMs) : elapsed;
 }
 
-/** Доля пройденного [0, 1]; `null`, когда считать не из чего (нет головки или длительности). */
+/** Share covered [0, 1]; `null` when there is nothing to compute from (no playhead or no duration). */
 export function progressRatio(elapsed: number | null, durationMs: number | null): number | null {
   if (elapsed == null || durationMs == null || durationMs <= 0) return null;
   return Math.min(1, Math.max(0, elapsed / durationMs));
 }
 
 /**
- * Часы плеера: `м:сс`, а на длинном (подкаст, микс) — `ч:мм:сс`.
- *
- * Секунды режутся ВНИЗ, а не округляются: на экране плеера 1:47.9 — это всё ещё 1:47,
- * секунда наступает, а не приближается. Нечего показывать — прочерк той же ширины, чтобы
- * строка не прыгала, когда головка появится.
+ * The player's clock: `m:ss`, or `h:mm:ss` when long. Seconds are truncated rather than rounded —
+ * on a player 1:47.9 is still 1:47, a second arrives rather than approaches. Nothing to show gives
+ * a dash of the same width, so the line does not jump when the head appears.
  */
 export function formatClock(ms: number | null): string {
   if (ms == null) return "–:––";
@@ -64,24 +54,17 @@ export function formatClock(ms: number | null): string {
 }
 
 /**
- * Насколько старым может быть снимок, чтобы по нему ещё имело смысл досчитывать головку.
+ * How old a snapshot may be for advancing the playhead from it to still make sense.
  *
- * Пять минут — не круглое число, а грубая верхняя оценка одного трека: снимок, доживший до
- * такого возраста, уже ничего не знает ни про головку, ни даже про то, играет ли что-то.
+ * Five minutes is not a round number but a rough upper bound on one track: a snapshot that old knows
+ * nothing about the playhead, nor even whether anything is playing.
  */
 export const HEAD_MAX_AGE_MS = 5 * 60_000;
 
 /**
- * Опора для шкалы из ответа сервера ЛИБО из его копии в localStorage — со своим собственным
- * временем, а не с моментом чтения.
- *
- * В этом и весь смысл функции. Копия кладётся в кэш вместе с меткой записи, поэтому после F5
- * внутри окна опроса (~20с) шкала встаёт туда, где головка на самом деле, а не откатывается
- * к сохранённому значению, чтобы через мгновение догнать рывком.
- *
- * Копия, пролежавшая дольше [HEAD_MAX_AGE_MS], опорой быть не может: досчитав по ней, мы бы
- * показали трек доигранным до конца (потолок по длительности), хотя на деле неизвестно даже,
- * играет ли он. Такой снимок отдаётся пустым — шкала честно ждёт живого ответа.
+ * The scale's anchor, from a server answer OR its localStorage copy, carrying its OWN timestamp
+ * rather than the moment of reading. That is the whole point: after a reload within the poll window
+ * the scale sits where the head really is. A copy older than the cap cannot anchor anything.
  */
 export function headSample(
   progressMs: number | null,

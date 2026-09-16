@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: переключатель волн поднимается в шапку левой колонны, «эхолот» занимает
+      освободившуюся строку (DESIGN §10.2).
+
+      Переключатель — колонки 5..10, строки 2..4: над плиткой последнего дропа и по её левому
+      краю. Строка 5 остаётся пустым треком, то есть воздух между ними такой же, как у всех
+      соседей на борде.
+
+      Промер за счёт этого отпускает строку вниз (11..17 вместо 11..16) и отдаёт трек слева
+      (32..40 вместо 31..40): правый край борда держит его правый край, а левый подравнивается
+      под музыкальную плитку на трек уже. Строк под переключателем больше нет, и упираться
+      теперь не во что.
+    -->
+    <changeSet id="0890-wave-03-switcher-top-sleep-wider" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    layout,
+    '{tiles,waveSwitcher}',
+    (layout->'tiles'->'waveSwitcher') || '{"col": 5, "row": 2, "colSpan": 6, "rowSpan": 3}'::jsonb
+  ),
+  '{tiles,sleep}',
+  (layout->'tiles'->'sleep') || '{"col": 32, "row": 11, "colSpan": 9, "rowSpan": 7}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  jsonb_set(
+    layout,
+    '{tiles,waveSwitcher}',
+    (layout->'tiles'->'waveSwitcher') || '{"col": 35, "row": 18, "colSpan": 6, "rowSpan": 3}'::jsonb
+  ),
+  '{tiles,sleep}',
+  (layout->'tiles'->'sleep') || '{"col": 31, "row": 11, "colSpan": 10, "rowSpan": 6}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

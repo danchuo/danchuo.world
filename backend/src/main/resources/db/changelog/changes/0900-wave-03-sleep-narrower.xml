@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: «эхолот» отдаёт ещё один трек слева — колонки 33..40 вместо 32..40 (DESIGN §10.2).
+
+      Правый край держит край борда, как у музыкальной плитки над ним, а левый уходит вправо:
+      промер становится уже музыки на два трека, и между ними открывается лента волны. Высота
+      и строки не меняются — сужается только ширина.
+    -->
+    <changeSet id="0900-wave-03-sleep-narrower" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,sleep}',
+  (layout->'tiles'->'sleep') || '{"col": 33, "row": 11, "colSpan": 8, "rowSpan": 7}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,sleep}',
+  (layout->'tiles'->'sleep') || '{"col": 32, "row": 11, "colSpan": 9, "rowSpan": 7}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

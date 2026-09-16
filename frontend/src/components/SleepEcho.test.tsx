@@ -59,15 +59,16 @@ const columns = () => screen.getAllByTestId("sleep-echo-col");
 const sorted = () => columns().filter((c) => c.getAttribute("style")?.includes("translateX"));
 
 describe("SleepTile — редакция «эхолот»", () => {
-  it("рисует ночь по минуте на столб и открывается суммой", async () => {
+  it("сводит ночь к кладке брусков и открывается суммой", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-01"));
     await mount("2026-08-01");
 
-    expect(columns()).toHaveLength(120);
-    // Сумма — состояние по умолчанию, как и в дефолтной вёрстке виджета: все столбы
+    // Не по столбу на минуту: минута на этой плитке тоньше пикселя (см. [soundingGeometry]).
+    expect(columns()).toHaveLength(64);
+    // Сумма — состояние по умолчанию, как и в дефолтной вёрстке виджета: все бруски
     // переставлены трансформом на свои горизонты.
-    expect(sorted()).toHaveLength(120);
-    expect(screen.getByText("сумма")).toBeInTheDocument();
+    expect(sorted()).toHaveLength(64);
+    expect(screen.getByRole("button", { pressed: false })).toBeInTheDocument();
   });
 
   it("переключает режим кликом по ВСЕЙ плитке, а не ссылкой в углу", async () => {
@@ -77,9 +78,8 @@ describe("SleepTile — редакция «эхолот»", () => {
     const tile = screen.getByRole("button", { pressed: false });
     await userEvent.click(tile);
 
-    expect(screen.getByText("по часам")).toBeInTheDocument();
     expect(screen.getByRole("button", { pressed: true })).toBe(tile);
-    // В хронологии столб стоит на своём месте в ночи — трансформа на нём нет вовсе.
+    // В хронологии брусок стоит на своём месте в ночи — трансформа на нём нет вовсе.
     expect(sorted()).toHaveLength(0);
   });
 
@@ -90,7 +90,7 @@ describe("SleepTile — редакция «эхолот»", () => {
 
     await userEvent.click(screen.getByRole("button", { pressed: false }));
 
-    // Число столбов совпадает по построению — именно поэтому площадь цвета не может соврать.
+    // Число брусков совпадает по построению — именно поэтому площадь цвета не может соврать.
     expect(columns()).toHaveLength(before);
   });
 
@@ -112,7 +112,18 @@ describe("SleepTile — редакция «эхолот»", () => {
 
     expect(screen.getByText("1 ч 50 мин")).toBeInTheDocument();
     expect(screen.getByText("23:00 → 01:00")).toBeInTheDocument();
-    expect(screen.getByText(/не спал 10м/)).toBeInTheDocument();
+    // Пробуждения — четвёртый пункт легенды, а не сноска в углу: верхний горизонт нарисован
+    // и обязан быть назван, как три остальных.
+    expect(screen.getByText("не спал 10м")).toHaveClass("sleep-echo__phase");
+  });
+
+  it("переключатель показывает оба режима миниатюрами, а не называет их словами", async () => {
+    getSleepNightMock.mockResolvedValue(night("2026-08-10"));
+    await mount("2026-08-10");
+
+    expect(screen.getByTestId("sleep-echo-modes")).toBeInTheDocument();
+    expect(screen.queryByText("сумма")).not.toBeInTheDocument();
+    expect(screen.queryByText("по часам")).not.toBeInTheDocument();
   });
 
   it("ночь без сохранённых кусков остаётся суммой и жестом не притворяется", async () => {
@@ -121,16 +132,16 @@ describe("SleepTile — редакция «эхолот»", () => {
 
     // Фазы из итогов дня нарисовать можно, а хронологию — нет: переключатель пропадает вместе
     // с режимом, который ему нечем показать.
-    expect(columns()).toHaveLength(120);
+    expect(columns()).toHaveLength(64);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByText("сумма")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-echo-modes")).not.toBeInTheDocument();
   });
 
   it("сбой запроса ночи не гасит плитку — сумма приезжает из итогов дня", async () => {
     getSleepNightMock.mockRejectedValue(new Error("offline"));
     await mount("2026-08-07");
 
-    expect(columns()).toHaveLength(120);
+    expect(columns()).toHaveLength(64);
     expect(screen.getByText("1 ч 50 мин")).toBeInTheDocument();
     expect(screen.queryByTestId("sleep-empty")).not.toBeInTheDocument();
   });

@@ -39,6 +39,43 @@ class AnalyticsBeaconResourceTest {
     }
 
     @Test
+    fun `an over-long path is refused rather than passed to a VARCHAR(512) column`() {
+        // Without the ceiling this reaches Postgres and comes back as a 500 with a stack trace,
+        // from one curl by anybody. The interactions endpoint next door already refuses it.
+        given().contentType(ContentType.JSON)
+            .header("Accept-Language", "en")
+            .header("User-Agent", chrome)
+            .body("""{"visitId":"long-path","path":"/${"x".repeat(600)}"}""")
+            .post("/api/analytics/beacon")
+            .then().statusCode(400)
+    }
+
+    @Test
+    fun `an over-long visitId or referrer is dropped, the visit itself still counts`() {
+        // These two are opportunistic: a junk value costs the field, never the whole beacon.
+        given().contentType(ContentType.JSON)
+            .header("Accept-Language", "en")
+            .header("User-Agent", chrome)
+            .body(
+                """{"visitId":"${"v".repeat(200)}","path":"/","referrer":"${"r".repeat(900)}"}""",
+            )
+            .post("/api/analytics/beacon")
+            .then().statusCode(204)
+    }
+
+    @Test
+    fun `an over-long Referer header is dropped too`() {
+        // The fallback referrer comes from a header, which is just as attacker-controlled.
+        given().contentType(ContentType.JSON)
+            .header("Accept-Language", "en")
+            .header("User-Agent", chrome)
+            .header("Referer", "https://example.com/${"r".repeat(900)}")
+            .body("""{"visitId":"long-referer-header","path":"/"}""")
+            .post("/api/analytics/beacon")
+            .then().statusCode(204)
+    }
+
+    @Test
     fun `beacon requires a path`() {
         given().contentType(ContentType.JSON)
             .header("Accept-Language", "en")

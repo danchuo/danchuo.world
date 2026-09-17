@@ -46,9 +46,7 @@ class RateLimitFilter(
         val capacity = if (isMedia) maxMediaRequests else maxRequests
         val scope = if (isMedia) "media" else "public"
 
-        val client = ctx.getHeaderString("X-Forwarded-For")
-            ?.split(",")?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() }
-            ?: "direct"
+        val client = ClientIp.fromForwardedFor(ctx.getHeaderString("X-Forwarded-For")) ?: "direct"
         // Scope is part of the key: draining one bucket must never touch the other.
         val bucket = buckets.computeIfAbsent("$scope:$client") { Bucket(capacity, windowSeconds) }
         if (!bucket.tryConsume()) {

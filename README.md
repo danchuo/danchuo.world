@@ -14,3 +14,5 @@ Personal dashboard site: a public real-time bento board of my life — the day a
 - **Frontend:** Next.js (App Router) + TypeScript + Tailwind v4; an isolated JSON client to the API.
 - **Tests:** Vitest + React Testing Library, JUnit/RestAssured, Playwright visual regression (baselines shot in Docker).
 - **Infra:** Docker Compose, Caddy (TLS/reverse proxy), GitHub Actions → GHCR → VPS; the smoke stage exercises the freshly built images before rollout.
+
+**License:** [MIT](LICENSE).

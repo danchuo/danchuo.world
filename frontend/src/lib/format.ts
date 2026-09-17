@@ -22,6 +22,30 @@ export function formatSleep(minutes: number | null): string {
   return `${h} ч ${m} мин`;
 }
 
+function plural(n: number, one: string, few: string, many: string): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 14) return many;
+  const ones = n % 10;
+  if (ones === 1) return one;
+  if (ones >= 2 && ones <= 4) return few;
+  return many;
+}
+
+/**
+ * The night's length split into numbers and their units, for the one place that sets them in
+ * different type: the numerals answer "how did I sleep" and the words only name their scale.
+ * DESIGN §7.7
+ */
+export function sleepDurationParts(minutes: number): { value: number; unit: string }[] {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const hours = { value: h, unit: plural(h, "час", "часа", "часов") };
+  const mins = { value: m, unit: plural(m, "минута", "минуты", "минут") };
+  if (h === 0) return [mins];
+  if (m === 0) return [hours];
+  return [hours, mins];
+}
+
 /** Compact sleep for a narrow column: single-letter units, `0` still shows, `null` is "no data". */
 export function formatSleepShort(minutes: number | null): string {
   if (minutes === null) return NO_DATA;

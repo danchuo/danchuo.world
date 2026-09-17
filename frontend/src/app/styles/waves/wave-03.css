@@ -1195,4 +1195,7 @@
   /* This wave's accent works as LIGHT rather than a stroke (DESIGN §10.2), so the floor profile glows instead of
      thickening — the same device as the tile's edge and the day in the calendar. */
   --sleep-trace-glow: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 65%, transparent));
+  /* The moon takes the same light. It is the SIGN of the tile, not its data, so the halo is cooler and
+     weaker than the profile's — and it follows the lit shape, so a crescent glows as a crescent. */
+  --sleep-moon-glow: drop-shadow(0 0 3px color-mix(in srgb, var(--sleep-awake) 42%, transparent));
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useId, useMemo, type CSSProperties } from "react";
+import { Fragment, useCallback, useId, useMemo, type CSSProperties } from "react";
 import { getSleepNight } from "@/lib/api/client";
 import type { SleepStagesView } from "@/lib/api/types";
-import { formatSleep, formatSleepShort } from "@/lib/format";
+import { formatSleep, formatSleepShort, sleepDurationParts } from "@/lib/format";
 import { moonLitPath, moonPhase } from "@/lib/moonPhase";
 import { LANES, STAGE_COLOR, clockLabel, type SleepStageKey } from "./nightGeometry";
 import { ECHO_VIEW, echoGeometry, echoNight, echoNightFromStages, type EchoNight } from "./soundingGeometry";
@@ -99,17 +99,71 @@ function ModeSwitch({ timed }: { timed: boolean }) {
  */
 function MoonMark({ date }: { date: string }) {
   const phase = moonPhase(date);
+  // Ids MUST be unique per instance, as for the sounding's gradients below: the board keeps both
+  // layouts in the DOM, and a shared id sends `url(#…)` into the hidden copy. DESIGN §7.7
+  const uid = useId().replace(/[^a-z0-9]/gi, "");
   if (!phase) return null;
+  const id = (part: string) => `sleep-moon-${uid}-${part}`;
+  const lit = moonLitPath(phase.cycle, MOON_R);
   return (
     <svg className="sleep-echo__moon" viewBox="-8 -8 16 16" aria-hidden>
-      <circle className="sleep-echo__moon-disc" r={MOON_R} />
-      {/* A waning moon is the same outline mirrored: the lit edge moves to the disc's left side,
-          and the crescent's shape does not depend on that. */}
-      <path
-        className="sleep-echo__moon-lit"
-        d={moonLitPath(phase.cycle, MOON_R)}
-        transform={phase.waxing ? undefined : "scale(-1 1)"}
-      />
+      <defs>
+        {/* Earthshine: the shadowed side is lightest next to the lit limb, not evenly grey. */}
+        <radialGradient id={id("dark")} cx="0.78" cy="0.4" r="0.95">
+          <stop offset="0" stopColor="var(--text-secondary)" stopOpacity="0.2" />
+          <stop offset="0.5" stopColor="var(--text-tertiary)" stopOpacity="0.12" />
+          <stop offset="1" stopColor="var(--text-tertiary)" stopOpacity="0.05" />
+        </radialGradient>
+        {/* What makes the disc a SPHERE rather than a paper cut-out: the lit side carries limb
+            darkening, so it dims toward its own edge. Extra stops, because a two-stop ramp at this
+            alpha bands into visible steps on dark glass. */}
+        <radialGradient id={id("lit")} cx="0.6" cy="0.36" r="0.78">
+          <stop offset="0" stopColor="var(--text-secondary)" stopOpacity="0.82" />
+          <stop offset="0.42" stopColor="var(--text-secondary)" stopOpacity="0.7" />
+          <stop offset="0.72" stopColor="var(--text-secondary)" stopOpacity="0.58" />
+          <stop offset="1" stopColor="var(--text-tertiary)" stopOpacity="0.46" />
+        </radialGradient>
+        {/* Maria as three octaves of one noise: the 0.3 fundamental gives the blotches, its
+            harmonics the grain that DITHERS the gradients above — the same grain that removes
+            their banding. The house recipe, as on the wave-01 body. */}
+        <filter id={id("mare")} x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.3"
+            numOctaves="3"
+            seed="7"
+            stitchTiles="stitch"
+            result="noise"
+          />
+          <feColorMatrix in="noise" type="saturate" values="0" />
+          <feComponentTransfer>
+            <feFuncR type="linear" slope="0.35" intercept="0" />
+            <feFuncG type="linear" slope="0.35" intercept="0" />
+            <feFuncB type="linear" slope="0.42" intercept="0" />
+          </feComponentTransfer>
+        </filter>
+        <clipPath id={id("clip")}>
+          <path d={lit} />
+        </clipPath>
+      </defs>
+      {/* A waning moon is the same body mirrored: the lit edge moves to the disc's left side, and
+          shading, maria and the crescent's own shape all have to travel with it. */}
+      <g className="sleep-echo__moon-body" transform={phase.waxing ? undefined : "scale(-1 1)"}>
+        <circle className="sleep-echo__moon-disc" r={MOON_R} fill={`url(#${id("dark")})`} />
+        <path className="sleep-echo__moon-lit" d={lit} fill={`url(#${id("lit")})`} />
+        <rect
+          className="sleep-echo__moon-mare"
+          x={-MOON_R}
+          y={-MOON_R}
+          width={MOON_R * 2}
+          height={MOON_R * 2}
+          filter={`url(#${id("mare")})`}
+          clipPath={`url(#${id("clip")})`}
+        />
+        {/* The limb keeps the edge crisp over the soft shading, and it is what carries the sign
+            through a new moon, where there is nothing lit to draw at all. */}
+        <circle className="sleep-echo__moon-limb" r={MOON_R} />
+      </g>
     </svg>
   );
 }
@@ -270,6 +324,15 @@ function Sounding({
             </span>
           ))}
         </span>
+        {/* The night's ends belong to the DRAWING, not to the legend line: the axis runs left to
+            right, and at the surface the columns are nearly transparent, so the top corners are
+            the one free place on the picture. DESIGN §7.7 */}
+        {time && times && (
+          <span className="sleep-echo__bounds">
+            <span className="sleep-echo__edge">{times.from}</span>
+            <span className="sleep-echo__edge" data-side="to">{times.to}</span>
+          </span>
+        )}
       </span>
 
       {/* The caption's strip: two blur passes the height OF THE TILE, masked open only at the
@@ -281,21 +344,28 @@ function Sounding({
       <span className="sleep-echo__band">
         <span className="sleep-echo__head">
           <MoonMark date={date} />
-          <span className="sleep-echo__total">{formatSleep(night.asleep)}</span>
+          {/* Numerals in the strip's own large step, units a step down and quieter: the full words
+              fit once they stop competing with the number, and the number still reads first. */}
+          <span className="sleep-echo__total">
+            {sleepDurationParts(night.asleep).map((p, i) => (
+              <Fragment key={p.unit}>
+                {i > 0 && " "}
+                {p.value}
+                <span className="sleep-echo__unit">&nbsp;{p.unit}</span>
+              </Fragment>
+            ))}
+          </span>
           {night.timed && <ModeSwitch timed={time} />}
         </span>
-        {/* The strip's second line exists only in the chronology. "Asleep" and "awake" stand as
-            its ENDS: the drawing's axis and the strip share a width, so the line's left edge is
-            the night's start and its right edge the waking. The sum has no time axis at all. */}
+        {/* The strip's second line exists only in the chronology, and it rises ABOVE the duration
+            rather than pushing it: the duration is the strip's fixed anchor. DESIGN §7.7 */}
         {time && (
           <span className="sleep-echo__phases">
-            {times && <span className="sleep-echo__edge">{times.from}</span>}
             {legend?.map((p) => (
               <span key={p.key} className="sleep-echo__phase" style={{ color: p.color }}>
                 {p.text}
               </span>
             ))}
-            {times && <span className="sleep-echo__edge" data-side="to">{times.to}</span>}
           </span>
         )}
       </span>

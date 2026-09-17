@@ -111,7 +111,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-05"));
     await mount("2026-08-05");
 
-    expect(screen.getByText("1 ч 50 мин")).toBeInTheDocument();
+    expect(document.querySelector(".sleep-echo__total")).toHaveTextContent("1 час 50 минут");
     // The sum has no time axis and nothing to name its ends with: the night's frame leaves the tile.
     expect(screen.queryByText("23:00")).not.toBeInTheDocument();
     expect(screen.queryByText("01:00")).not.toBeInTheDocument();
@@ -120,11 +120,13 @@ describe("SleepTile — редакция «эхолот»", () => {
     const tile = screen.getByRole("button", { pressed: false });
     await userEvent.click(tile);
 
-    // In the chronology the row labels are gone: the line is freed for the shares, and its ends
-    // name the night's start and end (with no arrow between them).
+    // In the chronology the row labels are gone: the line is freed for the shares alone, while the
+    // night's ends name the axis ON the drawing, in its top corners.
     expect(screen.getByText("23:00")).toHaveClass("sleep-echo__edge");
     expect(screen.getByText("01:00")).toHaveClass("sleep-echo__edge");
     expect(screen.queryByText("23:00 → 01:00")).not.toBeInTheDocument();
+    expect(screen.getByText("23:00").closest(".sleep-echo__plot")).not.toBeNull();
+    expect(screen.getByText("01:00").closest(".sleep-echo__phases")).toBeNull();
     // There are exactly three shares and "awake" is not among them: the percentages are of sleep,
     // and a waking is not part of it. Minutes here were of another dimension and the longest item,
     // which wrapped the line and dropped the night's end under the legend.
@@ -156,14 +158,22 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(terminator).not.toBeNull();
     expect(Number(terminator![1])).toBeLessThan(1.5);
     // A waxing moon is drawn unmirrored: the disc's right edge is lit.
-    expect(lit).not.toHaveAttribute("transform");
+    expect(head.querySelector(".sleep-echo__moon-body")).not.toHaveAttribute("transform");
+    // Shading, maria and the limb are the sign's other layers; paint comes from gradients whose ids
+    // must be unique per instance, so each layer points at THIS copy's defs.
+    const mare = head.querySelector(".sleep-echo__moon-mare")!;
+    const clip = mare.getAttribute("clip-path")!.replace(/^url\(#/, "").replace(/\)$/, "");
+    expect(head.querySelector(`#${clip}`)).not.toBeNull();
+    expect(head.querySelector(".sleep-echo__moon-limb")).not.toBeNull();
   });
 
   it("убывающую луну рисует тот же контур в зеркале", async () => {
     getSleepNightMock.mockResolvedValue(night("2024-02-02"));
     await mount("2024-02-02");
 
-    expect(document.querySelector(".sleep-echo__moon-lit")).toHaveAttribute("transform", "scale(-1 1)");
+    // The whole BODY mirrors, not the outline alone: shading and maria have to travel with the light.
+    expect(document.querySelector(".sleep-echo__moon-body")).toHaveAttribute("transform", "scale(-1 1)");
+    expect(document.querySelector(".sleep-echo__moon-lit")).not.toHaveAttribute("transform");
   });
 
   it("переключатель показывает оба режима миниатюрами, а не называет их словами", async () => {
@@ -254,7 +264,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     await mount("2026-08-07");
 
     expect(columns()).toHaveLength(64);
-    expect(screen.getByText("1 ч 50 мин")).toBeInTheDocument();
+    expect(document.querySelector(".sleep-echo__total")).toHaveTextContent("1 час 50 минут");
     expect(screen.queryByTestId("sleep-empty")).not.toBeInTheDocument();
   });
 

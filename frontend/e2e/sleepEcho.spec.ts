@@ -118,26 +118,37 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect(tile.getByTestId("sleep-duration-light")).toBeHidden();
   await expect(tile.getByTestId("sleep-name-light")).toBeHidden();
-  // The strip's second line is freed for the shares, its ends naming the night's start and end.
-  // It must stay on ONE line: a wrap dropped the night's end under the legend, onto a different
-  // level from its start.
+  // The strip's second line is freed for the shares alone, and must stay on ONE line: a wrap
+  // raises the whole strip onto the sounding.
   await expect(tile.getByText("CORE 58%")).toBeVisible();
+  // The captions enter AFTER the resort, so they are still travelling when the click returns:
+  // measuring now would read their 4px offset rather than their place.
+  await tile
+    .locator(".sleep-echo__phases")
+    .evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
   const legend = await tile.locator(".sleep-echo__phases").evaluate((el) => ({
     fits: el.scrollWidth <= el.clientWidth,
     levels: new Set([...el.children].map((c) => Math.round(c.getBoundingClientRect().top))).size,
-    below: el.getBoundingClientRect().top,
   }));
   expect(legend.fits).toBe(true);
   expect(legend.levels).toBe(1);
-  // In the chronology the strip rises to its second line, so the duration line is measured afresh:
-  // in the sum it sat lower, at the very bottom of the tile.
+  // THE DURATION IS THE STRIP'S ANCHOR: the strip grows upward, so the legend rises above the
+  // duration instead of pushing it, and the head's box is the same in both modes.
   const headTimed = await tile.locator(".sleep-echo__head").boundingBox();
-  expect(legend.below).toBeGreaterThanOrEqual(headTimed!.y + headTimed!.height - 1);
+  expect(Math.abs(headTimed!.y - head!.y)).toBeLessThan(1);
+  expect(Math.abs(headTimed!.height - head!.height)).toBeLessThan(1);
+  const legendBox = await tile.locator(".sleep-echo__phases").boundingBox();
+  expect(legendBox!.y + legendBox!.height).toBeLessThanOrEqual(headTimed!.y + 1);
+  // The night's ends name the axis ON the drawing, in its TOP corners: at the surface the columns
+  // are nearly transparent, and the bottom corners are taken by the duration and the thumbnails.
   const from = await tile.getByText("23:00").boundingBox();
   const to = await tile.getByText("06:28").boundingBox();
   expect(from!.x).toBeLessThan(to!.x);
   expect(Math.abs(from!.y - to!.y)).toBeLessThan(2);
   expect(to!.x + to!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
+  expect(from!.x).toBeGreaterThanOrEqual(bounds!.x);
+  expect(from!.y).toBeLessThan(bounds!.y + bounds!.height / 3);
+  expect(to!.y + to!.height).toBeLessThan(legendBox!.y);
   await tile.screenshot({ path: testInfo.outputPath("sleep-timeline.png") });
   await toggle.focus();
   await page.keyboard.press("Space");

@@ -4,6 +4,7 @@ import {
   formatSleep,
   formatSleepAxis,
   formatSleepShort,
+  sleepDurationParts,
   formatSteps,
   formatStepsAxis,
   isDisciplineDone,
@@ -67,5 +68,26 @@ describe("formatAgo (свежесть, PRD 8)", () => {
 
   it("невалидный ISO → пустая строка", () => {
     expect(formatAgo("не-дата", now)).toBe("");
+  });
+});
+
+describe("sleepDurationParts (длительность ночи словами, DESIGN 7.7)", () => {
+  const say = (m: number) => sleepDurationParts(m).map((p) => `${p.value} ${p.unit}`).join(" ");
+
+  it("склоняет и час, и минуту по последней цифре", () => {
+    expect(say(61)).toBe("1 час 1 минута");
+    expect(say(3 * 60 + 2)).toBe("3 часа 2 минуты");
+    expect(say(7 * 60 + 53)).toBe("7 часов 53 минуты");
+    expect(say(5 * 60 + 25)).toBe("5 часов 25 минут");
+  });
+
+  it("одиннадцать–четырнадцать — исключение, а не «1» на конце", () => {
+    expect(say(11 * 60 + 11)).toBe("11 часов 11 минут");
+    expect(say(12 * 60 + 14)).toBe("12 часов 14 минут");
+  });
+
+  it("пустую половину не называет вовсе", () => {
+    expect(sleepDurationParts(7 * 60)).toEqual([{ value: 7, unit: "часов" }]);
+    expect(sleepDurationParts(40)).toEqual([{ value: 40, unit: "минут" }]);
   });
 });

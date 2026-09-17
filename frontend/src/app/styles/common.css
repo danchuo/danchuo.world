@@ -2359,6 +2359,12 @@ button.sleep-echo:focus-visible {
   .sleep-echo__mode {
     transition: none;
   }
+  /* The captions still have to ARRIVE, just without the delay and the travel: their whole reason for
+     waiting is a resort that no longer animates. */
+  .sleep-echo__phases,
+  .sleep-echo__bounds {
+    animation: none;
+  }
 }
 
 /* The caption band is at the BOTTOM, as on a drop frame: the night's descent reads left to right and top
@@ -2371,7 +2377,9 @@ button.sleep-echo:focus-visible {
   bottom: 0;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  /* Reversed, so the FIRST child sits at the bottom: the duration is the strip's anchor and must not
+     move when the legend arrives, while DOM order still reads duration before its breakdown. */
+  flex-direction: column-reverse;
   gap: 0.3em;
   /* Top of the band above the caption; below the feather, blur and scrim are already full. Band height is
      feather plus caption, so a long caption deepens it by itself with nothing measured. */
@@ -2458,26 +2466,45 @@ button.sleep-echo:focus-visible {
   white-space: nowrap;
   flex: 0 0 auto;
 }
+/* Unit words in the band's own meta step, a whole step below the numerals and quieter: the words name
+   the scale, the numbers carry the answer. Same type as the legend above them. */
+.sleep-echo__unit {
+  font-size: var(--fs-band-meta);
+  color: var(--text-tertiary);
+}
 /* Moon over the night — the subject mark at the head of the band (see `MoonMark`): the edition has no word
    "sleep", and before the mark the band began straight with a number. Sized from the number itself rather
    than in pixels: it stands beside it and has to change with it. */
 .sleep-echo__moon {
   display: block;
-  width: calc(var(--fs-sleep-total) * 0.86);
-  height: calc(var(--fs-sleep-total) * 0.86);
+  /* Below the number's own line box (×1.2), so growing the sign cannot make the strip taller and move
+     the duration it stands beside. */
+  width: calc(var(--fs-sleep-total) * 1.05);
+  height: calc(var(--fs-sleep-total) * 1.05);
   align-self: center;
   flex: 0 0 auto;
   overflow: visible;
 }
-/* The dark side is the Moon in shadow, not emptiness: without the disc a young crescent was lost at this
-   size and a new moon did not draw at all. */
-.sleep-echo__moon-disc {
-  fill: var(--text-tertiary);
-  opacity: 0.18;
-}
+/* Paint arrives from the gradients in `MoonMark`, so these rules carry only what CSS owns: density and
+   the wave's light. The dark side is the Moon in shadow, not emptiness — without the disc a young
+   crescent was lost at this size and a new moon did not draw at all. */
 .sleep-echo__moon-lit {
-  fill: var(--text-secondary);
-  opacity: 0.9;
+  /* Glow, not a thicker stroke — the same parameter the floor profile takes, and it costs a new moon
+     nothing: with no lit shape there is nothing to glow. */
+  filter: var(--sleep-moon-glow, none);
+}
+/* Maria: dark mottling over the lit side. Low enough to read as surface rather than dirt, and it doubles
+   as the dither that removes the gradients' banding. */
+.sleep-echo__moon-mare {
+  opacity: 0.42;
+}
+/* Barely there on purpose: at half strength the ring read as the outline of a coin and flattened the
+   shading behind it. It only has to survive a new moon, where nothing else is left to draw. */
+.sleep-echo__moon-limb {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 0.4;
+  opacity: 0.3;
 }
 
 /* The mode switch is a pair of thumbnails of the modes themselves rather than a pair of words (see
@@ -2525,15 +2552,39 @@ button.sleep-echo:focus-visible {
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* The band's second line is the chronology legend, and it carries the ends of the axis too. An item's
-   colour IS its horizon's colour, so the sounding needs no separate legend at all. */
+/* Both the legend and the axis ends enter AFTER the bricks have resorted, by the same rule as the floor
+   profile: until then the picture they caption is still moving. Leaving is instant, with the unmount. */
+@keyframes sleep-echo-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.sleep-echo__phases,
+.sleep-echo__bounds {
+  animation: sleep-echo-caption-in 260ms ease var(--sleep-echo-ms, 720ms) both;
+}
+/* Stretched over the plot on purpose: the animation puts a `transform` here, which would otherwise make
+   this span the containing block for the two ends and collapse them into its zero-width box. */
+.sleep-echo__bounds {
+  position: absolute;
+  inset: 0;
+}
+/* The band's second line is the chronology legend. An item's colour IS its horizon's colour, so the
+   sounding needs no separate legend at all. */
 .sleep-echo__phases {
   display: flex;
-  /* The line has to be ONE: its ends are the start and end of the night, and a wrap dropped waking below
-     the legend, onto a different level from the start. Hence exactly three shares in it, with wakings
-     removed (see `Sounding`); that it fits is checked by e2e. */
+  /* The line has to be ONE: a wrap raises the band onto the sounding. Hence exactly three shares in it,
+     with wakings removed (see `Sounding`); that it fits is checked by e2e. */
   flex-wrap: nowrap;
   align-items: baseline;
+  /* Spread to both edges, so the three shares span the strip instead of bunching at the left: the
+     ends then sit under the night's own ends above them, on the same two verticals. */
+  justify-content: space-between;
   gap: 0.2em 0.6em;
   font-family: var(--font-mono);
   font-size: var(--fs-band-meta);
@@ -2542,18 +2593,40 @@ button.sleep-echo:focus-visible {
 .sleep-echo__phase {
   white-space: nowrap;
 }
-/* "Went to bed" and "got up" are the ends of the axis, not a line with an arrow: the drawing's axis and the
-   band share a width, so the line's left edge IS the night's start. Quieter than the legend — the night's
-   bounds are the second question, after "how much". */
+/* "Went to bed" and "got up" are the ends of the axis, not a line with an arrow: the axis runs left to
+   right across the drawing, so they stand in its TOP corners — level with each other by construction, and
+   clear of the legend they used to share a line with. */
 .sleep-echo__edge {
-  color: var(--text-tertiary);
+  position: absolute;
+  /* The same percentage basis as the lift, so the label rides the drawing and still clears the tile's
+     top edge instead of being cut by it. */
+  top: calc(var(--sleep-plot-lift) + 16px);
+  left: var(--sleep-band-inset);
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  line-height: 1.25;
+  color: var(--text-secondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  flex: 0 0 auto;
 }
 .sleep-echo__edge[data-side="to"] {
-  /* The right end is pinned to the edge: between it and the legend lies the axis, not a space. */
-  margin-left: auto;
+  left: auto;
+  right: var(--sleep-band-inset);
+}
+/* The tick is what turns a number into a caption to the END of the axis: without it the time reads as a
+   label dropped on the picture. Same engraving as the depth horizons. */
+.sleep-echo__edge::after {
+  content: "";
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  width: var(--tile-line, 1px);
+  height: 6px;
+  background: var(--sleep-floor, var(--border-tile));
+}
+.sleep-echo__edge[data-side="to"]::after {
+  left: auto;
+  right: 0;
 }
 
 /* Drop rail, `carousel` edition (DESIGN §7.5): frames travel vertically and the main one is whichever lands

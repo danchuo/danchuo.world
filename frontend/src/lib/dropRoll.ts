@@ -74,25 +74,19 @@ export function wheelStep(deltaX: number, deltaY: number, deltaMode: number, acc
 
 /** How much travel (px) a trackpad must gather for ONE frame of the latest-drop tile. */
 export const FRAME_WHEEL_TRAVEL_PX = 220;
-/**
- * How long a frame rests after a step before the tile accepts another. Both thresholds hold ONE
- * trackpad flick in one frame and therefore change together: a flick is a short push with a long
- * inertial tail, which distance alone cannot contain and a cooldown alone cannot outlast.
- */
-export const FRAME_STEP_COOLDOWN_MS = 560;
 
 /**
- * The drop tile's step on a horizontal wheel. The rule DIFFERS from the gallery reel's: the tile
- * shows one photo, so the reel's generous accumulator wound it to the drop's end, while a strict
- * one-gesture-one-frame lock made a second frame unreachable without lifting the hand.
+ * The drop tile's step on a horizontal wheel. A gesture spends at most one frame; the caller
+ * clears [spent] only after the wheel stream becomes quiet, which is the browser's only signal
+ * that fingers left a trackpad.
  */
 export function frameWheelStep(
   deltaX: number,
   deltaMode: number,
   acc: number,
-  sinceStepMs: number,
+  spent: boolean,
 ): WheelDecision {
-  if (sinceStepMs < FRAME_STEP_COOLDOWN_MS) return { dir: 0, acc: 0 };
+  if (spent) return { dir: 0, acc: 0 };
   const dx = deltaX * (deltaMode === 1 ? LINE_PX : 1);
   if (dx === 0) return { dir: 0, acc };
   const next = acc !== 0 && Math.sign(dx) !== Math.sign(acc) ? dx : acc + dx;

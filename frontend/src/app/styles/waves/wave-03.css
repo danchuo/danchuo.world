@@ -635,6 +635,7 @@
 /* The home pill is the same glass as the tiles, at button scale: it needs a dense ground because it lies on
    the edge strip and on the card's margin at once. */
 :root[data-wave="wave-03"] .cal-home-pill {
+  --cal-home-dip: -9px;
   border-color: var(--glass-edge, rgba(160, 205, 230, 0.18));
   background: linear-gradient(to bottom, rgba(120, 160, 190, 0.1), rgba(10, 18, 28, 0.82));
   box-shadow: inset 0 1px 0 rgba(190, 230, 250, 0.12), 0 6px 18px -10px rgba(0, 0, 0, 0.9);
@@ -707,6 +708,10 @@
    bring the slab back, only four times over. */
 :root[data-wave="wave-03"] .social-card {
   --social-card-bg: transparent;
+  cursor: default;
+}
+:root[data-wave="wave-03"] .social-icon {
+  cursor: pointer;
 }
 /* Platform names are removed: a mark names its service itself, and a caption under it is the same meta label
    the wave dropped everywhere else. The link keeps its name in `aria-label`. */
@@ -846,6 +851,10 @@
   --fs-music-artists: clamp(11px, calc(6.7px + 2.26cqw), 29px);
   --fs-music-meta: clamp(10px, calc(6.2px + 2.07cqw), 27px);
 }
+:root[data-wave="wave-03"] .board-stack [data-music-mode="playing"] .music-card,
+:root[data-wave="wave-03"] .board-stack [data-music-mode="paused"] .music-card {
+  height: auto;
+}
 
 /* The status row and the attribution are the ONLY place on the plate not set in monospace. Monospace is the
    board's data voice (step counts, sleep minutes) and on a Spotify plate it sounded foreign — letter-spaced
@@ -886,7 +895,6 @@
 :root[data-wave="wave-03"] .t-music-vars .music-progress__fill {
   background: #1ed760;
 }
-
 /* Spotify plate: no marquee and no playlist row, both because the plate has to read as a Spotify player
  * rather than as a board widget. */
 
@@ -1198,4 +1206,7 @@
   /* The moon takes the same light. It is the SIGN of the tile, not its data, so the halo is cooler and
      weaker than the profile's — and it follows the lit shape, so a crescent glows as a crescent. */
   --sleep-moon-glow: drop-shadow(0 0 3px color-mix(in srgb, var(--sleep-awake) 42%, transparent));
+}
+:root[data-wave="wave-03"] .sleep-echo__unit {
+  font-size: calc(var(--fs-band-meta) * 1.12);
 }

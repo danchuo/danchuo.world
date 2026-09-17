@@ -109,51 +109,52 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
             // ONE ROW, and inline `grid-template-columns` beats CSS unless it is `!important`.
             style={{ "--social-cols": cols, "--social-count": links.length } as CSSProperties}
           >
-            {links.map((l) => (
-              <li key={l.platform} className="min-h-0 min-w-0">
-                <HoverTip fill content={peekOf(l)}>
-                <a
-                  href={l.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={l.name}
-                  // social-card: the plate behind icon and label is a skin parameter (common.css) —
-                  // wave 01 clears it so sprites sit right on the tile surface. A named container:
-                  // icon, label and gap inside count from the card's width.
-                  className="social-card flex h-full w-full flex-col items-center justify-center"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {l.icon ? (
-                    <span
-                      aria-hidden
-                      className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}${
-                        BRAND_MARKS[l.platform] ? " social-icon--brand" : ""
-                      }`}
-                      style={
-                        {
-                          "--social-mask": `url(${l.icon})`,
-                          ...(WAVE01_SPRITES[l.platform]
-                            ? { "--social-sprite": `url(${WAVE01_SPRITES[l.platform]})` }
-                            : {}),
-                          ...(BRAND_MARKS[l.platform]
-                            ? { "--social-brand": `url(${BRAND_MARKS[l.platform]})` }
-                            : {}),
-                        } as CSSProperties
-                      }
-                    />
-                  ) : (
-                    // Placeholder for a platform without a sprite, at the same card share as an icon.
-                    <span
-                      aria-hidden
-                      className="social-icon"
-                      style={{ background: "var(--bg-surface)", borderRadius: "var(--radius-sm)", mask: "none", WebkitMask: "none" }}
-                    />
-                  )}
-                  <span className="social-label max-w-full truncate px-1">{l.name}</span>
-                </a>
-                </HoverTip>
-              </li>
-            ))}
+            {links.map((l) => {
+              const peek = peekOf(l);
+              const icon = l.icon ? (
+                <span
+                  aria-hidden
+                  className={`social-icon${WAVE01_SPRITES[l.platform] ? " social-icon--sprite" : ""}${
+                    BRAND_MARKS[l.platform] ? " social-icon--brand" : ""
+                  }`}
+                  style={
+                    {
+                      "--social-mask": `url(${l.icon})`,
+                      ...(WAVE01_SPRITES[l.platform]
+                        ? { "--social-sprite": `url(${WAVE01_SPRITES[l.platform]})` }
+                        : {}),
+                      ...(BRAND_MARKS[l.platform]
+                        ? { "--social-brand": `url(${BRAND_MARKS[l.platform]})` }
+                        : {}),
+                    } as CSSProperties
+                  }
+                />
+              ) : (
+                <span
+                  aria-hidden
+                  className="social-icon"
+                  style={{ background: "var(--bg-surface)", borderRadius: "var(--radius-sm)", mask: "none", WebkitMask: "none" }}
+                />
+              );
+              return (
+                <li key={l.platform} className="min-h-0 min-w-0">
+                  <a
+                    href={l.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={l.name}
+                    // social-card: the plate behind icon and label is a skin parameter (common.css) —
+                    // wave 01 clears it so sprites sit right on the tile surface. A named container:
+                    // icon, label and gap inside count from the card's width.
+                    className="social-card flex h-full w-full flex-col items-center justify-center"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {peek ? <HoverTip content={peek}>{icon}</HoverTip> : icon}
+                    <span className="social-label max-w-full truncate px-1">{l.name}</span>
+                  </a>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

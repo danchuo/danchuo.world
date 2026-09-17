@@ -52,6 +52,10 @@ const MIN_CARD_W = 200;
  * and an honest second flick has to be waited for.
  */
 const WHEEL_GESTURE_GAP_MS = 140;
+/** Inertial events below this size are the fading tail, not continued finger travel. */
+const WHEEL_TAIL_PX = 4;
+/** A fresh gesture must rise above its inertial tail before it may start accumulating travel. */
+const WHEEL_REARM_PX = 12;
 
 /**
  * The new frame's entry: a shift towards the gesture and its duration. The movement is
@@ -323,9 +327,10 @@ export function LatestDropTile({
   // BY CALLBACK REF, not an effect — reattaching mid-gesture hands the rest of it to the page.
   const stepRef = useRef(stepFrame);
   stepRef.current = stepFrame;
-  const wheelRef = useRef<{ acc: number; steppedAt: number; quiet: ReturnType<typeof setTimeout> | null }>({
+  const wheelRef = useRef<{ acc: number; spent: boolean; armed: boolean; quiet: ReturnType<typeof setTimeout> | null }>({
     acc: 0,
-    steppedAt: 0,
+    spent: false,
+    armed: true,
     quiet: null,
   });
   const detachWheelRef = useRef<(() => void) | null>(null);
@@ -338,16 +343,27 @@ export function LatestDropTile({
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      // Silence ends the gesture: an unfinished gesture's accumulated travel must not pass to the
-      // next one, or a touch half a minute later would change the frame.
-      if (gesture.quiet) clearTimeout(gesture.quiet);
-      gesture.quiet = setTimeout(() => {
-        gesture.acc = 0;
-      }, WHEEL_GESTURE_GAP_MS);
-      const step = frameWheelStep(e.deltaX, e.deltaMode, gesture.acc, e.timeStamp - gesture.steppedAt);
+      const dx = Math.abs(e.deltaX * (e.deltaMode === 1 ? 16 : 1));
+      // A trackpad's inertial tail may keep emitting tiny events long after the fingers lift. Those
+      // events must not postpone rearming forever; meaningful travel still extends this gesture.
+      if (dx > WHEEL_TAIL_PX) {
+        if (gesture.quiet) clearTimeout(gesture.quiet);
+        gesture.quiet = setTimeout(() => {
+          gesture.acc = 0;
+          gesture.spent = false;
+          gesture.armed = false;
+        }, WHEEL_GESTURE_GAP_MS);
+      }
+      // After the old gesture ends, ignore its remaining tiny drift. A new deliberate flick rises
+      // above this threshold without needing any pointer movement over the card.
+      if (!gesture.spent && !gesture.armed) {
+        if (dx < WHEEL_REARM_PX) return;
+        gesture.armed = true;
+      }
+      const step = frameWheelStep(e.deltaX, e.deltaMode, gesture.acc, gesture.spent);
       gesture.acc = step.acc;
       if (step.dir === 0) return;
-      gesture.steppedAt = e.timeStamp;
+      gesture.spent = true;
       stepRef.current(step.dir);
     };
     el.addEventListener("wheel", onWheel, { passive: false });

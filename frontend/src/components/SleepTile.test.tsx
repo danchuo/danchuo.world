@@ -148,7 +148,8 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("sleep-empty")).toBeInTheDocument(),
     );
-    expect(screen.getByText("нет данных о сне")).toBeInTheDocument();
+    expect(screen.getByTestId("sleep-moon")).toBeInTheDocument();
+    expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
     expect(screen.queryByText(/не записана по минутам/i)).not.toBeInTheDocument();
   });
 
@@ -184,7 +185,8 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     );
 
     expect(screen.getByTestId("sleep-empty")).toBeInTheDocument();
-    expect(screen.getByText("нет данных о сне")).toBeInTheDocument();
+    expect(screen.getByTestId("sleep-moon")).toBeInTheDocument();
+    expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /по часам/i }),
     ).not.toBeInTheDocument();

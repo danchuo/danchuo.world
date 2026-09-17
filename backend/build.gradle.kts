@@ -70,7 +70,7 @@ dependencies {
 
 group = "world.danchuo"
 // Backend and frontend carry independent versions (CLAUDE.md, "Versioning").
-version = "1.26.8"
+version = "1.26.9"
 
 // The freshest LTS is Java 25 (toolchain and runtime).
 java {

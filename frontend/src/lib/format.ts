@@ -4,6 +4,8 @@
  * a truthy test would collapse zero into "no data". PRD §5.4, DESIGN §4
  */
 
+import { pluralDays } from "./relativeDay";
+
 export const NO_DATA = "нет данных";
 
 /** Steps: `8 421`; `0` → `0`; `null` → "no data". */
@@ -88,5 +90,5 @@ export function formatAgo(iso: string, now: number = Date.now()): string {
   const hours = Math.floor(min / 60);
   if (hours < 24) return `${hours} ч назад`;
   const days = Math.floor(hours / 24);
-  return `${days} дн назад`;
+  return `${days} ${pluralDays(days)} назад`;
 }

@@ -4,10 +4,9 @@ import { Fragment, useCallback, useId, useMemo, type CSSProperties } from "react
 import { getSleepNight } from "@/lib/api/client";
 import type { SleepStagesView } from "@/lib/api/types";
 import { formatSleep, formatSleepShort, sleepDurationParts } from "@/lib/format";
-import { moonLitPath, moonPhase } from "@/lib/moonPhase";
 import { LANES, STAGE_COLOR, clockLabel, type SleepStageKey } from "./nightGeometry";
 import { ECHO_VIEW, echoGeometry, echoNight, echoNightFromStages, type EchoNight } from "./soundingGeometry";
-import { SleepNoData } from "./SleepNoData";
+import { SleepMoon, SleepNoData } from "./SleepNoData";
 import { sleepPhases } from "./sleepPhases";
 import { useTileData } from "./useTileData";
 
@@ -24,12 +23,12 @@ export function SleepEcho({
 }: {
   date: string;
   stages: SleepStagesView | null | undefined;
-  /** The chosen view, held by [SleepTile]: this component is remounted per day (see its `key`). */
+  /** The chosen view, held by [SleepTile] across calendar day changes. */
   byHours: boolean;
   onToggle: () => void;
 }) {
   const fetcher = useCallback((signal: AbortSignal) => getSleepNight(date, { signal }), [date]);
-  const { data, settled } = useTileData(fetcher, `sleep-night:${date}`);
+  const { phase, data, settled, retry } = useTileData(fetcher, `sleep-night:${date}`);
 
   // The night by minutes comes from chunks; with none (the watch gave only totals) the same phases
   // arrive without a chronology, and the tile honestly stays in one mode instead of inventing an order.
@@ -38,19 +37,29 @@ export function SleepEcho({
     [data?.band, stages],
   );
 
-  // Nothing at all until the NETWORK HAS ANSWERED, not even a shimmer. The day's totals alone would
-  // already draw a sounding, and the real night then moved every bar under a 720ms transition: the
-  // figures arrived first and the picture caught up. It appears once, whole. DESIGN §7.7
-  if (!settled) {
+  // The first night appears only once it is whole. On calendar moves the last complete response
+  // remains in `data` while useTileData fetches the replacement, so the graph never blanks and its
+  // caption animation is not restarted merely because the date changed. DESIGN §7.7
+  if (!settled && !data) {
     return null;
   }
+  if (phase === "error") {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-1 text-xs">
+        <span style={{ color: "var(--text-secondary)" }}>не удалось загрузить ночь</span>
+        <button type="button" onClick={retry} className="cursor-pointer underline" style={{ color: "var(--accent)" }}>
+          повторить
+        </button>
+      </div>
+    );
+  }
   if (!night) {
-    return <SleepNoData />;
+    return <SleepNoData date={date} />;
   }
   return (
     <Sounding
       night={night}
-      date={date}
+      date={data?.date ?? date}
       byHours={byHours}
       onToggle={onToggle}
       times={
@@ -91,84 +100,6 @@ function ModeSwitch({ timed }: { timed: boolean }) {
     </span>
   );
 }
-
-/**
- * The moon over this night, the sign by which the tile names its subject: the edition has no word
- * "sleep", and a depth survey alone does not say it. The disc is always drawn whole with the lit
- * part over it — the dark side is the moon in shadow, not emptiness, or a new moon vanishes.
- */
-function MoonMark({ date }: { date: string }) {
-  const phase = moonPhase(date);
-  // Ids MUST be unique per instance, as for the sounding's gradients below: the board keeps both
-  // layouts in the DOM, and a shared id sends `url(#…)` into the hidden copy. DESIGN §7.7
-  const uid = useId().replace(/[^a-z0-9]/gi, "");
-  if (!phase) return null;
-  const id = (part: string) => `sleep-moon-${uid}-${part}`;
-  const lit = moonLitPath(phase.cycle, MOON_R);
-  return (
-    <svg className="sleep-echo__moon" viewBox="-8 -8 16 16" aria-hidden>
-      <defs>
-        {/* Earthshine: the shadowed side is lightest next to the lit limb, not evenly grey. */}
-        <radialGradient id={id("dark")} cx="0.78" cy="0.4" r="0.95">
-          <stop offset="0" stopColor="var(--text-secondary)" stopOpacity="0.2" />
-          <stop offset="0.5" stopColor="var(--text-tertiary)" stopOpacity="0.12" />
-          <stop offset="1" stopColor="var(--text-tertiary)" stopOpacity="0.05" />
-        </radialGradient>
-        {/* What makes the disc a SPHERE rather than a paper cut-out: the lit side carries limb
-            darkening, so it dims toward its own edge. Extra stops, because a two-stop ramp at this
-            alpha bands into visible steps on dark glass. */}
-        <radialGradient id={id("lit")} cx="0.6" cy="0.36" r="0.78">
-          <stop offset="0" stopColor="var(--text-secondary)" stopOpacity="0.82" />
-          <stop offset="0.42" stopColor="var(--text-secondary)" stopOpacity="0.7" />
-          <stop offset="0.72" stopColor="var(--text-secondary)" stopOpacity="0.58" />
-          <stop offset="1" stopColor="var(--text-tertiary)" stopOpacity="0.46" />
-        </radialGradient>
-        {/* Maria as three octaves of one noise: the 0.3 fundamental gives the blotches, its
-            harmonics the grain that DITHERS the gradients above — the same grain that removes
-            their banding. The house recipe, as on the wave-01 body. */}
-        <filter id={id("mare")} x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.3"
-            numOctaves="3"
-            seed="7"
-            stitchTiles="stitch"
-            result="noise"
-          />
-          <feColorMatrix in="noise" type="saturate" values="0" />
-          <feComponentTransfer>
-            <feFuncR type="linear" slope="0.35" intercept="0" />
-            <feFuncG type="linear" slope="0.35" intercept="0" />
-            <feFuncB type="linear" slope="0.42" intercept="0" />
-          </feComponentTransfer>
-        </filter>
-        <clipPath id={id("clip")}>
-          <path d={lit} />
-        </clipPath>
-      </defs>
-      {/* A waning moon is the same body mirrored: the lit edge moves to the disc's left side, and
-          shading, maria and the crescent's own shape all have to travel with it. */}
-      <g className="sleep-echo__moon-body" transform={phase.waxing ? undefined : "scale(-1 1)"}>
-        <circle className="sleep-echo__moon-disc" r={MOON_R} fill={`url(#${id("dark")})`} />
-        <path className="sleep-echo__moon-lit" d={lit} fill={`url(#${id("lit")})`} />
-        <rect
-          className="sleep-echo__moon-mare"
-          x={-MOON_R}
-          y={-MOON_R}
-          width={MOON_R * 2}
-          height={MOON_R * 2}
-          filter={`url(#${id("mare")})`}
-          clipPath={`url(#${id("clip")})`}
-        />
-        {/* The limb keeps the edge crisp over the soft shading, and it is what carries the sign
-            through a new moon, where there is nothing lit to draw at all. */}
-        <circle className="sleep-echo__moon-limb" r={MOON_R} />
-      </g>
-    </svg>
-  );
-}
-
-const MOON_R = 6;
 
 function Sounding({
   night,
@@ -217,8 +148,10 @@ function Sounding({
       names[p.key] = p.label;
     });
     if (!byKey) return { legend: null, names };
-    const legend = LANES.flatMap((lane) => {
-      if (lane.stage === "awake") return [];
+    const legend = LANES.flatMap<{ key: SleepStageKey; color: string; text: string }>((lane) => {
+      if (lane.stage === "awake") {
+        return [{ key: lane.stage, color: STAGE_COLOR[lane.stage], text: `не спал ${formatSleepShort(night.totals.awake)}` }];
+      }
       const p = byKey.find((x) => x.key === lane.stage);
       return p ? [{ key: p.key, color: STAGE_COLOR[p.key], text: `${p.label} ${p.pct}%` }] : [];
     });
@@ -343,7 +276,7 @@ function Sounding({
 
       <span className="sleep-echo__band">
         <span className="sleep-echo__head">
-          <MoonMark date={date} />
+          <SleepMoon date={date} />
           {/* Numerals in the strip's own large step, units a step down and quieter: the full words
               fit once they stop competing with the number, and the number still reads first. */}
           <span className="sleep-echo__total">

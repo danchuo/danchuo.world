@@ -32,11 +32,13 @@ object TelegramProfileParser {
         val og = ogTags(html)
         val name = og["og:title"]?.let(::unescape)?.trim().orEmpty()
         if (name.isEmpty()) return null
+        val username = username(html) ?: fallbackUsername.trim().removePrefix("@")
+        val description = og["og:description"]?.let(::unescape)?.trim()?.takeIf { it.isNotEmpty() }
 
         return TelegramProfile(
             name = name,
-            username = username(html) ?: fallbackUsername.trim().removePrefix("@"),
-            bio = og["og:description"]?.let(::unescape)?.trim()?.takeIf { it.isNotEmpty() },
+            username = username,
+            bio = description?.takeUnless { it == "You can contact @$username right away." },
             avatarUrl = og["og:image"]?.let(::unescape)?.trim()?.takeIf { it.isNotEmpty() },
         )
     }

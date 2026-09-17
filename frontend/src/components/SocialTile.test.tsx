@@ -138,19 +138,22 @@ describe("SocialTile — превью последнего поста (реда�
     expect(screen.queryByText(/комментариев/)).toBeNull();
   });
 
-  it("марка с карточкой стоит в ячейке так же, как марки без неё", async () => {
-    // ⚠️ A production regression. The hint wrapper appears WITH the data — on one mark of four and
-    // only once the post arrives. An `inline-block` wrapper collapsed the `w-full` link to zero and
-    // the mark drifted out of its cell. The wrapper must be layout-neutral, because it comes and goes.
+  it("карточку открывает только сама марка, а ссылка сохраняет размер ячейки", async () => {
     getPostMock.mockResolvedValue(post);
     const container = await tile("peek");
     await screen.findByText("вечерний двор", { exact: false });
 
-    const anchors = container.querySelectorAll(".hover-tip-anchor");
-    expect(anchors).toHaveLength(1);
-    expect(anchors[0]).toHaveClass("hover-tip-anchor--fill");
-    // The link inside the wrapper is the same full-size card as its neighbours'.
-    expect(anchors[0].querySelector("a")).toHaveClass("h-full", "w-full");
+    const link = container.querySelector('a[aria-label="instagram"]')!;
+    const trigger = link.querySelector(".hover-tip-anchor")!;
+    expect(link).toHaveClass("h-full", "w-full");
+    expect(trigger).not.toHaveClass("hover-tip-anchor--fill");
+    expect(trigger.querySelector(".social-icon")).not.toBeNull();
+
+    const tip = document.querySelector(".ig-peek")!.closest(".hover-tip")!;
+    fireEvent.pointerEnter(link);
+    expect(tip).not.toHaveAttribute("data-open");
+    fireEvent.pointerEnter(trigger);
+    expect(tip).toHaveAttribute("data-open", "true");
   });
 
 });

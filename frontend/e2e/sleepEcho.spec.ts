@@ -41,6 +41,16 @@ test.beforeEach(async ({ page, context, baseURL }) => {
   await expect(page.locator("html")).toHaveAttribute("data-wave", "wave-03");
 });
 
+test("social link cursor begins at the mark", async ({ page, browserName }, testInfo) => {
+  test.skip(browserName === "webkit", "WebKit reports inherited cursor values differently");
+  const container = page.getByTestId(testInfo.project.name === "mobile" ? "stack" : "bento");
+  const tile = container.locator('section[aria-label="Соцсети"]');
+  const link = tile.getByRole("link", { name: "instagram" });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveCSS("cursor", "default");
+  await expect(link.locator(".social-icon")).toHaveCSS("cursor", "pointer");
+});
+
 test("sleep controls, label placement and keyboard round trip", async ({ page }, testInfo) => {
   const container = page.getByTestId(testInfo.project.name === "mobile" ? "stack" : "bento");
   const tile = container.locator('section[aria-label="Сон"]');
@@ -74,6 +84,7 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   const moon = await tile.locator(".sleep-echo__moon").boundingBox();
   expect(moon!.x).toBeGreaterThanOrEqual(bounds!.x);
   expect(moon!.x + moon!.width).toBeLessThanOrEqual(total!.x);
+  expect(moon!.y + moon!.height / 2).toBeGreaterThan(total!.y + total!.height / 2);
 
   // A bar's paint must resolve inside ITS OWN layout: the board holds bento and stack in the DOM
   // at once, and a shared gradient id would point `url(#…)` at the hidden copy. The geometry stays
@@ -145,6 +156,7 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   const to = await tile.getByText("06:28").boundingBox();
   expect(from!.x).toBeLessThan(to!.x);
   expect(Math.abs(from!.y - to!.y)).toBeLessThan(2);
+  expect(Math.abs(from!.x - bounds!.x - (bounds!.x + bounds!.width - (to!.x + to!.width)))).toBeLessThan(2);
   expect(to!.x + to!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
   expect(from!.x).toBeGreaterThanOrEqual(bounds!.x);
   expect(from!.y).toBeLessThan(bounds!.y + bounds!.height / 3);

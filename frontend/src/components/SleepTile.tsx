@@ -56,15 +56,15 @@ function PixelBar({ pct, color }: { pct: number; color: string }) {
  */
 export function SleepTile({ day, state, onRetry, edition, style, className }: SleepTileProps) {
   // The view lives ABOVE the day, and both editions ask the same question of the night — sum or
-  // clock. The echo tile is remounted per day (its `key` below), so a mode kept inside it would
-  // fall back to the sum on every step through the calendar. DESIGN §7.7
+  // clock. The echo tile stays mounted while the calendar moves so its complete previous night can
+  // remain visible until the replacement arrives. DESIGN §7.7
   const [byHours, setByHours] = useState(false);
   // "Asleep–awake" arrives from the loaded night (see NightBand): the header is a tight fit by
   // meaning, but there it costs no separate line below the band, and vertical space is dear here.
   const [nightTimes, setNightTimes] = useState<string | null>(null);
   const minutes = day?.health.sleepMinutes ?? null;
   const hasData = day != null && minutes !== null;
-  // We draw the empty state ourselves (a bed plus text), so TileShell is kept in "loaded".
+  // We draw the empty state ourselves, so TileShell is kept in "loaded".
   const showEmpty = state === "loaded" && !hasData;
   const phases = sleepPhases(day?.health.sleepStages);
   const awake = day?.health.sleepStages?.awake ?? null;
@@ -78,11 +78,11 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
         style={style}
         className={`sleep-card--echo ${className ?? ""}`}
       >
-        {showEmpty && <SleepNoData />}
-        {/* key by day: changing the selected day loads the night afresh, not someone else's. */}
+        {showEmpty && <SleepNoData date={day?.date} />}
+        {/* The data key changes inside SleepEcho; keeping this instance preserves the finished graph
+            while the next night travels, and avoids replaying its caption entrance delay. */}
         {hasData && (
           <SleepEcho
-            key={day.date}
             date={day.date}
             stages={day.health.sleepStages}
             byHours={byHours}
@@ -101,7 +101,7 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
       style={style}
       className={className}
     >
-      {showEmpty && <SleepNoData />}
+      {showEmpty && <SleepNoData date={day?.date} />}
       {hasData && (
         <div className="tile-frame flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
           {/* The header is one line: label, the night's times and the view switcher. Which day is

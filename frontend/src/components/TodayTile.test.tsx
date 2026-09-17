@@ -136,9 +136,10 @@ describe("TodayTile", () => {
     expect(screen.queryByText("сегодня")).not.toBeInTheDocument();
   });
 
-  it("в состоянии loading показывает шиммер, а не контент", () => {
-    render(<TodayTile day={null} today="2026-06-18" state="loading" />);
-    expect(screen.getByTestId("tile-loading")).toBeInTheDocument();
+  it("в состоянии loading плитка молчит: ни контента, ни пустой рамки", () => {
+    // The tile keeps its cell but shows nothing until it has something to show (DESIGN §7.10).
+    const { container } = render(<TodayTile day={null} today="2026-06-18" state="loading" />);
+    expect(container.querySelector("[data-quiet]")).not.toBeNull();
     expect(screen.queryByTestId("today-date")).not.toBeInTheDocument();
   });
 

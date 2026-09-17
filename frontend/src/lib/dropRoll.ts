@@ -74,24 +74,63 @@ export function wheelStep(deltaX: number, deltaY: number, deltaMode: number, acc
 
 /** How much travel (px) a trackpad must gather for ONE frame of the latest-drop tile. */
 export const FRAME_WHEEL_TRAVEL_PX = 220;
+/**
+ * Silence that ends a gesture. A trackpad's inertia streams events every frame or so, therefore a
+ * gap this long means the stream itself has stopped — not merely that the fingers have lifted.
+ */
+export const FRAME_WHEEL_GAP_MS = 120;
+/**
+ * Growth in one event's size that marks a NEW flick over the old one's tail. Inertia only ever
+ * decays, so a delta bigger than its predecessor is a hand, not momentum. PRD §5.7
+ */
+export const FRAME_WHEEL_REACCEL_PX = 6;
+
+/** The drop tile's horizontal gesture, as it stands between two wheel events. */
+export interface FrameWheelState {
+  /** Travel gathered by the current gesture, signed px. */
+  acc: number;
+  /** Direction of the current gesture (0 before it has one). */
+  dir: -1 | 0 | 1;
+  /** This gesture has already spent its frame; its remaining travel buys nothing. */
+  spent: boolean;
+  /** Size of the previous event — the yardstick re-acceleration is measured against. */
+  lastAbs: number;
+  /** When the previous event arrived, ms. */
+  lastAt: number;
+}
+
+export function initialFrameWheel(): FrameWheelState {
+  return { acc: 0, dir: 0, spent: false, lastAbs: 0, lastAt: Number.NEGATIVE_INFINITY };
+}
 
 /**
- * The drop tile's step on a horizontal wheel. A gesture spends at most one frame; the caller
- * clears [spent] only after the wheel stream becomes quiet, which is the browser's only signal
- * that fingers left a trackpad.
+ * One wheel event of the drop tile's gesture. A GESTURE IS WORTH EXACTLY ONE FRAME, however long
+ * it runs; what ends it is silence, a reversal, or a delta that GREW — inertia only decays, so
+ * growth is a second flick landing on the first one's tail, with no cursor movement needed.
  */
 export function frameWheelStep(
+  state: FrameWheelState,
   deltaX: number,
   deltaMode: number,
-  acc: number,
-  spent: boolean,
-): WheelDecision {
-  if (spent) return { dir: 0, acc: 0 };
+  now: number,
+): { state: FrameWheelState; dir: -1 | 0 | 1 } {
   const dx = deltaX * (deltaMode === 1 ? LINE_PX : 1);
-  if (dx === 0) return { dir: 0, acc };
-  const next = acc !== 0 && Math.sign(dx) !== Math.sign(acc) ? dx : acc + dx;
-  if (Math.abs(next) < FRAME_WHEEL_TRAVEL_PX) return { dir: 0, acc: next };
-  return { dir: next > 0 ? 1 : -1, acc: 0 };
+  if (dx === 0) return { state, dir: 0 };
+  const abs = Math.abs(dx);
+  const way: -1 | 1 = dx > 0 ? 1 : -1;
+  // Re-acceleration counts only AFTER a frame is spent: while a gesture is still gathering travel
+  // its deltas are rising by nature, and reading that as a new flick would reset the accumulator
+  // on every event of an ordinary swipe.
+  const fresh =
+    now - state.lastAt >= FRAME_WHEEL_GAP_MS ||
+    (state.dir !== 0 && way !== state.dir) ||
+    (state.spent && abs > state.lastAbs + FRAME_WHEEL_REACCEL_PX);
+
+  const acc = (fresh ? 0 : state.acc) + dx;
+  const spent = fresh ? false : state.spent;
+  const next: FrameWheelState = { acc, dir: way, spent, lastAbs: abs, lastAt: now };
+  if (spent || Math.abs(acc) < FRAME_WHEEL_TRAVEL_PX) return { state: next, dir: 0 };
+  return { state: { ...next, acc: 0, spent: true }, dir: way };
 }
 
 /**

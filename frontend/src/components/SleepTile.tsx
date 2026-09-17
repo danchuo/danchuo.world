@@ -9,7 +9,7 @@ import { STAGE_COLOR } from "./nightGeometry";
 import { SleepEcho } from "./SleepEcho";
 import { SleepNoData } from "./SleepNoData";
 import { sleepPhases } from "./sleepPhases";
-import { SleepBigIcon } from "./StatsIcons";
+import { BedIcon, SleepBigIcon } from "./StatsIcons";
 import { TileShell, type TileState } from "./TileShell";
 
 interface SleepTileProps {
@@ -78,6 +78,7 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
         style={style}
         className={`sleep-card--echo ${className ?? ""}`}
       >
+        {/* The moon is THIS edition's empty mark; the default one keeps its bed and caption. */}
         {showEmpty && <SleepNoData date={day?.date} />}
         {/* The data key changes inside SleepEcho; keeping this instance preserves the finished graph
             while the next night travels, and avoids replaying its caption entrance delay. */}
@@ -101,7 +102,14 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
       style={style}
       className={className}
     >
-      {showEmpty && <SleepNoData date={day?.date} />}
+      {showEmpty && (
+        <div className="flex h-full items-center justify-center gap-4" data-testid="sleep-empty">
+          <BedIcon height={62} />
+          <span className="text-sm" style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>
+            нет данных о сне
+          </span>
+        </div>
+      )}
       {hasData && (
         <div className="tile-frame flex h-full min-w-0 flex-col" style={{ fontFamily: "var(--font-mono)" }}>
           {/* The header is one line: label, the night's times and the view switcher. Which day is

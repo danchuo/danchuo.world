@@ -2250,6 +2250,10 @@ body {
   /* One number for the band and for the phase names at the right edge: drifted apart they stop sharing
      a vertical, and the row legend slides against the chronology legend — which is the same legend. */
   --sleep-band-inset: 14px;
+  /* A change of DAY is a redraw, not an entrance: the bars keep their places and only their depth
+     changes, so the morph is a transition on `height` and the dip covers what cannot interpolate. */
+  --sleep-redraw-ms: 320ms;
+  --sleep-morph-ms: 380ms;
   /* Size container for the band's type sizes (`--fs-band-*`, DESIGN §8.1): without it `cqw` counts from
      the viewport and the caption comes out screen-sized on a small tile. */
   container-type: inline-size;
@@ -2291,10 +2295,41 @@ button.sleep-echo:focus-visible {
   visibility: visible;
   transition: opacity 160ms ease var(--sleep-echo-ms, 720ms), visibility 0s linear var(--sleep-echo-ms, 720ms);
 }
+/* Leaving is quick but not instant: the figures belong to the summary, and a hard cut read as a
+   glitch beside a 720ms resort. Short enough that they are gone before the bars start moving. */
 .sleep-echo.is-timed .sleep-echo__durations {
   opacity: 0;
   visibility: hidden;
-  transition: none;
+  transition: opacity 140ms ease, visibility 0s linear 140ms;
+}
+/* Each row's figure arrives a beat after the one above, in the order the horizons lie. Four rows at
+   most, so the stagger is written out rather than counted. */
+@keyframes sleep-echo-figure-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+.sleep-echo__durations > span {
+  animation: sleep-echo-figure-in var(--sleep-redraw-ms) ease both;
+}
+.sleep-echo__durations > span:nth-child(2) {
+  animation-delay: 45ms;
+}
+.sleep-echo__durations > span:nth-child(3) {
+  animation-delay: 90ms;
+}
+.sleep-echo__durations > span:nth-child(4) {
+  animation-delay: 135ms;
+}
+/* The night's length is the tile's answer: it fades in place, without the travel the rows take. */
+.sleep-echo__total {
+  animation: sleep-echo-total-in var(--sleep-redraw-ms) ease both;
+}
+@keyframes sleep-echo-total-in {
+  from {
+    opacity: 0;
+  }
 }
 .sleep-echo__duration,
 .sleep-echo__name {
@@ -2320,13 +2355,15 @@ button.sleep-echo:focus-visible {
   width: 100%;
   height: 100%;
 }
-/* One minute's column. The squeeze into a bar runs from the column's BOTTOM edge:
-   `transform-box: fill-box` moves the origin into the shape's own box, so the bar's floor stays on its
-   horizon. A viewBox origin cannot work here — every column has a floor of its own. */
+/* One minute's column, squeezed into a bar from its BOTTOM edge: `transform-box: fill-box` moves the
+   origin into the shape's own box, since every column has a floor of its own. Across nights only the
+   depth changes — `x` and the bar count hold — so a `height` transition morphs night into night. */
 .sleep-echo__col {
   transform-box: fill-box;
   transform-origin: 50% 100%;
-  transition: transform var(--sleep-echo-ms, 720ms) var(--sleep-echo-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition:
+    transform var(--sleep-echo-ms, 720ms) var(--sleep-echo-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    height var(--sleep-morph-ms) var(--sleep-echo-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 /* Depth horizons as the thinnest engraving: without them a level that saw no minutes at all disappears
    completely, and the sounding lies about depth. */
@@ -2355,6 +2392,7 @@ button.sleep-echo:focus-visible {
   .sleep-echo__col,
   .sleep-echo__columns,
   .sleep-echo__durations,
+  .sleep-echo.is-timed .sleep-echo__durations,
   .sleep-echo__trace,
   .sleep-echo.is-timed .sleep-echo__trace,
   .sleep-echo__mode {
@@ -2363,7 +2401,9 @@ button.sleep-echo:focus-visible {
   /* The captions still have to ARRIVE, just without the delay and the travel: their whole reason for
      waiting is a resort that no longer animates. */
   .sleep-echo__phases,
-  .sleep-echo__bounds {
+  .sleep-echo__bounds,
+  .sleep-echo__durations > span,
+  .sleep-echo__total {
     animation: none;
   }
 }
@@ -2473,10 +2513,12 @@ button.sleep-echo:focus-visible {
   font-size: var(--fs-band-meta);
   color: var(--text-tertiary);
 }
+/* With no night to draw the moon IS the tile, so it is sized well above the mark that stands beside
+   the night's figure — nothing here competes with it for the eye. */
 .sleep-empty__moon {
   display: block;
-  width: calc(var(--fs-sleep-total) * 2.2);
-  height: calc(var(--fs-sleep-total) * 2.2);
+  width: calc(var(--fs-sleep-total) * 3.6);
+  height: calc(var(--fs-sleep-total) * 3.6);
   overflow: visible;
 }
 /* Moon over the night — the subject mark at the head of the band (see `SleepMoon`): the edition has no word
@@ -4056,9 +4098,8 @@ button.sleep-echo:focus-visible {
   --spotify-mark-hole: #ffffff;
 }
 
-/* FONT GATE (DESIGN §7.10). A wave's fonts are separate files and the first paint happens in the system face:
-   captions and figures are seen switching over after the widgets appear, each at its own moment (most visible
-   in Safari). The board appears already dressed. */
+/* PAINT GATE (DESIGN §7.10). Two halves: the wave's fonts (separate files, so the first paint is in the system
+   face and every widget is seen re-lettering) and the board's first data. It appears dressed AND filled. */
 
 /* ⚠️ Hidden by `visibility`, not `display`: layout is computed at once, so the board's appearance moves nothing.
    ⚠️ Appearing without animation is deliberate — an `opacity` transition would make the board a Backdrop Root
@@ -4069,6 +4110,16 @@ button.sleep-echo:focus-visible {
    by a script in the head (`fontGate.ts`), which also drops it on a timeout — without JS there is no gate. */
 :root[data-fonts="pending"] .board-bento,
 :root[data-fonts="pending"] .board-stack,
-:root[data-fonts="pending"] .wave-backdrop {
+:root[data-fonts="pending"] .wave-backdrop,
+:root[data-board="pending"] .board-bento,
+:root[data-board="pending"] .board-stack,
+:root[data-board="pending"] .wave-backdrop {
+  visibility: hidden;
+}
+
+/* A tile with nothing to show yet holds itself back instead of drawing an empty frame; its grid
+   cell is kept, so nothing moves when the data lands. This replaces the loader shimmer, which
+   named the wait without shortening it — a widget appears once, already filled. DESIGN §7.10 */
+.tile-shell[data-quiet] {
   visibility: hidden;
 }

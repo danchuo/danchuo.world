@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { readCache, writeCache } from "@/lib/api/cache";
 
 type Phase = "loading" | "error" | "loaded";
@@ -37,9 +37,9 @@ function tileReducer<T>(state: TileState<T>, action: TileAction<T>): TileState<T
 }
 
 /**
- * The shared data-loading seam for a tile: fetches on mount with an `AbortController` and returns
- * phase, data and `retry`. Emptiness is the tile's own call. `cacheKey` turns on
- * stale-while-revalidate, so a failed request keeps the last good copy instead of blanking. §7
+ * The shared data-loading seam for a tile: fetches with an `AbortController` and returns phase,
+ * data and `retry`. Emptiness is the tile's own call. `cacheKey` IDENTIFIES THE REQUEST — change
+ * it and the tile asks again — and turns on stale-while-revalidate, so a failure keeps the copy. §7
  */
 export function useTileData<T>(
   fetcher: (signal: AbortSignal) => Promise<T>,
@@ -60,9 +60,10 @@ export function useTileData<T>(
   });
   const [nonce, setNonce] = useState(0);
 
-  // The fetcher arrives as an arrow from the tile's render, so it is wrapped in a callback stable
-  // per nonce: a retry restarts the effect, an ordinary re-render of the tile does not.
-  const run = useCallback((signal: AbortSignal) => fetcher(signal), [nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The fetcher arrives as a fresh arrow from every render, so the effect cannot depend on it and
+  // reads the latest through a ref. What restarts the request is its KEY, never an idle re-render.
+  const latest = useRef(fetcher);
+  latest.current = fetcher;
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -73,7 +74,7 @@ export function useTileData<T>(
     if (cached !== null) dispatch({ type: "seeded", data: cached });
     else dispatch({ type: "loading" });
 
-    run(ctrl.signal)
+    latest.current(ctrl.signal)
       .then((d) => {
         if (ctrl.signal.aborted) return;
         dispatch({ type: "resolved", data: d });
@@ -85,7 +86,7 @@ export function useTileData<T>(
         dispatch({ type: "failed", hasCopy: cached !== null });
       });
     return () => ctrl.abort();
-  }, [run, cacheKey]);
+  }, [cacheKey, nonce]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   return { ...state, retry };

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { anchorOnDay, shiftAnchor } from "@/lib/calendarWindow";
 import { addDays, mskToday } from "@/lib/date";
+import { openBoardGate } from "@/lib/fontGate";
 import type { DisciplineLens } from "@/lib/disciplineLens";
 import { statsWindow, type StatsRange } from "@/lib/statsWindow";
 import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
@@ -143,13 +144,22 @@ export function Board() {
   // The wave backdrop reads its own range rather than the calendar's. Its end is pinned to today:
   // it is a ribbon of LIVED days, and beyond that there is nothing to take.
   const backdropFrom = useMemo(() => addDays(today, -(BACKDROP_DAYS - 1)), [today]);
-  const { days: backdropDays } = useDayRange(backdropFrom, today, null);
+  const { days: backdropDays, status: backdropStatus } = useDayRange(backdropFrom, today, null);
 
   const {
     days: statsHistory,
     status: statsStatus,
     retry: retryStats,
   } = useDayRange(statsRange.from, statsRange.to, null);
+
+  // The paint gate's data half (DESIGN §7.10). It waits on the SPINE — the selected day, the
+  // calendar window and the backdrop's ribbon — because those fill the board's dominant tiles. An
+  // error opens it too: the tile answers for itself, and a page held blank answers nothing.
+  const spineSettled =
+    dayStatus !== "loading" && rangeStatus !== "loading" && backdropStatus !== "loading";
+  useEffect(() => {
+    if (spineSettled) openBoardGate();
+  }, [spineSettled]);
 
   // Esc clears the lens — the habitual way out of a viewing mode, and the only keyboard one. The
   // listener is attached only while the lens is on; without it the board listens to nothing.

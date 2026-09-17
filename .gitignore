@@ -1,5 +1,7 @@
 .claude/
 .gstack/
+.gitnexus/
+.agents/
 .idea/
 
 # Crash-дампы Git Bash на Windows — мусор, не трекаем

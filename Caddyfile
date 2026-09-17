@@ -1,17 +1,6 @@
-# danchuo.world — edge: TLS (Let's Encrypt auto) + reverse proxy (PRD §8).
-# Routing mirrors the same-origin architecture: /api/* goes STRAIGHT to Quarkus, bypassing Next so
-# photo-drop zip uploads never hit a proxy body limit; everything else goes to Next.js.
-
-# This file is synced to the VPS by the deploy workflow — edit it here, not on the server. It needs
-# the custom image built from caddy/Dockerfile, which adds the rate_limit and cache modules.
-
-# The edge is where abuse is stopped, because it is the only place that can. Measured in production:
-# Next.js SSR of `/` runs flat to ~65 rps and saturates at ~100, while `/api/film-media` holds 250 rps
-# at p50 163ms.
-
-# So a 1300 rps flood of plain `GET /` never reached the backend at all — it drowned the single Node
-# process, and Caddy logged 605k `dial tcp frontend:3000: i/o timeout` in twenty minutes. Hence, below:
-# per-client rate limits, a short-lived cache on the page render, and a bounded upstream pool.
+# danchuo.world — edge: TLS, reverse proxy, and the only place abuse can be stopped (the ceilings
+# below and the measurements behind them: PRD §8). /api/* goes STRAIGHT to Quarkus, so a drop zip
+# never meets Next's body limit. Edit here, not on the VPS; needs the image from caddy/Dockerfile.
 {
 	# Both are plugin directives, absent from Caddy's built-in ordering, so they are placed explicitly.
 	# rate_limit comes first, so a refused request costs nothing downstream; cache next, so a served
@@ -19,11 +8,9 @@
 	order rate_limit before basic_auth
 	order cache after rate_limit
 
-	# Caddy's OWN logs (startup, TLS, errors). ⚠️ This is NOT the access log: a `log` block in global
-	# options configures the default logger, while access logging is a separate per-site directive.
-
-	# Getting that wrong is silent — the config is valid, Caddy is chatty at startup, and yet not one
-	# request is ever recorded.
+	# Caddy's OWN logs (startup, TLS, errors). ⚠️ NOT the access log: in global options `log` sets
+	# the default logger, while access logging is a per-site directive. Confusing the two is silent
+	# — the config is valid, startup is chatty, and not one request is ever recorded.
 	log default {
 		output stdout
 		format json
@@ -49,11 +36,8 @@
 
 		key {
 			# The wave cookie is the ONLY thing that varies `/` between visitors (DESIGN §2.6), so it
-			# has to be part of the key — otherwise one visitor previewing wave-02 would serve their
-			# palette to everyone for the next ten seconds.
-
-			# Visitors without the cookie, which is effectively everybody, all share a single entry,
-			# and that is the whole point of the cache.
+			# belongs in the key — otherwise one visitor previewing wave-02 serves their palette to
+			# everybody for the next ten seconds.
 			template "{http.request.method} {http.request.host}{http.request.uri.path}?{http.request.uri.query} wave={http.request.cookie.danchuo_wave}"
 		}
 	}
@@ -62,22 +46,39 @@
 danchuo.world {
 	encode zstd gzip
 
-	# THE access log — one line per request with client, path, status and duration. It has to live
-	# inside the site block, because the global `log` above does not produce it.
-
-	# Until this line existed there was no record of traffic at all, and one incident had to be
-	# reconstructed from proxy failures alone: we could see what broke, never what arrived.
+	# THE access log — one line per request with client, path, status and duration. It must live
+	# inside the site block: the global `log` above does not produce it, and without this line
+	# there is no record of traffic at all, only of what broke. PRD §8
 	log {
 		output stdout
 		format json
 	}
 
 	handle /api/* {
-		# Frames and the rest of the API are counted separately, mirroring the split inside
-		# RateLimitFilter — a gallery is ~36 image GETs and must not spend the API allowance.
+		# Body ceilings by tier, because Quarkus `max-body-size` is global and the drop zip sets
+		# it to 512M for everyone. The matchers MUST NOT overlap: when two `request_body`
+		# directives match one request, the last one's ceiling is what survives. PRD §8
+		@drop_upload path /api/ingest/drops*
+		request_body @drop_upload {
+			max_size 600MB
+		}
 
-		# The `api` zone explicitly excludes frames, or a frame request would be charged twice and
-		# silently capped at the lower of the two limits.
+		# Public telemetry: a beacon is a few hundred bytes and a click batch is capped at 50.
+		@public_post path /api/analytics/*
+		request_body @public_post {
+			max_size 32KB
+		}
+
+		# Everything else is the owner's ingest behind the bearer — generous, since an artifact
+		# picture and a day of sleep chunks pass here, but no longer unbounded.
+		@api_rest not path /api/ingest/drops* /api/analytics/*
+		request_body @api_rest {
+			max_size 8MB
+		}
+
+		# Frames counted apart from the rest, mirroring the split inside RateLimitFilter. The `api`
+		# zone MUST exclude them explicitly, or a frame is charged to both zones and silently capped
+		# at the lower limit. Numbers and why: PRD §8
 		rate_limit {
 			zone film {
 				match {
@@ -98,38 +99,24 @@ danchuo.world {
 		}
 
 		reverse_proxy backend:8080 {
-			# THE invariant behind RateLimitFilter.INTERNAL_HEADER: the backend treats this header as
-			# proof that a request came from the frontend server over the compose network and skips
-			# rate limiting entirely.
-
-			# Stripping it here is what makes that safe — public traffic can never carry it, no matter
-			# what a client sends.
+			# THE invariant behind RateLimitFilter.INTERNAL_HEADER: the backend reads this header as
+			# proof a request came from SSR over the compose network and skips rate limiting. Stripping
+			# it here is what makes that safe — public traffic can never carry it, whatever it sends.
 			header_up -X-Danchuo-Internal
 		}
 	}
 
-	# Anx Reader sync target (PRD §5.16). The prefix is deliberately NOT stripped: PROPFIND replies
-	# carry absolute hrefs, so the WebDAV server is configured with the same /dav prefix and must keep
-	# seeing it. Auth is basic auth inside the WebDAV server itself.
-
-	# Bare /dav must be matched too, not just /dav/*: Anx probes the base URL exactly as the owner
-	# typed it, and /dav/* alone lets that probe fall through to Next.js, which answers HTML 404 — the
-	# client then reports a failed sync test.
-
-	# Deliberately NOT rate limited: this is the owner's phone pushing a book database on a schedule,
-	# already behind basic auth, and a throttled sync fails silently on the device.
+	# Anx Reader sync (PRD §5.16, §8). Two traps: the /dav prefix must NOT be stripped, because
+	# PROPFIND replies carry absolute hrefs; and bare /dav must match alongside /dav/*, or Anx's
+	# probe of the base URL falls through to Next and the device reports a failed sync test.
 	@dav path /dav /dav/*
 	handle @dav {
 		reverse_proxy webdav:6065
 	}
 
 	handle {
-		# Two zones because one page view is one document but roughly thirty asset requests, and a
-		# single shared budget would either throttle real visitors on their first load or be too loose
-		# to matter.
-
-		# 60 documents/min is far past any human reloading by hand, and leaves an attacker 1 rps
-		# against a frontend that serves 65.
+		# Two zones because one page view is one document but ~30 asset requests, and a single budget
+		# would either throttle a real first load or be too loose to matter. PRD §8
 		rate_limit {
 			zone assets {
 				match {
@@ -152,13 +139,9 @@ danchuo.world {
 		cache
 
 		reverse_proxy frontend:3000 {
-			# Last line of defence, and the one that turns an outage back into slowness. Next is a
-			# single Node process with a measured capacity of ~100 rps at ~120ms, i.e. about a dozen
-			# requests in flight.
-
-			# Unbounded, Caddy opens a connection per request until Node's accept queue overflows and
-			# every dial times out — which is exactly what the outage looked like from outside.
-			# Bounded, the excess waits here.
+			# The pool that turns an outage back into mere slowness: unbounded, Caddy opens a
+			# connection per request until Node's accept queue overflows and every dial times out.
+			# Bounded, the excess waits here. Measured capacity and the incident: PRD §8
 			transport http {
 				max_conns_per_host 48
 			}

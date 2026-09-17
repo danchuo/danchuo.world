@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import world.danchuo.core.security.ClientIp
 
 /**
  * Public click collection, symmetric to [AnalyticsBeaconResource]: outside `api/ingest` and
@@ -32,14 +33,14 @@ class InteractionResource(
         @Context headers: HttpHeaders,
         @Context request: HttpServerRequest,
     ): Response {
-        val path = req.path?.takeIf { it.isNotBlank() && it.length <= MAX_PATH }
+        val path = req.path?.takeIf { it.isNotBlank() && it.length <= AnalyticsLimits.PATH }
             ?: return Response.status(Response.Status.BAD_REQUEST)
                 .type(MediaType.APPLICATION_JSON)
                 .entity("""{"error":"missing_field","field":"path"}""")
                 .build()
 
         service.record(
-            visitId = req.visitId?.takeIf { it.length <= MAX_VISIT_ID },
+            visitId = req.visitId?.takeIf { it.length <= AnalyticsLimits.VISIT_ID },
             path = path,
             clicks = req.clicks ?: emptyList(),
             ip = clientIp(headers, request),
@@ -49,16 +50,9 @@ class InteractionResource(
         return Response.noContent().build()
     }
 
-    /** Client IP: first of `X-Forwarded-For` (behind the Caddy proxy), else the connection address. */
-    private fun clientIp(headers: HttpHeaders, request: HttpServerRequest): String {
-        val forwarded = headers.getHeaderString("X-Forwarded-For")
-            ?.split(",")?.firstOrNull()?.trim()
-            ?.takeIf { it.isNotBlank() }
-        return forwarded ?: request.remoteAddress()?.host() ?: "unknown"
-    }
-
-    private companion object {
-        const val MAX_PATH = 512
-        const val MAX_VISIT_ID = 64
-    }
+    /** The visitor behind the proxy ([ClientIp]), else the connection address. */
+    private fun clientIp(headers: HttpHeaders, request: HttpServerRequest): String =
+        ClientIp.fromForwardedFor(headers.getHeaderString("X-Forwarded-For"))
+            ?: request.remoteAddress()?.host()
+            ?: "unknown"
 }

@@ -23,9 +23,10 @@ not duplicate between them:
   tool. A diagnostic list, not project rules.
 - `docs/artifact-detection-notes.md` — working log of artifact detection on frames.
 
-**Language.** Documents in `docs/` (and this file's Russian counterparts in PRD/DESIGN) are written
-in Russian; **everything else in the repository is English** — code comments, config files, workflows,
-commit messages and PR descriptions.
+**Language.** Russian is the language the project is *talked about* in: documents in `docs/` (and
+this file's Russian counterparts in PRD/DESIGN), **commit messages and PR descriptions**. English is
+the language the project is *written* in: code comments, config files, build and deploy files,
+workflows, tests. The line falls between prose aimed at the owner and text living inside the code.
 
 ## Repository map
 
@@ -194,7 +195,11 @@ Two hard limits, checked mechanically (`node scripts/check-comment-budget.mjs`, 
 `npm run lint:comments` and a gate in the PR build):
 
 1. **A comment block is at most 3 lines.** A block is a run of adjacent comment lines; prose counts,
-   while `*/` and empty `*` do not. Longer ⇒ red PR.
+   while `*/` and empty `*` do not. Longer ⇒ red PR. **A blank line between two blocks does not buy
+   a second budget:** two neighbouring blocks that only make sense read together are one over-long
+   comment wearing a disguise, and the ceiling is on what a comment carries, not on how it is
+   punctuated. The material belongs in a document — see below. (The disguise does not even work in
+   `#`-files: a bare `#` line continues the run instead of breaking it.)
 2. **English only.** Cyrillic in a comment is a red PR. The `docs/` folder stays Russian; everything
    else in the repository — code, configs, build and deploy files, tests — is English. This covers
    a comment trailing a line of code and a one-line JSX `{/* … */}` as much as a block.

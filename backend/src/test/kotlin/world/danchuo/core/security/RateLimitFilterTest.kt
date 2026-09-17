@@ -53,19 +53,18 @@ class RateLimitFilterTest {
     }
 
     @Test
-    fun `X-Forwarded-For chain is keyed by the first hop`() {
-        // Behind a proxy chain the client is the FIRST IP; the tail (Caddy and friends) is ignored.
-        val first = "198.51.100.7"
-        val chain = "$first, 10.0.0.1, 172.16.0.1"
+    fun `X-Forwarded-For chain is keyed by the last hop, so a forged head cannot buy a new bucket`() {
+        // The real client is the entry CADDY appended, i.e. the last one. Everything before it
+        // arrived from outside and is worth nothing. PRD §8
+        val real = "198.51.100.7"
         repeat(3) {
-            given().header("X-Forwarded-For", chain).get("/api/theme/active")
+            given().header("X-Forwarded-For", "10.0.0.1, $real").get("/api/theme/active")
                 .then().statusCode(200)
         }
-        given().header("X-Forwarded-For", chain).get("/api/theme/active")
+        // Rotating the forged head lands in the SAME (already empty) bucket ⇒ still 429.
+        given().header("X-Forwarded-For", "10.9.9.9, $real").get("/api/theme/active")
             .then().statusCode(429)
-        // The same first hop with a different tail lands in the SAME (already empty) bucket ⇒ 429.
-        given().header("X-Forwarded-For", "$first, 10.9.9.9").get("/api/theme/active")
-            .then().statusCode(429)
+            .body("error", equalTo("rate_limited"))
     }
 
     @Test

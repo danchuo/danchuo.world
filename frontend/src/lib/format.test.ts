@@ -55,11 +55,16 @@ describe("format (null != 0, PRD 5.4)", () => {
 describe("formatAgo (свежесть, PRD 8)", () => {
   const now = Date.parse("2026-06-21T12:00:00Z");
 
-  it("ступени единиц: только что / мин / ч / дн", () => {
+  it("ступени единиц: только что / мин / ч / дни", () => {
     expect(formatAgo("2026-06-21T11:59:30Z", now)).toBe("только что");
     expect(formatAgo("2026-06-21T11:45:00Z", now)).toBe("15 мин назад");
     expect(formatAgo("2026-06-21T09:00:00Z", now)).toBe("3 ч назад");
-    expect(formatAgo("2026-06-19T12:00:00Z", now)).toBe("2 дн назад");
+    expect(formatAgo("2026-06-20T12:00:00Z", now)).toBe("1 день назад");
+    expect(formatAgo("2026-06-19T12:00:00Z", now)).toBe("2 дня назад");
+    expect(formatAgo("2026-06-16T12:00:00Z", now)).toBe("5 дней назад");
+    expect(formatAgo("2026-06-10T12:00:00Z", now)).toBe("11 дней назад");
+    expect(formatAgo("2026-06-01T12:00:00Z", now)).toBe("20 дней назад");
+    expect(formatAgo("2026-05-31T12:00:00Z", now)).toBe("21 день назад");
   });
 
   it("будущая метка (часы рассинхронизированы) не уходит в минус", () => {

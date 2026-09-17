@@ -7,7 +7,7 @@ import type { FilmPhotoView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getDrops: vi.fn(), getDrop: vi.fn() }));
 import { getDrop, getDrops } from "@/lib/api/client";
-import { FRAME_STEP_COOLDOWN_MS, FRAME_WHEEL_TRAVEL_PX } from "@/lib/dropRoll";
+import { FRAME_WHEEL_TRAVEL_PX } from "@/lib/dropRoll";
 const getDropsMock = vi.mocked(getDrops);
 const getDropMock = vi.mocked(getDrop);
 
@@ -259,7 +259,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(shownSeq(container)).toBe("1");
   });
 
-  it("edition=frame: непрерывный жест трекпадом листает кадр за кадром, не один и всё", async () => {
+  it("edition=frame: пока пальцы не отпущены, второй ход того же жеста не считается", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -268,18 +268,17 @@ describe("LatestDropTile — редакции (волна выбирает че�
     for (let i = 0; i < 6; i += 1) swipe(card, 70); // back to the roll's start
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
 
-    // The owner's exact complaint: fingers drag without lifting, the cursor stands still, and the
-    // frame changed ONCE for the whole gesture. Dragging is events separated by real time, so the
-    // pauses here are real. The step is derived from the threshold rather than hardcoded.
+    // Several bursts still belong to one wheel stream: none is separated by the quiet interval
+    // that stands for lifting fingers from the trackpad.
     const perEvent = Math.ceil((FRAME_WHEEL_TRAVEL_PX + 40) / 4);
     for (let burst = 0; burst < 3; burst += 1) {
       for (let i = 0; i < 4; i += 1) fireEvent.wheel(card, { deltaX: perEvent, deltaY: 0 });
-      await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
+      await new Promise((done) => setTimeout(done, 40));
     }
-    await waitFor(() => expect(shownSeq(container)).toBe("3"));
+    await waitFor(() => expect(shownSeq(container)).toBe("1"));
   });
 
-  it("edition=frame: следующий мах листает дальше — кадр к тому времени остыл", async () => {
+  it("edition=frame: следующий мах после тишины листает дальше", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -290,8 +289,12 @@ describe("LatestDropTile — редакции (волна выбирает че�
 
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
-    // The hand let go — by the next flick the frame has cooled, and it costs a frame again.
-    await new Promise((done) => setTimeout(done, FRAME_STEP_COOLDOWN_MS + 40));
+    // The inertial tail may keep emitting after the hand has lifted. It must neither turn another
+    // frame nor postpone rearming; the next flick works without moving the pointer off the card.
+    await new Promise((done) => setTimeout(done, 80));
+    for (let i = 0; i < 12; i += 1) fireEvent.wheel(card, { deltaX: 2, deltaY: 0 });
+    await new Promise((done) => setTimeout(done, 80));
+    expect(shownSeq(container)).toBe("1");
     for (let i = 0; i < 10; i += 1) fireEvent.wheel(card, { deltaX: 40, deltaY: 0 });
     await waitFor(() => expect(shownSeq(container)).toBe("2"));
   });

@@ -71,4 +71,11 @@ describe("собственная высота блоков волны в моб�
     expect(rule).toContain(".wave-chip");
     expect(rule).toMatch(/aspect-ratio|min-height/);
   });
+
+  it("волна 03: Spotify в стеке растёт по обложке и шкале, а не по замеру бенто", () => {
+    const waveCss = readFileSync(resolve(process.cwd(), "src/app/styles/waves/wave-03.css"), "utf8");
+    const rule = waveCss.match(/\.board-stack \[data-music-mode="playing"\][^{}]*\{[^}]*\}/)?.[0];
+    expect(rule).toContain(".music-card");
+    expect(rule).toMatch(/height:\s*auto/);
+  });
 });

@@ -61,6 +61,15 @@ class TelegramProfileParserTest {
         assertEquals("Данила", profile.name)
     }
 
+    @Test
+    fun `служебное описание Telegram не подменяет отсутствующий статус`() {
+        val profile = TelegramProfileParser.parse(
+            page(description = "You can contact @danchuo right away."),
+            "danchuo",
+        )!!
+        assertNull(profile.bio)
+    }
+
     /** There may be no avatar (an empty profile) — the name and handle already fill the card. */
     @Test
     fun `аккаунт без аватара остаётся визиткой`() {

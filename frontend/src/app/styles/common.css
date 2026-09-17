@@ -1884,6 +1884,7 @@ body {
    --social-sprite when a colored wave-01 sprite exists); skins pick the rendering. */
 .social-icon {
   --social-icon-size: clamp(12px, calc(6.5px + 19cqw), 36px);
+  display: block;
   width: var(--social-icon-size);
   height: var(--social-icon-size);
   flex-shrink: 0;
@@ -2229,7 +2230,7 @@ body {
   padding: 0;
 }
 .sleep-echo {
-  --sleep-plot-lift: 4%;
+  --sleep-plot-lift: calc(4% + 1px);
   --sleep-mode-gap: 2px;
   --sleep-duration-gap: 8px;
   /* Summary rows stretch by ONE scale: the proportions between phases are what the summary is drawn for,
@@ -2451,7 +2452,7 @@ button.sleep-echo:focus-visible {
    over their own tile's picture and stand on the same board. */
 .sleep-echo__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.55em;
   min-width: 0;
 }
@@ -2472,7 +2473,13 @@ button.sleep-echo:focus-visible {
   font-size: var(--fs-band-meta);
   color: var(--text-tertiary);
 }
-/* Moon over the night — the subject mark at the head of the band (see `MoonMark`): the edition has no word
+.sleep-empty__moon {
+  display: block;
+  width: calc(var(--fs-sleep-total) * 2.2);
+  height: calc(var(--fs-sleep-total) * 2.2);
+  overflow: visible;
+}
+/* Moon over the night — the subject mark at the head of the band (see `SleepMoon`): the edition has no word
    "sleep", and before the mark the band began straight with a number. Sized from the number itself rather
    than in pixels: it stands beside it and has to change with it. */
 .sleep-echo__moon {
@@ -2482,10 +2489,11 @@ button.sleep-echo:focus-visible {
   width: calc(var(--fs-sleep-total) * 1.05);
   height: calc(var(--fs-sleep-total) * 1.05);
   align-self: center;
+  transform: translateY(1px);
   flex: 0 0 auto;
   overflow: visible;
 }
-/* Paint arrives from the gradients in `MoonMark`, so these rules carry only what CSS owns: density and
+/* Paint arrives from the gradients in `SleepMoon`, so these rules carry only what CSS owns: density and
    the wave's light. The dark side is the Moon in shadow, not emptiness — without the disc a young
    crescent was lost at this size and a new moon did not draw at all. */
 .sleep-echo__moon-lit {
@@ -2578,11 +2586,10 @@ button.sleep-echo:focus-visible {
    sounding needs no separate legend at all. */
 .sleep-echo__phases {
   display: flex;
-  /* The line has to be ONE: a wrap raises the band onto the sounding. Hence exactly three shares in it,
-     with wakings removed (see `Sounding`); that it fits is checked by e2e. */
+  /* The line has to be ONE: a wrap raises the band onto the sounding. */
   flex-wrap: nowrap;
   align-items: baseline;
-  /* Spread to both edges, so the three shares span the strip instead of bunching at the left: the
+  /* Spread to both edges, so the four shares span the strip instead of bunching at the left: the
      ends then sit under the night's own ends above them, on the same two verticals. */
   justify-content: space-between;
   gap: 0.2em 0.6em;
@@ -2603,7 +2610,7 @@ button.sleep-echo:focus-visible {
   top: calc(var(--sleep-plot-lift) + 16px);
   left: var(--sleep-band-inset);
   font-family: var(--font-mono);
-  font-size: var(--fs-band-meta);
+  font-size: calc(var(--fs-band-meta) * 1.12);
   line-height: 1.25;
   color: var(--text-secondary);
   white-space: nowrap;

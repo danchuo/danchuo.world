@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  FRAME_STEP_COOLDOWN_MS,
   FRAME_WHEEL_TRAVEL_PX,
   SWIPE_NOTCH,
   centerScroll,
@@ -272,28 +271,23 @@ describe("centerScroll — ячейка в середине окна", () => {
 });
 
 describe("frameWheelStep — шаг плитки «последний дроп» трекпадом", () => {
-  /** Drag with fingers: events of [dx] every [everyMs], starting [afterMs] after the step. */
-  function drag(dx: number, count: number, everyMs: number, afterMs: number) {
+  function gesture(dx: number, count: number) {
     let acc = 0;
-    let since = afterMs;
+    let spent = false;
     let steps = 0;
     for (let i = 0; i < count; i += 1) {
-      const d = frameWheelStep(dx, 0, acc, since);
+      const d = frameWheelStep(dx, 0, acc, spent);
       acc = d.acc;
       if (d.dir !== 0) {
         steps += 1;
-        since = 0;
+        spent = true;
       }
-      since += everyMs;
     }
     return steps;
   }
 
-  it("непрерывный жест листает НЕ один кадр — ради этого правило и переписано", () => {
-    // The complaint exactly: you drag without lifting and the frame changes once. A second of
-    // confident movement must give several frames.
-    const steps = drag(20, 120, 8, FRAME_STEP_COOLDOWN_MS);
-    expect(steps).toBeGreaterThan(1);
+  it("непрерывный жест листает ровно один кадр", () => {
+    expect(gesture(20, 120)).toBe(1);
   });
 
   /**
@@ -301,18 +295,17 @@ describe("frameWheelStep — шаг плитки «последний дроп»
    * about a second of events every ~16ms, the delta falling geometrically. Its total travel is
    * huge (hundreds of pixels) but the GESTURE is one.
    */
-  function flick(peak: number, decay: number, count: number, everyMs: number) {
+  function flick(peak: number, decay: number, count: number) {
     let acc = 0;
-    let since = FRAME_STEP_COOLDOWN_MS;
+    let spent = false;
     let steps = 0;
     for (let i = 0; i < count; i += 1) {
-      const d = frameWheelStep(peak * Math.pow(decay, i), 0, acc, since);
+      const d = frameWheelStep(peak * Math.pow(decay, i), 0, acc, spent);
       acc = d.acc;
       if (d.dir !== 0) {
         steps += 1;
-        since = 0;
+        spent = true;
       }
-      since += everyMs;
     }
     return steps;
   }
@@ -321,41 +314,37 @@ describe("frameWheelStep — шаг плитки «последний дроп»
     // The owner's complaint: one trackpad flick changed two frames. The culprit is not the burst
     // but the tail: it outlives the cooldown, and the next window rolls in on inertia the person
     // no longer controls.
-    expect(flick(50, 0.94, 60, 16)).toBe(1);
+    expect(flick(50, 0.94, 60)).toBe(1);
   });
 
   it("шаг стоит пройденного пути, а не одного события", () => {
-    const small = frameWheelStep(FRAME_WHEEL_TRAVEL_PX - 1, 0, 0, 9999);
+    const small = frameWheelStep(FRAME_WHEEL_TRAVEL_PX - 1, 0, 0, false);
     expect(small.dir).toBe(0);
     expect(small.acc).toBe(FRAME_WHEEL_TRAVEL_PX - 1);
-    expect(frameWheelStep(1, 0, small.acc, 9999).dir).toBe(1);
+    expect(frameWheelStep(1, 0, small.acc, false).dir).toBe(1);
   });
 
-  it("пока шаг не остыл, путь не копится вовсе — хвост инерции не строчит кадрами", () => {
-    // Inertia after a flick arrives in the same stream of events; counted, a short flick would
-    // page through the whole drop — which is where the earlier lock started.
-    const hot = frameWheelStep(400, 0, 0, FRAME_STEP_COOLDOWN_MS - 1);
-    expect(hot.dir).toBe(0);
-    expect(hot.acc).toBe(0);
+  it("после шага остаток того же жеста не копится", () => {
+    expect(frameWheelStep(400, 0, 0, true)).toEqual({ dir: 0, acc: 0 });
   });
 
   it("направление: вправо — следующий кадр, влево — предыдущий", () => {
-    expect(frameWheelStep(FRAME_WHEEL_TRAVEL_PX, 0, 0, 9999).dir).toBe(1);
-    expect(frameWheelStep(-FRAME_WHEEL_TRAVEL_PX, 0, 0, 9999).dir).toBe(-1);
+    expect(frameWheelStep(FRAME_WHEEL_TRAVEL_PX, 0, 0, false).dir).toBe(1);
+    expect(frameWheelStep(-FRAME_WHEEL_TRAVEL_PX, 0, 0, false).dir).toBe(-1);
   });
 
   it("разворот жеста обнуляет накопленное: передумавшему досчитывать нечего", () => {
-    const half = frameWheelStep(60, 0, 0, 9999);
+    const half = frameWheelStep(60, 0, 0, false);
     expect(half.acc).toBe(60);
     // Direction reversed — the previous 60px must not help reach the threshold backwards.
-    expect(frameWheelStep(-30, 0, half.acc, 9999)).toEqual({ dir: 0, acc: -30 });
+    expect(frameWheelStep(-30, 0, half.acc, false)).toEqual({ dir: 0, acc: -30 });
   });
 
   it("дельта в строках (Firefox) переводится в пиксели, иначе порог недостижим", () => {
     // The same number means DIFFERENT things in the two modes. It is derived from the threshold
     // rather than hardcoded: a number tuned to it breaks silently when it changes.
     const lines = FRAME_WHEEL_TRAVEL_PX / 2;
-    expect(frameWheelStep(lines, 1, 0, 9999).dir).toBe(1);
-    expect(frameWheelStep(lines, 0, 0, 9999).dir).toBe(0);
+    expect(frameWheelStep(lines, 1, 0, false).dir).toBe(1);
+    expect(frameWheelStep(lines, 0, 0, false).dir).toBe(0);
   });
 });

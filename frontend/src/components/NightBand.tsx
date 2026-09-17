@@ -40,7 +40,7 @@ export function NightBand({ date, onTimes }: { date: string; onTimes?: (label: s
 
   const geometry = nightBandGeometry(data?.band, data?.axisStartHour);
   if (!geometry || !data?.band) {
-    return <SleepNoData />;
+    return <SleepNoData date={date} />;
   }
 
   const laneTop = (i: number) => `${(i * 100) / LANES.length}%`;

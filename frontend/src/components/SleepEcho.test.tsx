@@ -127,15 +127,12 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.queryByText("23:00 → 01:00")).not.toBeInTheDocument();
     expect(screen.getByText("23:00").closest(".sleep-echo__plot")).not.toBeNull();
     expect(screen.getByText("01:00").closest(".sleep-echo__phases")).toBeNull();
-    // There are exactly three shares and "awake" is not among them: the percentages are of sleep,
-    // and a waking is not part of it. Minutes here were of another dimension and the longest item,
-    // which wrapped the line and dropped the night's end under the legend.
     expect(screen.getAllByText(/%$/).map((n) => n.textContent)).toEqual([
       "REM 18%",
       "CORE 55%",
       "DEEP 27%",
     ]);
-    expect(screen.queryByText(/не спал \d/)).not.toBeInTheDocument();
+    expect(screen.getByText("не спал 10м")).toHaveClass("sleep-echo__phase");
     // The sum names the top horizon — there its name stands right by the row.
     expect(screen.getByTestId("sleep-name-awake")).toHaveTextContent("не спал");
   });
@@ -259,13 +256,13 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("сбой запроса ночи не гасит плитку — сумма приезжает из итогов дня", async () => {
+  it("сбой запроса ночи не маскируется суммой без переключателя", async () => {
     getSleepNightMock.mockRejectedValue(new Error("offline"));
-    await mount("2026-08-07");
+    render(<SleepTile day={day("2026-08-07")} state="loaded" edition="echo" />);
 
-    expect(columns()).toHaveLength(64);
-    expect(document.querySelector(".sleep-echo__total")).toHaveTextContent("1 час 50 минут");
-    expect(screen.queryByTestId("sleep-empty")).not.toBeInTheDocument();
+    expect(await screen.findByText("не удалось загрузить ночь")).toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-echo-durations")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "повторить" })).toBeInTheDocument();
   });
 
   it("день без сна за ночью не ходит вовсе", () => {
@@ -298,19 +295,33 @@ describe("SleepTile — редакция «эхолот»", () => {
   });
 
   it("режим «по часам» переживает переключение дня на календаре", async () => {
-    getSleepNightMock.mockImplementation((date: string) => Promise.resolve(night(date)));
+    getSleepNightMock.mockResolvedValueOnce(night("2026-08-06"));
     const { rerender } = render(<SleepTile day={day("2026-08-06")} state="loaded" edition="echo" />);
     await waitFor(() => expect(columns().length).toBeGreaterThan(0));
 
     await userEvent.click(screen.getByRole("button", { pressed: false }));
     expect(screen.getByRole("button", { pressed: true })).toBeInTheDocument();
+    const graph = screen.getByRole("button", { pressed: true });
+    const oldFrom = screen.getByText("23:00");
+
+    let answer: (value: SleepNightView) => void = () => {};
+    getSleepNightMock.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
 
     rerender(<SleepTile day={day("2026-08-07")} state="loaded" edition="echo" />);
     await waitFor(() => expect(getSleepNightMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(columns().length).toBeGreaterThan(0));
+
+    // The finished graph stays mounted while the replacement travels: no blank frame and no replay
+    // of the 720ms caption entrance merely because the calendar changed.
+    expect(screen.getByRole("button", { pressed: true })).toBe(graph);
+    expect(screen.getByText("23:00")).toBe(oldFrom);
+
+    const next = night("2026-08-07");
+    answer({ ...next, band: { ...next.band!, onsetMinute: 360, wakeMinute: 480 } });
+    await screen.findByText("00:00");
+    expect(screen.getByText("00:00")).toBe(oldFrom);
+    expect(screen.getByText("02:00")).toBeInTheDocument();
 
     // The calendar changes the night, not the question asked of it.
-    expect(screen.getByRole("button", { pressed: true })).toBeInTheDocument();
     expect(sorted()).toHaveLength(0);
   });
 

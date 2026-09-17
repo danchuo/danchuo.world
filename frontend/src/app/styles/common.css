@@ -2311,9 +2311,6 @@ button.sleep-echo:focus-visible {
    names in a column read as a legend, while names scattered behind numbers read as four separate captions. */
 .sleep-echo__name {
   right: var(--sleep-band-inset);
-  /* Dimmer than the number: in a row the number must read first and the name beside it is a caption. In
-     the chronology the same colour runs at full strength — there it works as data in the legend. */
-  opacity: 0.55;
 }
 .sleep-echo__sounding {
   position: absolute;

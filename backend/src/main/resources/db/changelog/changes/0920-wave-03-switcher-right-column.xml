@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: переключатель волн возвращается в правую колонну — между промером сна и
+      велобайком (DESIGN §10.2).
+
+      Колонки 35..40, строки 19..20. Промер кончается на 17-й, велобайк начинается с 22-й,
+      значит строки 18 и 21 остаются пустыми треками: воздух сверху и снизу такой же, как у
+      остальных соседей на борде. Правый край держит стену борда, как у промера и велобайка
+      над и под ним. Размер плитки не меняется — те же 6 колонок на 2 строки.
+
+      Шапка левой колонны (строки 2..5 над последним дропом) остаётся пустой.
+    -->
+    <changeSet id="0920-wave-03-switcher-right-column" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,waveSwitcher}',
+  (layout->'tiles'->'waveSwitcher') || '{"col": 35, "row": 19, "colSpan": 6, "rowSpan": 2}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,waveSwitcher}',
+  (layout->'tiles'->'waveSwitcher') || '{"col": 5, "row": 2, "colSpan": 6, "rowSpan": 2}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

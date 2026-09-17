@@ -55,7 +55,10 @@ function PixelBar({ pct, color }: { pct: number; color: string }) {
  * BAND — the same question asked at a different precision, so it is a switch, not a tile. §7.7
  */
 export function SleepTile({ day, state, onRetry, edition, style, className }: SleepTileProps) {
-  const [showBand, setShowBand] = useState(false);
+  // The view lives ABOVE the day, and both editions ask the same question of the night — sum or
+  // clock. The echo tile is remounted per day (its `key` below), so a mode kept inside it would
+  // fall back to the sum on every step through the calendar. DESIGN §7.7
+  const [byHours, setByHours] = useState(false);
   // "Asleep–awake" arrives from the loaded night (see NightBand): the header is a tight fit by
   // meaning, but there it costs no separate line below the band, and vertical space is dear here.
   const [nightTimes, setNightTimes] = useState<string | null>(null);
@@ -77,7 +80,15 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
       >
         {showEmpty && <SleepNoData />}
         {/* key by day: changing the selected day loads the night afresh, not someone else's. */}
-        {hasData && <SleepEcho key={day.date} date={day.date} stages={day.health.sleepStages} />}
+        {hasData && (
+          <SleepEcho
+            key={day.date}
+            date={day.date}
+            stages={day.health.sleepStages}
+            byHours={byHours}
+            onToggle={() => setByHours((v) => !v)}
+          />
+        )}
       </TileShell>
     );
   }
@@ -100,28 +111,28 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
             <span className="tile-label">сон</span>
             {/* The sleep times are data, not a meta label: the `tile-chrome` class, or a wave skin
                 hiding `.tile-label` would carry the figures off with the labels. */}
-            {showBand && nightTimes && <span className="tile-chrome">{nightTimes}</span>}
+            {byHours && nightTimes && <span className="tile-chrome">{nightTimes}</span>}
             {/* The switcher is flush right: it is a utility and must not argue with the night's
                 figure. It is a control, so it too sits outside `.tile-label`. */}
             <button
               type="button"
-              onClick={() => setShowBand((v) => !v)}
-              aria-pressed={showBand}
+              onClick={() => setByHours((v) => !v)}
+              aria-pressed={byHours}
               className="tile-chrome ml-auto cursor-pointer underline decoration-dotted underline-offset-2"
               style={{ color: "var(--accent)" }}
             >
-              {showBand ? "сумма" : "по часам"}
+              {byHours ? "сумма" : "по часам"}
             </button>
           </div>
 
           {/* key by day: changing the selected day loads the night afresh, not someone else's. */}
-          {showBand && (
+          {byHours && (
             <div className="min-h-0 flex-1">
               <NightBand key={day.date} date={day.date} onTimes={setNightTimes} />
             </div>
           )}
 
-          {!showBand && (
+          {!byHours && (
             <div className="flex min-h-0 flex-1 items-stretch gap-3">
               {/* Left: the night's duration and the wakings. */}
               <div className="flex w-[128px] shrink-0 flex-col justify-center">

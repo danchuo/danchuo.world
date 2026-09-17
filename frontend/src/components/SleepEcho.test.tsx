@@ -271,6 +271,39 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(getSleepNightMock).not.toHaveBeenCalled();
   });
 
+  it("до ответа сети не рисует ничего — ни мерцалки, ни промера из дневных итогов", async () => {
+    let answer: (n: SleepNightView) => void = () => {};
+    getSleepNightMock.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+    const { container } = render(<SleepTile day={day("2026-08-10")} state="loaded" edition="echo" />);
+
+    // The day's totals are already in hand and would draw a sounding at once — which the real
+    // night then moves under a 720ms transition: figures first, picture catching up.
+    expect(container.querySelector(".pixel-shimmer")).toBeNull();
+    expect(screen.queryAllByTestId("sleep-echo-col")).toHaveLength(0);
+
+    answer(night("2026-08-10"));
+    await waitFor(() => expect(columns().length).toBeGreaterThan(0));
+    // It arrives whole: the brickwork and the durations beside it, in one paint.
+    expect(screen.getByTestId("sleep-echo-durations")).toBeInTheDocument();
+  });
+
+  it("режим «по часам» переживает переключение дня на календаре", async () => {
+    getSleepNightMock.mockImplementation((date: string) => Promise.resolve(night(date)));
+    const { rerender } = render(<SleepTile day={day("2026-08-06")} state="loaded" edition="echo" />);
+    await waitFor(() => expect(columns().length).toBeGreaterThan(0));
+
+    await userEvent.click(screen.getByRole("button", { pressed: false }));
+    expect(screen.getByRole("button", { pressed: true })).toBeInTheDocument();
+
+    rerender(<SleepTile day={day("2026-08-07")} state="loaded" edition="echo" />);
+    await waitFor(() => expect(getSleepNightMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(columns().length).toBeGreaterThan(0));
+
+    // The calendar changes the night, not the question asked of it.
+    expect(screen.getByRole("button", { pressed: true })).toBeInTheDocument();
+    expect(sorted()).toHaveLength(0);
+  });
+
   it("незнакомая редакция откатывается к дефолтной вёрстке, а не ломает плитку", () => {
     render(<SleepTile day={day("2026-08-09")} state="loaded" edition="sonar" />);
 

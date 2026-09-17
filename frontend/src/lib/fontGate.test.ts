@@ -2,7 +2,13 @@
 // The `logic` project runs in node (vitest.config.ts), but the gate lives in the document: there
 // is no way to check it without a DOM, so the environment is overridden for this one file.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FONT_GATE_SCRIPT, FONT_GATE_TIMEOUT_MS, onFontsReady } from "./fontGate";
+import {
+  BOARD_GATE_TIMEOUT_MS,
+  FONT_GATE_SCRIPT,
+  FONT_GATE_TIMEOUT_MS,
+  onFontsReady,
+  openBoardGate,
+} from "./fontGate";
 
 /** Execute exactly the line that goes into `<head>`. */
 function runGate() {
@@ -146,5 +152,33 @@ describe("подписка на ворота", () => {
     document.documentElement.setAttribute("data-fonts", "ready");
     await new Promise((r) => setTimeout(r, 10));
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("ворота данных: доска ждёт не только шрифты", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.documentElement.removeAttribute("data-board");
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("скрипт закрывает ворота данных сразу, до первой отрисовки", () => {
+    withFonts(new Promise(() => {}));
+    runGate();
+    expect(document.documentElement.getAttribute("data-board")).toBe("pending");
+  });
+
+  it("данные приехали — доска открывается, шрифты тут ни при чём", () => {
+    withFonts(new Promise(() => {}));
+    runGate();
+    openBoardGate();
+    expect(document.documentElement.getAttribute("data-board")).toBe("ready");
+  });
+
+  it("сети нет — потолок всё равно открывает доску: плитки ответят за себя сами", () => {
+    withFonts(new Promise(() => {}));
+    runGate();
+    vi.advanceTimersByTime(BOARD_GATE_TIMEOUT_MS);
+    expect(document.documentElement.getAttribute("data-board")).toBe("ready");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useId, useMemo, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, type CSSProperties } from "react";
 import { getSleepNight } from "@/lib/api/client";
 import type { SleepStagesView } from "@/lib/api/types";
 import { formatSleep, formatSleepShort, sleepDurationParts } from "@/lib/format";
@@ -9,6 +9,9 @@ import { ECHO_VIEW, echoGeometry, echoNight, echoNightFromStages, type EchoNight
 import { SleepMoon, SleepNoData } from "./SleepNoData";
 import { sleepPhases } from "./sleepPhases";
 import { useTileData } from "./useTileData";
+
+/** The redraw dip, in step with `--sleep-echo-redraw-ms` in CSS: one number, two owners. */
+const ECHO_REDRAW_MS = 320;
 
 /**
  * The "echo sounder" edition: a night as a depth survey filling the tile. It follows the drop
@@ -32,10 +35,11 @@ export function SleepEcho({
 
   // The night by minutes comes from chunks; with none (the watch gave only totals) the same phases
   // arrive without a chronology, and the tile honestly stays in one mode instead of inventing an order.
-  const night = useMemo(
-    () => echoNight(data?.band) ?? echoNightFromStages(stages),
-    [data?.band, stages],
-  );
+  const fromBand = useMemo(() => echoNight(data?.band), [data?.band]);
+  const night = useMemo(() => fromBand ?? echoNightFromStages(stages), [fromBand, stages]);
+  // Which day the DRAWING belongs to, not which one is selected: while a night travels the previous
+  // one stays on screen, and the moon and the entrance animations belong to what is shown.
+  const shown = fromBand ? (data?.date ?? date) : date;
 
   // The first night appears only once it is whole. On calendar moves the last complete response
   // remains in `data` while useTileData fetches the replacement, so the graph never blanks and its
@@ -59,7 +63,7 @@ export function SleepEcho({
   return (
     <Sounding
       night={night}
-      date={data?.date ?? date}
+      date={shown}
       byHours={byHours}
       onToggle={onToggle}
       times={
@@ -119,6 +123,19 @@ function Sounding({
   // hidden layout, where there is no paint — and the visible copy's bars had nothing to draw with.
   const uid = useId().replace(/[^a-z0-9]/gi, "");
   const paint = useCallback((stage: string) => `sleep-echo-${uid}-${stage}`, [uid]);
+  // A new night is a REDRAW, not an entrance: the bars morph by their heights (CSS), and this dip
+  // carries what cannot interpolate — a column's gradient and the floor profile. DESIGN §7.7
+  const plotRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = plotRef.current;
+    if (!el || typeof el.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const play = el.animate(
+      [{ opacity: 0.22 }, { opacity: 1 }],
+      { duration: ECHO_REDRAW_MS, easing: "cubic-bezier(0.22, 0.61, 0.36, 1)" },
+    );
+    return () => play.cancel();
+  }, [date]);
   const geometry = useMemo(() => echoGeometry(night), [night]);
   const durations = useMemo(() => LANES.flatMap((lane, index) => {
     if (night.totals[lane.stage] <= 0) return [];
@@ -173,7 +190,7 @@ function Sounding({
       aria-label={night.timed ? "Ночь по часам" : undefined}
       onClick={night.timed ? onToggle : undefined}
     >
-      <span className="sleep-echo__plot">
+      <span className="sleep-echo__plot" ref={plotRef}>
         <svg
           className="sleep-echo__sounding"
           viewBox={`0 0 ${ECHO_VIEW.width} ${ECHO_VIEW.height}`}
@@ -228,7 +245,9 @@ function Sounding({
 
           <polyline className="sleep-echo__trace" points={geometry.profile} vectorEffect="non-scaling-stroke" />
         </svg>
-        <span className="sleep-echo__durations" data-testid="sleep-echo-durations" aria-hidden={time}>
+        {/* Keyed by the night on show: a remount replays the row-by-row entrance exactly when the
+            figures change, which is when the answer they carry changed. */}
+        <span key={date} className="sleep-echo__durations" data-testid="sleep-echo-durations" aria-hidden={time}>
           {durations.map((d) => (
             <span key={d.stage} style={{ color: STAGE_COLOR[d.stage] }}>
               {/* The duration follows its row IMMEDIATELY and takes the phase's colour, which is
@@ -279,7 +298,7 @@ function Sounding({
           <SleepMoon date={date} />
           {/* Numerals in the strip's own large step, units a step down and quieter: the full words
               fit once they stop competing with the number, and the number still reads first. */}
-          <span className="sleep-echo__total">
+          <span key={date} className="sleep-echo__total">
             {sleepDurationParts(night.asleep).map((p, i) => (
               <Fragment key={p.unit}>
                 {i > 0 && " "}

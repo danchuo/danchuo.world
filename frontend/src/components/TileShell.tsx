@@ -37,9 +37,9 @@ interface TileShellProps {
 }
 
 /**
- * The bento tile's shell. A filled tile carries the wave's signature layer — a stepped pixel
- * frame, a warm surface and a floating shadow with hover lift — all in `.pixel-tile`, which lives
- * in CSS for `:hover`. Four independent states, no shared spinner, colours only from tokens.
+ * The bento tile's shell: the wave's signature layer in `.pixel-tile` (CSS owns `:hover`), four
+ * independent states, no shared spinner, colours only from tokens. While loading the tile is
+ * QUIET — it keeps its cell and shows nothing, then appears filled. DESIGN §7.10
  */
 export function TileShell({
   state,
@@ -64,8 +64,9 @@ export function TileShell({
       ref={ref}
       aria-label={ariaLabel}
       aria-busy={state === "loading"}
+      data-quiet={state === "loading" ? "true" : undefined}
       data-elevated={!muted && elevated ? "true" : undefined}
-      className={`relative flex flex-col overflow-hidden p-4 ${tileClass} ${className}`}
+      className={`tile-shell relative flex flex-col overflow-hidden p-4 ${tileClass} ${className}`}
       style={style}
     >
       {/* The box's lower backing plus the top card's white inner frame (§2.4) as separate elements:
@@ -76,14 +77,6 @@ export function TileShell({
       {/* The wave's backdrop (§10.2): it lies between the edge layers and the content, clipped by
           the tile's own `overflow-hidden` — that is, by its own radius and silhouette. */}
       {backdrop}
-
-      {state === "loading" && (
-        <div
-          data-testid="tile-loading"
-          className="pixel-shimmer absolute inset-0"
-          aria-hidden
-        />
-      )}
 
       {/* The corner's pixel scatter (§2.4) is a separate element over the surface (both pseudo
           slots are taken by the edge silhouette). Only on the focused tile, not a muted one. */}

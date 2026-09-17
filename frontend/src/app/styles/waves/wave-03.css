@@ -181,13 +181,6 @@
   display: none;
 }
 
-/* Loader shimmer: wave 01's stepped clip and the lift under its side are of no use to glass. */
-:root[data-wave="wave-03"] .pixel-shimmer {
-  clip-path: none;
-  bottom: 0;
-  border-radius: var(--radius-lg);
-}
-
 /* "Today" is the dominant: cleaner glass (less tint), a brighter edge, a deeper shadow. The hierarchy is
    encoded in the material's DENSITY rather than in one more colour. Wave 01's scan sheen is removed — the
    `::after` slot now carries a blur pass, and the sheen gradient would lie over it. */
@@ -349,12 +342,6 @@
   border: none;
   background: none;
   box-shadow: none;
-}
-/* The loading shimmer goes from the WHOLE wave, not one tile. The font gate opens on the first layout while
-   a tile's own data is still travelling, and in that gap every widget flashed a shimmering rectangle — under
-   the wave chips it read as a slab the switcher does not even have. A widget appears once, already filled. */
-:root[data-wave="wave-03"] .pixel-shimmer {
-  display: none;
 }
 :root[data-wave="wave-03"] [data-tile-id="photoDrops"] .pixel-tile:not(.drop-modal__panel)::before,
 :root[data-wave="wave-03"] [data-tile-id="photoDrops"] .pixel-tile:not(.drop-modal__panel) .pixel-lid,
@@ -679,11 +666,6 @@
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile::before,
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-lid,
 :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile::after {
-  display: none;
-}
-/* The loading shimmer is a slab detail: without one it would flash as an empty rectangle on the canvas (the
-   same case as the drops rail and the ride map). */
-:root[data-wave="wave-03"] [data-tile-id="social"] .pixel-shimmer {
   display: none;
 }
 /* No slab ⇒ nothing to light. The refusal happens TWICE, by two different mechanisms. */
@@ -1129,12 +1111,6 @@
 :root[data-wave="wave-03"] .pixel-tile.ride-card--map::before,
 :root[data-wave="wave-03"] .pixel-tile.ride-card--map .pixel-lid,
 :root[data-wave="wave-03"] .pixel-tile.ride-card--map::after {
-  display: none;
-}
-/* The loading shimmer is a detail of the glass slab and has nothing to lie on without one (the same trade as
-   the drops rail): on the canvas it would read as an empty flashing rectangle. The map appears by itself once
-   the ride's data arrives. */
-:root[data-wave="wave-03"] .ride-card--map .pixel-shimmer {
   display: none;
 }
 

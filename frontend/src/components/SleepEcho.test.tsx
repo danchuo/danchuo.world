@@ -325,6 +325,29 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(sorted()).toHaveLength(0);
   });
 
+  it("шаг по календарю спрашивает НОВУЮ дату, и длительность едет за ней", async () => {
+    // The tile stays mounted across a day change, so the request is restarted by its KEY. While the
+    // fetcher was captured once, the second request asked for the first day again and the duration
+    // in the band never moved — on the other waves it comes from the day's own totals (§7.7).
+    getSleepNightMock.mockResolvedValueOnce(night("2026-08-06"));
+    const { container, rerender } = render(<SleepTile day={day("2026-08-06")} state="loaded" edition="echo" />);
+    const total = () => container.querySelector(".sleep-echo__total")?.textContent ?? "";
+    await waitFor(() => expect(total()).toContain("50"));
+    expect(getSleepNightMock.mock.calls[0][0]).toBe("2026-08-06");
+
+    const next = night("2026-08-07");
+    getSleepNightMock.mockResolvedValueOnce({
+      ...next,
+      band: { ...next.band!, parts: [{ stage: "light", fromMinute: 300, toMinute: 480 }] },
+    });
+    rerender(<SleepTile day={day("2026-08-07", { sleepMinutes: 180 })} state="loaded" edition="echo" />);
+
+    await waitFor(() => expect(getSleepNightMock).toHaveBeenCalledTimes(2));
+    expect(getSleepNightMock.mock.calls[1][0]).toBe("2026-08-07");
+    await waitFor(() => expect(total()).toContain("3"));
+    expect(total()).not.toContain("50");
+  });
+
   it("незнакомая редакция откатывается к дефолтной вёрстке, а не ломает плитку", () => {
     render(<SleepTile day={day("2026-08-09")} state="loaded" edition="sonar" />);
 

@@ -185,11 +185,36 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     );
 
     expect(screen.getByTestId("sleep-empty")).toBeInTheDocument();
-    expect(screen.getByTestId("sleep-moon")).toBeInTheDocument();
-    expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /по часам/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("пустая ночь в редакции по умолчанию — кровать с подписью, а не луна", () => {
+    // The moon is the `echo` edition's mark: a wave dresses the tile through its edition, and one
+    // edition's sign must not turn up in another's (DESIGN §7.7, §10.1).
+    render(
+      <SleepTile
+        day={day({ health: { steps: 100, sleepMinutes: null, sleepStages: null } })}
+        state="loaded"
+      />,
+    );
+
+    expect(screen.getByText("нет данных о сне")).toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-moon")).not.toBeInTheDocument();
+  });
+
+  it("пустая ночь в редакции «эхолот» — луна, без кровати и слов", () => {
+    render(
+      <SleepTile
+        day={day({ health: { steps: 100, sleepMinutes: null, sleepStages: null } })}
+        state="loaded"
+        edition="echo"
+      />,
+    );
+
+    expect(screen.getByTestId("sleep-moon")).toBeInTheDocument();
+    expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
   });
 });
 

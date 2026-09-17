@@ -13,7 +13,7 @@ import {
 import { getDrop, getDrops } from "@/lib/api/client";
 import { mediaUrl } from "@/lib/api/media";
 import { GAP, buildMosaic, dropCardWidth, mosaicWidth, type Cell } from "@/lib/mosaic";
-import { SWIPE_NOTCH, frameWheelStep, stepFrameIndex } from "@/lib/dropRoll";
+import { SWIPE_NOTCH, frameWheelStep, initialFrameWheel, stepFrameIndex } from "@/lib/dropRoll";
 import { pluralRu } from "@/lib/rideFormat";
 import { pickSeeded } from "@/lib/sample";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
@@ -46,17 +46,6 @@ interface LatestData {
 const CARD_PAD_X = 32;
 /* Don't shrink the card below this: the label and caption row need room to breathe. */
 const MIN_CARD_W = 200;
-/**
- * The silence that ends a wheel gesture (ms): a trackpad sends dozens of events per flick, and a
- * pause is the only sign the hand let go. Less and scroll inertia reads as a second gesture; more
- * and an honest second flick has to be waited for.
- */
-const WHEEL_GESTURE_GAP_MS = 140;
-/** Inertial events below this size are the fading tail, not continued finger travel. */
-const WHEEL_TAIL_PX = 4;
-/** A fresh gesture must rise above its inertial tail before it may start accumulating travel. */
-const WHEEL_REARM_PX = 12;
-
 /**
  * The new frame's entry: a shift towards the gesture and its duration. The movement is
  * deliberately small — the frame is large, and a full-card slide would read as a fairground ride;
@@ -327,56 +316,24 @@ export function LatestDropTile({
   // BY CALLBACK REF, not an effect — reattaching mid-gesture hands the rest of it to the page.
   const stepRef = useRef(stepFrame);
   stepRef.current = stepFrame;
-  const wheelRef = useRef<{ acc: number; spent: boolean; armed: boolean; quiet: ReturnType<typeof setTimeout> | null }>({
-    acc: 0,
-    spent: false,
-    armed: true,
-    quiet: null,
-  });
+  const wheelRef = useRef(initialFrameWheel());
   const detachWheelRef = useRef<(() => void) | null>(null);
   const mountFrameCard = useCallback((el: HTMLButtonElement | null) => {
     frameCardRef.current = el;
     detachWheelRef.current?.();
     detachWheelRef.current = null;
     if (!el) return;
-    const gesture = wheelRef.current;
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      const dx = Math.abs(e.deltaX * (e.deltaMode === 1 ? 16 : 1));
-      // A trackpad's inertial tail may keep emitting tiny events long after the fingers lift. Those
-      // events must not postpone rearming forever; meaningful travel still extends this gesture.
-      if (dx > WHEEL_TAIL_PX) {
-        if (gesture.quiet) clearTimeout(gesture.quiet);
-        gesture.quiet = setTimeout(() => {
-          gesture.acc = 0;
-          gesture.spent = false;
-          gesture.armed = false;
-        }, WHEEL_GESTURE_GAP_MS);
-      }
-      // After the old gesture ends, ignore its remaining tiny drift. A new deliberate flick rises
-      // above this threshold without needing any pointer movement over the card.
-      if (!gesture.spent && !gesture.armed) {
-        if (dx < WHEEL_REARM_PX) return;
-        gesture.armed = true;
-      }
-      const step = frameWheelStep(e.deltaX, e.deltaMode, gesture.acc, gesture.spent);
-      gesture.acc = step.acc;
-      if (step.dir === 0) return;
-      gesture.spent = true;
-      stepRef.current(step.dir);
+      // Where one gesture ends and the next begins is arithmetic on deltas and time alone — no
+      // timer to fire mid-gesture, and no pointer movement needed to rearm. See [frameWheelStep].
+      const r = frameWheelStep(wheelRef.current, e.deltaX, e.deltaMode, e.timeStamp);
+      wheelRef.current = r.state;
+      if (r.dir !== 0) stepRef.current(r.dir);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     detachWheelRef.current = () => el.removeEventListener("wheel", onWheel);
-  }, []);
-
-  // The gesture-end timer lives in a ref and outlives the listener, so it is cleared separately —
-  // when the tile unmounts, not with the card's node.
-  useEffect(() => {
-    const gesture = wheelRef.current;
-    return () => {
-      if (gesture.quiet) clearTimeout(gesture.quiet);
-    };
   }, []);
 
   /**

@@ -49,4 +49,19 @@ describe("useTileData — stale-while-revalidate и признак «сеть о
     expect(result.current.data).toBe("cached");
     expect(result.current.stale).toBe(true);
   });
+
+  it("смена ключа перезапрашивает НОВЫМ fetcher-ом: календарь шагает по дням, данные едут за ним", async () => {
+    const asked: string[] = [];
+    const render = ({ date }: { date: string }) =>
+      useTileData(() => {
+        asked.push(date);
+        return Promise.resolve(date);
+      }, `night:${date}`);
+    const { result, rerender } = renderHook(render, { initialProps: { date: "2026-09-10" } });
+    await waitFor(() => expect(result.current.data).toBe("2026-09-10"));
+
+    rerender({ date: "2026-09-11" });
+    await waitFor(() => expect(result.current.data).toBe("2026-09-11"));
+    expect(asked).toEqual(["2026-09-10", "2026-09-11"]);
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useId, useMemo, type CSSProperties } from "react";
 import { getSleepNight } from "@/lib/api/client";
 import type { SleepStagesView } from "@/lib/api/types";
 import { formatSleep, formatSleepShort } from "@/lib/format";
@@ -16,9 +16,20 @@ import { useTileData } from "./useTileData";
  * tile's build — no margins, no label, all text lying ON the night in a blurred band. Switching
  * modes re-sorts the same bars rather than swapping the picture. DESIGN §7.7, §10.1
  */
-export function SleepEcho({ date, stages }: { date: string; stages: SleepStagesView | null | undefined }) {
+export function SleepEcho({
+  date,
+  stages,
+  byHours,
+  onToggle,
+}: {
+  date: string;
+  stages: SleepStagesView | null | undefined;
+  /** The chosen view, held by [SleepTile]: this component is remounted per day (see its `key`). */
+  byHours: boolean;
+  onToggle: () => void;
+}) {
   const fetcher = useCallback((signal: AbortSignal) => getSleepNight(date, { signal }), [date]);
-  const { phase, data } = useTileData(fetcher, `sleep-night:${date}`);
+  const { data, settled } = useTileData(fetcher, `sleep-night:${date}`);
 
   // The night by minutes comes from chunks; with none (the watch gave only totals) the same phases
   // arrive without a chronology, and the tile honestly stays in one mode instead of inventing an order.
@@ -27,8 +38,11 @@ export function SleepEcho({ date, stages }: { date: string; stages: SleepStagesV
     [data?.band, stages],
   );
 
-  if (phase === "loading") {
-    return <div className="pixel-shimmer absolute inset-0" aria-hidden />;
+  // Nothing at all until the NETWORK HAS ANSWERED, not even a shimmer. The day's totals alone would
+  // already draw a sounding, and the real night then moved every bar under a 720ms transition: the
+  // figures arrived first and the picture caught up. It appears once, whole. DESIGN §7.7
+  if (!settled) {
+    return null;
   }
   if (!night) {
     return <SleepNoData />;
@@ -37,6 +51,8 @@ export function SleepEcho({ date, stages }: { date: string; stages: SleepStagesV
     <Sounding
       night={night}
       date={date}
+      byHours={byHours}
+      onToggle={onToggle}
       times={
         data?.band
           ? {
@@ -104,12 +120,15 @@ function Sounding({
   night,
   date,
   times,
+  byHours,
+  onToggle,
 }: {
   night: EchoNight;
   date: string;
   times: { from: string; to: string } | null;
+  byHours: boolean;
+  onToggle: () => void;
 }) {
-  const [timed, setTimed] = useState(false);
   // Gradients MUST be unique per instance: the board keeps both layouts in the DOM at once, so the
   // sleep tile is always there twice. With a shared id, `url(#…)` finds the first match — in the
   // hidden layout, where there is no paint — and the visible copy's bars had nothing to draw with.
@@ -152,7 +171,8 @@ function Sounding({
     return { legend, names };
   }, [night]);
   // No chronology ⇒ nothing to show it with: the tile stays a summary and does not fake a gesture.
-  const time = night.timed && timed;
+  // The choice survives a night without one, so stepping past it does not undo it either.
+  const time = night.timed && byHours;
   // The tile is a button only when the gesture changes something: a control that does nothing must
   // not look like a control, nor catch focus.
   const Root = night.timed ? "button" : "span";
@@ -164,7 +184,7 @@ function Sounding({
       style={{ "--sleep-summary-extent": Math.max(...durations.map((d) => d.end), 0.01) } as CSSProperties}
       aria-pressed={night.timed ? time : undefined}
       aria-label={night.timed ? "Ночь по часам" : undefined}
-      onClick={night.timed ? () => setTimed((v) => !v) : undefined}
+      onClick={night.timed ? onToggle : undefined}
     >
       <span className="sleep-echo__plot">
         <svg

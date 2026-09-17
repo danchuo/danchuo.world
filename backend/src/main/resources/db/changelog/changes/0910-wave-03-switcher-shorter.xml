@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: переключатель волн убавляется на трек снизу — строки 2..3 вместо 2..4
+      (DESIGN §10.2).
+
+      Верх и колонки не трогаем: плитка держит левый край дропа и шапку колонны. Убавляется
+      только низ, поэтому воздуха между переключателем и последним дропом (он начинается со
+      строки 6) становится два трека вместо одного.
+    -->
+    <changeSet id="0910-wave-03-switcher-shorter" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,waveSwitcher}',
+  (layout->'tiles'->'waveSwitcher') || '{"col": 5, "row": 2, "colSpan": 6, "rowSpan": 2}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,waveSwitcher}',
+  (layout->'tiles'->'waveSwitcher') || '{"col": 5, "row": 2, "colSpan": 6, "rowSpan": 3}'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

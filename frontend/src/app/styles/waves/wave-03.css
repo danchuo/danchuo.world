@@ -313,17 +313,24 @@
   aspect-ratio: 4 / 5;
 }
 
-/* ONE number for both the gap between cards and the inset from the tile edge: the row reads as a single grid
-   rather than "content inside layout padding". The tile's `p-4` will not do — it was set for a caption above,
-   which PRIME does not have. The number lives on the TILE, so the admin header's row keeps its own fallback. */
+/* ONE number for both the gap between cards and the SIDE inset from the tile edge: the row reads as a single
+   grid rather than "content inside layout padding". The tile's `p-4` will not do — it was set for a caption
+   above, which PRIME does not have. The number lives on the TILE, so the admin header keeps its own fallback. */
 
 /* A card does not choose its size, it takes whatever is left of the tile, so the gutter is the only handle on
    its growth at an unchanged tile: a wider gap means smaller cards. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] {
   --chip-gutter: 14px;
 }
+/* The cards run the tile's full HEIGHT: the slab is gone (see below), so there is no edge to inset from, while
+   the inset itself ate more than half the tile — 28px of 52. Across the row it stays, matching the gutter, or
+   the outer cards would sit tighter to the board than to their neighbours. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .pixel-tile {
-  padding: var(--chip-gutter);
+  padding-block: 0;
+  padding-inline: var(--chip-gutter);
+  /* The card rises on hover, and at full tile height it rose straight into the tile's clip: the lift read
+     as a crop off the top. There is no slab here to clip anything to, so the box lets it out. */
+  overflow: visible;
 }
 
 /* Drops rail with no slab (DESIGN §7.5, §10.2): no border, ground, shadow, blur passes or padding — the
@@ -343,10 +350,10 @@
   background: none;
   box-shadow: none;
 }
-/* The loading shimmer is a detail of the SLAB, and without a slab it has nothing to lie on: on the canvas it
-   read as an empty rectangle flashing on a hard reload. The rail appears by itself once the first cover
-   arrives (`.is-ready` in common.css) — there is no empty space on a canvas, there is canvas. */
-:root[data-wave="wave-03"] [data-tile-id="photoDrops"] .pixel-shimmer {
+/* The loading shimmer goes from the WHOLE wave, not one tile. The font gate opens on the first layout while
+   a tile's own data is still travelling, and in that gap every widget flashed a shimmering rectangle — under
+   the wave chips it read as a slab the switcher does not even have. A widget appears once, already filled. */
+:root[data-wave="wave-03"] .pixel-shimmer {
   display: none;
 }
 :root[data-wave="wave-03"] [data-tile-id="photoDrops"] .pixel-tile:not(.drop-modal__panel)::before,

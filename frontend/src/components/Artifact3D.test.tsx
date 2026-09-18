@@ -8,7 +8,7 @@ import { mountArtifact } from "@/lib/artifact3dStage";
 const mountMock = vi.mocked(mountArtifact);
 
 function handle() {
-  return { setSpinning: vi.fn(), turn: vi.fn(), resize: vi.fn(), dispose: vi.fn() };
+  return { setSpinning: vi.fn(), turn: vi.fn(), setLight: vi.fn(), resize: vi.fn(), dispose: vi.fn() };
 }
 
 /** jsdom has no `matchMedia` — we supply the answer for the reduced-motion setting. */
@@ -125,6 +125,20 @@ describe("Artifact3D", () => {
     expect(labelled).toHaveAttribute("role", "img");
     expect(labelled).toHaveAttribute("aria-label", "голо-глобус");
     expect(labelled).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("новое положение солнца правит стоящую сцену, а не пересобирает её", async () => {
+    const h = handle();
+    mountMock.mockResolvedValue(h);
+    const { rerender } = render(<Artifact3D src="/m.glb" light={{ azimuth: 0.5, ambient: 0.26 }} />);
+    await waitFor(() => expect(mountMock).toHaveBeenCalledTimes(1));
+
+    rerender(<Artifact3D src="/m.glb" light={{ azimuth: 1.7, ambient: 0.26 }} />);
+
+    // Rebuilding would reset the pose: a sphere turned by the cursor would jump to its start.
+    expect(mountMock).toHaveBeenCalledTimes(1);
+    expect(h.dispose).not.toHaveBeenCalled();
+    expect(h.setLight).toHaveBeenCalledWith(1.7);
   });
 
   it("в режиме протяжки предмет крутится рукой, а не по наведению", async () => {

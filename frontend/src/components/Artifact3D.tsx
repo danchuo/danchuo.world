@@ -32,7 +32,7 @@ export interface Artifact3DProps {
    * card over a find on a frame. Otherwise the cursor rules, which is the board's default.
    */
   spin?: boolean;
-  /** Light from one direction instead of the studio pair (DESIGN §7.7); read once, at mount. */
+  /** Light from one direction instead of the studio pair (DESIGN §7.7). Its azimuth may move later. */
   light?: { azimuth: number; ambient: number; intensity?: number };
   /**
    * Fired once the item has finished trying, with whether it stood up. Callers that caption the
@@ -60,6 +60,11 @@ export function Artifact3D({
   settled.current = onSettled;
   const always = useRef(false);
   always.current = policy === true && !prefersReducedMotion();
+  /* Likewise by ref: the sun moves from day to day, and a remount would refetch the model and snap
+     the body back to its starting pose. The mount reads the current value, the effect below steers
+     the standing scene. DESIGN §7.7 */
+  const sun = useRef(light);
+  sun.current = light;
 
   // Mount: wait until the slot is on screen, and only then fetch the library and the model.
   useEffect(() => {
@@ -83,13 +88,15 @@ export function Artifact3D({
 
     const start = () => {
       fit();
-      mountArtifact(canvas, { src, rpm, padding, light, signal: abort.signal })
+      mountArtifact(canvas, { src, rpm, padding, light: sun.current, signal: abort.signal })
         .then((handle) => {
           if (disposed) {
             handle.dispose();
             return;
           }
           handleRef.current = handle;
+          // The day may have turned while the model travelled; the scene takes today's sun.
+          if (sun.current) handle.setLight(sun.current.azimuth);
           if (always.current) handle.setSpinning(true);
           settled.current?.(true);
         })
@@ -134,7 +141,12 @@ export function Artifact3D({
       handleRef.current?.dispose();
       handleRef.current = null;
     };
-  }, [src, rpm, padding, light?.azimuth, light?.ambient]);
+  }, [src, rpm, padding]);
+
+  // A new day moves the sun without touching the body: the phase changes, the turn carries on.
+  useEffect(() => {
+    if (light) handleRef.current?.setLight(light.azimuth);
+  }, [light?.azimuth]);
 
   // A late change of mind: the mount above catches the item that is already spinning when it arrives.
   useEffect(() => {

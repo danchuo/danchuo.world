@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type CSSProperties } from "react";
+import { useId, useState } from "react";
 import { moonLightAzimuth, moonLitPath, moonPhase } from "@/lib/moonPhase";
 import { Artifact3D } from "./Artifact3D";
 import { useImageReady } from "./useImageReady";
@@ -29,6 +29,11 @@ const MOON_RPM = 3;
 
 /** Moon rock is dark stone: at studio strength the lit side came out grey rather than lit. */
 const MOON_KEY = 3.8;
+
+/* The stage frames by the sphere around the bounding BOX, so a ball comes out √3 smaller than its
+   slot. The Moon IS a ball: fitting it by its own radius makes the slot the body, and the halo then
+   has an edge to hug instead of a guessed one. DESIGN §7.7 */
+const MOON_FIT = 1 / Math.sqrt(3);
 
 /** Engraved moon: gradients and grain, for editions whose graphics are drawn rather than shot. */
 function SleepMoonDrawn({ date, className }: { date: string; className: string }) {
@@ -164,14 +169,12 @@ function SleepMoonModel({ date, className }: { date: string; className: string }
       /* Lit only once the body is actually up: a day switched to an empty night otherwise showed
          an empty box first and the Moon a moment later, which reads as a jump, not a change. */
       data-ready={settled ? "" : undefined}
-      /* The halo leans the way the sun stands, so the light gathers on the lit limb. The light is
-         fixed in the scene, so turning the body leaves both it and the phase where they were. */
-      style={{ "--moon-glare-dx": `${(Math.sin(azimuth) * 4).toFixed(1)}px` } as CSSProperties}
     >
       <Artifact3D
         src={MOON_MODEL_SRC}
         className="h-full w-full"
         rpm={MOON_RPM}
+        padding={MOON_FIT}
         light={{ azimuth, ambient: MOON_AMBIENT, intensity: MOON_KEY }}
         onSettled={setSettled}
       />

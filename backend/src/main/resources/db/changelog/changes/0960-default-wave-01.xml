@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Wave 01 opens the board by default again; other released waves remain selectable. -->
+    <changeSet id="0960-default-wave-01" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET active = (key = 'wave-01');
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET active = (key = 'wave-03');
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

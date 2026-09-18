@@ -13,7 +13,7 @@ const ARTIFACTS = [
 
 afterEach(() => vi.clearAllMocks());
 
-const handle = () => ({ setSpinning: vi.fn(), turn: vi.fn(), resize: vi.fn(), dispose: vi.fn() });
+const handle = () => ({ setSpinning: vi.fn(), turn: vi.fn(), setLight: vi.fn(), resize: vi.fn(), dispose: vi.fn() });
 
 function mount() {
   mountMock.mockResolvedValue(handle());

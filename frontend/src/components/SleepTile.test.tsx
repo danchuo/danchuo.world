@@ -210,7 +210,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
 
   it("пустая ночь в редакции «эхолот» — объёмная луна, без кровати и слов", () => {
     vi.mocked(mountArtifact).mockResolvedValue({
-      setSpinning: vi.fn(), turn: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
+      setSpinning: vi.fn(), turn: vi.fn(), setLight: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
     });
     render(
       <SleepTile
@@ -224,6 +224,24 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByTestId("sleep-moon")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Сон")).toHaveClass("sleep-card--empty");
     expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
+  });
+
+  it("между пустыми днями поворачивает свет, не пересобирая луну", async () => {
+    const artifact = {
+      setSpinning: vi.fn(), turn: vi.fn(), setLight: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
+    };
+    vi.mocked(mountArtifact).mockResolvedValue(artifact);
+    const empty = { steps: 100, sleepMinutes: null, sleepStages: null };
+    const { rerender } = render(
+      <SleepTile day={day({ date: "2026-07-28", health: empty })} state="loaded" edition="echo" />,
+    );
+    await waitFor(() => expect(mountArtifact).toHaveBeenCalledTimes(1));
+
+    rerender(<SleepTile day={day({ date: "2026-07-29", health: empty })} state="loaded" edition="echo" />);
+
+    expect(mountArtifact).toHaveBeenCalledTimes(1);
+    expect(artifact.dispose).not.toHaveBeenCalled();
+    expect(artifact.setLight).toHaveBeenCalled();
   });
 
   it("сцена не поднялась — на месте луны остаётся фотография, а не дыра", async () => {

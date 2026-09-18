@@ -2915,26 +2915,29 @@ button.sleep-echo:focus-visible {
   height: calc(var(--fs-sleep-total) * 3.6);
   overflow: visible;
 }
-/* The Moon as a body takes more room than its drawn sign: a sphere reads by its relief, and the
-   craters along the terminator are the whole point of showing it round. */
+/* ⚠️ The slot IS the body: the scene is told to fit the Moon by its own radius (`MOON_FIT`), so the
+   sphere reaches the edges. Without that the ball stood √3 smaller than its box and the halo below
+   hung as a ring in the empty air around it. DESIGN §7.7 */
 .sleep-empty__moon--model {
   position: relative;
   /* Waits for the body and then arrives, with the same entrance every caption uses: the night's
      mark replaces a tile full of numbers, and a swap without a step reads as a flicker. */
   opacity: 0;
-  width: calc(var(--fs-sleep-total) * 5);
-  height: calc(var(--fs-sleep-total) * 5);
+  width: calc(var(--fs-sleep-total) * 2.8);
+  height: calc(var(--fs-sleep-total) * 2.8);
 }
 /* ⚠️ The halo is cast by a CIRCLE of the body's own size, not by a gradient in a square: a blurred
-   gradient is clipped by its element and shows up as a bluish rectangle around the moon. It shifts
-   towards the sun (`--moon-glare-dx`), so the light gathers on the lit limb. */
+   gradient is clipped by its element and shows up as a bluish rectangle around the moon. The circle
+   stays centred on the body; shifting it leaves a false gap at the opposite limb. */
 .sleep-empty__moon--model::before {
   content: "";
   position: absolute;
-  inset: 2%;
+  inset: 0;
   border-radius: 50%;
-  box-shadow: 0 0 13px -2px color-mix(in srgb, var(--sleep-awake, var(--text-secondary)) 22%, transparent);
-  transform: translateX(var(--moon-glare-dx, 0));
+  /* In the sign's own units, like the photographed Moon's rim: the air around the body scales with
+     it rather than with the screen. */
+  box-shadow: 0 0 calc(var(--fs-sleep-total) * 0.32) calc(var(--fs-sleep-total) * -0.05)
+    color-mix(in srgb, var(--sleep-awake, var(--text-secondary)) 22%, transparent);
   pointer-events: none;
 }
 .sleep-empty__moon--model[data-ready] {

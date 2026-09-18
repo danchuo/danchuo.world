@@ -14,6 +14,11 @@ export interface ArtifactHandle {
    * unbounded, so the hand takes the object all the way round either way. Cancels spin and rewind.
    */
   turn(deltaYaw: number, deltaPitch?: number): void;
+  /**
+   * Move the sun, in radians about the vertical. The phase changes from day to day while the body
+   * keeps turning, so the light is steered in the live scene rather than rebuilt. DESIGN §7.7
+   */
+  setLight(azimuth: number): void;
   /** Redraw after the canvas size changes. */
   resize(): void;
   dispose(): void;
@@ -284,7 +289,8 @@ export async function mountArtifact(
   const key = new THREE.DirectionalLight(0xffffff, light?.intensity ?? 2.4);
   /* Its own sun stands nearly level with the object, so the terminator runs down it and the phase
      is real geometry; the studio key stays high and to the right, where it flatters a silhouette. */
-  if (light) key.position.set(Math.sin(light.azimuth) * 4, 0.7, Math.cos(light.azimuth) * 4);
+  const aimSun = (azimuth: number) => key.position.set(Math.sin(azimuth) * 4, 0.7, Math.cos(azimuth) * 4);
+  if (light) aimSun(light.azimuth);
   else key.position.set(2, 3, 4);
   scene.add(key);
 
@@ -343,6 +349,11 @@ export async function mountArtifact(
       view.angle = wrapAngle(view.angle + deltaYaw);
       view.pitch = wrapAngle(view.pitch + deltaPitch);
       applyPose(view);
+      view.needsRender = true;
+      schedule();
+    },
+    setLight(azimuth) {
+      aimSun(azimuth);
       view.needsRender = true;
       schedule();
     },

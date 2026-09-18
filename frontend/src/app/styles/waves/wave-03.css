@@ -1179,9 +1179,11 @@
   /* This wave's accent works as LIGHT rather than a stroke (DESIGN §10.2), so the floor profile glows instead of
      thickening — the same device as the tile's edge and the day in the calendar. */
   --sleep-trace-glow: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 65%, transparent));
-  /* The moon takes the same light. It is the SIGN of the tile, not its data, so the halo is cooler and
-     weaker than the profile's — and it follows the lit shape, so a crescent glows as a crescent. */
-  --sleep-moon-glow: drop-shadow(0 0 3px color-mix(in srgb, var(--sleep-awake) 42%, transparent));
+  /* The moon takes the same light, cooler and weaker: it is the tile's SIGN, not its data. Two passes
+     — a tight rim and the air around it — and both radii are in user units, so they scale with the
+     sign rather than with the screen. It rides the lit shape: a crescent glows as a crescent. §7.7 */
+  --sleep-moon-glow: drop-shadow(0 0 0.7px color-mix(in srgb, var(--sleep-awake) 52%, transparent))
+    drop-shadow(0 0 3.5px color-mix(in srgb, var(--sleep-awake) 26%, transparent));
   /* Chart series, from the canvas's own light sources like the sleep descent: the accent on steps,
      indigo on sleep, the code green on contributions. Three hues that share lightness, so the lit
      trace is told from the ghosts by BRIGHTNESS and the ghosts from each other by hue. */
@@ -1195,4 +1197,17 @@
 }
 :root[data-wave="wave-03"] .sleep-echo__unit {
   font-size: calc(var(--fs-band-meta) * 1.12);
+}
+
+/* With no sounding to hold, the Moon is the subject and brings its own edge. Remove only the empty
+   echo slab; a loaded sounding keeps the glass that supplies its transparent drawing with ground. */
+:root[data-wave="wave-03"] .pixel-tile.sleep-card--echo.sleep-card--empty {
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+:root[data-wave="wave-03"] .pixel-tile.sleep-card--echo.sleep-card--empty::before,
+:root[data-wave="wave-03"] .pixel-tile.sleep-card--echo.sleep-card--empty .pixel-lid,
+:root[data-wave="wave-03"] .pixel-tile.sleep-card--echo.sleep-card--empty::after {
+  display: none;
 }

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
@@ -39,6 +39,32 @@ function mount(over: { selected?: string; onSelectDay?: (d: string) => void } = 
       onSelectDay={over.onSelectDay}
     />,
   );
+}
+
+/** jsdom's pointer events carry no `pointerType`, and that field is the whole subject here. */
+function point(el: HTMLElement, type: string, pointerType: string, clientX: number) {
+  const ev = new Event(type, { bubbles: true });
+  Object.defineProperty(ev, "pointerType", { value: pointerType });
+  Object.defineProperty(ev, "clientX", { value: clientX });
+  fireEvent(el, ev);
+}
+
+/** The plot itself needs a measured box: hand one over, and the SVG — crosshair included — draws. */
+function mountMeasured() {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(private cb: ResizeObserverCallback) {}
+      observe(el: Element) {
+        this.cb([{ contentRect: { width: 420, height: 300 } } as ResizeObserverEntry], this);
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const view = mount();
+  vi.unstubAllGlobals();
+  return view;
 }
 
 describe("StatsTile — редакция «призраки»", () => {
@@ -145,6 +171,20 @@ describe("StatsTile — редакция «призраки»", () => {
     await userEvent.click(screen.getByRole("button", { name: "метрика: шаги" }));
     expect(screen.getByRole("button", { name: "метрика: шаги" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("тап пальцем не оставляет на графике перекрестие чужого дня", () => {
+    // A touch emits an emulated `mousemove` and then NEVER a `mouseleave`: the crosshair stuck on
+    // a day nobody chose, and beside the rail that read as the tap having moved the day.
+    const { container } = mountMeasured();
+    const plot = container.querySelector(".stats-ghosts") as HTMLElement;
+
+    point(plot, "pointermove", "mouse", 200);
+    expect(container.querySelector(".stats-ghosts__tip")).not.toBeNull();
+
+    point(plot, "pointerdown", "touch", 200);
+    point(plot, "pointermove", "touch", 240);
+    expect(container.querySelector(".stats-ghosts__tip")).toBeNull();
   });
 
   it("самый СТАРЫЙ день окна мышью не берётся — он утекает за левый край", async () => {

@@ -7,10 +7,11 @@ import { HoverTip } from "./HoverTip";
 import { NightBand } from "./NightBand";
 import { STAGE_COLOR } from "./nightGeometry";
 import { SleepEcho } from "./SleepEcho";
-import { SleepNoData } from "./SleepNoData";
+import { MOON_PHOTO_SRC, SleepNoData } from "./SleepNoData";
 import { sleepPhases } from "./sleepPhases";
 import { BedIcon, SleepBigIcon } from "./StatsIcons";
 import { TileShell, type TileState } from "./TileShell";
+import { useImageReady } from "./useImageReady";
 
 interface SleepTileProps {
   /** The selected day (the calendar's refocus) — the source of the duration and phases. */
@@ -62,6 +63,9 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
   // "Asleep–awake" arrives from the loaded night (see NightBand): the header is a tight fit by
   // meaning, but there it costs no separate line below the band, and vertical space is dear here.
   const [nightTimes, setNightTimes] = useState<string | null>(null);
+  // The echo edition is built around ONE bitmap — the Moon stands both over the night and instead
+  // of it — so the tile stays quiet until it is decoded: it appears whole or not at all. §7.10
+  const moonReady = useImageReady(MOON_PHOTO_SRC);
   const minutes = day?.health.sleepMinutes ?? null;
   const hasData = day != null && minutes !== null;
   // We draw the empty state ourselves, so TileShell is kept in "loaded".
@@ -72,14 +76,14 @@ export function SleepTile({ day, state, onRetry, edition, style, className }: Sl
   if (edition === "echo") {
     return (
       <TileShell
-        state={showEmpty ? "loaded" : state}
+        state={!moonReady ? "loading" : showEmpty ? "loaded" : state}
         onRetry={onRetry}
         ariaLabel="Сон"
         style={style}
-        className={`sleep-card--echo ${className ?? ""}`}
+        className={`sleep-card--echo${showEmpty ? " sleep-card--empty" : ""} ${className ?? ""}`}
       >
         {/* The moon is THIS edition's empty mark; the default one keeps its bed and caption. */}
-        {showEmpty && <SleepNoData date={day?.date} />}
+        {showEmpty && <SleepNoData date={day?.date} textured />}
         {/* The data key changes inside SleepEcho; keeping this instance preserves the finished graph
             while the next night travels, and avoids replaying its caption entrance delay. */}
         {hasData && (

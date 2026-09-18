@@ -58,7 +58,7 @@ export function SleepEcho({
     );
   }
   if (!night) {
-    return <SleepNoData date={date} />;
+    return <SleepNoData date={date} textured />;
   }
   return (
     <Sounding
@@ -295,7 +295,7 @@ function Sounding({
 
       <span className="sleep-echo__band">
         <span className="sleep-echo__head">
-          <SleepMoon date={date} />
+          <SleepMoon date={date} textured />
           {/* Numerals in the strip's own large step, units a step down and quieter: the full words
               fit once they stop competing with the number, and the number still reads first. */}
           <span key={date} className="sleep-echo__total">

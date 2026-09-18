@@ -147,30 +147,35 @@ describe("SleepTile — редакция «эхолот»", () => {
     const head = document.querySelector(".sleep-echo__head")!;
     expect(head.firstElementChild).toHaveClass("sleep-echo__moon");
     expect(head.lastElementChild).toHaveClass("sleep-echo__modes");
+    // The band's sign is the SAME photographed Moon as the empty tile's, only small: one moon in
+    // two sizes, not two different marks on one tile (DESIGN §7.7).
+    expect(head.querySelector('[data-testid="sleep-moon-photo"]')).not.toBeNull();
     // The phase is real, from the date. The lit edge is always a semicircle of the sign's radius,
     // while the terminator is an ellipse whose semi-axis follows the disc's projection onto the
     // light: at a quarter it is nearly zero, so the disc is split by almost a straight line.
-    const lit = head.querySelector(".sleep-echo__moon-lit")!;
-    const terminator = lit.getAttribute("d")!.match(/^M 0 -6 A 6 6 0 0 1 0 6 A ([\d.]+) 6 0 0 0 0 -6 Z$/);
+    const mask = head.querySelector("clipPath path")!;
+    const terminator = mask.getAttribute("d")!.match(/^M 0 -7 A 7 7 0 0 1 0 7 A ([\d.]+) 7 0 0 0 0 -7 Z$/);
     expect(terminator).not.toBeNull();
-    expect(Number(terminator![1])).toBeLessThan(1.5);
-    // A waxing moon is drawn unmirrored: the disc's right edge is lit.
-    expect(head.querySelector(".sleep-echo__moon-body")).not.toHaveAttribute("transform");
-    // Shading, maria and the limb are the sign's other layers; paint comes from gradients whose ids
-    // must be unique per instance, so each layer points at THIS copy's defs.
-    const mare = head.querySelector(".sleep-echo__moon-mare")!;
-    const clip = mare.getAttribute("clip-path")!.replace(/^url\(#/, "").replace(/\)$/, "");
-    expect(head.querySelector(`#${clip}`)).not.toBeNull();
-    expect(head.querySelector(".sleep-echo__moon-limb")).not.toBeNull();
+    expect(Number(terminator![1])).toBeLessThan(1.8);
+    // A waxing moon is unmirrored: the disc's right edge is lit.
+    expect(mask).not.toHaveAttribute("transform");
+    // The shadowed side is an OPAQUE body, not a hole: the sounding behind the band must not show
+    // through the moon. Its paint comes from a gradient in THIS copy's defs.
+    const shadow = head.querySelector(".sleep-moon__shadow")!;
+    const fill = shadow.getAttribute("fill")!.replace(/^url\(#/, "").replace(/\)$/, "");
+    expect(head.querySelector(`#${fill}`)).not.toBeNull();
+    expect(head.querySelector(".sleep-moon__limb")).not.toBeNull();
   });
 
   it("убывающую луну рисует тот же контур в зеркале", async () => {
     getSleepNightMock.mockResolvedValue(night("2024-02-02"));
     await mount("2024-02-02");
 
-    // The whole BODY mirrors, not the outline alone: shading and maria have to travel with the light.
-    expect(document.querySelector(".sleep-echo__moon-body")).toHaveAttribute("transform", "scale(-1 1)");
-    expect(document.querySelector(".sleep-echo__moon-lit")).not.toHaveAttribute("transform");
+    // Only the TERMINATOR mirrors: the near side of the Moon never turns away, so mirroring the
+    // photograph with it would carry the maria across the disc.
+    expect(document.querySelector("clipPath path")).toHaveAttribute("transform", "scale(-1 1)");
+    expect(document.querySelector(".sleep-moon__shadow")).toHaveAttribute("transform", "scale(-1 1)");
+    expect(document.querySelector(".sleep-moon__lit")).not.toHaveAttribute("transform");
   });
 
   it("переключатель показывает оба режима миниатюрами, а не называет их словами", async () => {

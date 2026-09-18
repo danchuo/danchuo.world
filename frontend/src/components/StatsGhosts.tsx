@@ -248,11 +248,18 @@ export function StatsGhosts({ history, selected, onSelect }: StatsGhostsProps) {
       role="group"
       aria-label={`График: ${metric.label}, ${n} дней. Стрелки влево и вправо — день, вверх и вниз — метрика.`}
       onKeyDown={onKeyDown}
-      onMouseMove={(e) => {
+      /* The crosshair answers a POINTER, and a finger is not one: a tap emits an emulated
+         `mousemove` and then never a `mouseleave`, so the tip stuck on a day nobody chose — beside
+         the rail that read as the tap having moved the day. Touch picks its day by the tap. */
+      onPointerMove={(e) => {
+        if (e.pointerType !== "mouse") return;
         const i = trackIndex(e.clientX, e.currentTarget);
         if (i !== hover) setHover(i);
       }}
-      onMouseLeave={() => setHover(null)}
+      onPointerDown={(e) => {
+        if (e.pointerType !== "mouse" && hover !== null) setHover(null);
+      }}
+      onPointerLeave={() => setHover(null)}
       onClick={(e) => {
         const i = trackIndex(e.clientX, e.currentTarget);
         if (i === null || !onSelect) return;

@@ -1182,6 +1182,16 @@
   /* The moon takes the same light. It is the SIGN of the tile, not its data, so the halo is cooler and
      weaker than the profile's — and it follows the lit shape, so a crescent glows as a crescent. */
   --sleep-moon-glow: drop-shadow(0 0 3px color-mix(in srgb, var(--sleep-awake) 42%, transparent));
+  /* Chart series, from the canvas's own light sources like the sleep descent: the accent on steps,
+     indigo on sleep, the code green on contributions. Three hues that share lightness, so the lit
+     trace is told from the ghosts by BRIGHTNESS and the ghosts from each other by hue. */
+  --stats-steps: var(--accent);
+  --stats-sleep: #9d8cff;
+  --stats-git: var(--accent-code);
+  /* The accent works as LIGHT in this wave (§10.2), so the lit trace glows instead of thickening
+     — the same device as the tile's edge, the calendar day and the sleep floor profile. */
+  --stats-lit-glow: drop-shadow(0 0 4px color-mix(in srgb, currentColor 60%, transparent));
+  --stats-floor: rgba(190, 230, 250, 0.08);
 }
 :root[data-wave="wave-03"] .sleep-echo__unit {
   font-size: calc(var(--fs-band-meta) * 1.12);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { DaySummary } from "@/lib/api/types";
 import { weekdayMondayIndex, weekdayShortRu } from "@/lib/date";
 import { formatSleepAxis, formatSleepShort, formatSteps, formatStepsAxis } from "@/lib/format";
@@ -12,8 +12,10 @@ import {
   visibleWindow,
   type SparkPoint,
 } from "./statsSparkline";
+import { StatsGhosts } from "./StatsGhosts";
 import { SleepIcon, StepsIcon } from "./StatsIcons";
 import { TileShell, type TileState } from "./TileShell";
+import { useBoxSize } from "./useBoxSize";
 
 interface StatsTileProps {
   /** History of days (old → new, "today" last), the source of the charts (DESIGN §7.4). */
@@ -22,6 +24,14 @@ interface StatsTileProps {
   selected: string;
   state: TileState;
   onRetry?: () => void;
+  /**
+   * The widget's edition (DESIGN §7.4, §10.1), chosen by the WAVE through the layout
+   * (`tiles.stats.edition`); the component knows nothing of waves. `ghosts` draws every metric at
+   * once with one lit (see [StatsGhosts]); an unknown name ⇒ the default two stacked bands.
+   */
+  edition?: string;
+  /** Taking a day from the chart: the keyboard and a click on the plot address a DAY (§5.3). */
+  onSelectDay?: (date: string) => void;
   style?: CSSProperties;
   className?: string;
 }
@@ -59,24 +69,6 @@ interface Metric {
   points: SparkPoint[];
   axisLabel: (v: number) => string;
   valueLabel: (v: number | null) => string;
-}
-
-/** Measurement of the chart container (px): the SVG is drawn in real pixels so points stay undistorted. */
-function useSize(): [React.RefObject<HTMLDivElement | null>, { w: number; h: number }] {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
-    const ro = new ResizeObserver(([e]) => {
-      const { width, height } = e.contentRect;
-      setSize({ w: width, h: height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, size];
 }
 
 /** Metric readout: icon and label (in colour), the selected day's value, and the window's average. */
@@ -128,7 +120,7 @@ function ContributionChip({ count }: { count: number | null }) {
  * per window. The wheel pages the window and yields at the edges; gaps stay breaks. DESIGN §7.4
  */
 function StatsCharts({ history, selected }: { history: DaySummary[]; selected: string }) {
-  const [boxRef, { w, h }] = useSize();
+  const [boxRef, { w, h }] = useBoxSize();
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
   const wheelAccum = useRef(0);
@@ -378,9 +370,33 @@ function StatsCharts({ history, selected }: { history: DaySummary[]; selected: s
  * Stats — activity (steps) and sleep over a period (DESIGN §7.4). Night detail and phases live in
  * the separate sleep tile (§7.7). An empty history, with neither steps nor sleep, says "no data".
  */
-export function StatsTile({ history, selected, state, onRetry, style, className }: StatsTileProps) {
+export function StatsTile({
+  history,
+  selected,
+  state,
+  onRetry,
+  edition,
+  onSelectDay,
+  style,
+  className,
+}: StatsTileProps) {
   const hasData = history.some((d) => d.steps !== null || d.sleepMinutes !== null);
   const effective: TileState = state === "loaded" && !hasData ? "empty" : state;
+
+  if (edition === "ghosts") {
+    return (
+      <TileShell
+        state={effective}
+        onRetry={onRetry}
+        ariaLabel="Статы — активность"
+        style={style}
+        className={`stats-card--ghosts ${className ?? ""}`}
+      >
+        {/* No label: this edition has no chrome at all, and the metric names itself in the band. */}
+        <StatsGhosts history={history} selected={selected} onSelect={onSelectDay} />
+      </TileShell>
+    );
+  }
 
   return (
     <TileShell

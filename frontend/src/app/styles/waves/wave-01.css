@@ -36,6 +36,12 @@
   --sleep-deep: var(--border-tile);
   --sleep-core: var(--text-secondary);
   --sleep-awake: var(--text-tertiary);
+  /* Chart series palette (DESIGN §7.4). The default is the board's shared colours, as with the
+     sleep descent above; a wave may redress the whole set, and a metric then changes colour in
+     every edition at once. Adding a metric adds its token here. */
+  --stats-steps: var(--accent);
+  --stats-sleep: var(--text-secondary);
+  --stats-git: var(--accent-code);
   --tile-line: 2px;
   /* The "box" (DESIGN §2.4): depth is TWO fully coincident cards of one silhouette, offset vertically.
      The upper one (line plus surface, the `.pixel-tile` pseudo-layers) is raised by `--tile-depth`, and

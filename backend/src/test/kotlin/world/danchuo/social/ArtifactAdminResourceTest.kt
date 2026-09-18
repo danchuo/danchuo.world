@@ -108,6 +108,48 @@ class ArtifactAdminResourceTest {
     }
 
     @Test
+    fun `model upload gives the artifact a served url`() {
+        val id = create("С моделью")
+
+        val url = given().header("Authorization", "Bearer $token")
+            .multiPart("model", glbFile())
+            .post("/api/ingest/artifacts/$id/model")
+            .then().statusCode(200)
+            .body("model3dUrl", notNullValue())
+            .extract().jsonPath().getString("model3dUrl")
+
+        given().get(url).then().statusCode(200).contentType("model/gltf-binary")
+        // The public list carries it: an item without a model is not in the shaft at all.
+        given().get("/api/artifacts").then().statusCode(200)
+            .body("find { it.id == $id }.model3dUrl", notNullValue())
+    }
+
+    @Test
+    fun `anything that is not a glb is refused`() {
+        val id = create("Не модель")
+
+        given().header("Authorization", "Bearer $token")
+            .multiPart("model", pngFile())
+            .post("/api/ingest/artifacts/$id/model")
+            .then().statusCode(400)
+            .body("error", equalTo("glb_required"))
+    }
+
+    @Test
+    fun `model can be taken back off the artifact`() {
+        val id = create("Снимем модель")
+        given().header("Authorization", "Bearer $token")
+            .multiPart("model", glbFile())
+            .post("/api/ingest/artifacts/$id/model")
+            .then().statusCode(200)
+
+        given().header("Authorization", "Bearer $token")
+            .delete("/api/ingest/artifacts/$id/model")
+            .then().statusCode(200)
+            .body("model3dUrl", equalTo(null))
+    }
+
+    @Test
     fun `broken date is rejected`() {
         given().header("Authorization", "Bearer $token")
             .contentType("application/json")
@@ -130,6 +172,21 @@ class ArtifactAdminResourceTest {
         .then().statusCode(201)
         .extract().jsonPath().getLong("id")
         .also { created += it }
+
+    /** The smallest thing that is honestly a GLB: the container header plus an empty JSON chunk. */
+    private fun glbFile(): File {
+        val json = """{"asset":{"version":"2.0"}}""".toByteArray().let {
+            it + ByteArray((4 - it.size % 4) % 4) { ' '.code.toByte() }
+        }
+        val buffer = java.nio.ByteBuffer.allocate(20 + json.size)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        buffer.put("glTF".toByteArray()).putInt(2).putInt(20 + json.size)
+        buffer.putInt(json.size).put("JSON".toByteArray()).put(json)
+        val file = File.createTempFile("artifact", ".glb")
+        file.writeBytes(buffer.array())
+        file.deleteOnExit()
+        return file
+    }
 
     private fun pngFile(): File {
         val img = BufferedImage(24, 24, BufferedImage.TYPE_INT_RGB)

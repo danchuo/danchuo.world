@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: средняя колонка сдвигается вправо (хэнд-тюн владельца).
+
+      Статы и календарь едут на два трека (19 → 21), артефакты на один (12 → 13). Размеры не
+      тронуты ни у одной плитки — это чистый сдвиг: слева расширяется канал между «последним
+      дропом» и серединой борда, справа статы и календарь встают ближе к колонке сна и велобайка.
+
+      Столкновений нет: статы 21..29 расходятся со сном (33..40), календарь 21..29 — с велобайком
+      (34..40), артефакты 13..19 упираются в календарь только через пустой трек 20.
+    -->
+    <changeSet id="0950-wave-03-shift-right" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,stats,col}', '21'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,calendar,col}', '21'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,marquee,col}', '13'::jsonb) WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,stats,col}', '19'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,calendar,col}', '19'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,marquee,col}', '12'::jsonb) WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

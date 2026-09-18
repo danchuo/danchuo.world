@@ -17,6 +17,7 @@ import java.time.LocalDate
 class ArtifactAdminService(
     private val artifacts: ArtifactRepository,
     private val images: ArtifactImageStorage,
+    private val models: ArtifactModelStorage,
     private val cheapLlm: GroqLlmClient,
 ) {
 
@@ -51,6 +52,7 @@ class ArtifactAdminService(
         val a = artifacts.findById(id) ?: return@tx false
         artifacts.delete(a)
         images.delete(id)
+        models.delete(id)
         true
     }
 
@@ -61,6 +63,29 @@ class ArtifactAdminService(
         return tx {
             artifacts.findById(id)?.let { a ->
                 a.imageUrl = images.urlOf(id)
+                view(a)
+            }
+        }
+    }
+
+    /** Accepts an uploaded `.glb` and binds its URL to the artifact. Anything else is refused. */
+    fun putModel(id: Long, file: Path): AdminArtifactView? {
+        artifacts.findById(id) ?: return null
+        models.putFile(id, file)
+        return tx {
+            artifacts.findById(id)?.let { a ->
+                a.model3dUrl = models.urlOf(id)
+                view(a)
+            }
+        }
+    }
+
+    fun deleteModel(id: Long): AdminArtifactView? {
+        artifacts.findById(id) ?: return null
+        models.delete(id)
+        return tx {
+            artifacts.findById(id)?.let { a ->
+                a.model3dUrl = null
                 view(a)
             }
         }
@@ -95,6 +120,7 @@ class ArtifactAdminService(
         firstMentionedOn = a.firstMentionedOn.toString(),
         rotatable = a.rotatable,
         detectionHint = a.detectionHint,
+        model3dUrl = a.model3dUrl,
     )
 
     private fun <T> tx(block: () -> T): T = QuarkusTransaction.requiringNew().call(block)

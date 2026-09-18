@@ -14,7 +14,21 @@ import jakarta.ws.rs.core.Response
 @Path("/api/artifact-media")
 class ArtifactMediaResource(
     private val storage: ArtifactImageStorage,
+    private val models: ArtifactModelStorage,
 ) {
+
+    /**
+     * The item's 3D model. Cached longer than the picture: a model is uploaded once and rarely
+     * redrawn, while its URL carries `?v=` anyway, so a replacement arrives as a new address.
+     */
+    @GET
+    @Path("/{id}/model")
+    fun model(@PathParam("id") id: Long): Response {
+        val bytes = models.get(id)
+            ?: return Response.status(Response.Status.NOT_FOUND).build()
+        val cache = CacheControl().apply { maxAge = 86400 }
+        return Response.ok(bytes, "model/gltf-binary").cacheControl(cache).build()
+    }
 
     @GET
     @Path("/{id}")

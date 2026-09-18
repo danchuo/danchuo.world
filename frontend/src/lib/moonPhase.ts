@@ -27,6 +27,15 @@ export function moonPhase(date: string): MoonPhase | null {
 }
 
 /**
+ * Where the sun stands for this phase, in radians about the vertical: 0 is behind the viewer (full
+ * moon), π behind the Moon (new), +π/2 to its right (waxing quarter). A sphere lit from there
+ * shows the phase as real geometry instead of a mask over a picture. DESIGN §7.7
+ */
+export function moonLightAzimuth(cycle: number): number {
+  return (0.5 - cycle) * 2 * Math.PI;
+}
+
+/**
  * Outline of the lit part of a disc, for a waxing moon; a waning one is the same path mirrored.
  * The lit edge is always a semicircle while the terminator is an ellipse whose semi-axis is the
  * circle's projection. The sweep flag tells the two apart, or a full moon draws as an empty path.

@@ -210,12 +210,16 @@ export function todayIso(): string {
 }
 
 /** Human-readable admin API error. */
+/** Codes worth a human sentence rather than a code: the answer is not obvious from the name. */
+const HUMAN_ERRORS: Record<string, string> = {
+  glb_required: "нужен .glb: .gltf ссылается на соседние файлы и в одиночку не приедет",
+};
+
 export function describe(e: unknown): string {
-  return e instanceof AdminApiError
-    ? e.status === 401
-      ? "неверный токен"
-      : `ошибка ${e.status}${e.errorCode ? ` (${e.errorCode})` : ""}`
-    : "сеть недоступна";
+  if (!(e instanceof AdminApiError)) return "сеть недоступна";
+  if (e.status === 401) return "неверный токен";
+  const human = e.errorCode ? HUMAN_ERRORS[e.errorCode] : undefined;
+  return human ?? `ошибка ${e.status}${e.errorCode ? ` (${e.errorCode})` : ""}`;
 }
 
 /** Orientation status below the photo grid heading. */

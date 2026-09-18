@@ -59,6 +59,27 @@ class ArtifactAdminResource(
     }
 
     /**
+     * Binds a 3D model to the item. `.glb` only — a `.gltf` is JSON plus neighbouring files, and
+     * one upload cannot carry them. Wave 03 shows in the shaft only items that have one.
+     */
+    @POST
+    @Path("/{id}/model")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Produces(MediaType.APPLICATION_JSON)
+    fun uploadModel(@PathParam("id") id: Long, @RestForm("model") model: FileUpload?): Response {
+        model ?: return badRequest("model_required")
+        return guarded {
+            service.putModel(id, model.uploadedFile())?.let { Response.ok(it).build() } ?: notFound()
+        }
+    }
+
+    @DELETE
+    @Path("/{id}/model")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun deleteModel(@PathParam("id") id: Long): Response =
+        service.deleteModel(id)?.let { Response.ok(it).build() } ?: notFound()
+
+    /**
      * Describes an item from its picture with a cheap model. An empty reply (`hint: null`) is
      * normal: the model is unconfigured or stayed silent, and the field is filled by hand.
      */

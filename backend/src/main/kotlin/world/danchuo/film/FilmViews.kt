@@ -53,6 +53,11 @@ data class ArtifactBoxView(
      * flag as the marquee (DESIGN §7.2): it permits, the picture's ratio decides, on the frontend.
      */
     val rotatable: Boolean,
+    /**
+     * The item's `.glb`, when it has one. The card over a find then shows the THING, turning under
+     * the hand, instead of its cut-out picture — the same model the shaft carries (DESIGN §7.5).
+     */
+    val model3dUrl: String?,
     val x0: Double,
     val y0: Double,
     val x1: Double,

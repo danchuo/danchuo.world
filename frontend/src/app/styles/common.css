@@ -486,6 +486,36 @@ body {
   white-space: normal;
 }
 
+/* The shaft's caption (DESIGN §7.2): the front object's name, and nothing else — the date belongs to
+   the card. It is the tile's only text and its keyboard control, so it lights up like a link under the
+   cursor while staying quiet at rest, leaving the object itself the loudest thing in the tile. */
+.artifact-shaft__name {
+  /* Mounted only once the object is up (§7.2), so the entry starts right here, with no delay. */
+  animation: caption-in 260ms ease both;
+  /* One line whatever the name's length: a second one climbs onto the object, and the caption's
+     height would then change at every step of the shaft. The name in full is in the card. */
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-title);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  transition: color 160ms ease;
+}
+.artifact-shaft__name:hover,
+.artifact-shaft__name:focus-visible {
+  color: var(--text-primary);
+}
+
 /* prefers-reduced-motion: lift, shadows and shimmer freeze (DESIGN §2.3, §9). Global and
    `!important` — beats any wave's animations whatever the import order. */
 @media (prefers-reduced-motion: reduce) {
@@ -2885,6 +2915,35 @@ button.sleep-echo:focus-visible {
   height: calc(var(--fs-sleep-total) * 3.6);
   overflow: visible;
 }
+/* The Moon as a body takes more room than its drawn sign: a sphere reads by its relief, and the
+   craters along the terminator are the whole point of showing it round. */
+.sleep-empty__moon--model {
+  position: relative;
+  /* Waits for the body and then arrives, with the same entrance every caption uses: the night's
+     mark replaces a tile full of numbers, and a swap without a step reads as a flicker. */
+  opacity: 0;
+  width: calc(var(--fs-sleep-total) * 5);
+  height: calc(var(--fs-sleep-total) * 5);
+}
+/* ⚠️ The halo is cast by a CIRCLE of the body's own size, not by a gradient in a square: a blurred
+   gradient is clipped by its element and shows up as a bluish rectangle around the moon. It shifts
+   towards the sun (`--moon-glare-dx`), so the light gathers on the lit limb. */
+.sleep-empty__moon--model::before {
+  content: "";
+  position: absolute;
+  inset: 2%;
+  border-radius: 50%;
+  box-shadow: 0 0 13px -2px color-mix(in srgb, var(--sleep-awake, var(--text-secondary)) 22%, transparent);
+  transform: translateX(var(--moon-glare-dx, 0));
+  pointer-events: none;
+}
+.sleep-empty__moon--model[data-ready] {
+  animation: caption-in 320ms ease both;
+}
+.sleep-empty__moon--model > canvas {
+  position: relative;
+}
+
 /* The photographed Moon's own layers, at either size (see `SleepMoonPhoto`). The halo is cast by the
    lit shape — a crescent glows as a crescent — in user units, so it scales with the sign. Its own
    body never shows: the opaque disc is drawn over it, leaving only the spill past the limb. */
@@ -2980,9 +3039,10 @@ button.sleep-echo:focus-visible {
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* Both the legend and the axis ends enter AFTER the bricks have resorted, by the same rule as the floor
-   profile: until then the picture they caption is still moving. Leaving is instant, with the unmount. */
-@keyframes sleep-echo-caption-in {
+/* Shared by every caption that waits for its picture: the sleep legend for the bricks to resort, the
+   shaft's name for its object to arrive. A caption standing over a picture that is still coming (or not
+   there yet at all) reads as a half-loaded tile. Leaving is instant, with the unmount. */
+@keyframes caption-in {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -2994,7 +3054,7 @@ button.sleep-echo:focus-visible {
 }
 .sleep-echo__phases,
 .sleep-echo__bounds {
-  animation: sleep-echo-caption-in 260ms ease var(--sleep-echo-ms, 720ms) both;
+  animation: caption-in 260ms ease var(--sleep-echo-ms, 720ms) both;
 }
 /* Stretched over the plot on purpose: the animation puts a `transform` here, which would otherwise make
    this span the containing block for the two ends and collapse them into its zero-width box. */
@@ -4109,12 +4169,74 @@ button.sleep-echo:focus-visible {
   margin: -5px 0;
   transform: rotate(90deg);
 }
+/* The slot for an item that brought its own model: SQUARE, unlike the picture's landscape one.
+   The scene places the thing by its bounding sphere, so a square slot fits any of them. §12.5 */
+.artifact-card__model {
+  display: block;
+  width: 52px;
+  height: 52px;
+}
 .artifact-card__name {
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.4;
   color: var(--text-primary);
   white-space: nowrap;
+}
+
+/* The find's own column BESIDE the frame (reel edition, DESIGN §7.5). The thing stands on the
+   scene's own ground, so it needs no plate: only the name has to stay readable, and a shadow does
+   that without putting a card under it. */
+.artifact-finds {
+  position: absolute;
+  left: calc(100% + 26px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  width: 132px;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  pointer-events: none;
+}
+.artifact-find {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: caption-in 220ms ease both;
+}
+/* One SQUARE slot for both a model and a picture: a pair of finds must not change size depending
+   on which of them happens to carry a model, and a square fits any thing either way. */
+.artifact-find__face {
+  display: block;
+  width: 104px;
+  height: 104px;
+  object-fit: contain;
+}
+.artifact-find__name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-secondary);
+  text-shadow: 0 1px 7px var(--bg-page);
+}
+/* No room beside the frame ⇒ the column moves onto it, into the corner. Still no plate: the name
+   keeps its shadow, which is what made the plate unnecessary in the first place. */
+@media (max-width: 1080px) {
+  .artifact-finds {
+    left: auto;
+    right: 10px;
+    top: auto;
+    bottom: 10px;
+    width: 92px;
+    transform: none;
+  }
+  .artifact-find__face {
+    width: 72px;
+    height: 72px;
+  }
 }
 
 /* Pixel pins on the Velobike mini-map (RideMap, DESIGN §7.6, §12): the sprite is drawn in a small grid and scaled
@@ -4500,4 +4622,17 @@ button.sleep-echo:focus-visible {
    named the wait without shortening it — a widget appears once, already filled. DESIGN §7.10 */
 .tile-shell[data-quiet] {
   visibility: hidden;
+}
+
+/* The artifact card's scene (DESIGN §7.2): a darkening layer under the content rather than a ground on
+   the panel, so a wave can turn the whole screen to glass by adding one backdrop-filter here. */
+.artifact-scene::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--modal-scrim, rgba(33, 26, 22, 0.72));
+}
+.artifact-modal__panel {
+  position: relative;
+  max-width: min(94vw, 620px);
 }

@@ -10,7 +10,9 @@ import {
   scanArtifactsEverywhere,
   suggestArtifactHint,
   updateArtifact,
+  deleteArtifactModel,
   uploadArtifactImage,
+  uploadArtifactModel,
 } from "@/lib/api/admin";
 import type { AdminArtifactView, ArtifactInput, ArtifactScanRunView } from "@/lib/api/types";
 import {
@@ -129,6 +131,33 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
       await uploadArtifactImage(token, id, file);
       await load();
       setNotice("картинка загружена");
+    } catch (e) {
+      onError(describe(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onModel(id: number, file: File) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await uploadArtifactModel(token, id, file);
+      await load();
+      setNotice("модель загружена — предмет встанет в шахту");
+    } catch (e) {
+      onError(describe(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onModelOff(id: number) {
+    setBusy(true);
+    try {
+      await deleteArtifactModel(token, id);
+      await load();
+      setNotice("модель снята — предмет ушёл из шахты");
     } catch (e) {
       onError(describe(e));
     } finally {
@@ -366,6 +395,35 @@ export function ArtifactSection({ token, onError }: ArtifactSectionProps) {
                 }}
               />
             </label>
+            {/* `.glb` only, and the file picker says so: a `.gltf` is JSON plus neighbouring
+                files, so uploaded alone it would arrive as half a model. DESIGN §12.5 */}
+            <label
+              style={{ ...secondaryBtnStyle, cursor: "pointer" }}
+              title={a.model3dUrl ? "заменить .glb" : "загрузить .glb — предмет встанет в шахту"}
+            >
+              {a.model3dUrl ? "модель ✓" : "модель"}
+              <input
+                type="file"
+                accept=".glb,model/gltf-binary"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void onModel(a.id, f);
+                }}
+              />
+            </label>
+            {a.model3dUrl && (
+              <button
+                type="button"
+                style={secondaryBtnStyle}
+                onClick={() => void onModelOff(a.id)}
+                disabled={busy}
+                title="снять модель — предмет уйдёт из шахты"
+              >
+                снять 3D
+              </button>
+            )}
             <button
               type="button"
               style={secondaryBtnStyle}

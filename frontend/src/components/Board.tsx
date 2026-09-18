@@ -385,7 +385,9 @@ function BoardTile({
     case "social":
       return <SocialTile edition={edition} style={style} className={className} />;
     case "marquee":
-      return <ArtifactMarquee orientation={orientation} style={style} className={className} />;
+      return (
+        <ArtifactMarquee orientation={orientation} edition={edition} style={style} className={className} />
+      );
     case "hero":
       return <HeroTile style={style} className={className} />;
     case "photoDrops":

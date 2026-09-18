@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFrameClock, fitDistance, is3dArtifact, nextSpin, rewindSpin } from "./artifact3d";
+import { createFrameClock, fitDistance, is3dArtifact, nextSpin, rewindSpin, wrapAngle } from "./artifact3d";
 
 describe("is3dArtifact", () => {
   it("узнаёт glTF по расширению, включая регистр и хвост запроса", () => {
@@ -134,5 +134,21 @@ describe("rewindSpin", () => {
     // As many frames as it spun, plus at most one to make up the epsilon.
     expect(frames).toBeGreaterThanOrEqual(40);
     expect(frames).toBeLessThanOrEqual(41);
+  });
+});
+
+describe("wrapAngle", () => {
+  it("keeps an angle inside one turn", () => {
+    expect(wrapAngle(0)).toBe(0);
+    expect(wrapAngle(Math.PI)).toBeCloseTo(Math.PI, 10);
+    expect(wrapAngle(2 * Math.PI + 0.5)).toBeCloseTo(0.5, 10);
+  });
+
+  it("brings a backward turn round to the positive side", () => {
+    expect(wrapAngle(-0.5)).toBeCloseTo(2 * Math.PI - 0.5, 10);
+  });
+
+  it("drops whole turns, which the pose cannot show anyway", () => {
+    expect(wrapAngle(10 * Math.PI)).toBeCloseTo(0, 10);
   });
 });

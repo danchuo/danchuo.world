@@ -20,12 +20,20 @@ export function fitDistance(radius: number, fovDeg: number, padding: number): nu
 /** Clamp frame deltas so returning from a suspended tab cannot jump through many turns. */
 const MAX_STEP_MS = 100;
 
+/**
+ * Keep an angle inside one turn. Whole turns are indistinguishable in the object's pose, and
+ * storing them would make a later rewind unwind revolutions nobody can see. DESIGN §12.5
+ */
+export function wrapAngle(angle: number): number {
+  const wrapped = angle % (2 * Math.PI);
+  return wrapped < 0 ? wrapped + 2 * Math.PI : wrapped;
+}
+
 /** Advance the angle in radians at rpm for deltaMs, wrapping within one turn. */
 export function nextSpin(angle: number, deltaMs: number, rpm: number): number {
   const step = Math.min(deltaMs, MAX_STEP_MS);
   const turns = (rpm * step) / 60_000;
-  const next = (angle + turns * 2 * Math.PI) % (2 * Math.PI);
-  return next < 0 ? next + 2 * Math.PI : next;
+  return wrapAngle(angle + turns * 2 * Math.PI);
 }
 
 /** Rewind the visible angle at the forward speed, stopping at zero without replaying completed turns. */

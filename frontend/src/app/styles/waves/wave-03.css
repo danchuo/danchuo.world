@@ -1053,7 +1053,8 @@
 /* §10.1 stands: what is switched off is not "modals in general" but the material of ONE panel on ONE wave.
  * Wave 01 with its box and wave 02 with its cloud card are untouched. */
 :root[data-wave="wave-03"] .drop-modal__panel,
-:root[data-wave="wave-03"] .ride-modal__panel {
+:root[data-wave="wave-03"] .ride-modal__panel,
+:root[data-wave="wave-03"] .artifact-modal__panel {
   background: none;
   /* The border is transparent rather than removed: its width stays in the layout, so the frame does not jump. */
   border-color: transparent;
@@ -1153,7 +1154,8 @@
 /* The size is now shared ON SCREEN rather than in the declaration: both shares count from THEIR OWN tile's
    width (§8.1), and the tiles differ, so one declaration gave smaller text on the map than on the photo. The
    coefficient comes from a measurement at 1536px — a 411px drop tile and a 260px Velobike tile both give 13.6px. */
-:root[data-wave="wave-03"] .ride-frame__caption {
+:root[data-wave="wave-03"] .ride-frame__caption,
+:root[data-wave="wave-03"] .artifact-shaft__caption {
   --fs-band-title: clamp(11px, calc(6.5px + 2.74cqw), 28px);
   --fs-band-meta: var(--fs-band-title);
 }
@@ -1210,4 +1212,60 @@
 :root[data-wave="wave-03"] .pixel-tile.sleep-card--echo.sleep-card--empty .pixel-lid,
 :root[data-wave="wave-03"] .pixel-tile.sleep-card--echo.sleep-card--empty::after {
   display: none;
+}
+
+/* Artifacts tile (DESIGN §7.2, shaft edition): no plate at all. The objects and their name stand straight on
+   the canvas, the same trade the drops strip and the Velobike map already take on this wave. */
+:root[data-wave="wave-03"] [data-tile-id="marquee"] .pixel-tile {
+  background: none;
+  box-shadow: none;
+  /* The edge goes with the plate rather than outliving it: a lone border around a transparent tile
+     reads as a frame drawn around nothing, and the shaft's depth ran into it at the far end. */
+  border: none;
+}
+:root[data-wave="wave-03"] [data-tile-id="marquee"] .pixel-tile::before,
+:root[data-wave="wave-03"] [data-tile-id="marquee"] .pixel-tile .pixel-lid,
+:root[data-wave="wave-03"] [data-tile-id="marquee"] .pixel-tile::after {
+  display: none;
+}
+
+/* The name lights up rather than merely brightening: the accent works as LIGHT on this wave (§10.2),
+   the same device as the tile's edge and the lit calendar day. */
+:root[data-wave="wave-03"] .artifact-shaft__name:hover,
+:root[data-wave="wave-03"] .artifact-shaft__name:focus-visible {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* The artifact card blurs the SCREEN, not the panel's rectangle — same seam as the drop gallery above. */
+:root[data-wave="wave-03"] .artifact-scene::before {
+  -webkit-backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
+  backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
+}
+
+/* Find on a frame, wave 03 (DESIGN §7.5). An ELLIPSE of light instead of a box: a rectangle drawn
+   over a photograph reads as a sticker on it, and the accent works as light on this wave (§10.2).
+   Under the hand the light comes up; the rest of the time it only hints. */
+:root[data-wave="wave-03"] .artifact-box {
+  /* Colder and paler than the accent itself: a lamp on the photograph, not another piece of UI. */
+  --find-light: color-mix(in srgb, var(--accent) 34%, var(--text-primary));
+  border: none;
+  border-radius: 50%;
+  /* The ellipse inscribed in the find's rectangle cuts its corners; a little growth returns them. */
+  transform: scale(1.07);
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--find-light) 17%, transparent) 0%,
+    transparent 70%
+  );
+  /* ⚠️ A hairline edge as well as the glow: added light alone vanishes over a bright frame, and
+     the find has to be findable on any photograph, not only on a dark one. */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--find-light) 46%, transparent),
+    0 0 18px color-mix(in srgb, var(--find-light) 26%, transparent);
+  /* Opacity rather than a second gradient: a background-image does not transition. */
+  opacity: 0.66;
+  transition: opacity 200ms ease;
+}
+:root[data-wave="wave-03"] .artifact-box[data-shown] {
+  opacity: 1;
 }

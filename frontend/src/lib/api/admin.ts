@@ -221,6 +221,32 @@ export async function uploadArtifactImage(
   return (await res.json()) as AdminArtifactView;
 }
 
+/** `.glb` only — the backend checks the file's own header and refuses anything else. */
+export async function uploadArtifactModel(
+  token: string,
+  id: number,
+  model: File,
+): Promise<AdminArtifactView> {
+  const form = new FormData();
+  form.append("model", model);
+  const res = await fetch(`${BASE}/api/ingest/artifacts/${id}/model`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: form,
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminArtifactView;
+}
+
+export async function deleteArtifactModel(token: string, id: number): Promise<AdminArtifactView> {
+  const res = await fetch(`${BASE}/api/ingest/artifacts/${id}/model`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AdminArtifactView;
+}
+
 /** Ask the model for an artifact hint; null is normal when unconfigured or unanswered, so manual input remains available. */
 export async function suggestArtifactHint(token: string, id: number): Promise<string | null> {
   const res = await fetch(`${BASE}/api/ingest/artifacts/${id}/hint`, {

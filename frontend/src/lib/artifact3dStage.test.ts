@@ -1,0 +1,182 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const loadAsync = vi.fn();
+
+vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => ({
+  GLTFLoader: class {
+    loadAsync = loadAsync;
+  },
+}));
+
+vi.mock("three", () => {
+  class Vector3 {
+    x = 0;
+    y = 0;
+    z = 0;
+    set() {
+      return this;
+    }
+    sub() {
+      return this;
+    }
+  }
+  class Object3D {
+    children: Object3D[] = [];
+    position = new Vector3();
+    rotation = { order: "XYZ", set: vi.fn() };
+    add(child: Object3D) {
+      this.children.push(child);
+      return this;
+    }
+    traverse(visit: (obj: Object3D) => void) {
+      visit(this);
+      for (const child of this.children) child.traverse(visit);
+    }
+  }
+  class PerspectiveCamera extends Object3D {
+    aspect = 1;
+    lookAt = vi.fn();
+    updateProjectionMatrix = vi.fn();
+  }
+  class Sphere {
+    center = new Vector3();
+    radius = 1;
+  }
+  return {
+    Scene: Object3D,
+    Group: Object3D,
+    AmbientLight: Object3D,
+    DirectionalLight: Object3D,
+    PerspectiveCamera,
+    Sphere,
+    Box3: class {
+      setFromObject() {
+        return this;
+      }
+      getBoundingSphere(target: Sphere) {
+        return target;
+      }
+    },
+    AnimationMixer: class {
+      clipAction() {
+        return { play: vi.fn() };
+      }
+      update = vi.fn();
+    },
+    Color: class {},
+    MeshStandardMaterial: class {},
+    WebGLRenderer: class {
+      domElement = { width: 8, height: 8 };
+      setClearAlpha = vi.fn();
+      setSize = vi.fn();
+      render = vi.fn();
+      dispose = vi.fn();
+      forceContextLoss = vi.fn();
+    },
+  };
+});
+
+function fakeCanvas(): HTMLCanvasElement {
+  const ctx = { drawImage: vi.fn(), clearRect: vi.fn(), globalCompositeOperation: "source-over" };
+  return { width: 32, height: 32, getContext: () => ctx } as unknown as HTMLCanvasElement;
+}
+
+/** One parse's worth of GPU resources, with the handles a disposal has to reach. */
+function fakeModel() {
+  const geometry = { dispose: vi.fn() };
+  const texture = { isTexture: true, dispose: vi.fn() };
+  const material = { map: texture, dispose: vi.fn() };
+  const node = (): unknown => ({
+    isMesh: true,
+    geometry,
+    material,
+    position: { sub: vi.fn() },
+    traverse(visit: (obj: unknown) => void) {
+      visit(this);
+    },
+    clone() {
+      return node();
+    },
+  });
+  return {
+    geometry,
+    texture,
+    material,
+    gltf: { scene: node(), animations: [], parser: { json: { materials: [{}] } } },
+  };
+}
+
+beforeEach(() => {
+  vi.resetModules();
+  vi.clearAllMocks();
+  vi.stubGlobal("requestAnimationFrame", () => 1);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+async function stage() {
+  return import("./artifact3dStage");
+}
+
+describe("mountArtifact: одна модель на всех", () => {
+  it("два предмета одного адреса разбирают файл один раз", async () => {
+    loadAsync.mockImplementation(async () => fakeModel().gltf);
+    const { mountArtifact } = await stage();
+
+    await mountArtifact(fakeCanvas(), { src: "/m.glb" });
+    await mountArtifact(fakeCanvas(), { src: "/m.glb" });
+
+    expect(loadAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("разные адреса делят только код, но не разбор", async () => {
+    loadAsync.mockImplementation(async () => fakeModel().gltf);
+    const { mountArtifact } = await stage();
+
+    await mountArtifact(fakeCanvas(), { src: "/a.glb" });
+    await mountArtifact(fakeCanvas(), { src: "/b.glb" });
+
+    expect(loadAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it("пока модель носит хоть кто-то, с видеопамяти её не снимают", async () => {
+    const model = fakeModel();
+    loadAsync.mockResolvedValue(model.gltf);
+    const { mountArtifact } = await stage();
+
+    const first = await mountArtifact(fakeCanvas(), { src: "/m.glb" });
+    const second = await mountArtifact(fakeCanvas(), { src: "/m.glb" });
+
+    first.dispose();
+    await flush();
+    expect(model.geometry.dispose).not.toHaveBeenCalled();
+
+    second.dispose();
+    // Freeing waits on the parse: a view may be dropped while the file is still travelling.
+    await flush();
+    expect(model.geometry.dispose).toHaveBeenCalledTimes(1);
+    // A material does not free its maps, and a texture left behind is the heaviest thing on the card.
+    expect(model.texture.dispose).toHaveBeenCalledTimes(1);
+    expect(model.material.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("адрес, оставшийся без носителей, при следующем показе читают заново", async () => {
+    loadAsync.mockImplementation(async () => fakeModel().gltf);
+    const { mountArtifact } = await stage();
+
+    (await mountArtifact(fakeCanvas(), { src: "/m.glb" })).dispose();
+    await mountArtifact(fakeCanvas(), { src: "/m.glb" });
+
+    expect(loadAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it("сорвавшийся файл не запоминается ответом — следующий предмет пробует снова", async () => {
+    loadAsync.mockRejectedValueOnce(new Error("нет файла"));
+    loadAsync.mockImplementation(async () => fakeModel().gltf);
+    const { mountArtifact } = await stage();
+
+    await expect(mountArtifact(fakeCanvas(), { src: "/m.glb" })).rejects.toThrow();
+    await expect(mountArtifact(fakeCanvas(), { src: "/m.glb" })).resolves.toBeTruthy();
+  });
+});

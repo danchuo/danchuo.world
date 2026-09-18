@@ -2589,6 +2589,9 @@ body {
   padding: 0;
 }
 .sleep-echo {
+  /* The night's figure sits a step ABOVE the board's shared sleep step: here it is the tile's whole
+     answer, while `--fs-sleep-total` also serves the stats figure, which stands among neighbours. */
+  --sleep-total-size: calc(var(--fs-sleep-total) * 1.14);
   --sleep-plot-lift: calc(4% + 1px);
   --sleep-mode-gap: 2px;
   --sleep-duration-gap: 8px;
@@ -2780,7 +2783,9 @@ button.sleep-echo:focus-visible {
   /* Reversed, so the FIRST child sits at the bottom: the duration is the strip's anchor and must not
      move when the legend arrives, while DOM order still reads duration before its breakdown. */
   flex-direction: column-reverse;
-  gap: 0.3em;
+  /* Tight to the duration on purpose: the legend qualifies the number, not the drawing, and the wider
+     gap read as a caption belonging to the sounding's floor right above it. */
+  gap: 0.12em;
   /* Top of the band above the caption; below the feather, blur and scrim are already full. Band height is
      feather plus caption, so a long caption deepens it by itself with nothing measured. */
   padding: var(--sleep-band-feather) var(--sleep-band-inset) 12px;
@@ -2860,7 +2865,7 @@ button.sleep-echo:focus-visible {
 .sleep-echo__total {
   /* Its own size step, larger than the band: this number answers "how did I sleep" and has to read first,
      rather than level with the night's bounds and the phases. */
-  font-size: var(--fs-sleep-total);
+  font-size: var(--sleep-total-size);
   color: var(--text-primary);
   line-height: 1.2;
   white-space: nowrap;
@@ -2880,17 +2885,31 @@ button.sleep-echo:focus-visible {
   height: calc(var(--fs-sleep-total) * 3.6);
   overflow: visible;
 }
+/* The photographed Moon's own layers, at either size (see `SleepMoonPhoto`). The halo is cast by the
+   lit shape — a crescent glows as a crescent — in user units, so it scales with the sign. Its own
+   body never shows: the opaque disc is drawn over it, leaving only the spill past the limb. */
+.sleep-moon__glow {
+  fill: var(--sleep-awake, var(--text-secondary));
+  filter: var(--sleep-moon-glow, none);
+}
+.sleep-moon__limb {
+  fill: none;
+  stroke: var(--sleep-awake, var(--text-secondary));
+  stroke-width: 0.14;
+  opacity: 0.28;
+}
 /* Moon over the night — the subject mark at the head of the band (see `SleepMoon`): the edition has no word
    "sleep", and before the mark the band began straight with a number. Sized from the number itself rather
    than in pixels: it stands beside it and has to change with it. */
 .sleep-echo__moon {
   display: block;
-  /* Below the number's own line box (×1.2), so growing the sign cannot make the strip taller and move
-     the duration it stands beside. */
-  width: calc(var(--fs-sleep-total) * 1.05);
-  height: calc(var(--fs-sleep-total) * 1.05);
+  /* It may now stand a little PROUD of the number's line box (×1.2): the band is anchored to its
+     bottom edge, so the extra height is taken upwards and the duration does not sink. DESIGN §7.7 */
+  width: calc(var(--sleep-total-size) * 1.24);
+  height: calc(var(--sleep-total-size) * 1.24);
+  /* Dead level with the number, by their centres: the sign grew, and a nudge that once rescued a
+     20px glyph now only drops the moon below the line it is supposed to stand on. */
   align-self: center;
-  transform: translateY(1px);
   flex: 0 0 auto;
   overflow: visible;
 }

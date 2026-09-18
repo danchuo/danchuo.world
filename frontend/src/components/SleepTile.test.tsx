@@ -149,6 +149,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
       expect(screen.getByTestId("sleep-empty")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("sleep-moon")).toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-moon-photo")).not.toBeInTheDocument();
     expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
     expect(screen.queryByText(/не записана по минутам/i)).not.toBeInTheDocument();
   });
@@ -213,7 +214,9 @@ describe("SleepTile — ночь как она была (I-23)", () => {
       />,
     );
 
-    expect(screen.getByTestId("sleep-moon")).toBeInTheDocument();
+    expect(screen.getByTestId("sleep-moon-photo")).toBeInTheDocument();
+    expect(screen.queryByTestId("sleep-moon")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Сон")).toHaveClass("sleep-card--empty");
     expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
   });
 });

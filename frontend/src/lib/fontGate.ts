@@ -11,6 +11,15 @@ export const FONT_GATE_TIMEOUT_MS = 1200;
  */
 export const BOARD_GATE_TIMEOUT_MS = 2000;
 
+/**
+ * The weights the board sets its type in. A face is a FILE PER WEIGHT and `document.fonts.ready`
+ * answers only for those already asked for, so the gate asks for all of them. DESIGN §8.3
+ */
+const GATE_WEIGHTS = [400, 500, 600, 700];
+
+/** Digits and Cyrillic together: `fonts.load` fetches only the subsets its sample text needs. */
+const GATE_SAMPLE = "0123456789чмин";
+
 /** `document.fonts.ready` MUST be asked only after the first layout: before it the set is empty. */
 export const FONT_GATE_SCRIPT = `(function(){
   var r = document.documentElement;
@@ -24,7 +33,20 @@ export const FONT_GATE_SCRIPT = `(function(){
     if (!f || !f.ready || !f.ready.then) return done();
     var wait = function(){
       try { void document.body.offsetHeight; } catch (e) {}
-      f.ready.then(done, done);
+      var jobs = [];
+      try {
+        var cs = getComputedStyle(r);
+        ["--font-sans", "--font-mono", "--font-display"].forEach(function(name){
+          var family = cs.getPropertyValue(name).trim();
+          if (!family) return;
+          ${JSON.stringify(GATE_WEIGHTS)}.forEach(function(w){
+            try { jobs.push(f.load(w + " 1rem " + family, ${JSON.stringify(GATE_SAMPLE)})); } catch (e) {}
+          });
+        });
+      } catch (e) {}
+      Promise.all(jobs.map(function(p){ return p.catch(function(){}); }))
+        .then(function(){ return f.ready; })
+        .then(done, done);
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wait);
     else wait();

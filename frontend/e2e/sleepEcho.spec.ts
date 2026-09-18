@@ -84,7 +84,10 @@ test("sleep controls, label placement and keyboard round trip", async ({ page },
   const moon = await tile.locator(".sleep-echo__moon").boundingBox();
   expect(moon!.x).toBeGreaterThanOrEqual(bounds!.x);
   expect(moon!.x + moon!.width).toBeLessThanOrEqual(total!.x);
-  expect(moon!.y + moon!.height / 2).toBeGreaterThan(total!.y + total!.height / 2);
+  // Sign and number stand dead level BY THEIR CENTRES: the strip is anchored to the tile's bottom
+  // edge, so a taller sign grows upward instead of sinking the duration (§7.7).
+  const level = (moon!.y + moon!.height / 2) - (total!.y + total!.height / 2);
+  expect(Math.abs(level)).toBeLessThanOrEqual(1);
 
   // A bar's paint must resolve inside ITS OWN layout: the board holds bento and stack in the DOM
   // at once, and a shared gradient id would point `url(#…)` at the hidden copy. The geometry stays

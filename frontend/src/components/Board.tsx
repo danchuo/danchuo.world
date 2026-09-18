@@ -328,6 +328,8 @@ function BoardTile({
           selected={data.selected}
           state={data.statsStatus}
           onRetry={data.retryStats}
+          edition={edition}
+          onSelectDay={data.focusDay}
           style={style}
           className={className}
         />

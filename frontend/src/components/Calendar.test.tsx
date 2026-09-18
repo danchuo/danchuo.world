@@ -892,6 +892,47 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     return { onShiftWeeks, onSelect, onFocusDay };
   }
 
+  it("день, забранный в сетку, ФАНТОМНОГО шага не делает: окно не съехало", () => {
+    // `onFocusDay` anchors ON a day, and the window is built around that day's WEEK. An anchor on
+    // any day of this week gives the very same window, so comparing dates lit the forward edge,
+    // the "today" button and the month heading — as if the reader had paged, having picked a day.
+    renderEdge({ anchor: "2026-06-16", onResetWindow: () => {} });
+    expect(screen.queryByTestId("calendar-edge-next")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("calendar-window-month")).not.toBeInTheDocument();
+  });
+
+  it("подъезд окна играется на смене НЕДЕЛИ, а не на смене опоры", () => {
+    // The glide is the window travelling through weeks. An anchor inside this week moves nothing,
+    // and playing it there read as the calendar jumping vertically on a plain change of day.
+    const field = (anchor: string) => (
+      <Calendar
+        days={buildWideWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        onFocusDay={() => {}}
+        state="loaded"
+        edition="field"
+        edgeWeeks={1}
+        onShiftWeeks={() => {}}
+        onResetWindow={() => {}}
+        anchor={anchor}
+      />
+    );
+    const { container, rerender } = render(field(TODAY));
+
+    rerender(field("2026-06-16")); // same week as today
+    expect(container.querySelector("[data-roll]")).toBeNull();
+
+    rerender(field("2026-06-04")); // a real step back
+    expect(container.querySelector("[data-roll]")).not.toBeNull();
+  });
+
+  it("настоящий шаг кромку вперёд зажигает", () => {
+    renderEdge({ anchor: "2026-06-04", onResetWindow: () => {} });
+    expect(screen.getByTestId("calendar-edge-next")).toBeInTheDocument();
+  });
+
   it("клик по дню кромки забирает его в сетку, а не листает вслепую", async () => {
     const { onShiftWeeks, onFocusDay } = renderEdge();
     const cell = screen.getByTestId("calendar-edge-prev").querySelectorAll("button")[3];

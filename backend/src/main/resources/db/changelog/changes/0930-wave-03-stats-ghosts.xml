@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: плитка статов возвращается на борд в редакции «призраки» (DESIGN §7.4, §10.2).
+
+      До сих пор она была у этой волны спрятана: дефолтная вёрстка — две полосы с колонкой
+      показаний слева — это язык волны 01, и на стекле она читалась гостем. «Призраки» рисуют все
+      метрики разом, каждую в своём масштабе, освещая выбранную: ответ обычно в паре, и одна
+      кривая не умеет сказать «шаги упали на той неделе, когда вырос сон».
+
+      Место — середина борда, колонки 19..27, строки 12..19 (335×262 на опорной ширине 1536).
+      Сверху карусель дропов кончается на 10-й строке, снизу календарь начинается с 21-й, поэтому
+      строки 11 и 20 остаются пустыми треками — воздух такой же структурный, как у остальных
+      соседей. Колонки 28..30 остаются межколонным зазором, через который видно холст.
+    -->
+    <changeSet id="0930-wave-03-stats-ghosts" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,stats}',
+  (layout->'tiles'->'stats') || '{"hidden": false, "edition": "ghosts", "col": 19, "row": 12, "colSpan": 9, "rowSpan": 8}'::jsonb
+)
+WHERE key = 'wave-03';
+
+-- В мобильном стеке плитка встаёт сразу за музыкой: там же, где на борде она держит середину,
+-- и до лент дропов, которые в стеке занимают больше всего высоты.
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{mobileOrder}',
+  '["waveSwitcher", "music", "stats", "latestDrop", "photoDrops", "ride", "projects", "social", "calendar"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(layout, '{tiles,stats}', '{"hidden": true}'::jsonb)
+WHERE key = 'wave-03';
+
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{mobileOrder}',
+  '["waveSwitcher", "music", "latestDrop", "photoDrops", "ride", "projects", "social", "calendar"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

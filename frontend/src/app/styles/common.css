@@ -2218,6 +2218,365 @@ body {
    orientations in one pass), but four frames and a data row on top. `.drop-sheet` is only the edition
    hook. Rejected after a live run: a 3×3 grid of 3:2 cells rotating the portrait frames. */
 
+/* Stats tile, `ghosts` edition (DESIGN §7.4): every metric on the tile at once, one lit and the
+   rest at the threshold of visibility. Built like the drop frame and the sleep sounding — no
+   padding, no label, all text lying ON the drawing in a bottom band of progressive blur. */
+.stats-card--ghosts {
+  padding: 0;
+}
+.stats-ghosts {
+  /* The band's geometry is declared HERE, not on the band: the blur masks count from the same
+     numbers and the blur layers lie outside the band. */
+  --stats-band-solid: 24px;
+  --stats-band-feather: 30px;
+  --stats-band-inset: 14px;
+  /* Size container for the band's type steps (`--fs-band-*`, DESIGN §8.1): without it `cqw`
+     counts from the viewport and the caption comes out screen-sized on a small tile. */
+  container-type: inline-size;
+  position: relative;
+  display: block;
+  width: 100%;
+  /* Own height where the parent is silent (DESIGN §8), as in the sounding and the ride frame: in
+     bento the tile supplies it, in the mobile stack `100%` collapses to `auto` and the chart sets
+     its own ratio. `aspect-ratio` acts only on an undefined size, so bento is untouched. */
+  height: 100%;
+  aspect-ratio: 13 / 10;
+  cursor: crosshair;
+}
+.stats-ghosts:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.stats-ghosts__plot {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+/* Horizons as the thinnest engraving: a window whose values barely move has nothing to be read
+   against without them, and the chart would lie about its own scale. */
+.stats-ghosts__floor {
+  stroke: var(--stats-floor, var(--border-tile));
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.55;
+}
+/* The unchosen metrics. They are not decoration: the answer is usually in the pair — the week
+   steps fell is the week sleep rose — and one trace alone cannot say that. */
+.stats-ghosts__ghost polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  opacity: 0.22;
+}
+.stats-ghosts__ghost circle {
+  fill: currentColor;
+  opacity: 0.22;
+}
+.stats-ghosts__lit polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  filter: var(--stats-lit-glow, none);
+}
+/* A day standing alone between two gaps: a polyline needs two ends, so without a dot the one day
+   in a week that has a value draws nothing and the chart reads as an empty week. */
+.stats-ghosts__island {
+  fill: currentColor;
+  stroke: var(--bg-page);
+  stroke-width: 1.2;
+}
+.stats-ghosts__sel line {
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.5;
+}
+.stats-ghosts__dot {
+  fill: currentColor;
+  stroke: var(--bg-page);
+  stroke-width: 1.4;
+}
+.stats-ghosts__ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.7;
+}
+/* The RULER: one tick per day on the top edge, a weekend's longer and brighter. A row of dates is
+   wave 01's device, and repeated here the top read as someone else's axis; what the eye was
+   getting from those dates is the rhythm of the week, and a tick carries it with no type at all. */
+.stats-ghosts__rule {
+  stroke: var(--stats-floor, var(--border-tile));
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.5;
+}
+.stats-ghosts__rule[data-weekend="true"] {
+  opacity: 1;
+}
+/* The window's ends caption it from the STRIP ABOVE the drawing, halfway between the tile's top
+   edge and the top horizon. Always in the metric's colour: they are not days one can pick, so
+   they have no selected state — small mono with a tick belongs to waves 01 and 02. */
+.stats-ghosts__bound {
+  font-family: var(--font-mono);
+  font-size: calc(var(--fs-band-meta) * 1.45);
+  fill: currentColor;
+  opacity: 0.62;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+/* The selected day inside the window: the one date written in small lit type, with the engraved
+   tick that turns a number into a caption to its column. */
+.stats-ghosts__date text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  fill: currentColor;
+  font-variant-numeric: tabular-nums;
+}
+.stats-ghosts__date line {
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+/* Considered and rejected: the window's mean as a dashed line across the plot. DESIGN §7.4.1 */
+
+/* One hover answers for ALL metrics at once — the whole reason the others stay on the tile. The
+   column sits beside the crosshair and flips side near the right edge rather than being clipped. */
+.stats-ghosts__tip line {
+  stroke: var(--text-primary);
+  stroke-width: 1;
+  opacity: 0.22;
+}
+.stats-ghosts__tip text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-anchor: start;
+  transform: translateX(7px);
+}
+.stats-ghosts__tip[data-side="left"] text {
+  text-anchor: end;
+  transform: translateX(-7px);
+}
+.stats-ghosts__tip-date {
+  font-size: var(--fs-band-meta);
+  fill: var(--text-tertiary);
+}
+.stats-ghosts__tip-value {
+  font-size: var(--fs-band-meta);
+  fill: currentColor;
+  opacity: 0.6;
+}
+.stats-ghosts__tip-value[data-on="true"] {
+  font-size: var(--fs-sleep-total);
+  font-weight: 600;
+  opacity: 1;
+}
+/* ⚠️ The blur layer is as tall as the TILE, not the band: `backdrop-filter` clamps sampling to its
+   own box, so a band-tall layer smears its top edge into a grey line (docs/pitfalls.md). Two
+   passes because the transition must be progressive — one mask gives a crease the eye catches. */
+.stats-ghosts__blur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.stats-ghosts__blur--soft {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 calc(var(--stats-band-solid) + var(--stats-band-feather) * 0.45),
+    transparent calc(var(--stats-band-solid) + var(--stats-band-feather) * 1.15)
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 calc(var(--stats-band-solid) + var(--stats-band-feather) * 0.45),
+    transparent calc(var(--stats-band-solid) + var(--stats-band-feather) * 1.15)
+  );
+}
+.stats-ghosts__blur--deep {
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.4)) saturate(1.05);
+  backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.4)) saturate(1.05);
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 var(--stats-band-solid),
+    rgb(0 0 0 / 0.5) calc(var(--stats-band-solid) + var(--stats-band-feather) * 0.3),
+    transparent calc(var(--stats-band-solid) + var(--stats-band-feather) * 0.6)
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0,
+    #000 var(--stats-band-solid),
+    rgb(0 0 0 / 0.5) calc(var(--stats-band-solid) + var(--stats-band-feather) * 0.3),
+    transparent calc(var(--stats-band-solid) + var(--stats-band-feather) * 0.6)
+  );
+}
+.stats-ghosts__band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5em;
+  padding: var(--stats-band-feather) var(--stats-band-inset) 11px;
+  pointer-events: none;
+}
+/* Scrim under the text, above the blur and under the band's content: the blur carries the band,
+   and the fill only rescues contrast where a bright trace ended up beneath it. */
+.stats-ghosts__band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bg-page) 46%, transparent) 0,
+    color-mix(in srgb, var(--bg-page) 26%, transparent) var(--stats-band-solid),
+    transparent 100%
+  );
+}
+/* Three steps of type, not one run: earlier the figure, the metric and the average shared a
+   baseline at nearly one size, and the line read as a mumble rather than as an answer. */
+.stats-ghosts__head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  color: currentColor;
+}
+/* The figure IS the answer, and it takes the lit metric's colour — which is what ties it to the
+   named metric in the rail without a word repeated between them. */
+.stats-ghosts__figure {
+  font-size: var(--fs-sleep-total);
+  line-height: 1.1;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Whose answer it is, then how the window sits around it — the quietest step of the three. */
+.stats-ghosts__meta {
+  font-size: var(--fs-band-meta);
+  line-height: 1.25;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.stats-ghosts__day {
+  color: var(--text-secondary);
+}
+.stats-ghosts__sep {
+  padding: 0 0.35em;
+  opacity: 0.55;
+}
+/* The rail NAMES the metrics and is still the legend to the ghosts: each word carries its own
+   trace's colour. A bead said which trace was lit but never what it measured, and a glyph for
+   steps would be a guess where the word is not — three short nouns fit the band exactly. */
+.stats-ghosts__rail {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+.stats-ghosts__seg {
+  display: block;
+  /* A tap target of its own (DESIGN §8): the word is small type and a finger is not. Padding
+     rather than type size, so the row's rhythm stays the word's. */
+  padding: 8px 5px;
+  border: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-band-meta);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: currentColor;
+  opacity: 0.38;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+.stats-ghosts__seg:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+/* The lit one is at full strength AND underlined in its own colour: opacity alone read as "greyer"
+   rather than "chosen" once the words all stood in a row. */
+.stats-ghosts__seg[data-on="true"] {
+  opacity: 1;
+  box-shadow: inset 0 -1px 0 currentColor;
+}
+@media (hover: hover) {
+  .stats-ghosts__seg:hover {
+    opacity: 0.75;
+  }
+  .stats-ghosts__seg[data-on="true"]:hover {
+    opacity: 1;
+  }
+}
+/* Where the window sits in the whole history, as a one-pixel engraving on the very edge: a
+   scrollbar answers the same question and spends a whole strip doing it. */
+.stats-ghosts__run {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  height: 1px;
+  background: var(--stats-floor, var(--border-tile));
+  pointer-events: none;
+}
+.stats-ghosts__run-at {
+  position: absolute;
+  top: 0;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+  transition: left 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+/* A change of metric is a REDRAW: the traces swap wholesale, and a polyline's points never
+   interpolate, so the swap happens inside a short dip. The class name alternates, which is what
+   restarts the animation without a timer. */
+@keyframes stats-ghosts-redraw {
+  from {
+    opacity: 0.2;
+  }
+}
+.stats-ghosts__lit.is-fx-a,
+.stats-ghosts__lit.is-fx-b {
+  animation: stats-ghosts-redraw 300ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes stats-ghosts-figure-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+.stats-ghosts__head {
+  animation: stats-ghosts-figure-in 280ms ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stats-ghosts__lit.is-fx-a,
+  .stats-ghosts__lit.is-fx-b,
+  .stats-ghosts__head {
+    animation: none;
+  }
+  .stats-ghosts__seg,
+  .stats-ghosts__run-at {
+    transition: none;
+  }
+}
+
 /* Sleep tile, `echo` edition (DESIGN §7.7): the night fills the tile with no padding and no label — the
    night itself is the subject, as the photo is in the frame edition. All text lies ON the night in a
    bottom band of progressive blur, the same device as `.drop-frame__band` and `.ride-frame__band`. */

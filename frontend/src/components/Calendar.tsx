@@ -3,7 +3,7 @@ import type { DaySummary } from "@/lib/api/types";
 import { FIELD_ROWS, splitFieldWindow } from "@/lib/calendarEdge";
 import { monthEdges } from "@/lib/calendarWindow";
 import { dayWeight } from "@/lib/dayWeight";
-import { dayOfMonth, monthNameRu, monthOf, monthShortRu, weekdayMondayIndex } from "@/lib/date";
+import { dayOfMonth, monthNameRu, monthOf, monthShortRu, startOfWeek, weekdayMondayIndex } from "@/lib/date";
 import {
   lensMatch,
   lensNote,
@@ -137,9 +137,12 @@ export function Calendar({
   // First days that got no empty slot: the month began on a Monday, at the window's very edge, or
   // its piece ran past the height ceiling. The cell then carries the name itself.
   const inlineMonths = useMemo(() => new Set(slices?.inline ?? []), [slices]);
-  // Home is the window around today. It is also the only position with nowhere forward to go, so
-  // the second arrow and the return are simply not drawn there.
-  const shifted = windowAnchor !== today;
+  // Everything that asks "has the window moved?" must ask it BY WEEK, because that is what an
+  // anchor builds: an anchor on any day of this week gives the very same window. Comparing dates
+  // turned "take this day into the grid" into a phantom step — a forward edge and a glide.
+  const windowWeek = startOfWeek(windowAnchor);
+  // Home is the window around today, and the only position with nowhere forward to go.
+  const shifted = windowWeek !== startOfWeek(today);
   const canPage = Boolean(onShiftWeeks);
   // In "field" the edge carries the step (§5.2), so arrows are not drawn — strip and glyph would
   // say the same thing twice. Home is not expressible as an edge, leaving "today" alone in the
@@ -174,12 +177,12 @@ export function Calendar({
    * the motion. The flag clears after TWO frames — with one, no transition happens at all.
    */
   const [roll, setRoll] = useState<"back" | "forward" | null>(null);
-  const rolledFrom = useRef(windowAnchor);
+  const rolledFrom = useRef(windowWeek);
   useEffect(() => {
     const from = rolledFrom.current;
-    if (from === windowAnchor) return;
-    rolledFrom.current = windowAnchor;
-    setRoll(windowAnchor < from ? "back" : "forward");
+    if (from === windowWeek) return;
+    rolledFrom.current = windowWeek;
+    setRoll(windowWeek < from ? "back" : "forward");
     let second = 0;
     const first = requestAnimationFrame(() => {
       second = requestAnimationFrame(() => setRoll(null));
@@ -188,7 +191,7 @@ export function Calendar({
       cancelAnimationFrame(first);
       cancelAnimationFrame(second);
     };
-  }, [windowAnchor]);
+  }, [windowWeek]);
 
   /**
    * The edge (§5.2): the neighbouring week as a third-height strip. The control here is the DATA

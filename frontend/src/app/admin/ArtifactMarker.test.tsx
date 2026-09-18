@@ -19,6 +19,7 @@ const CATALOGUE: AdminArtifactView[] = [
     firstMentionedOn: "2026-01-01",
     rotatable: false,
     detectionHint: null,
+    model3dUrl: null,
   },
   {
     id: 9,
@@ -27,6 +28,7 @@ const CATALOGUE: AdminArtifactView[] = [
     firstMentionedOn: "2026-02-01",
     rotatable: false,
     detectionHint: null,
+    model3dUrl: null,
   },
 ];
 

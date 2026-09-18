@@ -22,15 +22,44 @@ export interface Artifact3DProps {
   rpm?: number;
   /** Padding around the item: 1 means flush with the slot's edge. */
   padding?: number;
+  /**
+   * Turn the item by dragging instead of spinning it on hover. For places where the item is the
+   * subject rather than decoration — the artifact card, where it is there to be examined.
+   */
+  draggable?: boolean;
+  /**
+   * Turn while merely SHOWN, for an item that appears in answer to attention paid elsewhere — a
+   * card over a find on a frame. Otherwise the cursor rules, which is the board's default.
+   */
+  spin?: boolean;
+  /** Light from one direction instead of the studio pair (DESIGN §7.7); read once, at mount. */
+  light?: { azimuth: number; ambient: number; intensity?: number };
+  /**
+   * Fired once the item has finished trying, with whether it stood up. Callers that caption the
+   * item wait for it; callers with a flat fallback switch to it on `false`.
+   */
+  onSettled?: (mounted: boolean) => void;
 }
+
+/** Radians per pixel dragged: a drag across ~520px turns the object once. */
+const TURN_PER_PX = (2 * Math.PI) / 520;
 
 /** Canvas pixel density: past double there is no visible gain, and it costs four times as much. */
 const MAX_DPR = 2;
 
-export function Artifact3D({ src, label, className, style, rpm, padding }: Artifact3DProps) {
+export function Artifact3D({
+  src, label, className, style, rpm, padding, draggable, spin: policy, light, onSettled,
+}: Artifact3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<ArtifactHandle | null>(null);
+  const drag = useRef<{ x: number; y: number } | null>(null);
   const [failed, setFailed] = useState(false);
+  /* Through a ref rather than the effect's dependencies: an inline callback is a new function on
+     every render, and in the list it would remount the scene — and refetch the model — each time. */
+  const settled = useRef(onSettled);
+  settled.current = onSettled;
+  const always = useRef(false);
+  always.current = policy === true && !prefersReducedMotion();
 
   // Mount: wait until the slot is on screen, and only then fetch the library and the model.
   useEffect(() => {
@@ -42,9 +71,10 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
 
     const fit = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-      const box = canvas.getBoundingClientRect();
-      const w = Math.max(1, Math.round(box.width * dpr));
-      const h = Math.max(1, Math.round(box.height * dpr));
+      /* ⚠️ The LAYOUT box, not `getBoundingClientRect`: the rect carries the CSS transform, so an
+         object standing deep in the shaft took a small buffer and came forward mushy. DESIGN §7.2 */
+      const w = Math.max(1, Math.round(canvas.offsetWidth * dpr));
+      const h = Math.max(1, Math.round(canvas.offsetHeight * dpr));
       if (canvas.width === w && canvas.height === h) return false;
       canvas.width = w;
       canvas.height = h;
@@ -53,16 +83,21 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
 
     const start = () => {
       fit();
-      mountArtifact(canvas, { src, rpm, padding, signal: abort.signal })
+      mountArtifact(canvas, { src, rpm, padding, light, signal: abort.signal })
         .then((handle) => {
           if (disposed) {
             handle.dispose();
             return;
           }
           handleRef.current = handle;
+          if (always.current) handle.setSpinning(true);
+          settled.current?.(true);
         })
         .catch(() => {
-          if (!disposed) setFailed(true);
+          if (disposed) return;
+          setFailed(true);
+          // A caption held back for an object that will never come would leave the tile mute.
+          settled.current?.(false);
         });
     };
 
@@ -99,7 +134,12 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
       handleRef.current?.dispose();
       handleRef.current = null;
     };
-  }, [src, rpm, padding]);
+  }, [src, rpm, padding, light?.azimuth, light?.ambient]);
+
+  // A late change of mind: the mount above catches the item that is already spinning when it arrives.
+  useEffect(() => {
+    handleRef.current?.setSpinning(always.current);
+  }, [policy]);
 
   const spin = (on: boolean) => {
     if (on && prefersReducedMotion()) return;
@@ -108,16 +148,47 @@ export function Artifact3D({ src, label, className, style, rpm, padding }: Artif
 
   if (failed) return null;
 
+  if (draggable) {
+    return (
+      <canvas
+        ref={canvasRef}
+        className={className}
+        style={{ cursor: "grab", touchAction: "none", ...style }}
+        onPointerDown={(e) => {
+          drag.current = { x: e.clientX, y: e.clientY };
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const from = drag.current;
+          if (!from) return;
+          // Up tips the object AWAY from the viewer, which is where the hand pushed it.
+          handleRef.current?.turn((e.clientX - from.x) * TURN_PER_PX, (e.clientY - from.y) * TURN_PER_PX);
+          drag.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={() => {
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+        }}
+        role={label ? "img" : undefined}
+        aria-label={label}
+        aria-hidden={label ? undefined : true}
+      />
+    );
+  }
+
   return (
     <canvas
       ref={canvasRef}
       className={className}
       style={style}
-      // Cursor and focus are the only controls: the board never moves by itself.
-      onPointerEnter={() => spin(true)}
-      onPointerLeave={() => spin(false)}
-      onFocus={() => spin(true)}
-      onBlur={() => spin(false)}
+      // Cursor and focus are the only controls: the board never moves by itself. An item already
+      // turning because it is shown has nothing to answer them with.
+      onPointerEnter={policy ? undefined : () => spin(true)}
+      onPointerLeave={policy ? undefined : () => spin(false)}
+      onFocus={policy ? undefined : () => spin(true)}
+      onBlur={policy ? undefined : () => spin(false)}
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}

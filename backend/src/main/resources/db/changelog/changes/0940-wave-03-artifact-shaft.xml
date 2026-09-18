@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: плитка артефактов возвращается на борд в редакции «шахта» (DESIGN §7.2, §10.2).
+
+      До сих пор она была спрятана: дефолтная бегущая лента плоских PNG — язык волны 01, и на
+      стекле она читалась гостем. «Шахта» ставит артефакты объёмными предметами в линию, уходящую
+      от зрителя: дальние мельче по честной перспективе и тонут в том же блюре, которым плитка
+      размывает холст, — материал волны работает дальномером, и отдельная шкала не нужна.
+
+      Место — колонки 12..18, строки 22..28 (263×200 на опорной ширине 1536). Двигать соседей не
+      пришлось: это уже пустой угол между проектами (кончаются на 11-й колонке) и календарём
+      (начинается с 19-й), а сверху «последний дроп» кончается на 21-й строке. Дыра в раскладке
+      закрывается, ни одна плитка не переехала и не сменила размер.
+
+      В мобильном стеке плитка встаёт последней: это коллекция, а не событие дня, и прокручивать
+      до неё мимо сегодняшних показаний — правильный порядок, а не потеря.
+    -->
+    <changeSet id="0940-wave-03-artifact-shaft" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{tiles,marquee}',
+  (layout->'tiles'->'marquee') || '{"hidden": false, "edition": "shaft", "col": 12, "row": 22, "colSpan": 7, "rowSpan": 7}'::jsonb
+)
+WHERE key = 'wave-03';
+
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{mobileOrder}',
+  '["waveSwitcher", "music", "stats", "latestDrop", "photoDrops", "ride", "projects", "social", "calendar", "marquee"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme
+SET layout = jsonb_set(layout, '{tiles,marquee}', '{"hidden": true}'::jsonb)
+WHERE key = 'wave-03';
+
+UPDATE theme
+SET layout = jsonb_set(
+  layout,
+  '{mobileOrder}',
+  '["waveSwitcher", "music", "stats", "latestDrop", "photoDrops", "ride", "projects", "social", "calendar"]'::jsonb
+)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

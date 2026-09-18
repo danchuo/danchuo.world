@@ -5,6 +5,8 @@ import { ArtifactMarquee } from "./ArtifactMarquee";
 import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
 
 vi.mock("@/lib/api/client", () => ({ getArtifacts: vi.fn() }));
+// The shaft mounts real 3D objects; the scene is a browser thing and has its own tests.
+vi.mock("@/lib/artifact3dStage", () => ({ mountArtifact: vi.fn().mockResolvedValue(null) }));
 import { getArtifacts } from "@/lib/api/client";
 const getArtifactsMock = vi.mocked(getArtifacts);
 
@@ -29,6 +31,7 @@ function forceScrolling() {
 }
 
 const camera: ArtifactView = {
+  id: 1,
   name: "Камера",
   imageUrl: "/assets/artifacts/camera.png",
   firstMentionedOn: "2026-01-15",
@@ -224,8 +227,8 @@ describe("ArtifactMarquee", () => {
     // the caption under them jumped about. The slot holds the ribbon's cross size whatever is in
     // it, which keeps the row of captions level.
     getArtifactsMock.mockResolvedValue([
-      { name: "Очки", imageUrl: "/assets/artifacts/glasses.png", firstMentionedOn: "2026-03-10" },
-      { name: "Ракетка", imageUrl: "/assets/artifacts/racket.png", firstMentionedOn: "2026-04-01" },
+      { id: 2, name: "Очки", imageUrl: "/assets/artifacts/glasses.png", firstMentionedOn: "2026-03-10" },
+      { id: 3, name: "Ракетка", imageUrl: "/assets/artifacts/racket.png", firstMentionedOn: "2026-04-01" },
     ]);
     render(<ArtifactMarquee />);
 
@@ -246,9 +249,32 @@ describe("ArtifactMarquee", () => {
     expect(glasses.parentElement!.style.width).not.toBe(racket.parentElement!.style.width);
   });
 
+  it("в шахту встают только предметы со своей моделью", async () => {
+    getArtifactsMock.mockResolvedValue([
+      { id: 1, name: "С моделью", imageUrl: null, firstMentionedOn: "2026-03-10", model3dUrl: "/m.glb" },
+      { id: 2, name: "Без модели", imageUrl: "/p.png", firstMentionedOn: "2026-04-01" },
+    ]);
+    render(<ArtifactMarquee edition="shaft" />);
+
+    // The name is the shaft's only text, so its presence is the item's presence.
+    expect(await screen.findByText("С моделью")).toBeInTheDocument();
+    expect(screen.queryByText("Без модели")).toBeNull();
+  });
+
+  it("ни у одного предмета нет модели — шахты на борде нет вовсе", async () => {
+    getArtifactsMock.mockResolvedValue([
+      { id: 1, name: "Очки", imageUrl: "/p.png", firstMentionedOn: "2026-03-10" },
+    ]);
+    const { container } = render(<ArtifactMarquee edition="shaft" />);
+
+    // Not the empty state either: on a wave with no plate its words would hang on the canvas.
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    expect(screen.queryByText("нет артефактов")).toBeNull();
+  });
+
   it("артефакт без картинки → плейсхолдер вместо img, подпись на месте", async () => {
     getArtifactsMock.mockResolvedValue([
-      { name: "Очки", imageUrl: null, firstMentionedOn: "2026-03-10" },
+      { id: 2, name: "Очки", imageUrl: null, firstMentionedOn: "2026-03-10" },
     ]);
     const { container } = render(<ArtifactMarquee />);
 

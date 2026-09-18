@@ -223,12 +223,15 @@ export interface TelegramProfileView {
 
 /** GET /api/artifacts; firstMentionedOn appears only in the hover card. PRD §5.8. */
 export interface ArtifactView {
+  id: number;
   name: string;
   /** PNG/GIF; null uses the pixel placeholder. */
   imageUrl: string | null;
   firstMentionedOn: string;
   /** Whether the item may rotate sideways in a perpendicular marquee. DESIGN §7.2. */
   rotatable?: boolean;
+  /** The item's own `.glb`; null keeps it out of editions built on volume. DESIGN §7.2. */
+  model3dUrl?: string | null;
 }
 
 /** GET /api/theme/active or /api/themes; tokens become :root CSS properties named --<key>. */
@@ -272,6 +275,8 @@ export interface ArtifactBoxView {
   imageUrl?: string | null;
   /** Honor the marquee's sideways-rotation policy in box tooltips too. DESIGN §7.2. */
   rotatable?: boolean;
+  /** The item's `.glb`: the card over a find shows the thing itself. DESIGN §7.5. */
+  model3dUrl?: string | null;
   x0: number;
   y0: number;
   x1: number;
@@ -423,6 +428,8 @@ export interface AdminArtifactView {
   rotatable: boolean;
   /** Visual description used to detect the item in photos. PRD §5.12. */
   detectionHint: string | null;
+  /** Uploaded `.glb`, or null while the item has no model. DESIGN §12.5. */
+  model3dUrl: string | null;
 }
 
 /** Ordering derives from firstMentionedOn, oldest first; there is no independent position field. */

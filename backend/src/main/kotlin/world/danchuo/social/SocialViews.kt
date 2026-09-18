@@ -33,6 +33,8 @@ data class AdminArtifactView(
     val firstMentionedOn: String,
     val rotatable: Boolean,
     val detectionHint: String?,
+    /** Address of the item's `.glb`, or `null` — then wave 03 does not show it at all. */
+    val model3dUrl: String?,
 )
 
 data class ArtifactView(
@@ -43,9 +45,20 @@ data class ArtifactView(
     val firstMentionedOn: String,
     /** Whether the item may lie on its side in the marquee running across it (DESIGN §7.2). */
     val rotatable: Boolean,
+    /**
+     * The item's own `.glb`, or `null` for an item that has none. Editions built on volume show
+     * only items that have one: a flat ribbon can stand in for a thing, a shaft cannot. DESIGN §7.2
+     */
+    val model3dUrl: String?,
 ) {
     companion object {
-        fun from(a: Artifact) =
-            ArtifactView(a.id!!, a.name, a.imageUrl, a.firstMentionedOn.toString(), a.rotatable)
+        fun from(a: Artifact) = ArtifactView(
+            a.id!!,
+            a.name,
+            a.imageUrl,
+            a.firstMentionedOn.toString(),
+            a.rotatable,
+            a.model3dUrl,
+        )
     }
 }

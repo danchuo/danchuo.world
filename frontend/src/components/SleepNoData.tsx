@@ -1,7 +1,8 @@
 "use client";
 
-import { useId } from "react";
-import { moonLitPath, moonPhase } from "@/lib/moonPhase";
+import { useId, useState, type CSSProperties } from "react";
+import { moonLightAzimuth, moonLitPath, moonPhase } from "@/lib/moonPhase";
+import { Artifact3D } from "./Artifact3D";
 import { useImageReady } from "./useImageReady";
 
 const MOON_R = 6;
@@ -16,6 +17,18 @@ const SURFACE_SHADOW = 0.26;
 
 /** The full Moon under the date's phase mask (MIT `miksrv/moon-widget`). DESIGN §7.7 */
 export const MOON_PHOTO_SRC = "/assets/sleep/moon-widget.png";
+
+/** The Moon as a body, for the empty night of the echo edition. DESIGN §7.7, §12.5 */
+export const MOON_MODEL_SRC = "/assets/3d/the-moon.glb";
+
+/** Night around it, so the terminator is the only light the sphere gets. */
+const MOON_AMBIENT = 0.26;
+
+/** Slower than a hand-sized artifact: a body this large turning at the board's pace looks flung. */
+const MOON_RPM = 3;
+
+/** Moon rock is dark stone: at studio strength the lit side came out grey rather than lit. */
+const MOON_KEY = 3.8;
 
 /** Engraved moon: gradients and grain, for editions whose graphics are drawn rather than shot. */
 function SleepMoonDrawn({ date, className }: { date: string; className: string }) {
@@ -134,6 +147,39 @@ function SleepMoonPhoto({ date, className }: { date: string; className: string }
 }
 
 /**
+ * The Moon as a real sphere. The phase is not a mask here but the DIRECTION OF THE LIGHT: lit from
+ * where the sun actually stands, a ball shows the same crescent by itself. DESIGN §7.7
+ */
+function SleepMoonModel({ date, className }: { date: string; className: string }) {
+  const phase = moonPhase(date);
+  const [settled, setSettled] = useState<boolean | null>(null);
+  if (!phase) return null;
+  // No WebGL, no file: the photographed Moon is a complete answer and the night keeps its mark.
+  if (settled === false) return <SleepMoonPhoto date={date} className={className} />;
+  const azimuth = moonLightAzimuth(phase.cycle);
+  return (
+    <span
+      className={`${className} sleep-empty__moon--model`}
+      data-testid="sleep-moon-model"
+      /* Lit only once the body is actually up: a day switched to an empty night otherwise showed
+         an empty box first and the Moon a moment later, which reads as a jump, not a change. */
+      data-ready={settled ? "" : undefined}
+      /* The halo leans the way the sun stands, so the light gathers on the lit limb. The light is
+         fixed in the scene, so turning the body leaves both it and the phase where they were. */
+      style={{ "--moon-glare-dx": `${(Math.sin(azimuth) * 4).toFixed(1)}px` } as CSSProperties}
+    >
+      <Artifact3D
+        src={MOON_MODEL_SRC}
+        className="h-full w-full"
+        rpm={MOON_RPM}
+        light={{ azimuth, ambient: MOON_AMBIENT, intensity: MOON_KEY }}
+        onSettled={setSettled}
+      />
+    </span>
+  );
+}
+
+/**
  * Shared moon mark. `textured` takes the photograph (DESIGN §7.7) and waits for it: a moon drawn
  * before its bitmap arrives appears as an empty outline and fills in front of the reader.
  */
@@ -152,11 +198,19 @@ export function SleepMoon({
   return <SleepMoonPhoto date={date} className={className} />;
 }
 
-/** One empty composition for both cases; the echo edition opts into its textured Moon. DESIGN §7.7. */
+/**
+ * One empty composition for both cases. The echo edition's Moon is a BODY: the night has no data
+ * to draw, and the mark standing in for it may as well be the thing itself. DESIGN §7.7
+ */
 export function SleepNoData({ date, textured = false }: { date?: string; textured?: boolean }) {
   return (
     <div data-testid="sleep-empty" className="sleep-empty flex h-full items-center justify-center">
-      {date && <SleepMoon date={date} className="sleep-empty__moon" textured={textured} />}
+      {date &&
+        (textured ? (
+          <SleepMoonModel date={date} className="sleep-empty__moon" />
+        ) : (
+          <SleepMoon date={date} className="sleep-empty__moon" />
+        ))}
     </div>
   );
 }

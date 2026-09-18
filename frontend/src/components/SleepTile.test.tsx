@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DayView, SleepNightView } from "@/lib/api/types";
 
 vi.mock("@/lib/api/client", () => ({ getSleepNight: vi.fn() }));
+// The Moon of the empty night is a real body; the scene behind it is a browser thing, tested apart.
+vi.mock("@/lib/artifact3dStage", () => ({ mountArtifact: vi.fn() }));
+import { mountArtifact } from "@/lib/artifact3dStage";
 
 import { getSleepNight } from "@/lib/api/client";
 import { SleepTile } from "./SleepTile";
@@ -205,7 +208,10 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByTestId("sleep-moon")).not.toBeInTheDocument();
   });
 
-  it("пустая ночь в редакции «эхолот» — луна, без кровати и слов", () => {
+  it("пустая ночь в редакции «эхолот» — объёмная луна, без кровати и слов", () => {
+    vi.mocked(mountArtifact).mockResolvedValue({
+      setSpinning: vi.fn(), turn: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
+    });
     render(
       <SleepTile
         day={day({ health: { steps: 100, sleepMinutes: null, sleepStages: null } })}
@@ -214,10 +220,23 @@ describe("SleepTile — ночь как она была (I-23)", () => {
       />,
     );
 
-    expect(screen.getByTestId("sleep-moon-photo")).toBeInTheDocument();
+    expect(screen.getByTestId("sleep-moon-model")).toBeInTheDocument();
     expect(screen.queryByTestId("sleep-moon")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Сон")).toHaveClass("sleep-card--empty");
     expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
+  });
+
+  it("сцена не поднялась — на месте луны остаётся фотография, а не дыра", async () => {
+    vi.mocked(mountArtifact).mockRejectedValue(new Error("нет WebGL"));
+    render(
+      <SleepTile
+        day={day({ health: { steps: 100, sleepMinutes: null, sleepStages: null } })}
+        state="loaded"
+        edition="echo"
+      />,
+    );
+
+    expect(await screen.findByTestId("sleep-moon-photo")).toBeInTheDocument();
   });
 });
 

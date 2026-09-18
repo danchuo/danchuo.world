@@ -438,7 +438,7 @@ export function DropRoll({
             }}
             className="drop-roll__photo"
           />
-          {ratio && <ArtifactBoxes boxes={boxes} shown={under} />}
+          {ratio && <ArtifactBoxes boxes={boxes} shown={under} aside />}
           {/* The magnifier sits ON the frame, not in the scene's corner: the button belongs to the
               shot being looked at and moves with it when the proportion changes its size. */}
           <button

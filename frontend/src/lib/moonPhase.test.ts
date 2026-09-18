@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moonLitPath, moonPhase } from "./moonPhase";
+import { moonLightAzimuth, moonLitPath, moonPhase } from "./moonPhase";
 
 // The reference dates are astronomical new and full moons. The tolerance is counted in cycle days:
 // the phase is taken at midnight while the event falls on any hour of its day, which already eats
@@ -51,5 +51,20 @@ describe("moonLitPath", () => {
     const gibbous = moonLitPath(0.4, 7).split("A").pop()!;
     expect(crescent).toContain("0 0 0");
     expect(gibbous).toContain("0 0 1");
+  });
+});
+
+describe("moonLightAzimuth", () => {
+  const PI = Math.PI;
+
+  it("полнолуние освещено из-за спины зрителя, новолуние — из-за самой луны", () => {
+    expect(moonLightAzimuth(0.5)).toBeCloseTo(0, 6);
+    expect(Math.abs(moonLightAzimuth(0))).toBeCloseTo(PI, 6);
+  });
+
+  it("растущая четверть освещена справа, убывающая — слева", () => {
+    // +x is the right of the screen: the light stands there, so the right limb is lit.
+    expect(moonLightAzimuth(0.25)).toBeCloseTo(PI / 2, 6);
+    expect(moonLightAzimuth(0.75)).toBeCloseTo(-PI / 2, 6);
   });
 });

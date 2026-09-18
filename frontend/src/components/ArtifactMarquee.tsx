@@ -4,8 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from "react-dom";
 import { getArtifacts } from "@/lib/api/client";
 import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
+import { shaftArtifacts, type ShaftArtifact } from "@/lib/artifactShaft";
 import type { ArtifactView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
+import { ArtifactModal } from "./ArtifactModal";
+import { ArtifactShaft } from "./ArtifactShaft";
 import { Icon } from "./Icon";
 import { TileShell } from "./TileShell";
 import { useBackToClose } from "./useBackToClose";
@@ -24,6 +27,11 @@ interface ArtifactMarqueeProps {
    * upwards; the default is a horizontal row. DESIGN §10.1
    */
   orientation?: TileOrientation;
+  /**
+   * The tile's edition, set by the wave. `shaft` stands the artifacts in a receding line as 3D
+   * objects; the default is the flat ribbon. DESIGN §7.2, §10.1
+   */
+  edition?: string;
 }
 
 const RU_MONTHS = [
@@ -90,13 +98,18 @@ function ArtifactThumb({
  * overflow the tile, in which case the content is duplicated for a seamless loop — one or two
  * items must not be doubled, or a phantom copy peeks in on zoom-out. PRD §5.8, DESIGN §7.2
  */
-export function ArtifactMarquee({ style, className, orientation = "horizontal" }: ArtifactMarqueeProps) {
+export function ArtifactMarquee({ style, className, orientation = "horizontal", edition }: ArtifactMarqueeProps) {
+  // An unknown edition name means the default: the set of editions is the TILE's knowledge.
+  const shaft = edition === "shaft";
   const vertical = orientation === "vertical";
   const { phase, data, retry } = useTileData<ArtifactView[]>(
     useCallback((signal) => getArtifacts({ signal }), []),
     "artifacts",
   );
-  const artifacts = data ?? [];
+  const all = data ?? [];
+  // The shaft shows only things that brought a model; the flat ribbon shows everything.
+  const shaftItems: ShaftArtifact[] = shaft ? shaftArtifacts(all) : [];
+  const artifacts: ArtifactView[] = shaft ? shaftItems : all;
   const isEmpty = phase === "loaded" && artifacts.length === 0;
   const [active, setActive] = useState<number | null>(null);
 
@@ -151,20 +164,33 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
   // so the ribbon continues from wherever it was left.
   const marquee = useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds });
   const activeArtifact = active !== null ? artifacts[active] : null;
+  /* The same index in the shaft's own list: it carries the model, so the card takes it from here
+     rather than re-deriving a thing's address from a list that may not hold it. */
+  const activeShaftItem = active !== null ? shaftItems[active] : null;
   // Content is duplicated only while the ribbon travels; otherwise one copy, with no doubling.
   const items = scrolling ? [...artifacts, ...artifacts] : artifacts;
+
+  /* No thing has a model yet ⇒ there is no tile, rather than an empty one. Wave 03 strips the
+     plate, so an empty state's words would hang on the bare canvas. DESIGN §7.2 */
+  if (shaft && isEmpty) return null;
 
   return (
     <TileShell
       state={isEmpty ? "empty" : phase}
       emptyText="нет артефактов"
       onRetry={retry}
-      label="артефакты"
+      // The shaft fills the tile edge to edge; the full-bleed drop and ride editions drop the
+      // label the same way, the object being the only thing the tile has to say.
+      label={shaft ? undefined : "артефакты"}
       ariaLabel="Артефакты"
       style={style}
       className={className}
     >
-      {phase === "loaded" && !isEmpty && (
+      {phase === "loaded" && !isEmpty && shaft && (
+        <ArtifactShaft artifacts={shaftItems} onOpen={setActive} />
+      )}
+
+      {phase === "loaded" && !isEmpty && !shaft && (
         <div
           ref={containerRef}
           {...marquee.handlers}
@@ -234,10 +260,20 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal" }
         </div>
       )}
 
+      {/* The shaft opens its own card: one object, alone, turned by hand (§7.2). The flat ribbon's
+          menu below shows a picture, which is the right answer for a wave whose artifacts are flat. */}
+      {activeShaftItem && (
+        <ArtifactModal
+          artifact={activeShaftItem}
+          src={activeShaftItem.model3dUrl}
+          onClose={() => setActive(null)}
+        />
+      )}
+
       {/* The artifact menu is a small centred modal (§5.12/§7.6). It is portalled into body
           because the tile's `.pixel-tile` carries `filter` (a containing block for fixed) and
           `overflow-hidden`: without the portal it would pin to the tile and be clipped. */}
-      {activeArtifact && typeof document !== "undefined" && createPortal(
+      {activeArtifact && !shaft && typeof document !== "undefined" && createPortal(
         <div
           className="modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
           style={{ background: "rgba(33, 26, 22, 0.55)" }}

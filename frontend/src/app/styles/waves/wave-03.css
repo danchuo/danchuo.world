@@ -1242,30 +1242,27 @@
   backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
 }
 
-/* Find on a frame, wave 03 (DESIGN §7.5). An ELLIPSE of light instead of a box: a rectangle drawn
-   over a photograph reads as a sticker on it, and the accent works as light on this wave (§10.2).
-   Under the hand the light comes up; the rest of the time it only hints. */
+/* Optical corner ticks mark a find without adding a plate or light to the photograph. DESIGN §7.5 */
 :root[data-wave="wave-03"] .artifact-box {
-  /* Colder and paler than the accent itself: a lamp on the photograph, not another piece of UI. */
-  --find-light: color-mix(in srgb, var(--accent) 34%, var(--text-primary));
   border: none;
-  border-radius: 50%;
-  /* The ellipse inscribed in the find's rectangle cuts its corners; a little growth returns them. */
-  transform: scale(1.07);
-  background: radial-gradient(
-    ellipse at center,
-    color-mix(in srgb, var(--find-light) 17%, transparent) 0%,
-    transparent 70%
-  );
-  /* ⚠️ A hairline edge as well as the glow: added light alone vanishes over a bright frame, and
-     the find has to be findable on any photograph, not only on a dark one. */
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--find-light) 46%, transparent),
-    0 0 18px color-mix(in srgb, var(--find-light) 26%, transparent);
-  /* Opacity rather than a second gradient: a background-image does not transition. */
-  opacity: 0.66;
-  transition: opacity 200ms ease;
+  background: none;
+  box-shadow: none;
 }
-:root[data-wave="wave-03"] .artifact-box[data-shown] {
-  opacity: 1;
+:root[data-wave="wave-03"] .artifact-box::before {
+  --find-tick: clamp(6px, 18%, 12px);
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(var(--accent) 0 0) left top / var(--find-tick) 2px no-repeat,
+    linear-gradient(var(--accent) 0 0) left top / 2px var(--find-tick) no-repeat,
+    linear-gradient(var(--accent) 0 0) right top / var(--find-tick) 2px no-repeat,
+    linear-gradient(var(--accent) 0 0) right top / 2px var(--find-tick) no-repeat,
+    linear-gradient(var(--accent) 0 0) left bottom / var(--find-tick) 2px no-repeat,
+    linear-gradient(var(--accent) 0 0) left bottom / 2px var(--find-tick) no-repeat,
+    linear-gradient(var(--accent) 0 0) right bottom / var(--find-tick) 2px no-repeat,
+    linear-gradient(var(--accent) 0 0) right bottom / 2px var(--find-tick) no-repeat;
+  filter:
+    drop-shadow(1px 0 0 var(--bg-page)) drop-shadow(-1px 0 0 var(--bg-page))
+    drop-shadow(0 1px 0 var(--bg-page)) drop-shadow(0 -1px 0 var(--bg-page));
 }

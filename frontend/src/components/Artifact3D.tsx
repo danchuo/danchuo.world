@@ -34,6 +34,8 @@ export interface Artifact3DProps {
   spin?: boolean;
   /** Light from one direction instead of the studio pair (DESIGN §7.7). Its azimuth may move later. */
   light?: { azimuth: number; ambient: number; intensity?: number };
+  /** Resting pose in degrees: `yaw` turns the object to the viewer's right, `pitch` tips its top. */
+  pose?: { yaw?: number; pitch?: number };
   /**
    * Fired once the item has finished trying, with whether it stood up. Callers that caption the
    * item wait for it; callers with a flat fallback switch to it on `false`.
@@ -48,7 +50,7 @@ const TURN_PER_PX = (2 * Math.PI) / 520;
 const MAX_DPR = 2;
 
 export function Artifact3D({
-  src, label, className, style, rpm, padding, draggable, spin: policy, light, onSettled,
+  src, label, className, style, rpm, padding, draggable, spin: policy, light, pose, onSettled,
 }: Artifact3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<ArtifactHandle | null>(null);
@@ -65,6 +67,9 @@ export function Artifact3D({
      the standing scene. DESIGN §7.7 */
   const sun = useRef(light);
   sun.current = light;
+  // Read at mount only, by ref for the reason above: an inline literal would remount every render.
+  const rest = useRef(pose);
+  rest.current = pose;
 
   // Mount: wait until the slot is on screen, and only then fetch the library and the model.
   useEffect(() => {
@@ -88,7 +93,7 @@ export function Artifact3D({
 
     const start = () => {
       fit();
-      mountArtifact(canvas, { src, rpm, padding, light: sun.current, signal: abort.signal })
+      mountArtifact(canvas, { src, rpm, padding, light: sun.current, pose: rest.current, signal: abort.signal })
         .then((handle) => {
           if (disposed) {
             handle.dispose();

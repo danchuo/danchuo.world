@@ -36,6 +36,11 @@ export interface MountOptions {
    * vertical. For a thing whose lighting carries meaning — the Moon's phase. DESIGN §7.7
    */
   light?: { azimuth: number; ambient: number; intensity?: number };
+  /**
+   * Resting pose in DEGREES, for a thing that reads better off-axis than face-on. `yaw` turns it
+   * to the viewer's right, `pitch` tips its top away. Spin and drag compose on top of it.
+   */
+  pose?: { yaw?: number; pitch?: number };
   signal?: AbortSignal;
 }
 
@@ -48,6 +53,8 @@ const DEFAULT_RPM = 9;
 const DEFAULT_PADDING = 1.0;
 /** Clamp embedded animation with the same delta ceiling as nextSpin. */
 const MAX_STEP_MS = 100;
+
+const radians = (deg: number) => (deg * Math.PI) / 180;
 
 interface View {
   canvas: HTMLCanvasElement;
@@ -257,7 +264,7 @@ function disposeMaterial(material: import("three").Material) {
 /** Mount a model into an already sized canvas; otherwise the first frame stays empty until resize. */
 export async function mountArtifact(
   canvas: HTMLCanvasElement,
-  { src, rpm = DEFAULT_RPM, padding = DEFAULT_PADDING, light, signal }: MountOptions,
+  { src, rpm = DEFAULT_RPM, padding = DEFAULT_PADDING, light, pose, signal }: MountOptions,
 ): Promise<ArtifactHandle> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D-контекст канваса недоступен");
@@ -294,9 +301,17 @@ export async function mountArtifact(
   else key.position.set(2, 3, 4);
   scene.add(key);
 
+  /* ⚠️ The resting pose is the pivot's PARENT, never its child. Inside the pivot the spin turns an
+     already-tilted body about the WORLD vertical, and it PRECESSES: the object sweeps a cone and
+     crosses over itself instead of turning on its own axis. DESIGN §12.5 */
+  const rest = new THREE.Group();
+  rest.rotation.order = "YXZ";
+  if (pose) rest.rotation.set(radians(pose.pitch ?? 0), radians(pose.yaw ?? 0), 0);
+  scene.add(rest);
+
   const pivot = new THREE.Group();
   pivot.rotation.order = "YXZ";
-  scene.add(pivot);
+  rest.add(pivot);
   /* A clone, not the parse itself: it carries its own pose while geometry, material and texture stay
      the shared ones, so a second view of the same address costs a node tree and nothing on the GPU. */
   const object = gltf.scene.clone();

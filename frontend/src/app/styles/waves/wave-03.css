@@ -1266,3 +1266,266 @@
     drop-shadow(1px 0 0 var(--bg-page)) drop-shadow(-1px 0 0 var(--bg-page))
     drop-shadow(0 1px 0 var(--bg-page)) drop-shadow(0 -1px 0 var(--bg-page));
 }
+
+/* "Today" in the contact-sheet edition: the plate comes off entirely. The frames are the material
+   here — covers lying straight on the canvas, the same argument as the drops rail and the shaft —
+   and a slab under them turned the sheet back into an ordinary widget. */
+:root[data-wave="wave-03"] [data-tile-id="today"] .pixel-tile {
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  /* The radius goes with the plate. `.tile-shell` clips to it, so a kept corner had nothing left
+     to round and only sliced the ledger plate standing in it. */
+  border-radius: 0;
+}
+/* The blur passes are killed BY NAME: an empty background does not switch them off, and the pass
+   would hang as a rectangle over the canvas between the frames (the same note as at the rail). */
+:root[data-wave="wave-03"] [data-tile-id="today"] .pixel-tile::before,
+:root[data-wave="wave-03"] [data-tile-id="today"] .pixel-tile .pixel-lid,
+:root[data-wave="wave-03"] [data-tile-id="today"] .pixel-tile::after {
+  display: none;
+}
+
+/* A frame wears NO edge: a stroke round a photograph is the one gesture this wave does not own
+   (§10.2), and drawn at rest it fenced every cover in. The cover lies on the canvas bare. */
+:root[data-wave="wave-03"] .today-sheet__frame {
+  box-shadow: none;
+}
+/* Only the halo moves, and only `box-shadow`: transitioning a `filter` on the cover rebuilt the
+   picture's layer on every hover, which is what made the gesture drag. */
+:root[data-wave="wave-03"] .today-sheet__shot {
+  transition: box-shadow 140ms ease;
+}
+@media (hover: hover) {
+  /* Openable answers in LIGHT on the PICTURE alone: no stroke, no movement, and the name stays
+     put. The halo's spread is POSITIVE — the cover fills its own box, so a negative one left
+     only a rim. */
+  :root[data-wave="wave-03"] .today-sheet__frame.is-openable:hover .today-sheet__shot {
+    box-shadow: 0 1px 12px 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+}
+
+/* A socket sits on the canvas like a frame does: the wave takes the base's grey ground away and
+   leaves the darkest glass, so it reads as unexposed film rather than as a button. The ground is
+   nearly opaque on purpose — at half strength the canvas ribbon showed straight through it. */
+:root[data-wave="wave-03"] .today-sheet__cell {
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  transition: background 140ms ease;
+}
+/* The mark answers in LIGHT, the wave's own device, and the ground stays put: a cell that also
+   moved or gained a stroke would say the same thing three times. */
+@media (hover: hover) {
+  :root[data-wave="wave-03"] .today-sheet__cell:hover {
+    background: color-mix(in srgb, var(--bg-surface-2) 96%, transparent);
+  }
+}
+/* An exposed cell keeps the same dark film and takes the accent ON it: the base's bare 13% wash
+   is see-through, and over the canvas ribbon it turned the cell into a window rather than a frame. */
+:root[data-wave="wave-03"] .today-sheet__cell.is-done,
+:root[data-wave="wave-03"] .today-sheet__cell.is-extra,
+:root[data-wave="wave-03"] .today-sheet__cell.is-framed {
+  background: color-mix(in srgb, var(--accent) 16%, color-mix(in srgb, var(--bg-surface) 88%, transparent));
+}
+:root[data-wave="wave-03"] .today-sheet__cell.is-unreported {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--border-tile) 45%, transparent) 5px 6px),
+    color-mix(in srgb, var(--bg-surface) 88%, transparent);
+}
+:root[data-wave="wave-03"] .today-sheet__cell.is-done .today-sheet__mark,
+:root[data-wave="wave-03"] .today-sheet__cell.is-extra .today-sheet__mark,
+:root[data-wave="wave-03"] .today-sheet__cell.is-framed .today-sheet__mark {
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* The date is the tile's second voice after the day's name, so the wave gives it the ribbon's
+   face and its own glow — at tertiary it sank into the glass and read as a caption. §10.2 */
+:root[data-wave="wave-03"] .today-sheet__stamp {
+  color: var(--text-primary);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+
+/* Light answers on the PICTURE alone, as on the sheet's frames; the name and the byline are
+   doors too, and the cursor is the whole of what they say about it. */
+@media (hover: hover) {
+  :root[data-wave="wave-03"] .summary-modal__shot.is-away:hover {
+    box-shadow: 0 1px 12px 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+}
+
+/* Retelling window with no frame — the same material decision as the drop gallery and the artifact
+   scene above: no ground, no border, no shadow, and the blur moves from the panel's rectangle onto
+   the whole screen. A glass card here brought back the "one more window" the wave reads away from. */
+:root[data-wave="wave-03"] .summary-modal__panel {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+:root[data-wave="wave-03"] .summary-modal__panel::before,
+:root[data-wave="wave-03"] .summary-modal__panel .pixel-lid,
+:root[data-wave="wave-03"] .summary-modal__panel::after {
+  display: none;
+}
+/* The glass lives on the SCENE: one pass over the screen instead of three over a 448px panel,
+   whose footprint was visible as a sharp-edged patch on the board around it. */
+:root[data-wave="wave-03"] .summary-scene {
+  background: radial-gradient(120% 92% at 50% 44%, rgba(6, 10, 16, 0.74), rgba(2, 4, 7, 0.96) 100%) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
+  backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
+}
+@media (hover: hover) {
+  /* Nothing to light: the panel has no edge left for the wave's shared hover gesture to catch. */
+  :root[data-wave="wave-03"] .summary-modal__panel:hover {
+    --edge-a: 0;
+    border-color: transparent;
+  }
+}
+
+/* Re-laid, not re-built (§10.1): wave 01 stacks the window centred, here it is a GRID — subject
+   and the passage's gist in the top row, chunk and records full width under them. Wide enough
+   that a record folds into two lines instead of three. DESIGN §4.3 */
+:root[data-wave="wave-03"] .summary-modal__panel {
+  max-width: 46rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 15rem);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas: "head gist" "chunk chunk" "body body";
+  column-gap: 20px;
+}
+/* The cross belongs to the WINDOW, not to the header: with the header down to the left column
+   its right edge is mid-panel, and the cross sat in the middle of the spread. */
+:root[data-wave="wave-03"] .summary-modal__head {
+  position: static;
+  grid-area: head;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  text-align: left;
+  padding-right: 0;
+}
+/* The name carries the window, so it is set a step above the board's modal size. */
+:root[data-wave="wave-03"] .summary-modal__name {
+  font-size: calc(var(--fs-modal-title) * 1.24);
+  line-height: 1.25;
+}
+/* The cover is the subject of the conversation, not a list row's icon: it is given the size the
+   frame on the sheet has. Width and height arrive as ATTRIBUTES, so a rule reaches them. */
+:root[data-wave="wave-03"] .summary-modal__shot > img,
+:root[data-wave="wave-03"] .summary-modal__shot > div[aria-hidden] {
+  width: 104px !important;
+  height: auto !important;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+}
+:root[data-wave="wave-03"] .summary-modal__shot > img[height="90"],
+:root[data-wave="wave-03"] .summary-modal__shot > div[aria-hidden][style*="90"] {
+  aspect-ratio: 2 / 3;
+}
+:root[data-wave="wave-03"] .summary-modal__ident {
+  margin-top: 0;
+  padding: 0;
+  flex: 1;
+}
+
+/* The covered chunk is DRAWN rather than spelled out — the sheet's own lit run, at the window's
+   full width, with the figure trailing it quietly. Percentages on a pedestal are wave 01's voice. */
+:root[data-wave="wave-03"] .summary-modal__progress {
+  grid-area: chunk;
+  text-align: left;
+  border: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+/* The caption and the arrow line are taken off the EYE but left to the ear: the track is drawn
+   for a screen reader's benefit not at all, and hiding them outright took the chunk out of the
+   a11y tree entirely. */
+:root[data-wave="wave-03"] .summary-modal__progress > :first-child,
+:root[data-wave="wave-03"] .summary-modal__progress > :nth-child(2) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:root[data-wave="wave-03"] .summary-modal__track {
+  display: block;
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  margin-bottom: 18px;
+  background: color-mix(in srgb, var(--border-tile) 80%, transparent);
+}
+/* The numbers stand AT the run's ends, so the run itself is the period and no arrow is needed
+   between them. The far one is pulled back by its own width to end where the run ends. */
+:root[data-wave="wave-03"] .summary-modal__end {
+  position: absolute;
+  top: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-modal-small);
+  letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+:root[data-wave="wave-03"] .summary-modal__end--far {
+  transform: translateX(-100%);
+  color: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+/* A run too short to hold both numbers wears them OUTSIDE itself, one to each side: under its
+   ends they would sit on top of each other, and dropping one loses where the sitting began. */
+:root[data-wave="wave-03"] .summary-modal__track.is-tight .summary-modal__end {
+  transform: translateX(-100%);
+  padding-right: 8px;
+}
+:root[data-wave="wave-03"] .summary-modal__track.is-tight .summary-modal__end--far {
+  transform: none;
+  padding: 0 0 0 8px;
+}
+:root[data-wave="wave-03"] .summary-modal__run {
+  position: absolute;
+  inset: 0 auto;
+  border-radius: 1px;
+  background: var(--accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
+}
+
+/* The retelling reads as RECORDS, the grammar of this wave's canvas: a lit mono index, a hairline
+   between neighbours, no bullet dot. The dot is wave 01's marker and repeated it here. */
+:root[data-wave="wave-03"] .summary-modal__body {
+  grid-area: body;
+  padding-top: 16px;
+  counter-reset: record;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 30%, transparent) transparent;
+}
+:root[data-wave="wave-03"] .summary-modal__body li { counter-increment: record; }
+:root[data-wave="wave-03"] .summary-modal__body li > span:first-child { display: none; }
+:root[data-wave="wave-03"] .summary-modal__body li::before {
+  content: counter(record, decimal-leading-zero);
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--accent) 85%, transparent);
+  font-size: var(--fs-modal-small);
+  letter-spacing: 0.04em;
+}
+:root[data-wave="wave-03"] .summary-modal__body li + li {
+  border-top: 1px solid color-mix(in srgb, var(--border-tile) 55%, transparent);
+  padding-top: 10px;
+}
+
+/* The gist stands BESIDE the subject it is about, in the header's empty right, not as a sixth
+   record at the foot. Set in the SANS — this wave's display face is the same mono the records
+   use, so only the sans tells the window's own voice from the retelling. */
+:root[data-wave="wave-03"] .summary-modal__takeaway {
+  grid-area: gist;
+  align-self: start;
+  border-top: none;
+  margin: 0;
+  padding: 22px 0 0;
+  font-family: var(--font-sans);
+  font-style: italic;
+  font-size: calc(var(--fs-modal-row) * 1.08);
+  line-height: 1.45;
+  color: var(--text-primary);
+}

@@ -4639,3 +4639,327 @@ button.sleep-echo:focus-visible {
   position: relative;
   max-width: min(94vw, 620px);
 }
+
+/* ── "Today", the contact-sheet edition (DESIGN §4.3) ─────────────────────────────────────────
+   Sittings are equal square frames with their covers filling them; the discipline ledger runs as
+   named plates along the foot. Structure only — how much plate is left is the wave's word. */
+.today-sheet {
+  --sheet-frame: 104px;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.today-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+/* The date closes the FOOT at its far end: the whole top belongs to the day's name, and a stamp
+   standing up there competed with it whatever its size. */
+.today-sheet__stamp {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* The day's name, the only line in full voice: ONE line, the size fitted to its length; the
+   ellipsis is a floor guard under the smallest size, not the mechanism. ⚠️ The line box must clear
+   the FONT's ink: `overflow: hidden` clips at the padding box, and 1.2 beheaded a short name. */
+.today-sheet__voice {
+  margin: 0;
+  padding-block: 1px;
+  font-family: var(--font-mono);
+  line-height: 1.42;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Frames start at the left and stop where they stop: the empty right is deliberate, and a row
+   that stretched would make one podcast look like a full day. The halo needs room INSIDE the
+   scroll box, which clips what leaves it; the negative margin hands that padding back. */
+.today-sheet__frames {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: -12px;
+  padding: 12px;
+}
+.today-sheet__frames::-webkit-scrollbar { display: none; }
+
+/* A frame is the cover, the track and the name STACKED — nothing lies on the picture, so its
+   lower edge is not darkened and the cover stays whole. */
+.today-sheet__frame {
+  flex: 0 0 auto;
+  width: var(--sheet-frame);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.today-sheet__frame.is-openable { cursor: pointer; }
+
+.today-sheet__shot {
+  display: block;
+  width: var(--sheet-frame);
+  height: var(--sheet-frame);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-surface-muted);
+}
+.today-sheet__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* No cover on the sitting: the frame stays a frame, quietly, instead of collapsing. */
+.today-sheet__cover--blank {
+  background: linear-gradient(160deg, var(--bg-surface-2), var(--bg-surface-muted));
+}
+
+/* The whole track is the whole work; the lit run is the piece this sitting covered, sitting where
+   in the work it fell. Percentages said the same thing in the previous waves' voice. */
+.today-sheet__track {
+  position: relative;
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--text-tertiary) 30%, transparent);
+}
+.today-sheet__run {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.today-sheet__name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.today-sheet__frame.is-openable:hover .today-sheet__name { color: var(--text-primary); }
+
+/* The FIXED row: one column per item, always the same count in the same order, so the row keeps
+   its shape from day to day and an item is found by place. Equal columns, never wrapping. */
+.today-sheet__sockets {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(var(--sheet-sockets, 6), minmax(0, 1fr));
+  gap: 8px;
+}
+.today-sheet__cell {
+  min-width: 0;
+  padding: 9px 4px 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-muted, rgba(128, 128, 128, 0.08));
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+/* The grease pencil's mark, one glyph per state, and the WHOLE of what the socket says about it:
+   obligation is in the verb, so nothing else has to repeat it. */
+.today-sheet__mark {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
+
+/* The monster takes a FRAME's geometry — same square, same gaps, same caption line — so it stands
+   in the row as one more picture. No border and no ground: the figure is the card, and a plate
+   would make it a button among pictures. DESIGN §4.3 */
+.today-sheet__monster {
+  flex: 0 0 auto;
+  width: var(--sheet-frame);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* The figure stands where a cover would, on the canvas rather than on the cover's grey ground. */
+.today-sheet__shot--bare { background: none; }
+.today-sheet__monsterbody {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Holds the track's height without drawing one, so the verdict lands on the frame names' line. */
+.today-sheet__track--void { background: none; }
+/* Set as a frame's name is set — the row reads as one row — and coloured by the verdict alone.
+   Centred under the figure, unlike a frame's name: a title runs on and needs its left edge, while
+   two words under a body are a caption and belong on its axis. */
+.today-sheet__monstersay {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  min-height: 14px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.today-sheet__monster.is-drunk .today-sheet__monstersay {
+  color: var(--danger);
+  font-weight: 600;
+}
+/* Green, not the accent: the accent would read "did this N days running", which is the opposite
+   of what a clean run means. Same token and same reason as the trail map's verdict. DESIGN §4.1 */
+.today-sheet__monster.is-clean .today-sheet__monstersay { color: var(--accent-clean); }
+/* The lens answers in LIGHT and in the verdict's OWN colour, never by repainting it: this line
+   belongs to the day's answer, not to a control's state. Hover says nothing at all — the figure
+   turning under the cursor is the whole of the reply. DESIGN §4.3 */
+.today-sheet__monster.is-active .today-sheet__monstersay {
+  text-shadow: 0 0 12px currentColor;
+}
+.today-sheet__monster:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
+}
+/* Today's part of the target and the run still alive: a run standing beside an UNMADE mark reads
+   "not yet, and the streak holds", which the plate this replaces could not say. It holds its line
+   even when empty, so the names below stay on one baseline across the row. */
+.today-sheet__tail {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.2;
+  min-height: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.today-sheet__cellname {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  color: var(--text-tertiary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-sheet__foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The subject's name in the window's header: one size for a book and an episode alike. */
+.summary-modal__name {
+  font-size: var(--fs-modal-title);
+  color: var(--text-primary);
+}
+/* A door rather than a label, when the subject has an address. `display: block` is load-bearing:
+   as an `<a>` the name and the byline are INLINE and ran into one line. */
+.summary-modal__shot,
+.summary-modal__name,
+.summary-modal__byline {
+  display: block;
+}
+.summary-modal__shot.is-away,
+.summary-modal__name.is-away,
+.summary-modal__byline.is-away {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: box-shadow 140ms ease;
+}
+
+/* The chunk stands as its own block between the header and the bullets, set off by rules: it
+   answers "how much" while the bullets answer "what", and the two should not run together. */
+.summary-modal__progress {
+  padding: 10px 0 12px;
+  margin-bottom: 12px;
+  border-top: 1px solid var(--border-tile, var(--border));
+  border-bottom: 1px solid var(--border-tile, var(--border));
+}
+
+/* The chunk this sitting covered, drawn rather than spelled out: a seam the waves light up
+   (DESIGN §4.3). Dark by default — the base window states the chunk in words instead. */
+.summary-modal__track { display: none; }
+
+/* The takeaway is not a sixth bullet but a phrase about the whole chunk: set off above, quieter. */
+.summary-modal__takeaway {
+  font-family: var(--font-mono);
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-tile, var(--border));
+  font-size: var(--fs-modal-meta);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* A socket that has something to show is EXPOSED: ground and mark take the accent. An optional one
+   that happened is lit the same way — owed to nobody, so it is never a miss; an item whose sittings
+   are frames above is lit too, because the covers already said it happened. */
+.today-sheet__cell.is-done,
+.today-sheet__cell.is-extra,
+.today-sheet__cell.is-framed {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.today-sheet__cell.is-done .today-sheet__mark,
+.today-sheet__cell.is-extra .today-sheet__mark,
+.today-sheet__cell.is-framed .today-sheet__mark { color: var(--accent); }
+.today-sheet__cell.is-done .today-sheet__cellname,
+.today-sheet__cell.is-extra .today-sheet__cellname,
+.today-sheet__cell.is-framed .today-sheet__cellname { color: var(--text-secondary); }
+.today-sheet__cell.is-done .today-sheet__tail,
+.today-sheet__cell.is-extra .today-sheet__tail,
+.today-sheet__cell.is-framed .today-sheet__tail {
+  color: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* An unmarked item is not a refused one: an unexposed hatch says "no answer", not "no". */
+.today-sheet__cell.is-unreported {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    var(--bg-surface-muted, rgba(128, 128, 128, 0.1)) 5px 6px
+  );
+}
+
+/* The lens is on: the socket says so by light, the wave's own device. */
+.today-sheet__cell.is-active .today-sheet__cellname { color: var(--accent); }
+
+/* A socket is a CONTROL — it sets the calendar lens — so it has to answer the pointer. */
+@media (hover: hover) {
+  .today-sheet__cell:hover .today-sheet__cellname { color: var(--text-primary); }
+}
+
+.today-sheet__cell:focus-visible,
+.today-sheet__frame:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

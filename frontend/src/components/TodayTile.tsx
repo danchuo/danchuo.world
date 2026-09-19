@@ -6,6 +6,7 @@ import { relativeDayRu } from "@/lib/relativeDay";
 import { hasWeekendScene, isWeekend } from "@/lib/weekend";
 import { HoverTip } from "./HoverTip";
 import { QuestMap } from "./QuestMap";
+import { TodaySheet } from "./TodaySheet";
 import { WeekendScene } from "./WeekendScene";
 import { TileShell, type TileState } from "./TileShell";
 
@@ -17,6 +18,12 @@ interface TodayTileProps {
   onRetry?: () => void;
   /** Active wave key — forwarded to [QuestMap] so waves with a sprite set swap glyphs (DESIGN §12). */
   wave?: string | null;
+  /**
+   * The tile's edition (DESIGN §4.3, §10.1), chosen by the WAVE through the layout
+   * (`tiles.today.edition`); the component knows nothing of waves. `sheet` is the contact sheet:
+   * sittings as frames over a ledger strip, in place of the header and the trail map.
+   */
+  edition?: string;
   /** The calendar lens (PRD §5.3) — the selected stop of the trail map, and its switch. */
   lens?: DisciplineLens | null;
   onLensChange?: (lens: DisciplineLens | null) => void;
@@ -70,11 +77,14 @@ export function TodayTile({
   state,
   onRetry,
   wave,
+  edition,
   lens,
   onLensChange,
   style,
   className,
 }: TodayTileProps) {
+  // An unknown edition name means the default: the set of editions is the TILE's knowledge.
+  const sheet = edition === "sheet";
   // The tile's caption is relative to the selected date: it says "today" only when today is selected.
   const label = day ? relativeDayRu(day.date, today) : "сегодня";
   // A day of the neighbouring month is selected → the tile's ground shifts slightly (DESIGN §4), as
@@ -92,15 +102,20 @@ export function TodayTile({
       state={state}
       onRetry={onRetry}
       elevated
-      scatter
-      label={label}
+      // The sheet has no plate to scatter over and no meta row: the ribbon line is its own caption.
+      scatter={!sheet}
+      label={sheet ? undefined : label}
       ariaLabel="Сегодня"
       style={tileStyle}
       // The corner scatter (DESIGN §2.4) is only on the focus tile (the `scatter` prop); the border
       // comes from `.pixel-tile`.
       className={className}
     >
-      {day && (
+      {day && sheet && (
+        <TodaySheet day={day} today={today} lens={lens} onLensChange={onLensChange} />
+      )}
+
+      {day && !sheet && (
         <div className="flex h-full flex-col gap-3" style={{ containerType: "inline-size" }}>
           {/* Date and day name share the header, split 2/5 to 3/5, so long names render at a
               confident size. The date shrinks to fit ONE line while the name WRAPS and is sized to

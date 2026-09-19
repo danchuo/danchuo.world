@@ -4639,3 +4639,237 @@ button.sleep-echo:focus-visible {
   position: relative;
   max-width: min(94vw, 620px);
 }
+
+/* ── "Today", the contact-sheet edition (DESIGN §4.3) ─────────────────────────────────────────
+   Sittings are equal square frames with their covers filling them; the discipline ledger runs as
+   named plates along the foot. Structure only — how much plate is left is the wave's word. */
+.today-sheet {
+  --sheet-frame: 118px;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+.today-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+/* The sheet's own edge: the stamp at the head, the relative word at the foot, both set UPRIGHT
+   down the margin the way a frame number is printed on film. Service text leaves the body. */
+.today-sheet__edge {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  display: flex;
+  /* `row` in vertical writing runs DOWN the margin: the inline axis is the one that turned. */
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.today-sheet__stamp { color: var(--text-secondary); }
+.today-sheet__relative { color: var(--text-tertiary); }
+
+/* The day's name, the only line in full voice: ONE line, the size fitted to its length. The
+   ellipsis is a floor guard under the smallest size, not the mechanism — that ate names. */
+.today-sheet__voice {
+  margin: 0;
+  font-family: var(--font-mono);
+  line-height: 1.2;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Frames start at the left and stop where they stop: the empty right is deliberate, and a row
+   that stretched would make one podcast look like a full day. */
+.today-sheet__frames {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.today-sheet__frames::-webkit-scrollbar { display: none; }
+
+/* A frame is the cover, the track and the name STACKED — nothing lies on the picture, so its
+   lower edge is not darkened and the cover stays whole. */
+.today-sheet__frame {
+  flex: 0 0 auto;
+  width: var(--sheet-frame);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.today-sheet__frame.is-openable { cursor: pointer; }
+
+.today-sheet__shot {
+  display: block;
+  width: var(--sheet-frame);
+  height: var(--sheet-frame);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-surface-muted);
+}
+.today-sheet__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* No cover on the sitting: the frame stays a frame, quietly, instead of collapsing. */
+.today-sheet__cover--blank {
+  background: linear-gradient(160deg, var(--bg-surface-2), var(--bg-surface-muted));
+}
+
+/* The whole track is the whole work; the lit run is the piece this sitting covered, sitting where
+   in the work it fell. Percentages said the same thing in the previous waves' voice. */
+.today-sheet__track {
+  position: relative;
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--text-tertiary) 30%, transparent);
+}
+.today-sheet__run {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.today-sheet__name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.today-sheet__frame.is-openable:hover .today-sheet__name { color: var(--text-primary); }
+
+/* The ledger sits on the sheet's bottom edge and wraps onto a second row; the slack the frames
+   leave stays above it, so the strip reads as the foot of the sheet. */
+.today-sheet__ledger {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-end;
+  gap: 8px;
+}
+/* Nothing was listened to or read: the frame row is gone and the ledger takes the height it
+   freed, centred. An empty sheet is a smaller sheet, never an empty rectangle with a strip. */
+.today-sheet--bare .today-sheet__ledger {
+  margin-top: 0;
+  flex: 1;
+  align-content: center;
+}
+
+/* The subject's name in the window's header: one size for a book and an episode alike. */
+.summary-modal__name {
+  font-size: var(--fs-modal-title);
+  color: var(--text-primary);
+}
+
+/* The chunk stands as its own block between the header and the bullets, set off by rules: it
+   answers "how much" while the bullets answer "what", and the two should not run together. */
+.summary-modal__progress {
+  padding: 10px 0 12px;
+  margin-bottom: 12px;
+  border-top: 1px solid var(--border-tile, var(--border));
+  border-bottom: 1px solid var(--border-tile, var(--border));
+}
+
+/* The chunk this sitting covered, drawn rather than spelled out: a seam the waves light up
+   (DESIGN §4.3). Dark by default — the base window states the chunk in words instead. */
+.summary-modal__track { display: none; }
+
+/* The takeaway is not a sixth bullet but a phrase about the whole chunk: set off above, quieter. */
+.summary-modal__takeaway {
+  font-family: var(--font-mono);
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-tile, var(--border));
+  font-size: var(--fs-modal-meta);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* A plate says what it is; the streak rides at its right as a numeral, never as a second light. */
+.sheet-mark {
+  flex: 0 0 auto;
+  min-width: 96px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1.5px solid var(--border-tile);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.sheet-mark__label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+}
+.sheet-mark__run {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: color-mix(in srgb, var(--accent) 80%, transparent);
+  white-space: nowrap;
+}
+
+/* Done fills the plate's ground. */
+.sheet-mark.is-done {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.sheet-mark.is-done .sheet-mark__label { color: var(--text-primary); }
+
+/* The lens is on: the plate says so by light, the wave's own device. */
+.sheet-mark.is-active { border-color: var(--accent); }
+.sheet-mark.is-active .sheet-mark__label { color: var(--accent); }
+
+/* A plate is a CONTROL — it sets the calendar lens — so it has to answer the pointer. */
+@media (hover: hover) {
+  .sheet-mark:hover { border-color: color-mix(in srgb, var(--accent) 75%, transparent); }
+  .sheet-mark:hover .sheet-mark__label { color: var(--text-primary); }
+}
+
+/* An unmarked monster is not a clean one (PRD §5.6): a dashed edge says "no answer", not "no". */
+.sheet-mark[data-tone="unreported"] { border-style: dashed; }
+.sheet-mark[data-tone="drunk"] {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
+}
+.sheet-mark[data-tone="drunk"] .sheet-mark__label { color: var(--danger); }
+
+.sheet-mark:focus-visible,
+.today-sheet__frame:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

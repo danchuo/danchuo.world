@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { getSummary } from "@/lib/api/client";
 import type { SummarySubject } from "@/lib/summarySubject";
 import { Icon } from "./Icon";
@@ -81,7 +81,7 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
 
   return (
     <div
-      className="modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
+      className="summary-scene modal-scale fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: "rgba(33, 26, 22, 0.55)" }}
       onClick={onClose}
     >
@@ -90,7 +90,7 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label={subject.ariaLabel}
-        className="pixel-tile flex w-full max-w-md flex-col p-4"
+        className="summary-modal__panel pixel-tile flex w-full max-w-md flex-col p-4"
         style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
         data-testid="summary-modal"
@@ -101,7 +101,7 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
         {/* The header is the same subject as on the card: cover, title, caption, in a centred
             column. The modal is about ONE thing, and its cover is the subject of the conversation
             rather than a list row's icon. The close cross goes into the corner absolutely. */}
-        <div className="relative mb-3 flex shrink-0 flex-col items-center text-center">
+        <div className="summary-modal__head relative mb-3 flex shrink-0 flex-col items-center text-center">
           <button
             ref={closeRef}
             type="button"
@@ -115,55 +115,121 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
           {/* The same cover by the same component as the card's and the player tile's. A book's is
               portrait (a spine), an episode's square (a sleeve) — hence different heights at one
               width. Larger than the card's: here it carries the header alone. */}
-          <Cover
-            url={subject.coverUrl}
-            alt=""
-            size={COVER_W}
-            height={subject.portrait ? COVER_H_PORTRAIT : COVER_W}
-          />
-          <div className="mt-2 max-w-full px-6">
-            <div style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>
+          <Away href={subject.titleUrl} className="summary-modal__shot">
+            <Cover
+              url={subject.coverUrl}
+              alt=""
+              size={COVER_W}
+              height={subject.portrait ? COVER_H_PORTRAIT : COVER_W}
+            />
+          </Away>
+          <div className="summary-modal__ident mt-2 max-w-full px-6">
+            {/* The cover and the name lead to the episode, the byline to the show. A book has no
+                address of its own, and then both are plain text rather than dead links. */}
+            <Away href={subject.titleUrl} className="summary-modal__name">
               {subject.title}
-            </div>
-            {subject.byline && <div style={{ ...mono, ...meta }}>{subject.byline}</div>}
+            </Away>
+            {subject.byline && (
+              <Away href={subject.bylineUrl} className="summary-modal__byline" style={{ ...mono, ...meta }}>
+                {subject.byline}
+              </Away>
+            )}
           </div>
         </div>
 
-        {/* The covered chunk, large and centred: it IS the conversation's heading. */}
+        {/* The covered chunk, large and centred: it IS the conversation's heading. A wave may
+            instead draw it as the lit run below, the sheet's own device — the track is a seam,
+            dark until a skin lights it (DESIGN §4.3). */}
         {subject.progressValue && (
-          <div className="shrink-0 text-center" style={progressBlock} data-testid="summary-progress">
+          <div className="summary-modal__progress shrink-0 text-center" data-testid="summary-progress">
             <div style={progressCaption}>{subject.progressCaption}</div>
             <div style={progressValue}>{subject.progressValue}</div>
+            {subject.span && (
+              <span
+                className={`summary-modal__track${
+                  subject.span.to - subject.span.from < ENDS_INSIDE_FROM ? " is-tight" : ""
+                }`}
+                aria-hidden
+              >
+                <span
+                  className="summary-modal__run"
+                  style={{
+                    left: `${(subject.span.from * 100).toFixed(2)}%`,
+                    width: `${Math.max((subject.span.to - subject.span.from) * 100, 1.5).toFixed(2)}%`,
+                  }}
+                />
+                {subject.spanEnds && (
+                  <>
+                    <span className="summary-modal__end" style={{ left: `${(subject.span.from * 100).toFixed(2)}%` }}>
+                      {subject.spanEnds.from}
+                    </span>
+                    <span
+                      className="summary-modal__end summary-modal__end--far"
+                      style={{ left: `${(subject.span.to * 100).toFixed(2)}%` }}
+                    >
+                      {subject.spanEnds.to}
+                    </span>
+                  </>
+                )}
+              </span>
+            )}
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="summary-modal__body min-h-0 flex-1 overflow-y-auto">
           {bullets ? (
-            <>
-              <ul className="flex flex-col gap-2" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {bullets.map((line) => (
-                  <li key={line} className="flex gap-2" style={{ ...mono, ...body }}>
-                    <span aria-hidden style={{ color: "var(--accent)" }}>·</span>
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-              {takeaway && (
-                <p style={{ ...mono, ...takeawayStyle }} data-testid="summary-takeaway">
-                  {takeaway}
-                </p>
-              )}
-            </>
+            <ul className="flex flex-col gap-2" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {bullets.map((line) => (
+                <li key={line} className="flex gap-2" style={{ ...mono, ...body }}>
+                  <span aria-hidden style={{ color: "var(--accent)" }}>·</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p style={{ ...mono, ...meta }}>
               {failed ? "пересказ не собрался" : "собираю пересказ…"}
             </p>
           )}
         </div>
+
+        {/* A peer of the header, the chunk and the records rather than a last bullet: it speaks
+            about the WHOLE passage, and a wave may move it out of the column entirely. */}
+        {bullets && takeaway && (
+          <p className="summary-modal__takeaway shrink-0" data-testid="summary-takeaway">
+            {takeaway}
+          </p>
+        )}
       </div>
     </div>
   );
 }
+
+/** Text that is a door when the subject has an address, and plain text when it has none. */
+function Away({
+  href,
+  className,
+  style,
+  children,
+}: {
+  href: string | null;
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  if (!href) return <div className={className} style={style}>{children}</div>;
+  return (
+    <a className={`${className} is-away`} href={href} target="_blank" rel="noreferrer" style={style}>
+      {children}
+    </a>
+  );
+}
+
+/**
+ * Below this the numbers move OUTSIDE the run instead of under its ends, where they would sit on
+ * top of each other. Measured — at ~660px of track a label runs ~30px, so a pair needs ~10%.
+ */
+const ENDS_INSIDE_FROM = 0.12;
 
 /** The header cover: one width for both subjects, the height by each one's proportion. */
 const COVER_W = 60;
@@ -182,15 +248,6 @@ const body = {
   lineHeight: 1.45,
 } satisfies CSSProperties;
 
-/* The chunk stands as its own block between the header and the bullets, set off by rules: it
-   answers "how much" while the bullets answer "what", and the two should not run together. */
-const progressBlock = {
-  padding: "10px 0 12px",
-  marginBottom: 12,
-  borderTop: "1px solid var(--border-tile, var(--border))",
-  borderBottom: "1px solid var(--border-tile, var(--border))",
-} satisfies CSSProperties;
-
 const progressCaption = {
   ...mono,
   fontSize: "var(--fs-modal-small)",
@@ -207,12 +264,3 @@ const progressValue = {
   color: "var(--accent)",
 } satisfies CSSProperties;
 
-/* The takeaway is not a sixth bullet but a phrase about the whole chunk: set off above and quieter. */
-const takeawayStyle = {
-  marginTop: 12,
-  paddingTop: 10,
-  borderTop: "1px solid var(--border-tile, var(--border))",
-  fontSize: "var(--fs-modal-meta)",
-  color: "var(--text-secondary)",
-  lineHeight: 1.45,
-} satisfies CSSProperties;

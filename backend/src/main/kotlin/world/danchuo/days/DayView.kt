@@ -159,4 +159,6 @@ data class PodcastEpisodeView(
      * needs it, while this projection is hauled for every calendar day.
      */
     val hasSummary: Boolean = false,
+    /** When the sitting began; a book carries the same, so the day's sittings can be ordered. */
+    val startedAt: Instant? = null,
 )

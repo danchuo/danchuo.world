@@ -81,4 +81,47 @@ describe("summarySubject", () => {
     // percentages they did not cover while we watched.
     expect(bookSubject(book({ startPercent: null }))!.progressValue).toBe("53%");
   });
+
+  // The sitting's place in the whole work travels WITH the subject, so the window draws the same
+  // lit run the sheet's frame draws under the cover rather than recomputing it. DESIGN §4.3
+  it("carries the covered chunk as a 0..1 span of the whole work", () => {
+    expect(bookSubject(book())!.span).toEqual({ from: 0.48, to: 0.53 });
+    const ep = episodeSubject(episode())!.span!;
+    expect(ep.from).toBeCloseTo(12 / 48, 5);
+    expect(ep.to).toBeCloseTo(47 / 48, 5);
+  });
+
+  it("has no span when there is nothing to place the run on", () => {
+    // Minutes without a length cannot become fractions, and a book with no start has no left end.
+    expect(episodeSubject(episode({ durationMinutes: null }))!.span).toBeNull();
+    expect(bookSubject(book({ startPercent: null }))!.span).toBeNull();
+  });
+
+  // The run's ends carry their own numbers, so a window that DRAWS the chunk needs no arrow
+  // between them — the arrow is the previous waves' way of saying it. DESIGN §4.3
+  it("names both ends of the run in the kind's own units", () => {
+    expect(bookSubject(book())!.spanEnds).toEqual({ from: "48%", to: "53%" });
+    expect(episodeSubject(episode())!.spanEnds).toEqual({ from: "12 мин", to: "47 мин" });
+  });
+
+  it("has no ends where it has no run", () => {
+    expect(episodeSubject(episode({ durationMinutes: null }))!.spanEnds).toBeNull();
+  });
+
+  // An episode lives at Spotify, so the window's header is also the way there: the cover and the
+  // name lead to the episode, the byline to the show. A book has no such address. PRD §5.16.1
+  it("carries the episode's own addresses, and a book carries none", () => {
+    const ep = episodeSubject(episode())!;
+    expect(ep.titleUrl).toBe("https://open.spotify.com/episode/x");
+    expect(ep.bylineUrl).toBe("https://open.spotify.com/show/y");
+
+    const bk = bookSubject(book())!;
+    expect(bk.titleUrl).toBeNull();
+    expect(bk.bylineUrl).toBeNull();
+  });
+
+  it("reads a backwards pair as a span, not as a negative one", () => {
+    // A broken reading hands the ends over swapped; the run is still a run.
+    expect(bookSubject(book({ startPercent: 0.7, endPercent: 0.2 }))!.span).toEqual({ from: 0.2, to: 0.7 });
+  });
 });

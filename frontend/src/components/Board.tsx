@@ -315,6 +315,7 @@ function BoardTile({
           state={data.dayStatus}
           onRetry={data.retryDay}
           wave={data.wave}
+          edition={edition}
           lens={data.lens}
           onLensChange={data.setLens}
           style={style}

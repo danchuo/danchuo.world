@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: борд пересобран по правилам владельца. Размеры плиток не тронуты ни у одной,
+      состав не тронут — это чистые сдвиги.
+
+      Правила: переключатель волн и соцсети не стоят рядом; соцсети в верхней части; спотифай
+      слева сверху; сон сверху справа; «Сегодня» в центре; календарь под ним; велобайк справа
+      снизу; проекты снизу слева.
+
+      Три колонки. Слева 1..11: дроп (1..16), проекты (18..23), переключатель волн (25..26).
+      Середина 13..31: спотифай и шахта артефактов сверху, «Сегодня» ровно по центру сетки
+      (13..28 × 9..19, середина колонки 20.5 при центре борда 20.5), под ним календарь и статы.
+      Справа 33..40: сон, соцсети, лента дропов, велобайк.
+
+      ОТСТУПЛЕНИЕ, сделанное сознательно: спотифай стоит не в самой левой колонке, а сверху
+      средней. Причина арифметическая, а не вкусовая. Календарь под «Сегодня» прижимает плитку
+      к строкам 9..19, значит над ней в середине остаётся 7 строк, и любая плитка высотой 8+
+      обязана жить в боковой колонке. Таких три: дроп (16), лента дропов (9), статы (8). Левая
+      колонка после спотифая даёт 21 строку — туда влезает только дроп; правая после сна и
+      велобайка даёт 12 — туда влезает только одна из двух оставшихся. Одной высокой плитке
+      места не остаётся вовсе. Поэтому левую колонку целиком занимает дроп (единственное место,
+      где помещается 11x16), а спотифай встаёт сверху середины — он остаётся наверху и левее
+      центра, и это самое дешёвое из возможных отступлений.
+
+      Пустой трек между каждой парой соседей сохранён, проверено поклеточно.
+    -->
+    <changeSet id="1010-wave-03-rearrange" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,latestDrop}',
+  layout->'tiles'->'latestDrop' || '{"col": 1, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,projects}',
+  layout->'tiles'->'projects' || '{"col": 1, "row": 18}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,waveSwitcher}',
+  layout->'tiles'->'waveSwitcher' || '{"col": 1, "row": 25}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,music}',
+  layout->'tiles'->'music' || '{"col": 13, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,marquee}',
+  layout->'tiles'->'marquee' || '{"col": 24, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,today}',
+  layout->'tiles'->'today' || '{"col": 13, "row": 9}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,calendar}',
+  layout->'tiles'->'calendar' || '{"col": 13, "row": 21}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,stats}',
+  layout->'tiles'->'stats' || '{"col": 23, "row": 21}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,sleep}',
+  layout->'tiles'->'sleep' || '{"col": 33, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,social}',
+  layout->'tiles'->'social' || '{"col": 33, "row": 9}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,photoDrops}',
+  layout->'tiles'->'photoDrops' || '{"col": 33, "row": 11}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,ride}',
+  layout->'tiles'->'ride' || '{"col": 33, "row": 21}'::jsonb) WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,latestDrop}',
+  layout->'tiles'->'latestDrop' || '{"col": 1, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,projects}',
+  layout->'tiles'->'projects' || '{"col": 1, "row": 18}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,waveSwitcher}',
+  layout->'tiles'->'waveSwitcher' || '{"col": 1, "row": 25}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,music}',
+  layout->'tiles'->'music' || '{"col": 31, "row": 20}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,marquee}',
+  layout->'tiles'->'marquee' || '{"col": 23, "row": 21}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,today}',
+  layout->'tiles'->'today' || '{"col": 13, "row": 9}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,calendar}',
+  layout->'tiles'->'calendar' || '{"col": 13, "row": 21}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,stats}',
+  layout->'tiles'->'stats' || '{"col": 31, "row": 11}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,sleep}',
+  layout->'tiles'->'sleep' || '{"col": 13, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,social}',
+  layout->'tiles'->'social' || '{"col": 1, "row": 28}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,photoDrops}',
+  layout->'tiles'->'photoDrops' || '{"col": 31, "row": 1}'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,ride}',
+  layout->'tiles'->'ride' || '{"col": 22, "row": 1}'::jsonb) WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

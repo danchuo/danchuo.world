@@ -192,6 +192,7 @@ class DayAggregator(
             durationMinutes = run.episodeDurationMs?.let { PodcastDayRollup.listenedMinutes(it) },
             sessionId = run.sessionId,
             hasSummary = run.sessionId in retold,
+            startedAt = run.startedAt,
         )
     }
 

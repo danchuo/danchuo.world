@@ -13,6 +13,7 @@ const MSK_CLOCK_FMT = new Intl.DateTimeFormat("ru-RU", {
 const MONTH_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "long", timeZone: "UTC" });
 const MONTH_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { month: "short", timeZone: "UTC" });
 const WEEKDAY_SHORT_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "short", timeZone: "UTC" });
+const WEEKDAY_LONG_RU_FMT = new Intl.DateTimeFormat("ru-RU", { weekday: "long", timeZone: "UTC" });
 
 /** Today's ISO date in MSK, independently of the visitor's zone. */
 export function mskToday(now: Date = new Date()): string {
@@ -79,6 +80,12 @@ export function monthNameRu(iso: string, today: string): string {
 export function weekdayShortRu(iso: string): string {
   assertIso(iso);
   return WEEKDAY_SHORT_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
+}
+
+/** Full Russian weekday name, for the places wide enough to spell it out. DESIGN §4.3. */
+export function weekdayLongRu(iso: string): string {
+  assertIso(iso);
+  return WEEKDAY_LONG_RU_FMT.format(new Date(`${iso}T00:00:00Z`));
 }
 
 /** Monday-based weekday index: Monday=0, Sunday=6. DESIGN §5. */

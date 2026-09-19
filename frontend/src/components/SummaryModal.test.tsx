@@ -31,10 +31,14 @@ describe("SummaryModal", () => {
     sessionId: 7,
     title: "Дюна",
     byline: "Фрэнк Герберт",
+    titleUrl: null,
+    bylineUrl: null,
     coverUrl: "/api/reading/cover/7",
     portrait: true,
     progressCaption: "прочитано за этот заход",
     progressValue: "48% → 53%",
+    span: { from: 0.48, to: 0.53 },
+    spanEnds: { from: "48%", to: "53%" },
     ariaLabel: "Что было в прочитанном куске: Дюна",
     ...patch,
   });
@@ -44,6 +48,8 @@ describe("SummaryModal", () => {
     sessionId: 42,
     title: "How Feelings Make Us Smarter",
     byline: "Hidden Brain",
+    titleUrl: "https://open.spotify.com/episode/x",
+    bylineUrl: "https://open.spotify.com/show/y",
     coverUrl: "https://i.scdn.co/image/abc",
     portrait: false,
     progressCaption: "прослушано за этот заход",
@@ -113,6 +119,67 @@ describe("SummaryModal", () => {
 
     expect(await screen.findByText("Живой пункт.")).toBeInTheDocument();
     expect(screen.queryByTestId("summary-takeaway")).toBeNull();
+  });
+
+  // The run is the same device the sheet's frame carries under its cover (DESIGN §4.3); a wave
+  // that wants the chunk drawn rather than spelled out lights it up from here.
+  it("places the covered chunk on a track as a lit run", () => {
+    const { container } = render(<SummaryModal subject={book()} onClose={() => {}} />);
+
+    const run = container.querySelector(".summary-modal__run") as HTMLElement;
+    expect(parseFloat(run.style.left)).toBeCloseTo(48, 1);
+    expect(parseFloat(run.style.width)).toBeCloseTo(5, 1);
+  });
+
+  // The numbers stand AT the run's ends instead of an arrow between them (DESIGN §4.3).
+  it("prints the run's ends at the run's ends", () => {
+    const { container } = render(<SummaryModal subject={book({ span: { from: 0.1, to: 0.9 } })} onClose={() => {}} />);
+
+    const ends = Array.from(container.querySelectorAll(".summary-modal__end"));
+    expect(ends.map((e) => e.textContent)).toEqual(["48%", "53%"]);
+    expect(parseFloat((ends[0] as HTMLElement).style.left)).toBeCloseTo(10, 1);
+    expect(parseFloat((ends[1] as HTMLElement).style.left)).toBeCloseTo(90, 1);
+  });
+
+  it("keeps both numbers on a narrow run by moving them OUTSIDE it", () => {
+    // Under a hairline of a run the two labels would sit on top of each other; pushed to either
+    // side of it they cannot collide, and neither number is lost.
+    const { container } = render(<SummaryModal subject={book({ span: { from: 0.52, to: 0.55 } })} onClose={() => {}} />);
+
+    const ends = Array.from(container.querySelectorAll(".summary-modal__end"));
+    expect(ends.map((e) => e.textContent)).toEqual(["48%", "53%"]);
+    expect(container.querySelector(".summary-modal__track")!.className).toContain("is-tight");
+  });
+
+  it("keeps a wide run's numbers under its own ends", () => {
+    const { container } = render(<SummaryModal subject={book({ span: { from: 0.1, to: 0.9 } })} onClose={() => {}} />);
+
+    expect(container.querySelector(".summary-modal__track")!.className).not.toContain("is-tight");
+  });
+
+  // An episode lives at Spotify: its cover and name lead to the episode, the byline to the show.
+  // A book has no address, and then the header is text rather than a dead link. PRD §5.16.1
+  it("makes an episode's header a door to Spotify, and a book's plain text", () => {
+    const ep = render(<SummaryModal subject={episode()} onClose={() => {}} />);
+    const links = Array.from(ep.container.querySelectorAll("a.is-away")) as HTMLAnchorElement[];
+
+    expect(links.map((a) => a.href)).toEqual([
+      "https://open.spotify.com/episode/x",
+      "https://open.spotify.com/episode/x",
+      "https://open.spotify.com/show/y",
+    ]);
+    expect(links.every((a) => a.rel === "noreferrer")).toBe(true);
+    ep.unmount();
+
+    const bk = render(<SummaryModal subject={book()} onClose={() => {}} />);
+    expect(bk.container.querySelector("a.is-away")).toBeNull();
+    expect(bk.container.querySelector(".summary-modal__name")!.textContent).toBe("Дюна");
+  });
+
+  it("draws no track for a sitting with no place in the work", () => {
+    const { container } = render(<SummaryModal subject={book({ span: null })} onClose={() => {}} />);
+
+    expect(container.querySelector(".summary-modal__track")).toBeNull();
   });
 
   it("закрывается по Esc", async () => {

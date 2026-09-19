@@ -35,6 +35,8 @@ describe("SummaryModal", () => {
     portrait: true,
     progressCaption: "прочитано за этот заход",
     progressValue: "48% → 53%",
+    span: { from: 0.48, to: 0.53 },
+    spanEnds: { from: "48%", to: "53%" },
     ariaLabel: "Что было в прочитанном куске: Дюна",
     ...patch,
   });
@@ -113,6 +115,48 @@ describe("SummaryModal", () => {
 
     expect(await screen.findByText("Живой пункт.")).toBeInTheDocument();
     expect(screen.queryByTestId("summary-takeaway")).toBeNull();
+  });
+
+  // The run is the same device the sheet's frame carries under its cover (DESIGN §4.3); a wave
+  // that wants the chunk drawn rather than spelled out lights it up from here.
+  it("places the covered chunk on a track as a lit run", () => {
+    const { container } = render(<SummaryModal subject={book()} onClose={() => {}} />);
+
+    const run = container.querySelector(".summary-modal__run") as HTMLElement;
+    expect(parseFloat(run.style.left)).toBeCloseTo(48, 1);
+    expect(parseFloat(run.style.width)).toBeCloseTo(5, 1);
+  });
+
+  // The numbers stand AT the run's ends instead of an arrow between them (DESIGN §4.3).
+  it("prints the run's ends at the run's ends", () => {
+    const { container } = render(<SummaryModal subject={book({ span: { from: 0.1, to: 0.9 } })} onClose={() => {}} />);
+
+    const ends = Array.from(container.querySelectorAll(".summary-modal__end"));
+    expect(ends.map((e) => e.textContent)).toEqual(["48%", "53%"]);
+    expect(parseFloat((ends[0] as HTMLElement).style.left)).toBeCloseTo(10, 1);
+    expect(parseFloat((ends[1] as HTMLElement).style.left)).toBeCloseTo(90, 1);
+  });
+
+  it("keeps both numbers on a narrow run by moving them OUTSIDE it", () => {
+    // Under a hairline of a run the two labels would sit on top of each other; pushed to either
+    // side of it they cannot collide, and neither number is lost.
+    const { container } = render(<SummaryModal subject={book({ span: { from: 0.52, to: 0.55 } })} onClose={() => {}} />);
+
+    const ends = Array.from(container.querySelectorAll(".summary-modal__end"));
+    expect(ends.map((e) => e.textContent)).toEqual(["48%", "53%"]);
+    expect(container.querySelector(".summary-modal__track")!.className).toContain("is-tight");
+  });
+
+  it("keeps a wide run's numbers under its own ends", () => {
+    const { container } = render(<SummaryModal subject={book({ span: { from: 0.1, to: 0.9 } })} onClose={() => {}} />);
+
+    expect(container.querySelector(".summary-modal__track")!.className).not.toContain("is-tight");
+  });
+
+  it("draws no track for a sitting with no place in the work", () => {
+    const { container } = render(<SummaryModal subject={book({ span: null })} onClose={() => {}} />);
+
+    expect(container.querySelector(".summary-modal__track")).toBeNull();
   });
 
   it("закрывается по Esc", async () => {

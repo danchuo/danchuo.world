@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 03: «Сегодня» одевается в редакцию «контактный лист» (DESIGN §4.3).
+
+      Дефолтная вёрстка на этой волне читалась гостем из волны 01: шапка со сплитом 2/5 — 3/5 и
+      карта-тропа — её язык, а не язык стекла. Редакция меняет вопрос: единица показа — ЗАХОД, а
+      не пункт, и каждый заход приходит своей обложкой во весь кадр.
+
+      Плитка теряет плиту целиком (скин волны): материал здесь — сами кадры.
+    -->
+    <changeSet id="0980-wave-03-today-sheet" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,today}',
+  layout->'tiles'->'today' || '{"edition": "sheet"}'::jsonb) WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,today}',
+  (layout->'tiles'->'today') - 'edition') WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

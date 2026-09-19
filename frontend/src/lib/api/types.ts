@@ -107,6 +107,8 @@ export interface PodcastEpisodeView {
   sessionId?: number | null;
   /** Summary availability only; fetch its text when opening the modal. */
   hasSummary?: boolean;
+  /** ISO start of the visit; a book carries the same, so the day's sittings can be ordered. */
+  startedAt?: string | null;
 }
 
 /** Full day projection: GET /api/days/{date}. */

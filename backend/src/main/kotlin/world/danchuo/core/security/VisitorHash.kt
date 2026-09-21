@@ -1,4 +1,4 @@
-package world.danchuo.analytics
+package world.danchuo.core.security
 
 import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
@@ -6,9 +6,9 @@ import world.danchuo.core.config.MskTime
 import java.security.MessageDigest
 
 /**
- * The daily visitor hash: `sha256(ip + ua + salt + date)`. The raw IP never leaves this class.
- * The date inside the hash rotates it every day, so one visitor is stable within a day and
- * unrecognisable the next. PRD §5.11, §11
+ * The daily visitor hash: `sha256(ip + ua + salt + date)`. The raw IP never leaves this class —
+ * that invariant is the whole reason the class exists, and it holds for every caller. The date
+ * inside rotates it daily: stable within a day, unrecognisable the next. PRD §5.11, §5.19, §11
  */
 @ApplicationScoped
 class VisitorHash(

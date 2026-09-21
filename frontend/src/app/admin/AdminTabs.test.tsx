@@ -7,7 +7,13 @@ describe("AdminTabs — ряд разделов админки (§5.14, I-64)", 
   it("показывает все разделы в порядке реестра", () => {
     render(<AdminTabs active="drops" onSelect={() => {}} />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["дропы", "артефакты", "велопоездки", "статистика"]);
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      "дропы",
+      "артефакты",
+      "велопоездки",
+      "статистика",
+      "обратная связь",
+    ]);
     expect(ADMIN_TABS).toHaveLength(tabs.length);
   });
 

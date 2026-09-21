@@ -61,7 +61,7 @@ export const WAVE_03: Wave = {
       identity: { hidden: true },
       latestDrop: { col: 1, row: 1, colSpan: 11, rowSpan: 16, edition: "frame" },
       freshness: { hidden: true },
-      waveSwitcher: { col: 3, row: 18, colSpan: 6, rowSpan: 2 },
+      waveSwitcher: { col: 2, row: 18, colSpan: 6, rowSpan: 2 },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
       photoDrops: { col: 32, row: 11, colSpan: 8, rowSpan: 9, edition: "carousel" },
       stats: { col: 9, row: 21, colSpan: 9, rowSpan: 7, hidden: false, edition: "ghosts" },
@@ -73,6 +73,9 @@ export const WAVE_03: Wave = {
       hero: { hidden: true },
       social: { col: 33, row: 9, colSpan: 7, rowSpan: 1, edition: "peek" },
       marquee: { col: 25, row: 1, colSpan: 7, rowSpan: 7, hidden: false, edition: "shaft" },
+      // Beside the wave switcher, sharing its row and its height: the board's two controls read
+      // as one pair. Words only here — an envelope next to type is clutter on glass.
+      feedback: { col: 9, row: 18, colSpan: 4, rowSpan: 2, edition: "word" },
     },
     mobileOrder: [
       "today",

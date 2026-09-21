@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Слайс feedback (PRD §5.19, §11): записка посетителя автору. Три ответа необязательны по
+      отдельности, но хотя бы один непустой — это правило входа (FeedbackPolicy), а не схемы:
+      в базе все три nullable.
+
+      Приватность как в analytics: сырой IP не хранится, только суточный visitor_day_hash. UA
+      здесь, в отличие от аналитики, лежит строкой — владелец просил видеть браузер и ОС, а
+      записка добровольна и часто подписана.
+
+      Ширины колонок — та же величина, что потолки в FeedbackLimits: Postgres длинное значение не
+      обрезает, а роняет вставку. Индекс один, под единственное чтение — лента админки по дате.
+    -->
+    <changeSet id="1070-feedback-note-table" author="danchuo">
+        <createTable tableName="feedback_note">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="submitted_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="liked_most" type="VARCHAR(2000)"/>
+            <column name="would_change" type="VARCHAR(2000)"/>
+            <column name="missing_block" type="VARCHAR(2000)"/>
+            <column name="signature" type="VARCHAR(120)"/>
+
+            <column name="path" type="VARCHAR(512)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="wave_key" type="VARCHAR(64)"/>
+            <column name="selected_day" type="DATE"/>
+
+            <column name="device_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="viewport_w" type="INT"/>
+            <column name="viewport_h" type="INT"/>
+            <column name="screen_w" type="INT"/>
+            <column name="screen_h" type="INT"/>
+            <column name="language" type="VARCHAR(64)"/>
+            <column name="user_agent" type="VARCHAR(512)"/>
+
+            <column name="visitor_day_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_bot" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="feedback_note" indexName="idx_feedback_submitted_at">
+            <column name="submitted_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

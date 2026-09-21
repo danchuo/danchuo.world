@@ -5,6 +5,8 @@ import jakarta.transaction.Transactional
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import world.danchuo.core.security.VisitorHash
+import world.danchuo.core.security.BotHeuristics
 
 /** One day's summary (PRD §5.11): visits, uniques, average time on page. */
 data class AnalyticsDailySummary(

@@ -444,3 +444,25 @@ export interface ArtifactScanRunView {
   /** Target item name; null when scanning the whole catalog. */
   artifactName: string | null;
 }
+
+/** One visitor note in the owner's inbox; never served to the public board. PRD §5.19. */
+export interface FeedbackNoteView {
+  id: number;
+  submittedAt: string;
+  likedMost: string | null;
+  wouldChange: string | null;
+  missingBlock: string | null;
+  signature: string | null;
+  path: string;
+  waveKey: string | null;
+  selectedDay: string | null;
+  deviceType: "MOBILE" | "TABLET" | "DESKTOP";
+  viewportW: number | null;
+  viewportH: number | null;
+  screenW: number | null;
+  screenH: number | null;
+  language: string | null;
+  userAgent: string | null;
+  /** Marked by the server's heuristics; the row is kept as spam evidence, not hidden. */
+  isBot: boolean;
+}

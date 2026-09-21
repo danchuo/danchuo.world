@@ -48,7 +48,7 @@ export const WAVE_02: Wave = {
       latestDrop: { col: 5, row: 1, colSpan: 10, rowSpan: 11, edition: "sheet" },
       freshness: { col: 36, row: 1, colSpan: 5, rowSpan: 3 },
       waveSwitcher: { col: 30, row: 1, colSpan: 5, rowSpan: 3 },
-      music: { col: 19, row: 19, colSpan: 7, rowSpan: 10 },
+      music: { col: 17, row: 19, colSpan: 7, rowSpan: 10 },
       photoDrops: { col: 30, row: 11, colSpan: 5, rowSpan: 11, orientation: "vertical" },
       stats: { col: 5, row: 23, colSpan: 10, rowSpan: 6 },
       sleep: { col: 30, row: 5, colSpan: 11, rowSpan: 5 },
@@ -58,6 +58,8 @@ export const WAVE_02: Wave = {
       ride: { col: 36, row: 11, colSpan: 5, rowSpan: 11 },
       social: { col: 36, row: 23, colSpan: 5, rowSpan: 6 },
       marquee: { col: 1, row: 1, colSpan: 3, rowSpan: 28, orientation: "vertical" },
+      // The pocket under "today" and left of the music column, with a gutter on both sides.
+      feedback: { col: 25, row: 25, colSpan: 4, rowSpan: 4, edition: "call" },
     },
     mobileOrder: [
       "identity",

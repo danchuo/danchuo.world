@@ -21,7 +21,8 @@ export type TileId =
   | "ride"
   | "hero"
   | "social"
-  | "marquee";
+  | "marquee"
+  | "feedback";
 
 /**
  * A tile's content orientation. A field of its own rather than a deduction from span proportions:
@@ -64,9 +65,9 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // Brand signature plate retired from the board (owner's call) — kept in the registry hidden.
   identity: { col: 31, row: 1, colSpan: 9, rowSpan: 3, hidden: true },
   latestDrop: { col: 1, row: 1, colSpan: 10, rowSpan: 11 },
-  // Freshness lamp in the bottom band between the marquee and the sleep strip (the slot
-  // the social grid vacated).
-  freshness: { col: 30, row: 24, colSpan: 3, rowSpan: 4 },
+  // Freshness lamp under the envelope, dropped a track so the pair keeps a gutter between them
+  // and still clears the bottom edge.
+  freshness: { col: 32, row: 25, colSpan: 3, rowSpan: 4 },
   // Wave switcher tucked just left of today's top-left corner, top-aligned with today (row 8).
   // Grown one track upward (row 20 → 19) to give the wave chips room; the gutter track below
   // the social grid (which ends at row 17) survives, so the channel still breathes.
@@ -86,9 +87,9 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   today: { col: 13, row: 8, colSpan: 15, rowSpan: 15 },
   // Calendar nudged up one track so its top lines up with today (row 8).
   calendar: { col: 29, row: 10, colSpan: 9, rowSpan: 10 },
-  // Projects — narrow vertical column at the bottom-right edge, below the calendar. rowSpan 6
+  // Projects — narrow vertical column hugging the right wall below the calendar. rowSpan 6
   // stops one track short of the grid's last row (row-end 28 of 29) — deliberate breathing room.
-  projects: { col: 34, row: 22, colSpan: 5, rowSpan: 6 },
+  projects: { col: 36, row: 22, colSpan: 5, rowSpan: 6 },
   // Ride swapped with stats to the bottom-right, hugging the right wall below the calendar.
   ride: { col: 1, row: 13, colSpan: 7, rowSpan: 10 },
   // Hero is retired from the board for now (owner's call); the slot went to the layout above.
@@ -99,6 +100,9 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // The artifacts marquee footer, grown one track upward, slid right to sit one gutter left of
   // the ride tile (col-end 33 → gutter col 33 → ride at col 34).
   marquee: { col: 1, row: 24, colSpan: 12, rowSpan: 5 },
+  // A caption over a glyph needs no more room than this. Placed so exactly one track of air
+  // falls between it and each of its three neighbours: calendar, freshness, projects.
+  feedback: { col: 31, row: 21, colSpan: 3, rowSpan: 3 },
 };
 
 /** Order of the single-column stack on mobile (<640px, DESIGN §8). */
@@ -116,6 +120,7 @@ export const MOBILE_ORDER: TileId[] = [
   "hero",
   "marquee",
   "waveSwitcher",
+  "feedback",
   "freshness",
 ];
 

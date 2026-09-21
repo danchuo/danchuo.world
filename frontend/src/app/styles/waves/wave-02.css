@@ -458,3 +458,11 @@
 :root[data-wave="wave-02"] .board-stack [data-music-mode="paused"][data-music-art="ok"] .music-card {
   aspect-ratio: 1;
 }
+
+/* The envelope takes the middle here, and the call under it follows: on a board of soft cloud
+   cards a glyph pinned to the left corner read as a stray mark rather than as the tile's subject. */
+:root[data-wave="wave-02"] .t-feedback__body {
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}

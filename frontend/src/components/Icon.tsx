@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-export type IconName = "close" | "rotate" | "help" | "external" | "star" | "zoom";
+export type IconName = "close" | "rotate" | "help" | "external" | "star" | "zoom" | "mail";
 
 /**
  * The wave's symbol set: clean line glyphs painted by `currentColor`, so they follow the text
@@ -52,6 +52,17 @@ const RENDER: Record<IconName, { stroked: boolean; body: ReactNode }> = {
   star: {
     stroked: false,
     body: <path d="M12 3.2l2.6 5.6 6.1.6-4.6 4 1.4 6-5.5-3.2-5.5 3.2 1.4-6-4.6-4 6.1-.6z" />,
+  },
+  // The flap is a separate stroke rather than a filled triangle: filled, it reads as a solid
+  // block at 18px and the glyph stops being an envelope.
+  mail: {
+    stroked: true,
+    body: (
+      <>
+        <rect x="3" y="5.5" width="18" height="13" rx="2" />
+        <path d="M3.5 7.2l8.5 6 8.5-6" />
+      </>
+    ),
   },
 };
 

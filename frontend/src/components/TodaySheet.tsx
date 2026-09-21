@@ -15,8 +15,14 @@ import {
 } from "@/lib/daySheet";
 import { Artifact3D } from "./Artifact3D";
 import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
+import { Cover } from "./NowPlayingCard";
+import { CoverPlate } from "./SpotifyMark";
 import type { SummarySubject } from "@/lib/summarySubject";
 import { SummaryModal } from "./SummaryModal";
+
+/* The plate's own geometry only — the frame's real side comes from `--sheet-frame` in CSS, which
+   scales the plate and its mark with the sheet. This sets the mark's proportion inside it. */
+const SHEET_PLATE = 64;
 
 interface TodaySheetProps {
   day: DayView;
@@ -106,11 +112,21 @@ function Frame({ session, onOpen }: { session: SheetSession; onOpen: (s: Summary
   const inner = (
     <>
       <span className="today-sheet__shot">
-        {session.coverUrl ? (
-          <img className="today-sheet__cover" src={session.coverUrl} alt="" loading="lazy" />
-        ) : (
-          <span className="today-sheet__cover today-sheet__cover--blank" aria-hidden />
-        )}
+        {/* A cover that never arrives is the Spotify plate, by the same mechanism the music tile
+            uses (DESIGN §7.1) — but only where the picture CAME from Spotify: on a book from the
+            shelf the mark would be a foreign one, and the frame stays quietly blank. */}
+        <Cover
+          url={session.coverUrl}
+          alt=""
+          className="today-sheet__cover"
+          fallback={
+            session.kind === "podcast" ? (
+              <CoverPlate seed={session.href ?? session.title} size={SHEET_PLATE} />
+            ) : (
+              <span className="today-sheet__cover today-sheet__cover--blank" aria-hidden />
+            )
+          }
+        />
       </span>
       {/* Where the sitting fell in the whole work, as a lit run on a track — the covered chunk
           without percentages, which are the previous waves' way of saying it. DESIGN §4.3 */}

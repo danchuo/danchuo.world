@@ -1909,9 +1909,9 @@ body {
   display: none;
 }
 
-/* Base look of a social icon: the monochrome SVG sprite tinted with the wave's text token
-   via a CSS mask. SocialTile puts both URLs on the element (--social-mask always,
-   --social-sprite when a colored wave-01 sprite exists); skins pick the rendering. */
+/* The monochrome SVG sprite tinted through a CSS mask; SocialTile puts both URLs on the element
+   and the skin picks the rendering. ⚠️ `translateZ(0)` pins the mask's layer — without it Safari
+   re-rasterised it on every recomposition and the icons blinked. DESIGN §10.2 */
 .social-icon {
   --social-icon-size: clamp(12px, calc(6.5px + 19cqw), 36px);
   display: block;
@@ -1921,6 +1921,7 @@ body {
   background: var(--text-primary);
   -webkit-mask: var(--social-mask) center / contain no-repeat;
   mask: var(--social-mask) center / contain no-repeat;
+  transform: translateZ(0);
 }
 /* Card plate behind each social link. The plate is OPTIONAL, a skin parameter: `--social-card-bg` falls
    back to the muted surface, and a wave may clear it (01) or bring it back (02). The card itself stays
@@ -2907,12 +2908,20 @@ button.sleep-echo:focus-visible {
   font-size: var(--fs-band-meta);
   color: var(--text-tertiary);
 }
+/* The empty night's own height (DESIGN §8) and the mark's size container. ⚠️ NOT sized from
+   `--fs-sleep-total`: the only other container is `.sleep-echo`, which an empty night never
+   renders, so its `cqw` counted from the viewport and its cap pinned the Moon. DESIGN §7.7 */
+.sleep-empty {
+  aspect-ratio: 8 / 5;
+  container-type: size;
+}
 /* With no night to draw the moon IS the tile, so it is sized well above the mark that stands beside
    the night's figure — nothing here competes with it for the eye. */
 .sleep-empty__moon {
+  --sleep-moon-size: 76cqh;
   display: block;
-  width: calc(var(--fs-sleep-total) * 3.6);
-  height: calc(var(--fs-sleep-total) * 3.6);
+  width: var(--sleep-moon-size);
+  height: var(--sleep-moon-size);
   overflow: visible;
 }
 /* ⚠️ The slot IS the body: the scene is told to fit the Moon by its own radius (`MOON_FIT`), so the
@@ -2923,8 +2932,7 @@ button.sleep-echo:focus-visible {
   /* Waits for the body and then arrives, with the same entrance every caption uses: the night's
      mark replaces a tile full of numbers, and a swap without a step reads as a flicker. */
   opacity: 0;
-  width: calc(var(--fs-sleep-total) * 2.8);
-  height: calc(var(--fs-sleep-total) * 2.8);
+  --sleep-moon-size: 60cqh;
 }
 /* ⚠️ The halo is cast by a CIRCLE of the body's own size, not by a gradient in a square: a blurred
    gradient is clipped by its element and shows up as a bluish rectangle around the moon. The circle
@@ -2936,7 +2944,7 @@ button.sleep-echo:focus-visible {
   border-radius: 50%;
   /* In the sign's own units, like the photographed Moon's rim: the air around the body scales with
      it rather than with the screen. */
-  box-shadow: 0 0 calc(var(--fs-sleep-total) * 0.32) calc(var(--fs-sleep-total) * -0.05)
+  box-shadow: 0 0 calc(var(--sleep-moon-size) * 0.114) calc(var(--sleep-moon-size) * -0.018)
     color-mix(in srgb, var(--sleep-awake, var(--text-secondary)) 22%, transparent);
   pointer-events: none;
 }
@@ -3131,7 +3139,7 @@ button.sleep-echo:focus-visible {
    ⚠️ It must match `CAROUSEL_SLOT_PX`, from which JS computes the rail's side padding; let them drift and a
    frame never lands in the middle. Rejected: hover-expanded frames (`spines`) — DESIGN §7.5. */
 .drop-carousel {
-  --drop-slot: 78px;
+  --drop-slot: 84px;
   /* A nearer frame goes over a farther one by its own `z-index` (see `slotLook`); with no stacking context
      those numbers reach the whole document and the rail landed OVER an open gallery. `isolation` locks them
      in without positioning or a filter — either would make the tile a Backdrop Root (docs/pitfalls.md). */
@@ -4386,9 +4394,9 @@ button.sleep-echo:focus-visible {
    For a wave whose widget IS a full-tile picture (Obscura with its cover arrived), growing to the text breaks
    the composition, so it sets `--music-fit-h: 100%` and stays full-cell. */
 
-/* In `recent` mode the height deliberately stays full: the list measures the space available through its own
-   wrapper (`.music-recent`, flex-1), and a content-height card would take away the very height it uses to
-   decide how many rows to show. */
+/* In `recent` mode the shared rule leaves the card full-cell — a composition choice of waves 01 and 03, not a
+   safety measure: the height is counted over ALL rows (§7.1), so a wave that wants the list cut to its track
+   count reads the variable itself, as Obscura does. */
 [data-music-mode="playing"] .music-card,
 [data-music-mode="paused"] .music-card {
   height: var(--music-fit-h, var(--music-card-h, 100%));
@@ -4530,10 +4538,12 @@ button.sleep-echo:focus-visible {
    marquee and the row's other layers off. A wave that wants a playlist look switches them on and decides the
    row's layout there — the same seam device as the Spotify mark and the playhead scale above. */
 
-/* Line height moved here from the component's inline style: the value is unchanged, but a skin can now
-   override it, which it could not do against inline without `!important`. */
+/* Line height lives here rather than inline, so a skin can override it. ⚠️ `flex-shrink: 0` is
+   load-bearing: a squashed row would take its height FROM the card, which is itself measured from
+   the rows. The fitting hides whole rows instead. DESIGN §7.1 */
 .recent-row {
   line-height: 1.4;
+  flex-shrink: 0;
 }
 /* Row cover, album and time since listening: wave 01 has none of them, and neither do its per-tile baselines.
    Were they in the base, the canon would have to be reshot. */
@@ -4734,6 +4744,17 @@ button.sleep-echo:focus-visible {
 .today-sheet__cover--blank {
   background: linear-gradient(160deg, var(--bg-surface-2), var(--bg-surface-muted));
 }
+/* The Spotify plate takes the frame whole, mark and all: the frame's side is `--sheet-frame`, so
+   both must be driven by the box rather than by the px the component hands over. DESIGN §7.1 */
+.today-sheet__shot .cover-plate {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+.today-sheet__shot .plate-mark {
+  width: 54%;
+  height: auto;
+}
 
 /* The whole track is the whole work; the lit run is the piece this sitting covered, sitting where
    in the work it fell. Percentages said the same thing in the previous waves' voice. */
@@ -4753,15 +4774,17 @@ button.sleep-echo:focus-visible {
   box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
+/* ONE line, cut with an ellipsis: a second line pushed the sockets row and frames of the same day
+   came out different heights. The frame is a fixed square, so the name yields, not the grid. */
 .today-sheet__name {
   font-size: 11px;
   font-weight: 600;
   line-height: 1.3;
   color: var(--text-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: block;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .today-sheet__frame.is-openable:hover .today-sheet__name { color: var(--text-primary); }
 

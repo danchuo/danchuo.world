@@ -102,13 +102,10 @@ export function TodayTile({
       state={state}
       onRetry={onRetry}
       elevated
-      // The sheet has no plate to scatter over and no meta row: the ribbon line is its own caption.
-      scatter={!sheet}
+      // The sheet has no meta row: the ribbon line is its own caption.
       label={sheet ? undefined : label}
       ariaLabel="Сегодня"
       style={tileStyle}
-      // The corner scatter (DESIGN §2.4) is only on the focus tile (the `scatter` prop); the border
-      // comes from `.pixel-tile`.
       className={className}
     >
       {day && sheet && (

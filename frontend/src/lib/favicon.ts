@@ -1,11 +1,15 @@
 /**
  * The tab icon: a spinning Earth, per wave. A tab cannot be animated by an image — only Firefox
- * plays an animated GIF there — so frames travel as a SPRITE sheet that [FaviconSpinner] slices on
- * a canvas. A wave may bring its own; without one it gets the default. DESIGN §10.3
+ * plays an animated GIF there — so a turn is a SEQUENCE OF FILES, one per frame, and the spinner
+ * only swaps the icon's href. A wave may bring its own; without one it gets the default. §10.3
  */
 
+/* ⚠️ The frames are files, cut offline by `scripts/split-favicon-frames.py`, and NOT sliced from the
+   strip in the browser: that needed `canvas.toDataURL`, the canonical fingerprinting signature, on
+   which Safari offered every visitor to weaken privacy protection on the site. DESIGN §10.3 */
+
 export interface FaviconSprite {
-  /** Sprite strip: `frames` cells of `cell`×`cell` in a row. */
+  /** The strip the frames were cut from: the splitter's input and the static fallback icon. */
   src: string;
   frames: number;
   cell: number;
@@ -40,6 +44,12 @@ export function resolveFavicon(wave?: string | null): FaviconSprite {
 /** One full turn of the planet. */
 export function faviconLoopMs(sprite: FaviconSprite): number {
   return sprite.frames * sprite.frameMs;
+}
+
+/** One frame's file, cut from [FaviconSprite.src] by `scripts/split-favicon-frames.py`. */
+export function faviconFrameSrc(sprite: FaviconSprite, frame: number): string {
+  const base = sprite.src.replace(/^.*\/(.+)\.png$/, "$1");
+  return `/assets/favicon/frames/${base}-${String(frame).padStart(2, "0")}.png`;
 }
 
 /**

@@ -2,7 +2,7 @@
 import { toothHeight } from "./dropRoll";
 
 /** Fixed slot height keeps the tile independent of archive size. DESIGN §7.5. */
-export const CAROUSEL_SLOT_PX = 78;
+export const CAROUSEL_SLOT_PX = 84;
 /** Match the spacing of other plateless wave strips. */
 export const CAROUSEL_GAP_PX = 6;
 /** Fade radius keeps adjacent frames recognizable. DESIGN §7.5. */

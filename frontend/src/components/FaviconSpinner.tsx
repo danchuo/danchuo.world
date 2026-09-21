@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { faviconFrameAt, resolveFavicon } from "@/lib/favicon";
+import { faviconFrameAt, faviconFrameSrc, resolveFavicon } from "@/lib/favicon";
 
 /** Every tab icon in `<head>`; if there is no static one, we add our own. */
 function iconLinks(): HTMLLinkElement[] {
@@ -14,9 +14,9 @@ function iconLinks(): HTMLLinkElement[] {
 }
 
 /**
- * Spins the Earth in the tab icon; renders nothing. Frames come as a sprite sheet sliced on a
- * canvas into data-URLs, which is the only way to animate a tab icon in Chrome and Safari — they
- * refuse animated GIFs there. It degrades silently to the static planet. DESIGN §10.3
+ * Spins the Earth in the tab icon; renders nothing. A turn is a swap of the icon's href over
+ * ready-cut frame files — the only way to animate a tab icon in Chrome and Safari, which refuse
+ * an animated GIF there. It degrades silently to the static planet. DESIGN §10.3
  */
 export function FaviconSpinner() {
   const [wave, setWave] = useState<string | null>(() =>
@@ -33,31 +33,32 @@ export function FaviconSpinner() {
 
   useEffect(() => {
     const sprite = resolveFavicon(wave);
-    const canvas = document.createElement("canvas");
-    canvas.width = sprite.cell;
-    canvas.height = sprite.cell;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return; // an ancient browser — the static icon is there anyway
+    const frames = Array.from({ length: sprite.frames }, (_, i) => faviconFrameSrc(sprite, i));
 
     let cancelled = false;
     let timer = 0;
 
-    const image = new Image();
-    image.onload = () => {
+    const links = iconLinks();
+    const show = (href: string) => links.forEach((link) => (link.href = href));
+
+    /* The turn starts only once every frame is in the cache: an href pointing at a file still on
+       its way leaves the tab blank, and at ten frames a second that reads as a flickering icon. */
+    const warm = frames.map(
+      (src) =>
+        new Promise<boolean>((done) => {
+          const image = new Image();
+          image.onload = () => done(true);
+          image.onerror = () => done(false); // a missing frame must not hold the whole turn back
+          image.src = src;
+        }),
+    );
+
+    void Promise.all(warm).then((ok) => {
       if (cancelled) return;
-      // The sheet is sliced once: after that the animation is only a change of string in href, with
-      // no canvas per frame (the tab icon redraws ten times a second).
-      const frames: string[] = [];
-      for (let i = 0; i < sprite.frames; i += 1) {
-        ctx.clearRect(0, 0, sprite.cell, sprite.cell);
-        ctx.drawImage(image, i * sprite.cell, 0, sprite.cell, sprite.cell, 0, 0, sprite.cell, sprite.cell);
-        frames.push(canvas.toDataURL("image/png"));
-      }
-
-      const links = iconLinks();
-      const show = (href: string) => links.forEach((link) => (link.href = href));
+      // The frames never arrived: the static planet in `<head>` is a complete answer, and pointing
+      // the tab at a file that 404s would replace it with a blank square. DESIGN §10.3
+      if (!ok[0]) return;
       show(frames[0]);
-
       if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
       const startedAt = Date.now();
@@ -72,10 +73,7 @@ export function FaviconSpinner() {
         shown = frame;
         show(frames[frame]);
       }, sprite.frameMs);
-    };
-    image.onerror = () => {}; // the sprite did not arrive — stay on the static icon
-
-    image.src = sprite.src;
+    });
 
     return () => {
       cancelled = true;

@@ -363,52 +363,6 @@ body {
  * card's layers, the white frame AND the ground — `::before`, `::after`, `.pixel-lid`, `.pixel-slab`. That
  * is what wave 02 "Obscura" does, and its cards stay unchanged. */
 
-/* Pixel corner scatter (DESIGN §2.4) — a signature detail on the "Today" focus tile only: accent pixels,
-   dense at the corner and thinning inward. Rejected: four corner rivets — one detail in one corner reads as
-   a signature, whereas four identical dots at the corners read as registration marks. */
-
-/* Drawn by ONE element: it is the corner cell itself, and the other 35 are its `box-shadow` at offsets that
-   are multiples of `--sc`, coloured from `currentColor` so the list holds only coordinates. A separate
-   element rather than a pseudo — both slots are taken by the edge silhouette, and `z-index:0` lifts it. */
-
-/* The cell layout is deterministic and computed offline, not by eye: a 16×12 field where the fill chance
-   falls with distance from the corner. Two corrections to the pure radial formula — the distance is
-   ELLIPTICAL, and it SAGS at the corner, where cells fill to 60% so the corner begins as crumbs. */
-
-/* The bottom is measured from the lower edge of the upper card's SURFACE: the tile's foot is taken by the
-   ground (`--tile-depth`), and without the correction the scatter would sit on the side's joint. */
-.pixel-scatter {
-  /* A scatter cell is 8px, like the rivets before it: the same pixel-grid step of the wave. */
-  --sc: calc(var(--px) * 2);
-  position: absolute;
-  right: calc(var(--px) * 2);
-  bottom: calc(var(--px) * 2 + var(--tile-depth) + var(--tile-inner));
-  z-index: 0;
-  width: var(--sc);
-  height: var(--sc);
-  pointer-events: none;
-  color: var(--accent);
-  background: currentColor;
-  box-shadow:
-    calc(var(--sc) * -1) 0, calc(var(--sc) * -3) 0,
-    calc(var(--sc) * -4) 0, calc(var(--sc) * -6) 0,
-    calc(var(--sc) * -3) calc(var(--sc) * -1), calc(var(--sc) * -4) calc(var(--sc) * -1),
-    calc(var(--sc) * -6) calc(var(--sc) * -1), calc(var(--sc) * -8) calc(var(--sc) * -1),
-    0 calc(var(--sc) * -2), calc(var(--sc) * -3) calc(var(--sc) * -2),
-    calc(var(--sc) * -8) calc(var(--sc) * -2), 0 calc(var(--sc) * -3),
-    calc(var(--sc) * -1) calc(var(--sc) * -3), calc(var(--sc) * -2) calc(var(--sc) * -3),
-    calc(var(--sc) * -3) calc(var(--sc) * -3), calc(var(--sc) * -4) calc(var(--sc) * -3),
-    calc(var(--sc) * -5) calc(var(--sc) * -3), calc(var(--sc) * -7) calc(var(--sc) * -3),
-    calc(var(--sc) * -9) calc(var(--sc) * -3), calc(var(--sc) * -11) calc(var(--sc) * -3),
-    calc(var(--sc) * -1) calc(var(--sc) * -4), calc(var(--sc) * -3) calc(var(--sc) * -4),
-    calc(var(--sc) * -4) calc(var(--sc) * -4), calc(var(--sc) * -1) calc(var(--sc) * -5),
-    calc(var(--sc) * -2) calc(var(--sc) * -5), calc(var(--sc) * -4) calc(var(--sc) * -5),
-    calc(var(--sc) * -5) calc(var(--sc) * -5), calc(var(--sc) * -10) calc(var(--sc) * -5),
-    calc(var(--sc) * -3) calc(var(--sc) * -6), calc(var(--sc) * -4) calc(var(--sc) * -6),
-    calc(var(--sc) * -10) calc(var(--sc) * -6), 0 calc(var(--sc) * -7),
-    calc(var(--sc) * -1) calc(var(--sc) * -8), calc(var(--sc) * -3) calc(var(--sc) * -8),
-    calc(var(--sc) * -5) calc(var(--sc) * -10);
-}
 @media (hover: hover) {
   /* ⚠️ The lift is `top`, NOT `transform`, and this is the third time the project has met the same thing
      (docs/pitfalls.md). The tile carries `filter: drop-shadow`, and `transform` additionally moves it into

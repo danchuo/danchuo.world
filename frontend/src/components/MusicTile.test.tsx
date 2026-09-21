@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NowPlayingView, RecentTrackView, TrackView } from "@/lib/api/types";
-import { MusicTile } from "./MusicTile";
+import { MusicTile, listContentHeight } from "./MusicTile";
 import { collapseConsecutiveRecent } from "@/lib/recentTracks";
 
 // Music fetches its own data — the JSON client is mocked.
@@ -449,5 +449,40 @@ describe("MusicTile", () => {
     render(<MusicTile />);
 
     await waitFor(() => expect(screen.getByText("не удалось загрузить")).toBeInTheDocument());
+  });
+});
+
+/**
+ * The card's height under the recents list (DESIGN §7.1). The card is sized FROM the rows, and the
+ * fitting hides rows to suit the card: if the measurement noticed the hiding, the two would chase
+ * each other and the card's bottom edge would twitch — which is exactly what wave 02 showed.
+ */
+describe("высота списка недавних не зависит от подгонки", () => {
+  /** A list of `count` rows `rowHeight` tall, flush from `top`. */
+  function makeList(count: number, rowHeight: number, top = 0): HTMLUListElement {
+    const list = document.createElement("ul");
+    list.getBoundingClientRect = () => ({ top, bottom: top + count * rowHeight }) as DOMRect;
+    for (let i = 0; i < count; i += 1) {
+      const row = document.createElement("li");
+      const rowTop = top + i * rowHeight;
+      row.getBoundingClientRect = () => ({ top: rowTop, bottom: rowTop + rowHeight }) as DOMRect;
+      list.appendChild(row);
+    }
+    return list;
+  }
+
+  it("считает ВСЕ ряды, а не только видимые", () => {
+    const list = makeList(5, 20);
+    const full = listContentHeight(list);
+    expect(full).toBe(100);
+
+    // The fitting hides the last two rows; hidden rows keep their space, so the answer must not move.
+    (list.children[3] as HTMLElement).style.visibility = "hidden";
+    (list.children[4] as HTMLElement).style.visibility = "hidden";
+    expect(listContentHeight(list)).toBe(full);
+  });
+
+  it("пустой список — ноль, а не высота обёртки", () => {
+    expect(listContentHeight(makeList(0, 20))).toBe(0);
   });
 });

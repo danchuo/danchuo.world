@@ -18,8 +18,6 @@ interface TileShellProps {
    * hitting the ceiling would be clipped instead of shrinking. Flex shrinks in both modes.
    */
   fluid?: boolean;
-  /** The corner pixel scatter (DESIGN §2.4), on the "Today" focus tile only. */
-  scatter?: boolean;
   /**
    * A slot UNDER the content, a direct child of the tile (DESIGN §10.2). It is needed by layers that
    * have too little room inside the padding — a full-card ground clipped by the tile's own edge. From
@@ -49,7 +47,6 @@ export function TileShell({
   muted = false,
   elevated = false,
   fluid = false,
-  scatter = false,
   backdrop,
   label,
   style,
@@ -77,10 +74,6 @@ export function TileShell({
       {/* The wave's backdrop (§10.2): it lies between the edge layers and the content, clipped by
           the tile's own `overflow-hidden` — that is, by its own radius and silhouette. */}
       {backdrop}
-
-      {/* The corner's pixel scatter (§2.4) is a separate element over the surface (both pseudo
-          slots are taken by the edge silhouette). Only on the focused tile, not a muted one. */}
-      {scatter && !muted && <span className="pixel-scatter" aria-hidden />}
 
       {state !== "loading" && label && <div className="tile-label mb-1">{label}</div>}
 

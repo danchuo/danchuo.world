@@ -102,11 +102,14 @@ export function Cover({
   height = size,
   fallback,
   onError,
+  className,
 }: {
   url: string | null;
   alt: string;
   size?: number;
   height?: number;
+  /** For a caller that sizes the picture in CSS; [size] then only feeds the fallback's geometry. */
+  className?: string;
   /**
    * What replaces the picture when there is none or it failed to load. Unset gives an opaque
    * rectangle: the Spotify plate is supplied by whoever's picture came from there (a track, a podcast
@@ -164,6 +167,7 @@ export function Cover({
     <img
       src={url}
       alt={alt}
+      className={className}
       width={size}
       height={height}
       // A cached picture can load before React attaches `onLoad`, so readiness is also checked on the

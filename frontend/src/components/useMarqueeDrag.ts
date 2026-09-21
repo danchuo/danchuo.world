@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from "react";
 import {
   DRAG_SLOP,
   decayVelocity,
@@ -12,10 +12,11 @@ import {
 } from "@/lib/marqueeMotion";
 
 interface MarqueeDragOptions {
-  /** The rail's track — what travels inside the tile's window. */
-  trackRef: RefObject<HTMLElement | null>;
+  /** The rail's track — what travels inside the tile's window. The NODE, so a wave swapping the
+   *  tile's dress re-binds every listener instead of leaving them on a detached element. */
+  track: HTMLElement | null;
   /** The rail's window, over which the wheel is caught: a gesture without a press belongs to the place. */
-  containerRef: RefObject<HTMLElement | null>;
+  container: HTMLElement | null;
   /** Size of one copy of the content along the rail (px). `0` ⇒ it fits: no travel and no drag. */
   span: number;
   /** A vertical rail travels and drags along Y (tile orientation from the wave layout, DESIGN §10.1). */
@@ -29,7 +30,7 @@ interface MarqueeDragOptions {
  * animation, which cannot be stopped mid-way or pushed by a finger. Position moves through
  * `left`/`top`, NOT `transform` — an animated transform escapes the tile's clip (docs/pitfalls.md).
  */
-export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds }: MarqueeDragOptions) {
+export function useMarqueeDrag({ track, container, span, vertical, seconds }: MarqueeDragOptions) {
   const state = useRef({
     /** Current offset of the rail within a copy (px, growing "forward"). */
     offset: 0,
@@ -69,7 +70,6 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
   // Frames: the rail's own travel and the coast after a throw. While a hand is dragging, the frame
   // computes nothing — the position is driven by `pointermove` itself.
   useEffect(() => {
-    const track = trackRef.current;
     const s = state.current;
     /* The rail no longer travels (another wave, another tile size, the items fit): there can be no
        offset, and leaving one in the style is not allowed — the single copy of the content would stand
@@ -105,14 +105,13 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [trackRef, span, seconds, axis]);
+  }, [track, span, seconds, axis]);
 
   /* A change of orientation (set by the wave, DESIGN §10.1) moves the rail to the OTHER axis, and the
      position on the previous one has to be cleared, or a vertical rail would travel by `top` while
      keeping a `left` shift and stand the items off to the side. It clears the axis it drove. */
   useEffect(() => {
     return () => {
-      const track = trackRef.current;
       if (!track) return;
       track.style[axis] = "";
       /* The offset is counted in pixels of the FORMER axis, and on the new one it means a different
@@ -120,7 +119,7 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
       state.current.offset = 0;
       state.current.velocity = 0;
     };
-  }, [trackRef, axis]);
+  }, [track, axis]);
 
   // Dragging. The window is listened to rather than the track itself: a hand almost always leaves the
   // rail, and on `pointerleave` the gesture would break off halfway. The listeners live whether or not
@@ -128,7 +127,6 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
   useEffect(() => {
     const s = state.current;
     const onMove = (e: PointerEvent) => {
-      const track = trackRef.current;
       if (!s.pressing || !track || span <= 0) return;
       const pos = posOf(e);
       const step = pos - s.last;
@@ -154,18 +152,16 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [trackRef, span, axis, posOf]);
+  }, [track, span, axis, posOf]);
 
   // Wheel and trackpad on hover, to page without holding the pointer down. The listener is attached
   // by hand and NOT passive: React registers `wheel` on the root passively, so `preventDefault`
   // would silently do nothing and the ribbon would travel along with the page beneath it.
   useEffect(() => {
-    const box = containerRef.current;
     // The rail fits entirely ⇒ there is nothing to page, and the wheel over the tile stays the page's.
-    if (!box || span <= 0) return;
+    if (!container || span <= 0) return;
     const s = state.current;
     const onWheel = (e: WheelEvent) => {
-      const track = trackRef.current;
       const delta = wheelDelta(e, vertical);
       if (!track || delta === 0) return;
       e.preventDefault();
@@ -173,9 +169,9 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
       s.offset = wrapOffset(s.offset + delta, span);
       track.style[axis] = `${-s.offset}px`;
     };
-    box.addEventListener("wheel", onWheel, { passive: false });
-    return () => box.removeEventListener("wheel", onWheel);
-  }, [containerRef, trackRef, span, vertical, axis]);
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, [container, track, span, vertical, axis]);
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLElement>) => {
@@ -201,6 +197,10 @@ export function useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds
     e.stopPropagation();
     e.preventDefault();
   }, []);
+
+  /* A window torn out by a wave switch never delivers its `pointerleave`, and a `hover` left
+     standing would keep the rail's own travel switched off for good. */
+  useEffect(() => () => void (state.current.hover = false), [container]);
 
   const onPointerEnter = useCallback(() => {
     state.current.hover = true;

@@ -7,19 +7,24 @@
 const BASE = "/assets/waves/wave-01/stats";
 const V = "1";
 
-/** A pixel icon from a PNG: height in px, width by natural ratio, crisp. */
+/**
+ * A pixel icon from a PNG: height in px, width by natural ratio, crisp. ⚠️ A real `img`, not a
+ * background on an empty span — in mobile Safari the bed's background never painted, and an
+ * element with actual content also cannot be squeezed to nothing by a narrow flex row.
+ */
 function PixelImg({ src, height, aspect }: { src: string; height: number; aspect: number }) {
   return (
-    <span
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`${src}?v=${V}`}
+      alt=""
       aria-hidden
+      width={Math.round(height * aspect)}
+      height={height}
       style={{
         display: "inline-block",
-        height,
-        width: Math.round(height * aspect),
-        backgroundImage: `url(${src}?v=${V})`,
-        backgroundSize: "contain",
-        backgroundRepeat: "no-repeat",
-        backgroundPosition: "center",
+        flexShrink: 0,
+        objectFit: "contain",
         imageRendering: "pixelated",
       }}
     />

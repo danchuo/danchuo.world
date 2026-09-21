@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волна 02: на телефоне Spotify и календарь меняются местами — календарь идёт сразу за
+      «Сегодня», музыка после него. Бенто не трогаем, это только порядок стопки.
+
+      Волна 03, бенто. «Сегодня» и лента дропов на трек вправо (13 → 14 и 31 → 32), графики и
+      календарь короче на трек снизу (rowSpan 8 → 7, ряд начала прежний).
+
+      Поклеточно: «Сегодня» встаёт кол. 14..29 и расходится с лентой дропов (32..39) через пустые
+      треки 30..31; по рядам (9..19 против 11..19) они и так не встречались бы, но зазор нужен
+      глазу. Лента упирается в кол. 39 при сетке в 40 — последний трек остаётся полем. Графики
+      (9..17) и календарь (22..30) освобождают ряд 28, нижний трек борда становится воздухом.
+
+      Волна 03, телефон: порядок задан целиком — «Сегодня», календарь, сон, Spotify, графики,
+      последний дроп, велобайк, дропы, соцсети, проекты, артефакты, волны. Переключатель волн
+      последний: он служебный и внизу не мешает. Сон в прежнем списке не перечислялся вовсе и
+      падал в хвост по умолчанию — теперь стоит третьим явно.
+    -->
+    <changeSet id="1040-wave-polish-layout" author="danchuo">
+        <sql><![CDATA[
+UPDATE theme SET layout = jsonb_set(
+    layout, '{mobileOrder}',
+    '["identity","today","calendar","music","stats","sleep","ride","latestDrop","photoDrops","projects","social","marquee","waveSwitcher","freshness"]'::jsonb)
+WHERE key = 'wave-02';
+
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,today,col}', '14'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,photoDrops,col}', '32'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,stats,rowSpan}', '7'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,calendar,rowSpan}', '7'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(
+    layout, '{mobileOrder}',
+    '["today","calendar","sleep","music","stats","latestDrop","ride","photoDrops","social","projects","marquee","waveSwitcher"]'::jsonb)
+WHERE key = 'wave-03';
+        ]]></sql>
+        <rollback><![CDATA[
+UPDATE theme SET layout = jsonb_set(
+    layout, '{mobileOrder}',
+    '["identity","today","music","calendar","stats","sleep","ride","latestDrop","photoDrops","projects","social","marquee","waveSwitcher","freshness"]'::jsonb)
+WHERE key = 'wave-02';
+
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,today,col}', '13'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,photoDrops,col}', '31'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,stats,rowSpan}', '8'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(layout, '{tiles,calendar,rowSpan}', '8'::jsonb) WHERE key = 'wave-03';
+UPDATE theme SET layout = jsonb_set(
+    layout, '{mobileOrder}',
+    '["today","waveSwitcher","music","stats","latestDrop","photoDrops","ride","projects","social","calendar","marquee"]'::jsonb)
+WHERE key = 'wave-03';
+        ]]></rollback>
+    </changeSet>
+</databaseChangeLog>

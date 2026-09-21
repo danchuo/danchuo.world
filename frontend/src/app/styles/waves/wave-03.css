@@ -175,8 +175,7 @@
   mask-image: linear-gradient(to bottom, transparent 52%, #000 92%);
 }
 
-/* The box's lower ground and the corner scatter are wave-01 pixel details, foreign to glass. */
-:root[data-wave="wave-03"] .pixel-scatter,
+/* The box's lower ground is a wave-01 pixel detail, foreign to glass. */
 :root[data-wave="wave-03"] .pixel-slab {
   display: none;
 }
@@ -304,6 +303,13 @@
 :root[data-wave="wave-03"] .board-stack .wave-chip {
   height: auto;
   aspect-ratio: 4 / 5;
+}
+/* At the bottom of the stack the switcher is a FOOTER, not a widget: a card does not choose its own
+   size (see the gutter below), so the row is capped and centred and the cards shrink with it. Full
+   width put three portrait cards the size of the board's own tiles under the last of the content. */
+:root[data-wave="wave-03"] .board-stack .wave-chip-row {
+  max-width: 62%;
+  margin-inline: auto;
 }
 
 /* ONE number for both the gap between cards and the SIDE inset from the tile edge: the row reads as a single
@@ -1405,10 +1411,12 @@
   text-align: left;
   padding-right: 0;
 }
-/* The name carries the window, so it is set a step above the board's modal size. */
+/* The name carries the window, so it is set a step above the board's modal size. It also folds
+   anywhere: a single unbroken long title cannot shrink its column and ran over the gist. */
 :root[data-wave="wave-03"] .summary-modal__name {
   font-size: calc(var(--fs-modal-title) * 1.24);
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 /* The cover is the subject of the conversation, not a list row's icon: it is given the size the
    frame on the sheet has. Width and height arrive as ATTRIBUTES, so a rule reaches them. */
@@ -1423,10 +1431,28 @@
 :root[data-wave="wave-03"] .summary-modal__shot > div[aria-hidden][style*="90"] {
   aspect-ratio: 2 / 3;
 }
+/* ⚠️ `min-width: 0` against the flex default `auto`, which refuses to shrink a box below its own
+   content: a title with no break opportunity pushed the column wider than its track and ran out
+   over the gist beside it. The break is the second half — a single long word still has to fold. */
 :root[data-wave="wave-03"] .summary-modal__ident {
   margin-top: 0;
   padding: 0;
   flex: 1;
+  min-width: 0;
+}
+
+/* THE SPREAD DOES NOT FIT A PHONE: the cover alone is 104px and the gist column asks for 15rem, so
+   on a narrow window the subject's own column was squeezed under its cover and everything in it
+   overlapped its neighbour. Below the stack's width the window is one column again. DESIGN §8 */
+@media (max-width: 40rem) {
+  :root[data-wave="wave-03"] .summary-modal__panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "gist" "chunk" "body";
+  }
+  /* The gist no longer stands beside the subject but under it, so it loses the header's top air. */
+  :root[data-wave="wave-03"] .summary-modal__takeaway {
+    padding-top: 14px;
+  }
 }
 
 /* The covered chunk is DRAWN rather than spelled out — the sheet's own lit run, at the window's

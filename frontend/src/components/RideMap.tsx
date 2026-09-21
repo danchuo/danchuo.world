@@ -284,7 +284,12 @@ export function RideMap({
           },
         });
         refit();
-        readyRef.current?.();
+        /* ⚠️ Ready on `idle`, NOT on `load`: `load` means the STYLE is up, while the city tiles are
+           still travelling, and a wave switch (which has its data already) then uncovered the tile
+           over a blank map. `idle` is the first frame with nothing left to fetch. DESIGN §7.10 */
+        map.once("idle", () => {
+          if (!cancelled) readyRef.current?.();
+        });
       });
 
       /**

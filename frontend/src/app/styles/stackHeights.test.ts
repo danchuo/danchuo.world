@@ -39,6 +39,13 @@ describe("собственная высота блоков в мобильном
     expect(ruleBody(selector)).toMatch(intrinsic);
   });
 
+  /* The other half of the music card's height contract (DESIGN §7.1): a recents row keeps its OWN
+     height. Let it shrink and the row's height starts depending on the card — which is measured
+     from the rows — closing the loop that made the bottom edge twitch. */
+  it("ряд недавних не сжимается под карточку", () => {
+    expect(ruleBody(".recent-row")).toMatch(/flex-shrink:\s*0/);
+  });
+
   it("min-height подпорка ограничена стеком — в бенто она бы не уступила flex-раскладке", () => {
     // `aspect-ratio` only acts on an undefined size and is therefore harmless in bento.
     // `min-height` yields to nobody: it beat `min-h-0` on the element itself, the list stopped

@@ -209,18 +209,15 @@ function useRecentClock(active: boolean): number {
  */
 
 /**
- * The list's content height: from its top to the bottom of the last VISIBLE row. Rows hidden by
- * the fitting keep their space, which is what stops the measurement oscillating, but the card must
- * not grow to cover them — they cannot be seen anyway.
+ * The list's content height: from its top to the bottom of the LAST row, hidden ones included.
+ * ⚠️ Counting only the visible ones closed a loop — the fitting hides rows to suit the card, so the
+ * card would then shrink to suit the fitting. How many tracks there are is DATA. DESIGN §7.1
  */
-function listContentHeight(list: Element): number {
-  const top = list.getBoundingClientRect().top;
-  let bottom = top;
-  for (const row of Array.from(list.children) as HTMLElement[]) {
-    if (row.style.visibility === "hidden") continue;
-    bottom = Math.max(bottom, row.getBoundingClientRect().bottom);
-  }
-  return bottom - top;
+export function listContentHeight(list: Element): number {
+  const rows = Array.from(list.children) as HTMLElement[];
+  const last = rows[rows.length - 1];
+  if (!last) return 0;
+  return last.getBoundingClientRect().bottom - list.getBoundingClientRect().top;
 }
 
 function naturalCardHeight(body: HTMLElement): number {
@@ -538,9 +535,9 @@ export function MusicTile({ style, className, recentLimit = RECENT_WHEN_IDLE, po
   const cardWidth: CSSProperties["width"] =
     shrinkW ?? (frameW > 0 ? Math.min(frameW, LOADING_W) : `min(100%, ${LOADING_W}px)`);
 
-  /* Vertical twin of the shrink: the value is always computed but by default nobody reads it
-     (`.music-card` stays `height: 100%`). A wave that wants a content-height card picks the variable
-     up in its own skin, just as PRIME cancels the horizontal shrink. */
+  /* Vertical twin of the shrink, read only by a wave that wants a content-height card (§7.1). Safe
+     under the recents list too: the height is counted over ALL rows, so what the fitting hides does
+     not come back as a new answer. DESIGN §7.1 */
   const shrinkH = naturalH > 0 && frameH > 0 ? Math.min(frameH, Math.ceil(naturalH)) : null;
 
   // The tile's mode is a hook for the skin (§10.2): PRIME's black plate and Obscura's cover

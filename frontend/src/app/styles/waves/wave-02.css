@@ -122,10 +122,9 @@
   box-shadow: 0 2px 4px rgba(15, 34, 52, 0.05), 0 14px 30px rgba(15, 34, 52, 0.1),
     0 30px 60px rgba(15, 34, 52, 0.09);
 }
-/* The corner scatter, the white inner frame and the box's lower ground are wave-01 pixel details, and
-   cloud cards have none of them. All three are elements rather than pseudo-elements (the `.pixel-tile`
-   slots are taken by wave 01's silhouette), so all three are hidden here. */
-:root[data-wave="wave-02"] .pixel-scatter,
+/* The white inner frame and the box's lower ground are wave-01 pixel details, and cloud cards have
+   none of them. Both are elements rather than pseudo-elements (the `.pixel-tile` slots are taken by
+   wave 01's silhouette), so both are hidden here. */
 :root[data-wave="wave-02"] .pixel-lid,
 :root[data-wave="wave-02"] .pixel-slab {
   display: none;

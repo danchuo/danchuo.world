@@ -16,6 +16,11 @@ interface SocialTileProps {
    * than code checking a wave key, or every new wave would need a component change. DESIGN §10.1
    */
   edition?: string;
+  /**
+   * Show ONE platform's mark instead of the whole grid — a wave that scatters the marks over the
+   * board gives each tile its platform. Unknown name ⇒ nothing to show, not a broken tile. §10.1
+   */
+  platform?: string;
   style?: CSSProperties;
   className?: string;
 }
@@ -47,12 +52,13 @@ const BRAND_MARKS: Partial<Record<string, string>> = {
  * at once and nothing flickers. Column count keeps the grid square. The sprite is a CSS mask
  * painted by a token, so it follows the active wave; a skin may swap in its own art. PRD §5.8
  */
-export function SocialTile({ edition, style, className }: SocialTileProps) {
+export function SocialTile({ edition, platform, style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
     useCallback((signal) => getSocialLinks({ signal }), []),
     "social-links",
   );
-  const links = data ?? [];
+  const all = data ?? [];
+  const links = platform ? all.filter((l) => l.platform === platform) : all;
   const isEmpty = phase === "loaded" && links.length === 0;
 
   // Peeks are fetched only if the edition shows them — other waves make no requests at all. Empty
@@ -82,14 +88,14 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
     if (profile && l.platform === "telegram") return <TelegramPeek profile={profile} href={l.url} />;
     return undefined;
   };
-  const cols = links.length <= 4 ? 2 : links.length <= 9 ? 3 : 4;
+  const cols = links.length <= 1 ? 1 : links.length <= 4 ? 2 : links.length <= 9 ? 3 : 4;
 
   return (
     <TileShell
       state={isEmpty ? "empty" : phase}
       emptyText="нет ссылок"
       onRetry={retry}
-      label="соцсети"
+      label={platform ? undefined : "соцсети"}
       ariaLabel="Соцсети"
       style={style}
       className={className}
@@ -103,7 +109,7 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
             // social-grid: a named container — the query in common.css hides the labels when the grid
             // is too narrow for text, leaving recognisable icons. Gap, icon and label are shares of
             // their containers rather than pixel constants (DESIGN §8.1).
-            className="social-grid grid h-full"
+            className={`social-grid grid h-full${platform ? " social-grid--single" : ""}`}
             // Layout arrives as VARIABLES while the columns themselves are declared in CSS, the
             // same device as the music card's width: in the mobile stack the square grid becomes
             // ONE ROW, and inline `grid-template-columns` beats CSS unless it is `!important`.
@@ -149,7 +155,9 @@ export function SocialTile({ edition, style, className }: SocialTileProps) {
                     className="social-card flex h-full w-full flex-col items-center justify-center"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {peek ? <HoverTip content={peek}>{icon}</HoverTip> : icon}
+                    {/* A scattered mark stretches to its cell, so the anchor the peek wraps it in
+                        must stretch too — otherwise the mark collapses to nothing. */}
+                    {peek ? <HoverTip content={peek} fill={!!platform}>{icon}</HoverTip> : icon}
                     <span className="social-label max-w-full truncate px-1">{l.name}</span>
                   </a>
                 </li>

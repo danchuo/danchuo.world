@@ -51,8 +51,8 @@ external source entirely to itself; the core knows nothing about it.
 | `core` | bearer filter on `/api/ingest/*`, a soft rate limit (three buckets per client: reads, drop frames and notes; SSR is marked `X-Danchuo-Internal` and is not limited), the visitor primitives every public endpoint shares (`VisitorHash`, `BotHeuristics`), MSK and genesis config, the cache seam | — |
 
 `caddy/` — our own edge image (stock caddy plus `caddy-ratelimit` and `cache-handler`). The config
-itself is the root `Caddyfile`: routes, per-client ceilings by zone, a ten-second page cache and
-`max_conns_per_host` to the frontend. Its numbers come from production measurements, with the
+itself is the root `Caddyfile`: routes, per-client ceilings by zone, security headers (a strict CSP
+on `/api/*`, the rest site-wide), a ten-second page cache and `max_conns_per_host` to the frontend. Its numbers come from production measurements, with the
 reasoning in the comments and PRD §8. None of this touches the local stack: `docker-compose.yml`
 has no caddy and the frontend listens on 3000 directly. Edge changes are checked with a separate
 container over the local network (`--network danchuoworld_default`).

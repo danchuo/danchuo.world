@@ -659,7 +659,7 @@
 /* The tile's slab is removed entirely — the same argument as the drops rail, the switcher, the projects
    console and the ride map: the subject is the material. Four marks already carry their own colour and
    edge. The blur passes are killed BY NAME: an empty background does not switch them off. */
-:root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile {
+:root[data-wave="wave-03"] [data-tile-id^="social"] .pixel-tile {
   padding: 0;
   border: none;
   background: none;
@@ -669,9 +669,9 @@
      against: no ground, border or shadow, and the neighbouring rows are empty. */
   overflow: visible;
 }
-:root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile::before,
-:root[data-wave="wave-03"] [data-tile-id="social"] .pixel-lid,
-:root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile::after {
+:root[data-wave="wave-03"] [data-tile-id^="social"] .pixel-tile::before,
+:root[data-wave="wave-03"] [data-tile-id^="social"] .pixel-lid,
+:root[data-wave="wave-03"] [data-tile-id^="social"] .pixel-tile::after {
   display: none;
 }
 /* No slab ⇒ nothing to light. The refusal happens TWICE, by two different mechanisms. */
@@ -683,11 +683,11 @@
 /* 2. The wave's hover changes nothing on the tile: the computed hover style equals the resting one, so the
       cursor entering costs not even a single recalculation. The same device as the projects tile; the
       specificity is above the wave's shared gesture, so the rule works even standing earlier. */
-:root[data-wave="wave-03"] [data-tile-id="social"] {
+:root[data-wave="wave-03"] [data-tile-id^="social"] {
   --tile-edge-light: 0;
 }
 @media (hover: hover) {
-  :root[data-wave="wave-03"] [data-tile-id="social"] .pixel-tile:hover {
+  :root[data-wave="wave-03"] [data-tile-id^="social"] .pixel-tile:hover {
     --edge-a: 0;
     border-color: transparent;
   }
@@ -701,12 +701,31 @@
 :root[data-wave="wave-03"] .social-icon {
   cursor: pointer;
 }
+
+/* The peek's anchor is a BLOCK the width of the card, so a mark wrapped in one (instagram,
+   telegram) stood at its left edge while the bare marks (github, X) sat in the card's flex centre —
+   the pair in a channel came out on two different vertical lines. */
+:root[data-wave="wave-03"] .social-grid--single .hover-tip-anchor--fill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Scattered marks (DESIGN §10.2): one platform per tile, each spanning its whole channel so the
+   mark centres on the channel. Sized from the cell's HEIGHT — the shared rule measures the card's
+   WIDTH, and these cells are wider than they are tall, which put the mark past both edges. */
+:root[data-wave="wave-03"] .social-grid--single .social-icon {
+  width: auto;
+  /* A share of the cell, not all of it: filling the two rows made the mark shout over the data. */
+  height: calc(var(--social-mark-scale, 0.75) * 100%);
+  aspect-ratio: 1;
+}
 /* Platform names are removed: a mark names its service itself, and a caption under it is the same meta label
    the wave dropped everywhere else. The link keeps its name in `aria-label`. */
 
-/* The marks stand in a ROW rather than a 2×2 square: the tile is a short strip in the top right corner, where
-   four signs read as a line of links. The column count comes from the number of links (`--social-count`), the
-   same device as in the mobile stack (DESIGN §8). */
+/* The COMBINED tile keeps its marks in a row rather than a 2×2 square. On this wave it survives in
+   the mobile stack alone (§10.2), and there four signs read as a line of links. The column count
+   comes from the number of links (`--social-count`), the stack's own device (DESIGN §8). */
 :root[data-wave="wave-03"] .social-label {
   display: none;
 }

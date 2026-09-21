@@ -32,8 +32,9 @@ describe("реестр волн", () => {
  */
 describe.each(WAVES.map((w) => [w.key, w] as const))("раскладка волны %s", (_key, wave) => {
   const layout = resolveLayout(wave.layout);
+  // The bento board only: a tile kept for the stack alone owns no cell here (DESIGN §10.1).
   const visible = (Object.entries(layout.tiles) as [string, TileSpan][]).filter(
-    ([, span]) => !span.hidden,
+    ([, span]) => !span.hidden && span.only !== "stack",
   );
 
   it("плитки не выходят за пределы грида", () => {

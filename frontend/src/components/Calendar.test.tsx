@@ -1226,3 +1226,96 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(screen.queryByTestId("month-gap-2026-09-01")).toBeNull();
   });
 });
+
+/**
+ * The lens in the "field" edition re-tasks the LIGHT (DESIGN §5.2): it stops answering "how full
+ * was the day" and answers "did this one thing happen", with the live run burning brightest — so
+ * the length of the lit stretch is the streak, read without a numeral.
+ */
+describe("Calendar — свет серии под линзой (редакция «поле»)", () => {
+  /** Stretching done on Friday the 12th and again Mon–Thu the 15th–18th: a run across a weekend. */
+  function buildRunWindow(): DaySummary[] {
+    const done = (iso: string) => iso === "2026-06-12" || (iso >= "2026-06-15" && iso <= TODAY);
+    return buildWindow().map((d) => ({
+      ...d,
+      disciplineCounts: { stretch: done(d.date) ? 1 : 0, reading: 2 },
+    }));
+  }
+
+  function renderRun() {
+    return render(
+      <Calendar
+        days={buildRunWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+        lens={STRETCH_LENS}
+      />,
+    );
+  }
+
+  it("дни живой серии горят, а перешагнутый выходной светит вполсилы", () => {
+    renderRun();
+
+    expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-lens-run", "on");
+    expect(screen.getByTestId("day-2026-06-15")).toHaveAttribute("data-lens-run", "on");
+    // Sat/Sun inside the run: neutral for a discipline item, so they hold the stretch together
+    // instead of cutting it in two.
+    expect(screen.getByTestId("day-2026-06-13")).toHaveAttribute("data-lens-run", "step");
+    expect(screen.getByTestId("day-2026-06-14")).toHaveAttribute("data-lens-run", "step");
+  });
+
+  it("день до обрыва серии света не получает", () => {
+    renderRun();
+
+    expect(screen.getByTestId("day-2026-06-11")).not.toHaveAttribute("data-lens-run");
+  });
+
+  it("длина серии стоит словами в ярлыке — там же, где её рисует свет", () => {
+    renderRun();
+
+    expect(screen.getByTestId("calendar-lens-run")).toHaveTextContent("5 дней подряд");
+  });
+
+  it("серия в один день ярлыка не получает: это ещё не серия", () => {
+    render(
+      <Calendar
+        days={buildWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        edition="field"
+        lens={STRETCH_LENS}
+      />,
+    );
+
+    expect(screen.queryByTestId("calendar-lens-run")).toBeNull();
+  });
+
+  it("обводки на цифре в «поле» нет: свет уже сказал то же самое", () => {
+    renderRun();
+
+    expect(screen.queryByTestId(`lens-frame-${TODAY}`)).toBeNull();
+    // ...while the base grid keeps the ring as the lens's only mark (§5.1).
+    expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-lens-tone", "match");
+  });
+
+  it("базовая сетка света серии не знает: он — материал «поля»", () => {
+    render(
+      <Calendar
+        days={buildRunWindow()}
+        selected={TODAY}
+        today={TODAY}
+        onSelect={() => {}}
+        state="loaded"
+        lens={STRETCH_LENS}
+      />,
+    );
+
+    expect(screen.getByTestId(`day-${TODAY}`)).not.toHaveAttribute("data-lens-run");
+    expect(screen.queryByTestId("calendar-lens-run")).toBeNull();
+  });
+});

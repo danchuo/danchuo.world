@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { DaySummary, DayView } from "@/lib/api/types";
 import { anchorOnDay, shiftAnchor } from "@/lib/calendarWindow";
 import { addDays, mskToday } from "@/lib/date";
 import { openBoardGate } from "@/lib/fontGate";
-import type { DisciplineLens } from "@/lib/disciplineLens";
+import { pinLens, type DisciplineLens } from "@/lib/disciplineLens";
 import { statsWindow, type StatsRange } from "@/lib/statsWindow";
 import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
+import { useLensPreview } from "./useLensPreview";
 import { FreshnessTile } from "./FreshnessTile";
 import { HeroTile } from "./HeroTile";
 import { LatestDropTile } from "./LatestDropTile";
@@ -86,7 +87,10 @@ interface BoardData {
   edgeWeeks: number;
   /** The discipline lens (§5.3): the quest-map stop the calendar is marked up by. */
   lens: DisciplineLens | null;
+  /** Pin a lens, or let it go: the same call toggles, and the pinned state decides which. */
   setLens: (lens: DisciplineLens | null) => void;
+  /** Try a lens on by hovering its socket; `null` while the try-on has not opened yet. */
+  previewLens: (lens: DisciplineLens | null) => void;
   retryDay: () => void;
   retryRange: () => void;
   retryStats: () => void;
@@ -118,7 +122,19 @@ export function Board() {
   const [selected, setSelected] = useState(today);
   // The lens lives on the board, not in a tile: the Today quest map sets it and the calendar reads
   // it. It deliberately survives a change of day — it is a view of history, not a day's state.
-  const [lens, setLens] = useState<DisciplineLens | null>(null);
+  const [pinnedLens, setPinnedLens] = useState<DisciplineLens | null>(null);
+  // Hovering a ledge socket TRIES a lens on, and the try-on outlives the socket: it dies when the
+  // pointer leaves the today tile and the calendar both (DESIGN §5.2).
+  const { lens, hover: previewLens, clear: clearPreview } = useLensPreview(pinnedLens);
+  // Toggling belongs with the pinned state, not with the tile: under a try-on a tile comparing
+  // against what it SEES would unpin the very lens the click meant to fix.
+  const setLens = useCallback(
+    (next: DisciplineLens | null) => {
+      clearPreview();
+      setPinnedLens((prev) => pinLens(prev, next));
+    },
+    [clearPreview],
+  );
   // The day layer has its own seam ([useSelectedDay]), which has something to hold the screen with
   // while loading: the previously selected day.
   const { day, status: dayStatus, retry: retryDay } = useSelectedDay(selected);
@@ -195,6 +211,7 @@ export function Board() {
     canGoBack,
     edgeWeeks,
     lens,
+    previewLens,
     setLens,
     retryDay,
     retryRange,
@@ -318,6 +335,7 @@ function BoardTile({
           edition={edition}
           lens={data.lens}
           onLensChange={data.setLens}
+          onLensPreview={data.previewLens}
           style={style}
           className={className}
         />

@@ -5,6 +5,7 @@ import { getSummary } from "@/lib/api/client";
 import type { SummarySubject } from "@/lib/summarySubject";
 import { Icon } from "./Icon";
 import { Cover } from "./NowPlayingCard";
+import { CoverPlate } from "./SpotifyMark";
 import { useBackToClose } from "./useBackToClose";
 
 interface SummaryModalProps {
@@ -116,11 +117,19 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
               portrait (a spine), an episode's square (a sleeve) — hence different heights at one
               width. Larger than the card's: here it carries the header alone. */}
           <Away href={subject.titleUrl} className="summary-modal__shot">
+            {/* A cover that never arrived is the Spotify plate, the same fallback the card the
+                window was opened from carries (DESIGN §4.3) — and only for an episode, whose
+                picture CAME from Spotify; a book from the shelf keeps the quiet blank. */}
             <Cover
               url={subject.coverUrl}
               alt=""
               size={COVER_W}
               height={subject.portrait ? COVER_H_PORTRAIT : COVER_W}
+              fallback={
+                subject.kind === "podcast" ? (
+                  <CoverPlate seed={subject.titleUrl ?? subject.title} size={COVER_W} />
+                ) : undefined
+              }
             />
           </Away>
           <div className="summary-modal__ident mt-2 max-w-full px-6">

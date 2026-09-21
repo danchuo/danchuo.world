@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DayView, DisciplineItemView, PodcastEpisodeView } from "@/lib/api/types";
@@ -253,7 +253,7 @@ describe("TodaySheet", () => {
     ).toBeInTheDocument();
   });
 
-  it("turns the calendar lens on from a ledger plate, and off on a second press", async () => {
+  it("names its lens to the board from a ledge socket, on every press", async () => {
     const onLensChange = vi.fn();
     const lens = { key: "stretch", occurrence: 1, label: "растяжка" };
     const { rerender } = render(
@@ -276,7 +276,33 @@ describe("TodaySheet", () => {
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /Растяжка/ }));
-    expect(onLensChange).toHaveBeenLastCalledWith(null);
+    // The socket NAMES its lens both times: whether that pins or lets go is the board's call, and
+    // only the board knows the PINNED lens rather than the one being tried on (DESIGN §5.2).
+    expect(onLensChange).toHaveBeenLastCalledWith(lens);
+  });
+
+  /* The try-on (DESIGN §5.2): a hovered socket offers its lens to the board without pinning it.
+     Under a finger there is no hover to leave, so a tap stays the whole mechanic there. */
+  it("offers a hovered socket's lens to the board, and ignores a finger", () => {
+    const onLensPreview = vi.fn();
+    render(
+      <TodaySheet
+        day={day({ discipline: [item({ key: "stretch", label: "Растяжка", count: 1 })] })}
+        today="2026-09-19"
+        onLensPreview={onLensPreview}
+      />,
+    );
+    const socket = screen.getByRole("button", { name: /Растяжка/ });
+
+    fireEvent.pointerOver(socket, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenCalledWith({ key: "stretch", occurrence: 1, label: "растяжка" });
+
+    fireEvent.pointerOut(socket, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenLastCalledWith(null);
+
+    onLensPreview.mockClear();
+    fireEvent.pointerOver(socket, { pointerType: "touch" });
+    expect(onLensPreview).not.toHaveBeenCalled();
   });
 
   // The monster is a card among the frames, not a socket: an unreported day shows the figure and

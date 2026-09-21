@@ -781,3 +781,18 @@ canvas-фингерпринтинга, и неважно, зачем читае�
 `map.once("load", …)` оставляем под добавление слоёв, а `readyRef.current?.()` переносим внутрь
 `map.once("idle", …)`. Щель при этом не исчезает, а становится честной: плитка ждёт ровно столько,
 сколько едут тайлы.
+
+## jsdom не знает `PointerEvent` — `pointerType` теряется по дороге
+
+**Симптом.** Компонент различает мышь и палец (`e.pointerType === "mouse"`), в браузере работает, а
+в тесте обработчик не вызывается вовсе: `fireEvent.pointerOver(el, { pointerType: "mouse" })`
+проходит вхолостую.
+
+**Причина.** В jsdom нет конструктора `PointerEvent`. Testing Library собирает событие тем классом,
+который найдёт, — получается голый `Event`, и все поля указателя (`pointerType`, `relatedTarget`)
+до компонента не доезжают. Событие приходит, но оно «ничьё».
+
+**Что делать.** Полифилл в `frontend/vitest.setup.ts` (наследник `MouseEvent`, кладущий
+`pointerType` из `init`) — он уже стоит. Отдельно помнить: React сводит `onPointerEnter`/`Leave` к
+`pointerover`/`pointerout`, поэтому в тестах стрелять надо **`pointerOver`/`pointerOut`**, а не
+`pointerEnter` — последнее не всплывает, и React его не слышит.

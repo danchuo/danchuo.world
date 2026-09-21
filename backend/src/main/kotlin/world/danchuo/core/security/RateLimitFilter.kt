@@ -12,9 +12,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Soft in-memory token bucket over public GETs and the analytics telemetry POSTs, sized to stop a
- * noisy client rather than a real DDoS (edge limits live in `Caddyfile`). Two buckets per client,
- * SSR exempt via [INTERNAL_HEADER], `requests=0` disables it — the numbers and why: PRD §8.
+ * Soft in-memory token bucket over public GETs and the public POSTs, sized to stop a noisy client
+ * rather than a real DDoS (edge limits live in `Caddyfile`). Three buckets per client, SSR exempt
+ * via [INTERNAL_HEADER], `requests=0` disables it — the numbers and why: PRD §8.
  */
 @Provider
 @Priority(Priorities.AUTHENTICATION + 100)
@@ -23,6 +23,8 @@ class RateLimitFilter(
     @param:ConfigProperty(name = "danchuo.ratelimit.requests") private val maxRequests: Int,
     @param:ConfigProperty(name = "danchuo.ratelimit.media-requests") private val maxMediaRequests: Int,
     @param:ConfigProperty(name = "danchuo.ratelimit.window-seconds") private val windowSeconds: Long,
+    @param:ConfigProperty(name = "danchuo.ratelimit.feedback-requests") private val maxFeedbackRequests: Int,
+    @param:ConfigProperty(name = "danchuo.ratelimit.feedback-window-seconds") private val feedbackWindowSeconds: Long,
 ) : ContainerRequestFilter {
 
     private val buckets = ConcurrentHashMap<String, Bucket>()
@@ -34,21 +36,25 @@ class RateLimitFilter(
         if (!ctx.getHeaderString(INTERNAL_HEADER).isNullOrBlank()) return
 
         val path = ctx.uriInfo.path.trim('/')
-        // Limit public reads (GET) and public analytics telemetry (beacon/click POSTs). Other
-        // methods are owner mutations under /api/ingest and out of this contour.
+        // Limit public reads (GET) and the public POSTs — telemetry and notes. Anything else is an
+        // owner mutation under /api/ingest and out of this contour.
         val isPublicGet = ctx.method == "GET"
         val isAnalyticsPost = ctx.method == "POST" && path.startsWith("api/analytics")
-        if (!isPublicGet && !isAnalyticsPost) return
+        val isFeedbackPost = ctx.method == "POST" && path.startsWith("api/feedback")
+        if (!isPublicGet && !isAnalyticsPost && !isFeedbackPost) return
         if (!path.startsWith("api/") || path.startsWith("api/ingest")) return
 
-        // Frames get their own scope and their own (much larger) allowance — see the class doc.
-        val isMedia = path.startsWith("api/film-media")
-        val capacity = if (isMedia) maxMediaRequests else maxRequests
-        val scope = if (isMedia) "media" else "public"
+        // Three zones, each with its own allowance AND its own window: frames are many and cheap,
+        // notes are few and hand-written, so a reader's budget would be a spammer's budget too.
+        val zone = when {
+            isFeedbackPost -> Zone("feedback", maxFeedbackRequests, feedbackWindowSeconds)
+            path.startsWith("api/film-media") -> Zone("media", maxMediaRequests, windowSeconds)
+            else -> Zone("public", maxRequests, windowSeconds)
+        }
 
         val client = ClientIp.fromForwardedFor(ctx.getHeaderString("X-Forwarded-For")) ?: "direct"
-        // Scope is part of the key: draining one bucket must never touch the other.
-        val bucket = buckets.computeIfAbsent("$scope:$client") { Bucket(capacity, windowSeconds) }
+        // Scope is part of the key: draining one bucket must never touch the others.
+        val bucket = buckets.computeIfAbsent("${zone.scope}:$client") { Bucket(zone.capacity, zone.windowSeconds) }
         if (!bucket.tryConsume()) {
             ctx.abortWith(
                 Response.status(TOO_MANY_REQUESTS)
@@ -58,6 +64,9 @@ class RateLimitFilter(
             )
         }
     }
+
+    /** One limited class of traffic: the bucket key's prefix, its allowance and its window. */
+    private data class Zone(val scope: String, val capacity: Int, val windowSeconds: Long)
 
     /** Token bucket with continuous refill: [capacity] tokens per [windowSeconds] window. */
     private class Bucket(private val capacity: Int, windowSeconds: Long) {

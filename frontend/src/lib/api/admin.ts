@@ -1,5 +1,5 @@
 import type { BoxRect } from "@/lib/artifactHighlight";
-import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
+import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, FeedbackNoteView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /** Owner API uses an explicit bearer from /admin sessionStorage. Public reads use client.ts. PRD §5.12, §9.8. */
 
@@ -345,4 +345,20 @@ export async function deleteArtifactBox(
   );
   if (!res.ok) return parseError(res);
   return (await res.json()) as AdminPhotoView[];
+}
+
+/** The visitor notes inbox, newest first. PRD §5.19. */
+export async function listFeedback(token: string): Promise<FeedbackNoteView[]> {
+  const res = await fetch(`${BASE}/api/ingest/feedback`, { headers: authHeaders(token) });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as FeedbackNoteView[];
+}
+
+/** Delete one note; 404 means it was already gone. */
+export async function deleteFeedback(token: string, id: number): Promise<void> {
+  const res = await fetch(`${BASE}/api/ingest/feedback/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
 }

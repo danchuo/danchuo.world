@@ -10,6 +10,7 @@ import { statsWindow, type StatsRange } from "@/lib/statsWindow";
 import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
+import { FeedbackTile } from "./FeedbackTile";
 import { FreshnessTile } from "./FreshnessTile";
 import { HeroTile } from "./HeroTile";
 import { LatestDropTile } from "./LatestDropTile";
@@ -414,6 +415,18 @@ function BoardTile({
       return <LatestDropTile edition={edition} gallery={gallery} style={style} className={className} />;
     case "freshness":
       return <FreshnessTile style={style} className={className} />;
+    case "feedback":
+      // The note carries the board's state at the moment of writing: "the calendar is cramped" is
+      // unreadable a wave later without knowing which wave and which day were on screen. §5.19
+      return (
+        <FeedbackTile
+          wave={data.wave}
+          selectedDay={data.selected}
+          edition={edition}
+          style={style}
+          className={className}
+        />
+      );
     case "waveSwitcher":
       // The switcher receives EXACTLY the range the board's backdrop does: a wave whose background
       // is made of data shows a piece of that background, not a lookalike pattern. DESIGN §2.6
@@ -451,4 +464,5 @@ const TILE_NOTES: Record<TileId, string> = {
   hero: "hero",
   social: "соцсети",
   marquee: "артефакты",
+  feedback: "обратная связь",
 };

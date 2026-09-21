@@ -47,7 +47,8 @@ external source entirely to itself; the core knows nothing about it.
 | `llm` | a client for external LLMs behind `LlmClient` (Groq + Gemini); two **lanes** — the main one (which may be paid) and the free `LlmLane.FREE` for background work; speech recognition (`transcribe`, multipart, its own limit in audio-seconds); with no key, a quiet `null` | — |
 | `projects`, `social` | board content (projects, social links, artifacts) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
 | `analytics` | a cookieless beacon plus a per-tile heatmap (private summary behind a bearer) | `POST /api/analytics/{beacon,interactions}` |
-| `core` | bearer filter on `/api/ingest/*`, a soft rate limit (two buckets per client: reads and drop frames; SSR is marked `X-Danchuo-Internal` and is not limited), MSK and genesis config, the cache seam | — |
+| `feedback` | a visitor's note to the author: three optional answers behind one public POST, read and deleted only by the owner; rules live in the pure `FeedbackPolicy` | `POST /api/feedback` |
+| `core` | bearer filter on `/api/ingest/*`, a soft rate limit (three buckets per client: reads, drop frames and notes; SSR is marked `X-Danchuo-Internal` and is not limited), the visitor primitives every public endpoint shares (`VisitorHash`, `BotHeuristics`), MSK and genesis config, the cache seam | — |
 
 `caddy/` — our own edge image (stock caddy plus `caddy-ratelimit` and `cache-handler`). The config
 itself is the root `Caddyfile`: routes, per-client ceilings by zone, a ten-second page cache and
@@ -71,7 +72,7 @@ container over the local network (`--network danchuoworld_default`).
   `useDayRange`: while new data travels, the previous data stays on screen (DESIGN §7 — a loader is
   right only when there is nothing to show).
 - `src/app/admin/` — the private admin (bearer in sessionStorage, noindex), with sections for drops,
-  artifacts, rides and statistics; it follows waves like the public board.
+  artifacts, rides, statistics and visitor feedback; it follows waves like the public board.
 - `e2e/` — Playwright, per-tile visual regression; baselines are taken **in Docker**
   (`npm run e2e:docker[:update]`), and a first run with `--update-snapshots` reports diverged
   snapshots as failed — only a second, clean run counts as green.

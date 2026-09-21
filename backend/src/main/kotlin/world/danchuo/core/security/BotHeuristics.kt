@@ -1,11 +1,14 @@
-package world.danchuo.analytics
+package world.danchuo.core.security
 
 import jakarta.enterprise.context.ApplicationScoped
 
+/** Visitor device type, derived from the User-Agent (PRD §7). */
+enum class DeviceType { MOBILE, TABLET, DESKTOP }
+
 /**
- * Bot heuristics (PRD §5.11): the beacon already drops crawlers without JS; on top of that we
- * mark a bot by a User-Agent blocklist and by a missing `Accept-Language` (live browsers send it).
- * Marked rows are still stored as raw material but stay out of the private summary.
+ * Bot heuristics: a User-Agent blocklist plus a missing `Accept-Language` (live browsers send it).
+ * A marked row is still stored as raw material but stays out of what the owner reads. Shared by
+ * every public endpoint anyone may post to — analytics and feedback alike. PRD §5.11, §5.19
  */
 @ApplicationScoped
 class BotHeuristics {

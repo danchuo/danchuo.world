@@ -5087,3 +5087,249 @@ button.sleep-echo:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ── Feedback: the envelope tile and the note window (PRD §5.19, DESIGN §7.11) ───────────────── */
+
+/* The board's only accent-coloured caption. One tile in colour among a dozen grey ones is the
+   whole signal that this is a control, and it costs no extra element. DESIGN §7.11 */
+.t-feedback .tile-label {
+  color: var(--accent);
+}
+
+/* The button IS the tile, edge to edge: the tile hands over its own padding so that no strip of
+   it sits outside the control. A miss on a widget this small reads as a dead button. */
+.t-feedback.pixel-tile,
+.t-feedback.muted-tile {
+  padding: 0;
+}
+
+.t-feedback__button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* The face sits under the caption and takes the room that is left; a glyph alone has no line to
+   align to, so it takes the middle of that room instead. */
+.t-feedback__body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+.t-feedback__button[data-face="glyph"] .t-feedback__body {
+  justify-content: center;
+}
+
+/* Board chrome, so it scales from the SCREEN like the captions it stands under (§8.1). */
+.t-feedback__call {
+  font-family: var(--font-mono);
+  font-size: clamp(11px, calc(6px + 0.42vw), 17px);
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+/* The arrow leans out under the cursor — the movement belongs to the words, because the card's
+   own hover is the wave's gesture and is already answered for. */
+.t-feedback__arrow {
+  display: inline-block;
+  margin-left: 6px;
+  transition: transform 160ms ease;
+}
+
+.t-feedback__button:hover .t-feedback__arrow,
+.t-feedback__button:focus-visible .t-feedback__arrow {
+  transform: translateX(3px);
+}
+
+.t-feedback__button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* "Slightly draws attention": the flap lifts once every eight seconds. A loop this sparse reads as
+   the board breathing rather than as a banner, and it stops for anyone who asked motion to stop. */
+.t-feedback__glyph {
+  animation: feedback-nudge 8s ease-in-out infinite;
+}
+
+@keyframes feedback-nudge {
+  0%, 88%, 100% { transform: translateY(0); }
+  92% { transform: translateY(-2px); }
+  96% { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-feedback__glyph { animation: none; }
+  .t-feedback__arrow { transition: none; }
+  .t-feedback__button:hover .t-feedback__arrow,
+  .t-feedback__button:focus-visible .t-feedback__arrow { transform: none; }
+}
+
+/* The scene scrolls, not the panel: the box's layers are positioned inside `.pixel-tile`, so a
+   scrolling panel would slide its own frame away from its content. The bar itself is hidden —
+   a tall note is scrolled by wheel or touch, and a rail beside the window read as a second edge. */
+.feedback-scene {
+  background: color-mix(in srgb, var(--bg-base) 82%, transparent);
+  backdrop-filter: blur(2px);
+  scrollbar-width: none;
+}
+
+.feedback-scene::-webkit-scrollbar {
+  display: none;
+}
+
+/* No `background` of its own: the panel carries `.pixel-tile`, whose plates paint at negative
+   z-index. A fill on the element itself covers them and, being unclipped, squares off the corners. */
+.feedback-modal__panel {
+  width: min(560px, 92vw);
+  padding: clamp(20px, 2.4vw, 34px);
+  gap: 14px;
+}
+
+.feedback-modal__close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: inline-flex;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+/* A shade under the shared modal title: the line is long by design, and at full size it broke
+   in two, which turned a spoken phrase into a heading of two decks. */
+.feedback-modal__title {
+  font-family: var(--font-mono);
+  font-size: calc(var(--fs-modal-title) * 0.86);
+  line-height: 1.3;
+  color: var(--text-primary);
+  padding-right: 28px;
+}
+
+.feedback-modal__lead {
+  font-size: var(--fs-modal-meta);
+  color: var(--text-tertiary);
+}
+
+.feedback-modal__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A collapsed card is a full-width invitation; an expanded one keeps the question above its field
+   so the answer never loses what it answers. */
+.feedback-card__button {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-muted, transparent);
+  color: var(--text-secondary);
+  font-size: var(--fs-modal-row);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.feedback-card__button:hover,
+.feedback-card__button:focus-visible {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.feedback-card__label,
+.feedback-modal__sign {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-card__question {
+  font-size: var(--fs-modal-note);
+  color: var(--text-tertiary);
+}
+
+.feedback-card__input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: var(--fs-modal-row);
+  font-family: inherit;
+  /* Neither handle nor rail: a draggable corner pulls the field out past the window's edge, and
+     the bar inside a three-line box is thicker than the text it measures. Overflow still scrolls. */
+  resize: none;
+  scrollbar-width: none;
+}
+
+.feedback-card__input::-webkit-scrollbar {
+  display: none;
+}
+
+.feedback-card__input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Off-screen rather than `display: none`: some bots skip hidden inputs but fill positioned ones. */
+.feedback-modal__trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.feedback-modal__error {
+  font-size: var(--fs-modal-meta);
+  color: var(--accent);
+}
+
+.feedback-modal__send {
+  align-self: flex-start;
+  padding: 10px 20px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-size: var(--fs-modal-row);
+  cursor: pointer;
+}
+
+.feedback-modal__send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The answer is two words, so the window shrinks to them: a 560px panel around one line reads as
+   a form that failed to appear rather than as a receipt. */
+.feedback-modal__panel--done {
+  width: min(320px, 86vw);
+  padding: clamp(18px, 1.8vw, 26px);
+}
+
+.feedback-modal__done {
+  font-family: var(--font-mono);
+  font-size: var(--fs-modal-title);
+  color: var(--text-primary);
+  text-align: center;
+  padding: 18px 4px 8px;
+}

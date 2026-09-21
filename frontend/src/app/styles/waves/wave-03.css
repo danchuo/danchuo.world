@@ -1298,17 +1298,30 @@
 :root[data-wave="wave-03"] .today-sheet__frame {
   box-shadow: none;
 }
-/* Only the halo moves, and only `box-shadow`: transitioning a `filter` on the cover rebuilt the
+/* Only the light moves, and only `opacity`: transitioning a `filter` on the cover rebuilt the
    picture's layer on every hover, which is what made the gesture drag. */
 :root[data-wave="wave-03"] .today-sheet__shot {
-  transition: box-shadow 140ms ease;
+  position: relative;
+}
+/* The light is drawn INSIDE the cover, as an overlay above the picture. An outward halo needed
+   room this wave does not have: the tile carries no padding and clips, so the first and last
+   covers stand on the clipping edge and lost the half of the glow that fell outside. */
+:root[data-wave="wave-03"] .today-sheet__shot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+    inset 0 0 14px 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 @media (hover: hover) {
-  /* Openable answers in LIGHT on the PICTURE alone: no stroke, no movement, and the name stays
-     put. The halo's spread is POSITIVE — the cover fills its own box, so a negative one left
-     only a rim. */
-  :root[data-wave="wave-03"] .today-sheet__frame.is-openable:hover .today-sheet__shot {
-    box-shadow: 0 1px 12px 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  /* Openable answers in LIGHT on the PICTURE alone: no stroke outside, no movement, and the name
+     stays put. Every frame answers identically now, the edge ones included. */
+  :root[data-wave="wave-03"] .today-sheet__frame.is-openable:hover .today-sheet__shot::after {
+    opacity: 1;
   }
 }
 
@@ -1554,4 +1567,91 @@
   font-size: calc(var(--fs-modal-row) * 1.08);
   line-height: 1.45;
   color: var(--text-primary);
+}
+
+/* ── Note window: frameless, and re-laid as a table (DESIGN §7.11) ─────────────────────────────
+   The same material decision as the retelling and the gallery: no ground, no border, no shadow,
+   and the blur moves from the panel's rectangle onto the whole screen. */
+:root[data-wave="wave-03"] .feedback-modal__panel {
+  width: min(760px, 94vw);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+:root[data-wave="wave-03"] .feedback-modal__panel::before,
+:root[data-wave="wave-03"] .feedback-modal__panel .pixel-lid,
+:root[data-wave="wave-03"] .feedback-modal__panel::after {
+  display: none;
+}
+:root[data-wave="wave-03"] .feedback-modal__panel .pixel-slab {
+  display: none;
+}
+
+/* The scrim is the glass here, and it is carrying text rather than a picture: darker than the
+   gallery's, so the questions read against the lit board instead of hovering over it. */
+:root[data-wave="wave-03"] .feedback-scene {
+  background: radial-gradient(120% 92% at 50% 44%, rgba(6, 10, 16, 0.82), rgba(2, 4, 7, 0.97) 100%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
+  backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
+}
+
+@media (hover: hover) {
+  /* Nothing to light: the panel has no edge left for the wave's shared hover gesture to catch. */
+  :root[data-wave="wave-03"] .feedback-modal__panel:hover {
+    --edge-a: 0;
+    border-color: transparent;
+  }
+}
+
+/* Re-laid, not re-built (§10.1): wave 01 stacks four questions into a column, here they are a
+   2x2 table on a wider panel — two rows the eye takes whole instead of a list it scrolls. */
+:root[data-wave="wave-03"] .feedback-modal__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* A cell's height is its row's, so the pair reads as one line of the table: the card stretches and
+   the field inside it takes whatever the taller neighbour claimed. */
+:root[data-wave="wave-03"] .feedback-card,
+:root[data-wave="wave-03"] .feedback-card__label {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+:root[data-wave="wave-03"] .feedback-card__button,
+:root[data-wave="wave-03"] .feedback-card__label .feedback-card__input {
+  flex: 1;
+}
+
+/* The cards carry the wave's own surface — without the panel's plate under them they would be
+   type on bare glass, and a question would stop looking like something to answer. */
+:root[data-wave="wave-03"] .feedback-card__button,
+:root[data-wave="wave-03"] .feedback-card__input {
+  background: color-mix(in srgb, var(--bg-surface) 52%, transparent);
+  border-color: color-mix(in srgb, var(--border-tile) 70%, transparent);
+}
+
+/* The receipt keeps the column layout: one line has no table to be. */
+:root[data-wave="wave-03"] .feedback-modal__panel--done {
+  width: min(320px, 86vw);
+}
+
+/* The note's call speaks in the wave's CODE GREEN, not its cyan: cyan is the board's own voice,
+   spent on every figure and axis, and a control that asks for words has to sit apart from it. */
+:root[data-wave="wave-03"] .t-feedback__button,
+:root[data-wave="wave-03"] .t-feedback .tile-label {
+  color: var(--accent-code);
+}
+
+/* One word of the title carries the wave's code green — the same hue the board's call wears, so
+   the window and the tile that opened it answer to each other. */
+:root[data-wave="wave-03"] .feedback-modal__word {
+  color: var(--accent-code);
+}
+
+/* The send button moves to the far side: on the 2x2 table the eye finishes the second row at the
+   right, and a control back at the left margin sends it all the way home for nothing. */
+:root[data-wave="wave-03"] .feedback-modal__send {
+  align-self: flex-end;
 }

@@ -9,9 +9,7 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
-
-/** Visitor device type, derived from the User-Agent (PRD §7). */
-enum class DeviceType { MOBILE, TABLET, DESKTOP }
+import world.danchuo.core.security.DeviceType
 
 /**
  * A raw visit event. The raw IP is NEVER stored — only [visitorDayHash], which is what uniques

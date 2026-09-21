@@ -181,6 +181,60 @@ export function postInteractions(payload: InteractionsPayload): void {
   }).catch(() => {});
 }
 
+/** A visitor's note. Every answer is optional; the server demands at least one. PRD §5.19. */
+export interface FeedbackPayload {
+  likedMost?: string;
+  wouldChange?: string;
+  missingBlock?: string;
+  signature?: string;
+  path: string;
+  waveKey?: string;
+  selectedDay?: string;
+  viewportW?: number;
+  viewportH?: number;
+  screenW?: number;
+  screenH?: number;
+  language?: string;
+  /** The honeypot: hidden in the form and always empty for a human. Filled ⇒ the server drops it. */
+  website?: string;
+}
+
+/** Why the server refused a note; the form turns the code into a line of Russian. */
+export class FeedbackError extends Error {
+  constructor(
+    readonly code: string,
+    readonly field?: string,
+  ) {
+    super(`Записка отклонена: ${code}`);
+    this.name = "FeedbackError";
+  }
+}
+
+/**
+ * Send a note. Unlike the telemetry POSTs this one is AWAITED and may throw: the visitor wrote to
+ * the author and must learn whether it arrived, so a failure is never swallowed. PRD §5.19.
+ */
+export async function postFeedback(payload: FeedbackPayload): Promise<void> {
+  const url = `${BASE}/api/feedback`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) return;
+  let code = "unknown";
+  let field: string | undefined;
+  try {
+    const body = (await res.json()) as { error?: string; field?: string };
+    code = body.error ?? code;
+    field = body.field;
+  } catch {
+    // A non-JSON failure (429 from the edge, a proxy error) has no application code.
+    code = res.status === 429 ? "rate_limited" : `http_${res.status}`;
+  }
+  throw new FeedbackError(code, field);
+}
+
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE}${path}`;
   const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });

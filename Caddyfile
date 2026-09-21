@@ -69,9 +69,17 @@ danchuo.world {
 			max_size 32KB
 		}
 
+		# A note is three answers of 2000 chars; in Cyrillic UTF-8 that is ~12KB, so 64KB is
+		# fourfold and still far under the ingest tier. Its own matcher, not the telemetry one:
+		# overlapping `request_body` matchers silently keep only the last ceiling. PRD §5.19
+		@feedback_post path /api/feedback
+		request_body @feedback_post {
+			max_size 64KB
+		}
+
 		# Everything else is the owner's ingest behind the bearer — generous, since an artifact
 		# picture and a day of sleep chunks pass here, but no longer unbounded.
-		@api_rest not path /api/ingest/drops* /api/analytics/*
+		@api_rest not path /api/ingest/drops* /api/analytics/* /api/feedback
 		request_body @api_rest {
 			max_size 8MB
 		}
@@ -88,6 +96,21 @@ danchuo.world {
 				events 600
 				window 1m
 			}
+			# Notes: the outer echelon of the ceiling RateLimitFilter also enforces (50/hour). It
+			# sits ABOVE the app's, deliberately — the app owns the honest number, the edge only
+			# keeps a flood off it, and a backstop under it would mask that. PRD §5.19, §11
+			zone feedback {
+				match {
+					method POST
+					path /api/feedback
+				}
+				key {remote_host}
+				events 60
+				window 1h
+			}
+			# A note is charged to this zone as well, and that double-charge is deliberate: the
+			# lower ceiling wins, which is the feedback one. Unlike frames, notes are too few for
+			# the shared budget to notice.
 			zone api {
 				match {
 					not path /api/film-media/*

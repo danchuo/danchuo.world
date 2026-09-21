@@ -7,6 +7,8 @@ import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import world.danchuo.core.security.VisitorHash
+import world.danchuo.core.security.BotHeuristics
 
 /** One click from a beacon batch (B2). Every field is dirty — validated on write. */
 data class ClickInput(

@@ -1,4 +1,4 @@
-package world.danchuo.analytics
+package world.danchuo.core.security
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

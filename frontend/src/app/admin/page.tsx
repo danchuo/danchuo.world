@@ -10,7 +10,7 @@ import { BikeImportSection } from "./BikeImportSection";
 import { DropList } from "./DropList";
 import { DropUploadForm } from "./DropUploadForm";
 import { FeedbackSection } from "./FeedbackSection";
-import { HeatmapSection } from "./HeatmapSection";
+import { StatsSection } from "./StatsSection";
 import { PhotoGrid } from "./PhotoGrid";
 import { TOKEN_KEY, describe, mono } from "./adminUi";
 import type { AdminTabId } from "./adminUi";
@@ -321,7 +321,7 @@ export default function AdminPage() {
 
       {tab === "rides" && <BikeImportSection token={token} onError={setError} />}
 
-      {tab === "stats" && <HeatmapSection token={token} />}
+      {tab === "stats" && <StatsSection token={token} />}
 
       {tab === "feedback" && <FeedbackSection token={token} />}
     </main>

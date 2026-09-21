@@ -18,11 +18,21 @@ data class ClickInput(
     val viewportW: Int? = null,
 )
 
+/** Per-tile totals straight from SQL, before the cloud is attached. */
+data class TileTotal(val tileId: String?, val clicks: Int, val uniques: Int)
+
+/** One cell of a tile's click cloud on the [HeatmapView.grid] lattice. */
+data class TileBin(val tileId: String?, val x: Int, val y: Int, val clicks: Int)
+
+/** A cell of the cloud as the tile carries it. */
+data class HeatCell(val x: Int, val y: Int, val clicks: Int)
+
 /** Per-tile heatmap aggregate: clicks are already CAPPED per visitor's contribution (anti-abuse). */
 data class HeatmapTile(
     val tileId: String?,
     val clicks: Int,
     val uniques: Int,
+    val cells: List<HeatCell>,
 )
 
 /** Heatmap summary for one page over a period (the owner's private view, B2). */
@@ -30,6 +40,7 @@ data class HeatmapView(
     val path: String,
     val from: String,
     val to: String,
+    val grid: Int,
     val totalClicks: Int,
     val tiles: List<HeatmapTile>,
 )
@@ -47,6 +58,7 @@ class InteractionService(
     private val clock: Clock,
     @param:ConfigProperty(name = "danchuo.analytics.heatmap.max-batch") private val maxBatch: Int,
     @param:ConfigProperty(name = "danchuo.analytics.heatmap.visitor-cap") private val visitorCap: Int,
+    @param:ConfigProperty(name = "danchuo.analytics.heatmap.grid") private val grid: Int,
 ) {
 
     /** Writes a click batch. Junk (broken coordinates, over-long tileId) is dropped per item. */
@@ -84,41 +96,38 @@ class InteractionService(
     }
 
     /**
-     * Per-tile aggregate over a period (MSK dates `[from, to]`, inclusive by day). Each visitor's
-     * clicks into a tile are capped at [visitorCap], so one visit's spam cannot skew the map.
+     * Per-tile aggregate over a period (MSK dates `[from, to]`, inclusive by day), each tile
+     * carrying the cloud of where inside it the clicks landed.
      */
     fun heatmap(path: String, from: LocalDate, to: LocalDate): HeatmapView {
         val zone: ZoneId = clock.zone
         val fromInstant = from.atStartOfDay(zone).toInstant()
         val toInstant = to.plusDays(1).atStartOfDay(zone).toInstant() // the end of day `to`, inclusive
 
-        val events = repository.listForHeatmap(path, fromInstant, toInstant)
-        val tiles = events
-            .groupBy { it.tileId }
-            .map { (tileId, group) ->
-                val cappedClicks = group
-                    .groupingBy { it.visitorDayHash }
-                    .eachCount()
-                    .values
-                    .sumOf { minOf(it, visitorCap) }
-                HeatmapTile(
-                    tileId = tileId,
-                    clicks = cappedClicks,
-                    uniques = group.map { it.visitorDayHash }.distinct().size,
-                )
-            }
-            .sortedByDescending { it.clicks }
+        val cloud = repository.tileBins(path, fromInstant, toInstant, grid).groupBy { it.tileId }
+        val tiles = repository.tileTotals(path, fromInstant, toInstant, visitorCap).map { total ->
+            HeatmapTile(
+                tileId = total.tileId,
+                clicks = total.clicks,
+                uniques = total.uniques,
+                cells = cloud[total.tileId].orEmpty().map { HeatCell(it.x, it.y, it.clicks) },
+            )
+        }
 
         return HeatmapView(
             path = path,
             from = from.toString(),
             to = to.toString(),
+            grid = grid,
             totalClicks = tiles.sumOf { it.clicks },
             tiles = tiles,
         )
     }
 
-    /** Cleans one click: `tileId` up to 64 chars, coordinates strictly in [0,1]. null means drop. */
+    /**
+     * Cleans one click. A tile click carries fractions inside the tile; a click on the ground
+     * carries them inside the VIEWPORT and no tileId — both are points, on different boxes.
+     */
     private fun sanitize(input: ClickInput): ClickInput? {
         val tileId = input.tileId?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_TILE_ID }
         val x = input.offsetXPct?.takeIf { it in 0.0..1.0 }

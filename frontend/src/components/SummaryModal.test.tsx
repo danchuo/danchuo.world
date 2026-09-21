@@ -176,6 +176,24 @@ describe("SummaryModal", () => {
     expect(bk.container.querySelector(".summary-modal__name")!.textContent).toBe("Дюна");
   });
 
+  // A cover that never arrives is the Spotify plate here by the same rule the sheet's frame
+  // follows (DESIGN §4.3) — and only where the picture CAME from Spotify.
+  it("puts the Spotify plate where an episode's cover never arrived", () => {
+    const { container } = render(<SummaryModal subject={episode()} onClose={() => {}} />);
+
+    fireEvent.error(container.querySelector("img")!);
+
+    expect(container.querySelector(".cover-plate")).not.toBeNull();
+  });
+
+  it("leaves a book from the shelf the quiet blank, not a foreign mark", () => {
+    const { container } = render(<SummaryModal subject={book()} onClose={() => {}} />);
+
+    fireEvent.error(container.querySelector("img")!);
+
+    expect(container.querySelector(".cover-plate")).toBeNull();
+  });
+
   it("draws no track for a sitting with no place in the work", () => {
     const { container } = render(<SummaryModal subject={book({ span: null })} onClose={() => {}} />);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { DayView } from "@/lib/api/types";
 import {
@@ -14,7 +14,7 @@ import {
   type SheetSession,
 } from "@/lib/daySheet";
 import { Artifact3D } from "./Artifact3D";
-import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
+import { MONSTER_LENS_KEY, type DisciplineLens } from "@/lib/disciplineLens";
 import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
 import type { SummarySubject } from "@/lib/summarySubject";
@@ -29,6 +29,8 @@ interface TodaySheetProps {
   today: string;
   lens?: DisciplineLens | null;
   onLensChange?: (lens: DisciplineLens | null) => void;
+  /** Try a socket's lens on by hovering it; `null` when the pointer leaves the socket. */
+  onLensPreview?: (lens: DisciplineLens | null) => void;
 }
 
 /**
@@ -36,7 +38,7 @@ interface TodaySheetProps {
  * is a frame filled by its cover and the monster closes that row as a frame of its own; every
  * discipline item keeps a socket below, in the same place every day.
  */
-export function TodaySheet({ day, today, lens, onLensChange }: TodaySheetProps) {
+export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: TodaySheetProps) {
   const [retold, setRetold] = useState<SummarySubject | null>(null);
   const headline = sheetHeadline(day, today);
   const sessions = sheetSessions(day);
@@ -49,9 +51,24 @@ export function TodaySheet({ day, today, lens, onLensChange }: TodaySheetProps) 
   const voice = headline.title ?? headline.relative;
   const voiceSize = `clamp(11px, ${(153 / voice.length).toFixed(2)}cqw, 32px)`;
 
-  function toggle(next: DisciplineLens) {
-    if (!onLensChange) return;
-    onLensChange(sameLens(lens ?? null, next) ? null : next);
+  // The socket names its lens and nothing more: whether that pins or unpins is the board's call,
+  // which is also the only place that knows the PINNED lens rather than the one on screen.
+  function pick(next: DisciplineLens) {
+    onLensChange?.(next);
+  }
+
+  /* A try-on only makes sense under a mouse: a tap has no hover to leave, so on touch the click
+     stays the whole mechanic. Leaving a socket cancels a try-on that has not opened yet — it is
+     the ZONE that ends an open one (DESIGN §5.2). */
+  function hover(next: DisciplineLens | null) {
+    return {
+      onPointerEnter: (e: PointerEvent<HTMLButtonElement>) => {
+        if (e.pointerType === "mouse") onLensPreview?.(next);
+      },
+      onPointerLeave: (e: PointerEvent<HTMLButtonElement>) => {
+        if (e.pointerType === "mouse") onLensPreview?.(null);
+      },
+    };
   }
 
   return (
@@ -70,7 +87,8 @@ export function TodaySheet({ day, today, lens, onLensChange }: TodaySheetProps) 
           <MonsterCard
             card={monster}
             active={lens?.key === MONSTER_LENS_KEY}
-            onPick={() => toggle({ key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" })}
+            onPick={() => pick(MONSTER_LENS)}
+            hover={hover(MONSTER_LENS)}
           />
         </div>
 
@@ -85,7 +103,8 @@ export function TodaySheet({ day, today, lens, onLensChange }: TodaySheetProps) 
               key={cell.key}
               cell={cell}
               active={lens?.key === cell.key}
-              onPick={() => toggle({ key: cell.key, occurrence: 1, label: cell.short })}
+              onPick={() => pick(cellLens(cell))}
+              hover={hover(cellLens(cell))}
             />
           ))}
         </div>
@@ -181,7 +200,17 @@ function Frame({ session, onOpen }: { session: SheetSession; onOpen: (s: Summary
  * never moves and never disappears, so the row's shape is the same every day and an item is found
  * by place rather than by reading. DESIGN §4.3
  */
-function Cell({ cell, active, onPick }: { cell: SheetCell; active: boolean; onPick: () => void }) {
+function Cell({
+  cell,
+  active,
+  onPick,
+  hover,
+}: {
+  cell: SheetCell;
+  active: boolean;
+  onPick: () => void;
+  hover: HoverProps;
+}) {
   return (
     <button
       type="button"
@@ -189,6 +218,7 @@ function Cell({ cell, active, onPick }: { cell: SheetCell; active: boolean; onPi
       aria-pressed={active}
       aria-label={cellAria(cell)}
       onClick={onPick}
+      {...hover}
     >
       <span className="today-sheet__mark" aria-hidden>
         {CELL_MARK[cell.state]}
@@ -208,10 +238,12 @@ function MonsterCard({
   card,
   active,
   onPick,
+  hover,
 }: {
   card: SheetMonsterCard;
   active: boolean;
   onPick: () => void;
+  hover: HoverProps;
 }) {
   return (
     <button
@@ -220,6 +252,7 @@ function MonsterCard({
       aria-pressed={active}
       aria-label={card.ariaLabel}
       onClick={onPick}
+      {...hover}
     >
       <span className="today-sheet__shot today-sheet__shot--bare">
         <Artifact3D
@@ -236,13 +269,26 @@ function MonsterCard({
   );
 }
 
+/** The sockets and the monster's card are the lens's only source, so its shape is built here. */
+function cellLens(cell: SheetCell): DisciplineLens {
+  return { key: cell.key, occurrence: 1, label: cell.short };
+}
+
+const MONSTER_LENS: DisciplineLens = { key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" };
+
+/** What [hover] hands a socket: the try-on's pointer handlers, spread onto the button. */
+interface HoverProps {
+  onPointerEnter: (e: PointerEvent<HTMLButtonElement>) => void;
+  onPointerLeave: (e: PointerEvent<HTMLButtonElement>) => void;
+}
+
 const MONSTER_MODEL_SRC = "/assets/3d/white-monster.glb";
 
 /** Slow enough to read as standing rather than spinning: the can is a figure, not a loader. */
 const MONSTER_RPM = 4;
 
 /** Off-axis at rest: face-on the can is a flat rectangle, and a turned one reads as a body. */
-const MONSTER_POSE = { yaw: 22, pitch: -12 };
+const MONSTER_POSE = { yaw: 10, pitch: -12 };
 
 /** The photographer's vocabulary: its own frames above, kept, still open, a select owed to nobody. */
 const CELL_MARK: Readonly<Record<SheetCellState, string>> = {

@@ -27,6 +27,8 @@ interface TodayTileProps {
   /** The calendar lens (PRD §5.3) — the selected stop of the trail map, and its switch. */
   lens?: DisciplineLens | null;
   onLensChange?: (lens: DisciplineLens | null) => void;
+  /** Try a lens on by hovering a ledge socket (DESIGN §5.2) — the sheet edition's gesture. */
+  onLensPreview?: (lens: DisciplineLens | null) => void;
   style?: CSSProperties;
   className?: string;
 }
@@ -80,6 +82,7 @@ export function TodayTile({
   edition,
   lens,
   onLensChange,
+  onLensPreview,
   style,
   className,
 }: TodayTileProps) {
@@ -109,7 +112,13 @@ export function TodayTile({
       className={className}
     >
       {day && sheet && (
-        <TodaySheet day={day} today={today} lens={lens} onLensChange={onLensChange} />
+        <TodaySheet
+          day={day}
+          today={today}
+          lens={lens}
+          onLensChange={onLensChange}
+          onLensPreview={onLensPreview}
+        />
       )}
 
       {day && !sheet && (

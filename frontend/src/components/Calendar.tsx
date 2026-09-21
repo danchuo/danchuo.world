@@ -7,13 +7,15 @@ import { dayOfMonth, monthNameRu, monthOf, monthShortRu, startOfWeek, weekdayMon
 import {
   lensMatch,
   lensNote,
+  lensRun,
   lensTitle,
+  STREAK_SHOWN_FROM,
   lensTone,
   type DisciplineLens,
   type LensMatch,
 } from "@/lib/disciplineLens";
 import { formatSleep, formatSteps } from "@/lib/format";
-import { relativeDayRu } from "@/lib/relativeDay";
+import { pluralDays, relativeDayRu } from "@/lib/relativeDay";
 import { TileShell, type TileState } from "./TileShell";
 import { useWheelPaging } from "./useWheelPaging";
 
@@ -126,6 +128,17 @@ export function Calendar({
   // the grid must not skew because of someone else's selection.
   const pad = !field && gridDays.length > 0 ? weekdayMondayIndex(gridDays[0].date) : 0;
   const weeks = Math.max(1, slices ? slices.rows : Math.ceil((pad + gridDays.length) / 7));
+  // The live run behind the lens (§5.2): in this edition the light answers "how many days running",
+  // so it is computed over the whole WINDOW rather than the grid — the run may start in an edge week.
+  const run = useMemo(
+    () => (field && lens ? lensRun(days, lens, today) : null),
+    [field, lens, days, today],
+  );
+  // A run of one day is not a run — the same floor the sheet's socket keeps for its numeral (§4.3).
+  const runLabel =
+    run && run.length >= STREAK_SHOWN_FROM
+      ? `${run.length}${run.truncated ? "+" : ""} ${pluralDays(run.length)} подряд`
+      : null;
   const windowAnchor = anchor ?? today;
   // Month boundary steps come as runs, not per cell (see `monthEdges` and the layer below). The
   // current month gets no mark: the Today tile already names it, and a line there would be noise.
@@ -249,6 +262,13 @@ export function Calendar({
             {lens ? (
               <span className="inline-flex items-center gap-1" data-testid="calendar-lens-label">
                 {heading} — {lensTitle(lens)}
+                {/* The run's length in words, where the light already draws it: the tile's socket
+                    answers for the SELECTED day, and the field answers for today. */}
+                {runLabel && (
+                  <span className="cal-lens-run" data-testid="calendar-lens-run">
+                    · {runLabel}
+                  </span>
+                )}
                 {onLensChange && (
                   <button
                     type="button"
@@ -473,6 +493,9 @@ export function Calendar({
             // taken by today/selected/gap and the lower dot by the day's name. Only unmarked days
             // dim — dimming and outlining at once would say two different things about one day.
             const dimmedByLens = match === "no" && tone == null;
+            // In the field the lens speaks with LIGHT (§5.2), and the ring on the digit is the
+            // previous waves' way of saying the very same thing — one answer, one mark.
+            const ringed = tone != null && !field;
 
             return (
               <button
@@ -487,6 +510,8 @@ export function Calendar({
                 data-weekend={isWeekend || undefined}
                 data-has-name={d.title ? true : undefined}
                 data-lens={match ?? undefined}
+                data-lens-run={run?.marks.get(d.date)}
+                data-lens-tone={tone ?? undefined}
                 aria-current={isToday ? "date" : undefined}
                 aria-label={`${dayOfMonth(d.date)}, ${hoverSummary(d, today, lensLine)}`}
                 // There is no native tooltip in "field" (§5.2): the OS draws it outside the board's
@@ -515,8 +540,8 @@ export function Calendar({
                 {/* The lens mark is a rounded frame on the digit itself (DESIGN §5.1); the lens's
                     tone gives the frame its colour. */}
                 <span
-                  data-testid={tone ? `lens-frame-${d.date}` : undefined}
-                  className={`cal-lens-digit${tone ? ` cal-lens-digit--marked cal-lens-digit--${tone}` : ""}`}
+                  data-testid={ringed ? `lens-frame-${d.date}` : undefined}
+                  className={`cal-lens-digit${ringed ? ` cal-lens-digit--marked cal-lens-digit--${tone}` : ""}`}
                 >
                   {dayOfMonth(d.date)}
                 </span>

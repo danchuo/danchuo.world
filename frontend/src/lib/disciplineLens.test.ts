@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
-import { MONSTER_LENS_KEY, lensMatch, lensNote, lensTitle, lensTone, sameLens } from "./disciplineLens";
+import {
+  MONSTER_LENS_KEY,
+  lensMatch,
+  lensNote,
+  lensRun,
+  lensTitle,
+  pinLens,
+  lensTone,
+  sameLens,
+} from "./disciplineLens";
 
 function day(over: Partial<DaySummary> = {}): DaySummary {
   return {
@@ -102,5 +111,90 @@ describe("линза дисциплины", () => {
     expect(sameLens(READING_1, READING_2)).toBe(false);
     expect(sameLens(null, null)).toBe(true);
     expect(sameLens(READING_1, null)).toBe(false);
+  });
+});
+
+describe("закрепление линзы", () => {
+  it("повторно названная линза снимается, другая — заменяет", () => {
+    expect(pinLens(READING_1, READING_1)).toBeNull();
+    expect(pinLens(READING_1, READING_2)).toEqual(READING_2);
+    expect(pinLens(null, READING_1)).toEqual(READING_1);
+  });
+
+  it("явный null снимает любую закреплённую линзу — это крестик ярлыка", () => {
+    expect(pinLens(READING_1, null)).toBeNull();
+    expect(pinLens(null, null)).toBeNull();
+  });
+});
+
+/**
+ * The live run behind the lens (DESIGN §5.2). Its terms are the BACKEND's own (`StreakCalculator`):
+ * a weekend is stepped over, an unfilled today does not drop the run — otherwise the light in the
+ * calendar and the numeral in the sheet's socket would answer the same question differently.
+ */
+describe("живая серия линзы", () => {
+  // Mon 2026-07-13 … Sun 2026-07-19, then Mon 2026-07-20.
+  function week(counts: Array<number | null>): DaySummary[] {
+    return counts.map((c, i) => {
+      const iso = `2026-07-${String(13 + i).padStart(2, "0")}`;
+      return c === null
+        ? day({ date: iso, hasData: false, disciplineCounts: undefined })
+        : day({ date: iso, disciplineCounts: { reading: c } });
+    });
+  }
+
+  it("серия — подряд идущие сделанные дни, считая назад от сегодня", () => {
+    const run = lensRun(week([0, 1, 1, 1, 1, 0, 0, 1]), READING_1, "2026-07-16");
+
+    expect(run.length).toBe(3);
+    expect([...run.marks.keys()].sort()).toEqual(["2026-07-14", "2026-07-15", "2026-07-16"]);
+    expect(run.truncated).toBe(false);
+  });
+
+  it("выходной перешагивается: серию не рвёт, но и не считается — и светит вполсилы", () => {
+    // Sat 18 and Sun 19 are empty, and the run crosses them from Friday to Monday.
+    const run = lensRun(week([0, 0, 1, 1, 1, 0, 0, 1]), READING_1, "2026-07-20");
+
+    expect(run.length).toBe(4);
+    expect(run.marks.get("2026-07-18")).toBe("step");
+    expect(run.marks.get("2026-07-19")).toBe("step");
+    expect(run.marks.get("2026-07-20")).toBe("on");
+  });
+
+  it("незакрытое сегодня серию не роняет, но светом не притворяется", () => {
+    const run = lensRun(week([0, 1, 1, 0, 0, 0, 0, 0]), READING_1, "2026-07-16");
+
+    expect(run.length).toBe(2);
+    expect(run.marks.get("2026-07-16")).toBe("step");
+    expect(run.marks.get("2026-07-15")).toBe("on");
+  });
+
+  it("день без ответа серию рвёт — молчание не засчитывается за сделанное", () => {
+    const run = lensRun(week([1, 1, null, 1, 1, 0, 0, 0]), READING_1, "2026-07-17");
+
+    expect(run.length).toBe(2);
+    expect(run.marks.has("2026-07-15")).toBe(false);
+  });
+
+  it("серия, упёршаяся в край окна, честно помечена обрезанной", () => {
+    const run = lensRun(week([1, 1, 1, 1, 1, 0, 0, 0]), READING_1, "2026-07-17");
+
+    expect(run.length).toBe(5);
+    expect(run.truncated).toBe(true);
+  });
+
+  it("у монстра серии нет вовсе: подсветить чистые дни значило бы залить сетку целиком", () => {
+    const days = week([0, 0, 0, 0, 0, 0, 0, 0]).map((d) => ({ ...d, monsterDrunk: false }));
+
+    expect(lensRun(days, MONSTER, "2026-07-20").length).toBe(0);
+    expect(lensRun(days, MONSTER, "2026-07-20").marks.size).toBe(0);
+  });
+
+  it("оборванная серия не оставляет зажжённым перешагнутый хвост", () => {
+    // Today is an unfilled Monday and Friday was missed too, so there is nothing to light.
+    const run = lensRun(week([1, 1, 1, 1, 0, 0, 0, 0]), READING_1, "2026-07-20");
+
+    expect(run.length).toBe(0);
+    expect(run.marks.size).toBe(0);
   });
 });

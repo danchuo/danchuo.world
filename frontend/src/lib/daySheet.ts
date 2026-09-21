@@ -1,6 +1,6 @@
 import type { DayView, DisciplineItemView } from "./api/types";
 import { weekdayLongRu } from "./date";
-import { MONSTER_LENS_KEY } from "./disciplineLens";
+import { MONSTER_LENS_KEY, STREAK_SHOWN_FROM } from "./disciplineLens";
 import { minutesLabel, stretchLabel } from "./podcastCard";
 import { progressLabel } from "./readingCard";
 import { pluralDays, relativeDayRu } from "./relativeDay";
@@ -208,9 +208,6 @@ function cellTail(item: DisciplineItemView): string | null {
   if (streak >= STREAK_SHOWN_FROM) parts.push(`${streak}д`);
   return parts.length > 0 ? parts.join(" ") : null;
 }
-
-/** A run of one day is not a run: the numeral appears only once it means something. */
-const STREAK_SHOWN_FROM = 2;
 
 /**
  * The monster's own card among the frames: the figure carries it, and the caption says the whole

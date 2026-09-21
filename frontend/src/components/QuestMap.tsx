@@ -8,7 +8,7 @@ import type {
   ReadingBookView,
   TrackView,
 } from "@/lib/api/types";
-import { MONSTER_LENS_KEY, sameLens, type DisciplineLens } from "@/lib/disciplineLens";
+import { MONSTER_LENS_KEY, sameLens, STREAK_SHOWN_FROM, type DisciplineLens } from "@/lib/disciplineLens";
 import { monsterVerdict, type MonsterTone } from "@/lib/monster";
 import { Cover, Marquee, NowPlayingCard } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
@@ -107,8 +107,6 @@ const MONSTER_STOP_CLASS: Record<MonsterTone, string> = {
  */
 const MONSTER_XY = [86, 100] as const;
 
-/** The streak badge shows from 2: a run of one day, or zero, is noise on the map, not achievement. */
-const STREAK_MIN = 2;
 /** Streak flame — a compact ~12px vector, the same for items and for the monster (DESIGN §4.1). */
 const FLAME_D = "M0 -6 C3 -2 3 0 2 2 C1 4 -1 4 -2 2 C-3 0 -2 -2 -1 -3 C-1 -1 1 -2 0 -6 Z";
 
@@ -261,7 +259,7 @@ function StreakBadge({
    *  verdict under its stop, since the accent would read as "did this N days running". */
   tone?: "fire" | "clean";
 }) {
-  if (value < STREAK_MIN) return null;
+  if (value < STREAK_SHOWN_FROM) return null;
   const tipW = title.length * 4.2 + 12;
   const tipH = 14;
   // Horizontal shift keeping the tooltip's ground entirely inside the viewBox [0,400].

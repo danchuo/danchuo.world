@@ -1026,11 +1026,81 @@ body {
   }
 }
 
-/* With a lens on, the field dims. The lens mark is a ring in pure accent (PRD §5.1) and the field
-   light is the same hue, so on a bright day the ring drowned. The stronger signal is the one the
-   lens was turned on for. */
-.cal-grid--field[data-lens] {
-  --cal-field-ceil: var(--cal-field-ceil-lens, 0.14);
+/* With a lens on, the field dims: the stronger signal is the one the lens was turned on for, and a
+   day at full weight drowns the answer whatever shape that answer takes. */
+
+/* ⚠️ Written as OPACITY, not by lowering `--cal-field-ceil`. The wave sets that same token on its
+   own scope (`:root[data-wave] .cal-grid--field`), which outranks this rule — so the field never
+   dimmed under a lens at all, and the lens argued with the day's own light. DESIGN §5.2 */
+.cal-grid--field[data-lens] .t-cal-day::before {
+  opacity: calc(var(--day-weight, 0) * var(--cal-lens-dim, 0.05));
+}
+
+/* With a lens on, the light changes JOB: it stops answering "how full was the day" and answers
+   "did this one thing happen" — the field's own material instead of a second mark on it. §5.2 */
+
+/* The ladder is spaced to be READ, not measured: a lit day must not need its neighbour to be told
+   apart. Unmatched days keep the plate and nothing else — the lens is a mode, and this is its one
+   question. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="match"] {
+  --cal-field-ink: var(--accent);
+  background: color-mix(in srgb, var(--accent) calc(var(--cal-lens-floor, 0.16) * 100%), transparent);
+}
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="match"]::before {
+  opacity: var(--cal-lens-lit, 0.5);
+}
+/* The LIVE run is a FILLED chip rather than a glow: the days running up to today are the answer
+   the lens was turned on for, and a soft light of the same hue reads as "a bit more of the same". */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"]::before {
+  background: var(--accent);
+  opacity: var(--cal-lens-run, 0.82);
+}
+/* On a filled chip the light IS the ground, so the digit takes the page's own darkness — the board
+   text colour on solid accent is the one place this field can go unreadable. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"] .cal-lens-digit,
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"] .cal-lens-digit {
+  color: var(--cal-lens-digit-lit, var(--bg-page));
+  font-weight: 500;
+}
+/* A day the run STEPPED OVER (a weekend, or a today still going on — PRD §5.6): the same fill at a
+   fraction, so the stretch stays one piece without claiming the day was done. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="step"]::before {
+  background: var(--accent);
+  opacity: var(--cal-lens-step, 0.3);
+}
+/* The run's head is today, and it keeps its own ring: the stretch must read as ending HERE rather
+   than merely stopping. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run][data-today] {
+  outline-color: var(--accent);
+}
+/* Hover lifts a cell by a fixed step in this edition; under a lens that step landed an unmatched
+   day at the brightness of a done one. Each state keeps its own light and the ring does the hinting. */
+.cal-grid--field[data-lens] .t-cal-day:hover::before,
+.cal-grid--field[data-lens] .t-cal-day:focus-visible::before {
+  opacity: calc(var(--day-weight, 0) * var(--cal-lens-dim, 0.05));
+}
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="match"]:hover::before,
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="match"]:focus-visible::before {
+  opacity: calc(var(--cal-lens-lit, 0.5) + 0.12);
+}
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"]:hover::before,
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"]:focus-visible::before {
+  opacity: calc(var(--cal-lens-run, 0.82) + 0.12);
+}
+/* The monster keeps its asymmetry (§5.1): only "drunk" is marked, and it is marked in its own
+   colour rather than the accent — a clean day is not an achievement the field lights up for. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"] {
+  --cal-field-ink: var(--danger);
+  background: color-mix(in srgb, var(--danger) calc(var(--cal-lens-floor, 0.16) * 100%), transparent);
+}
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"]::before {
+  background: var(--danger);
+  opacity: var(--cal-lens-drunk, 0.72);
+}
+/* The run's length in words, beside the lens's name in the tile's label. */
+.cal-lens-run {
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 /* A month starts its own row and the tail of the previous one stays empty (`lib/calendarMonthRows.ts`):

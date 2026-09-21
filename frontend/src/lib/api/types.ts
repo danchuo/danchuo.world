@@ -375,6 +375,14 @@ export interface HeatmapTileView {
   tileId: string | null;
   clicks: number;
   uniques: number;
+  /** Where inside the tile the clicks landed, binned to the view's grid. */
+  cells: HeatCellView[];
+}
+
+export interface HeatCellView {
+  x: number;
+  y: number;
+  clicks: number;
 }
 
 /** Page heatmap over a date range. */
@@ -382,8 +390,46 @@ export interface HeatmapView {
   path: string;
   from: string;
   to: string;
+  /** Side of the square lattice the cells are binned to. */
+  grid: number;
   totalClicks: number;
   tiles: HeatmapTileView[];
+}
+
+/** One day of the private dashboard's series. */
+export interface AnalyticsDayView {
+  date: string;
+  visits: number;
+  uniques: number;
+  avgDwellMs: number | null;
+  engagedVisits: number;
+}
+
+/** One row of a dimension; `key` null is the bucket the dimension was absent in. */
+export interface BreakdownRowView {
+  key: string | null;
+  visits: number;
+  uniques: number;
+  engagedVisits: number;
+}
+
+export interface AnalyticsTotalsView {
+  visits: number;
+  uniques: number;
+  avgDwellMs: number | null;
+  engagedVisits: number;
+  engagementPct: number;
+  avgScrollPct: number | null;
+  clicks: number;
+}
+
+/** Private visit dashboard over a date range: GET /api/ingest/analytics/summary. PRD §5.11 */
+export interface AnalyticsSummaryView {
+  from: string;
+  to: string;
+  totals: AnalyticsTotalsView;
+  days: AnalyticsDayView[];
+  breakdowns: Record<string, BreakdownRowView[]>;
 }
 
 /** Lightweight calendar and sparkline projection: GET /api/days?from=&to=. */

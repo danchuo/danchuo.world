@@ -133,25 +133,43 @@ export function getRideMonthSummary(init?: RequestInit): Promise<RideMonthSummar
   return getJson<RideMonthSummaryView>(`/api/rides/month-summary`, init);
 }
 
-/** Send a public cookieless load beacon with keepalive; telemetry failure is nonfatal. Exit uses AnalyticsBeacon. PRD §5.11. */
+/** Public cookieless beacon: the load ping and every exit flush of a visit. PRD §5.11 */
 export function postBeacon(payload: BeaconPayload): void {
-  const url = `${BASE}/api/analytics/beacon`;
-  void fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    keepalive: true,
-  }).catch(() => {});
+  send(`${BASE}/api/analytics/beacon`, payload);
 }
 
 export interface BeaconPayload {
   visitId: string;
   path: string;
+  /** Foreground time, not wall time: a backgrounded tab stops accruing. PRD §5.11 */
   dwellMs?: number;
+  scrollPct?: number;
   referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  waveKey?: string;
+  viewportW?: number;
+  viewportH?: number;
 }
 
-/** A heatmap click in tile-relative 0..1 coordinates; null tileId means outside tiles. */
+/**
+ * Telemetry leaves by `sendBeacon`, the only transport that survives tab unload, and falls back
+ * to a keepalive fetch where it is unavailable or refuses the payload. Failure is nonfatal.
+ */
+function send(url: string, payload: unknown): void {
+  const body = JSON.stringify(payload);
+  const blob = new Blob([body], { type: "application/json" });
+  if (typeof navigator !== "undefined" && navigator.sendBeacon?.(url, blob)) return;
+  void fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+/** Fractions inside the tile, or inside the VIEWPORT when tileId is null (a click on the ground). */
 export interface ClickPayload {
   tileId: string | null;
   offsetXPct: number;
@@ -165,20 +183,10 @@ export interface InteractionsPayload {
   clicks: ClickPayload[];
 }
 
-/** Send a nonempty click batch on exit with sendBeacon; telemetry failure is nonfatal. PRD §5.11 B2. */
+/** A click batch; an empty one is not worth a request. PRD §5.11 B2 */
 export function postInteractions(payload: InteractionsPayload): void {
   if (payload.clicks.length === 0) return;
-  const url = `${BASE}/api/analytics/interactions`;
-  const body = JSON.stringify(payload);
-  const blob = new Blob([body], { type: "application/json" });
-  if (typeof navigator !== "undefined" && navigator.sendBeacon?.(url, blob)) return;
-  // Fall back to keepalive fetch when sendBeacon is unavailable or refuses the payload.
-  void fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body,
-    keepalive: true,
-  }).catch(() => {});
+  send(`${BASE}/api/analytics/interactions`, payload);
 }
 
 /** A visitor's note. Every answer is optional; the server demands at least one. PRD §5.19. */

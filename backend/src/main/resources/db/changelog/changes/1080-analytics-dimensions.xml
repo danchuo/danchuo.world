@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Разрезы аналитики (PRD §5.11): без UTM нагнанный трафик сливается в одну кучу «прямые
+      заходы», а без вьюпорта нечем ответить на вопрос DESIGN «виден ли борд без скролла».
+      Волна визита — разрез, которого нет ни у кого: одну и ту же публику можно сравнить
+      по редакциям борда.
+
+      Ширины колонок равны потолкам в AnalyticsLimits: Postgres длинное значение не обрезает,
+      а роняет вставку — а сюда пишет кто угодно.
+
+      referrer_host выводится на записи рядом с сырым referrer: группировать источники по
+      полному URL значит получить строку на ссылку вместо строки на источник.
+    -->
+    <changeSet id="1080-analytics-event-dimensions" author="danchuo">
+        <addColumn tableName="analytics_event">
+            <column name="referrer_host" type="VARCHAR(255)"/>
+            <column name="utm_source" type="VARCHAR(128)"/>
+            <column name="utm_medium" type="VARCHAR(128)"/>
+            <column name="utm_campaign" type="VARCHAR(128)"/>
+            <column name="wave_key" type="VARCHAR(64)"/>
+            <column name="viewport_w" type="INT"/>
+            <column name="viewport_h" type="INT"/>
+            <column name="scroll_pct" type="INT"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+      Один визит — одна строка. Раньше добивка со временем, не нашедшая строку загрузки,
+      вставляла вторую, и заходы считали одного человека дважды. Схема закрывает это сама:
+      уникальность по visit_id.
+
+      Перед индексом чистим то, что уже накопила гонка: время переезжает на выжившую строку
+      (максимум, а не последнее значение), дубликаты уходят.
+    -->
+    <changeSet id="1080-analytics-visit-id-unique" author="danchuo">
+        <sql>
+            UPDATE analytics_event a
+            SET dwell_ms = s.max_dwell
+            FROM (
+                SELECT visit_id, MAX(dwell_ms) AS max_dwell
+                FROM analytics_event
+                WHERE visit_id IS NOT NULL
+                GROUP BY visit_id
+                HAVING COUNT(*) &gt; 1
+            ) s
+            WHERE a.visit_id = s.visit_id
+              AND a.id = (SELECT MIN(b.id) FROM analytics_event b WHERE b.visit_id = a.visit_id);
+
+            DELETE FROM analytics_event a
+            WHERE a.visit_id IS NOT NULL
+              AND a.id &gt; (SELECT MIN(b.id) FROM analytics_event b WHERE b.visit_id = a.visit_id);
+        </sql>
+        <dropIndex tableName="analytics_event" indexName="idx_analytics_visit_id"/>
+        <sql>
+            CREATE UNIQUE INDEX idx_analytics_visit_id
+            ON analytics_event (visit_id)
+            WHERE visit_id IS NOT NULL;
+        </sql>
+    </changeSet>
+
+    <!--
+      Вовлечённость спрашивает «был ли у визита хоть один клик» подзапросом по visit_id —
+      без индекса это seq scan по всей таблице кликов на каждый день периода.
+    -->
+    <changeSet id="1080-interaction-visit-id-index" author="danchuo">
+        <createIndex tableName="interaction_event" indexName="idx_interaction_visit_id">
+            <column name="visit_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

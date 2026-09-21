@@ -1,5 +1,5 @@
 import type { BoxRect } from "@/lib/artifactHighlight";
-import type { AdminArtifactView, AdminDropView, AdminPhotoView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, FeedbackNoteView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
+import type { AdminArtifactView, AdminDropView, AdminPhotoView, AnalyticsSummaryView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, FeedbackNoteView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
 
 /** Owner API uses an explicit bearer from /admin sessionStorage. Public reads use client.ts. PRD §5.12, §9.8. */
 
@@ -145,7 +145,23 @@ export async function importBikeTariffs(token: string, purchases: unknown[]): Pr
   return (await res.json()) as BikeImportResultView;
 }
 
-/** Get the private tile heatmap for ISO MSK dates; omitted bounds use the server default (30 days). */
+/** The private visit dashboard for ISO MSK dates; omitted bounds use the server default. */
+export async function getAnalyticsSummary(
+  token: string,
+  from?: string,
+  to?: string,
+): Promise<AnalyticsSummaryView> {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const res = await fetch(`${BASE}/api/ingest/analytics/summary?${qs.toString()}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as AnalyticsSummaryView;
+}
+
+/** Get the private tile heatmap for ISO MSK dates; omitted bounds use the server default. */
 export async function getHeatmap(
   token: string,
   path = "/",

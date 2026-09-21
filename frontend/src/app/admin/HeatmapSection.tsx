@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { AdminApiError, getHeatmap } from "@/lib/api/admin";
 import { gridArea, resolveLayout, type TileId } from "@/lib/layout";
-import type { HeatmapView } from "@/lib/api/types";
-
-const mono = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-tertiary)" } satisfies CSSProperties;
+import type { HeatCellView, HeatmapView } from "@/lib/api/types";
+import { BreakdownRows } from "./BreakdownRows";
+import { mono } from "./adminUi";
 
 /** Use the default board layout for the heatmap overlay. */
 const LAYOUT = resolveLayout(null);
 
 /* Static part of a heatmap cell; per-tile gridArea and intensity fill stay inline. */
 const heatCellStyle: CSSProperties = {
+  position: "relative",
   minHeight: 0,
   borderRadius: "var(--radius-sm)",
   border: "1px solid var(--border)",
@@ -23,19 +24,31 @@ const heatCellStyle: CSSProperties = {
   padding: 2,
 };
 
-/** Authenticated tile-level click heatmap. PRD §5.11. */
-export function HeatmapSection({ token }: { token: string }) {
+/* Label plate: the tile fill and the cloud both live under it, so it carries its own ground. */
+const plateStyle: CSSProperties = {
+  position: "relative",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  lineHeight: 1.1,
+  padding: "2px 6px",
+  borderRadius: "var(--radius-sm)",
+  background: "color-mix(in srgb, var(--bg-surface) 82%, transparent)",
+};
+
+/** Authenticated tile-level click heatmap over the period its parent resolved. PRD §5.11 */
+export function HeatmapSection({ token, from, to }: { token: string; from: string; to: string }) {
   // Only the public board is exposed in this UI; the API retains its path filter.
   const path = "/";
   const [data, setData] = useState<HeatmapView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (t: string, p: string) => {
+  const load = useCallback(async (t: string, p: string, f: string, u: string) => {
     setBusy(true);
     setError(null);
     try {
-      setData(await getHeatmap(t, p));
+      setData(await getHeatmap(t, p, f, u));
     } catch (e) {
       setError(
         e instanceof AdminApiError
@@ -50,24 +63,19 @@ export function HeatmapSection({ token }: { token: string }) {
   }, []);
 
   useEffect(() => {
-    load(token, path);
-  }, [token, path, load]);
+    load(token, path, from, to);
+  }, [token, path, from, to, load]);
 
   const maxClicks = data ? Math.max(1, ...data.tiles.map((t) => t.clicks)) : 1;
-  const clicksByTile = new Map<string, number>();
-  data?.tiles.forEach((t) => {
-    if (t.tileId) clicksByTile.set(t.tileId, t.clicks);
-  });
-  const offBoard = data?.tiles.find((t) => t.tileId === null);
+  const byTile = new Map(data?.tiles.map((t) => [t.tileId, t]) ?? []);
+  const ground = data?.tiles.find((t) => t.tileId === null);
 
   return (
     <section>
       <header className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
         <h2 style={{ fontSize: 16, color: "var(--text-primary)" }}>хитмапа · клики по тайлам</h2>
         <span style={mono}>
-          {data
-            ? `последние 7 дней (${data.from} → ${data.to}) · всего ${data.totalClicks} кликов`
-            : "последние 7 дней"}
+          {data ? `всего ${data.totalClicks} кликов` : "загрузка"}
           {busy && " · загрузка…"}
         </span>
       </header>
@@ -94,12 +102,13 @@ export function HeatmapSection({ token }: { token: string }) {
         {(Object.keys(LAYOUT.tiles) as TileId[]).map((id) => {
           const span = LAYOUT.tiles[id];
           if (span.hidden) return null;
-          const clicks = clicksByTile.get(id) ?? 0;
+          const tile = byTile.get(id);
+          const clicks = tile?.clicks ?? 0;
           const ratio = clicks / maxClicks;
           return (
             <div
               key={id}
-              title={`${id}: ${clicks}`}
+              title={`${id}: ${clicks} кликов, ${tile?.uniques ?? 0} уников`}
               style={{
                 ...heatCellStyle,
                 gridArea: gridArea(span),
@@ -107,42 +116,67 @@ export function HeatmapSection({ token }: { token: string }) {
                 background: `color-mix(in srgb, var(--accent) ${Math.round(8 + ratio * 84)}%, transparent)`,
               }}
             >
-              <span style={{ ...mono, fontSize: 10, color: ratio > 0.5 ? "var(--bg-page)" : "var(--text-secondary)" }}>{id}</span>
-              <span style={{ fontSize: 13, color: ratio > 0.5 ? "var(--bg-page)" : "var(--text-primary)", fontWeight: 600 }}>{clicks}</span>
+              <ClickCloud cells={tile?.cells ?? []} grid={data?.grid ?? 6} />
+              {/* The plate keeps the label readable over the cloud, which is ink on the same tile. */}
+              <span style={plateStyle}>
+                <span style={{ ...mono, fontSize: 10, color: "var(--text-secondary)" }}>{id}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{clicks}</span>
+              </span>
             </div>
           );
         })}
       </div>
 
-      {data && data.tiles.length > 0 && (
-        <table className="mt-6 w-full" style={{ borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "var(--text-tertiary)" }}>
-              <th style={{ padding: "4px 8px" }}>тайл</th>
-              <th style={{ padding: "4px 8px" }}>клики</th>
-              <th style={{ padding: "4px 8px" }}>уники</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.tiles
-              .filter((t) => t.tileId !== null)
-              .map((t) => (
-                <tr key={t.tileId} style={{ borderTop: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  <td style={{ padding: "4px 8px" }}>{t.tileId}</td>
-                  <td style={{ padding: "4px 8px" }}>{t.clicks}</td>
-                  <td style={{ padding: "4px 8px" }}>{t.uniques}</td>
-                </tr>
-              ))}
-            {offBoard && (
-              <tr style={{ borderTop: "1px solid var(--border)", color: "var(--text-tertiary)" }}>
-                <td style={{ padding: "4px 8px" }}>мимо плиток</td>
-                <td style={{ padding: "4px 8px" }}>{offBoard.clicks}</td>
-                <td style={{ padding: "4px 8px" }}>{offBoard.uniques}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
+      <div className="mt-6" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
+        <BreakdownRows
+          title="клики по тайлам"
+          dimension="source"
+          rows={(data?.tiles ?? [])
+            .filter((t) => t.tileId !== null)
+            .map((t) => ({ key: t.tileId, visits: t.clicks, uniques: t.uniques, engagedVisits: 0 }))}
+          empty="за период кликов нет"
+        />
+        {ground && (
+          <BreakdownRows
+            title="мимо плиток"
+            dimension="source"
+            rows={[{ key: "фон борда", visits: ground.clicks, uniques: ground.uniques, engagedVisits: 0 }]}
+          />
+        )}
+      </div>
     </section>
+  );
+}
+
+/**
+ * Where inside the tile the clicks landed. The fractions have been collected since B2; binned
+ * to the server's lattice they draw a cloud without shipping a point per click. PRD §5.11
+ */
+function ClickCloud({ cells, grid }: { cells: HeatCellView[]; grid: number }) {
+  if (cells.length === 0) return null;
+  const max = Math.max(...cells.map((c) => c.clicks));
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "grid",
+        gridTemplateColumns: `repeat(${grid}, 1fr)`,
+        gridTemplateRows: `repeat(${grid}, 1fr)`,
+      }}
+    >
+      {cells.map((cell) => (
+        <span
+          key={`${cell.x}-${cell.y}`}
+          style={{
+            gridColumn: cell.x + 1,
+            gridRow: cell.y + 1,
+            borderRadius: 2,
+            background: `color-mix(in srgb, var(--text-primary) ${Math.round(12 + (cell.clicks / max) * 45)}%, transparent)`,
+          }}
+        />
+      ))}
+    </div>
   );
 }

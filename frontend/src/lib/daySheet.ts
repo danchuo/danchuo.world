@@ -78,8 +78,8 @@ export interface SheetMonster {
 /** The monster's card beside the frames: the 3D figure, and under it the verdict spelled out. */
 export interface SheetMonsterCard {
   verdict: MonsterVerdict;
-  /** `null` on an unreported day: the figure stands and the card stays silent. */
-  caption: string | null;
+  /** Always a word: an unreported day says so rather than leaving the line empty. */
+  caption: string;
   ariaLabel: string;
 }
 
@@ -217,7 +217,10 @@ function cellTail(item: DisciplineItemView): string | null {
 export function sheetMonsterCard(day: DayView): SheetMonsterCard {
   const { verdict, streak } = sheetMonster(day);
   if (verdict === "drunk") return { verdict, caption: "пил", ariaLabel: "Монстр: выпит сегодня" };
-  if (verdict === "unreported") return { verdict, caption: null, ariaLabel: "Монстр: не отмечен" };
+  // An empty line under the figure read as a defect rather than as silence; the card now NAMES the
+  // silence. It still invents no verdict — "no data" is not "did not drink" (PRD §5.6).
+  if (verdict === "unreported")
+    return { verdict, caption: "данных нет", ariaLabel: "Монстр: не отмечен" };
   const caption =
     streak >= STREAK_SHOWN_FROM ? `${streak} ${pluralDays(streak)} не пил` : "не пил";
   return { verdict, caption, ariaLabel: `Монстр: ${caption}` };
@@ -244,4 +247,23 @@ export function sheetHeadline(day: DayView, today: string): SheetHeadline {
     relative: relativeDayRu(iso, today),
     title: day.title,
   };
+}
+
+/**
+ * The monster's figure inside its square, as fractions of it. Measured on the live board: the can
+ * holds this box at any yaw, being a cylinder, so one rectangle is an honest silhouette.
+ */
+const FIGURE = { left: 0.2, top: 0.04, right: 0.8, bottom: 0.96 };
+
+/** Is the pointer on the FIGURE rather than on the canvas around it? DESIGN §4.3 */
+export function onMonsterFigure(
+  box: { left: number; top: number; width: number; height: number },
+  x: number,
+  y: number,
+): boolean {
+  // A square with no size yet (the tile is still laying out) owns no point at all.
+  if (box.width <= 0 || box.height <= 0) return false;
+  const u = (x - box.left) / box.width;
+  const v = (y - box.top) / box.height;
+  return u >= FIGURE.left && u <= FIGURE.right && v >= FIGURE.top && v <= FIGURE.bottom;
 }

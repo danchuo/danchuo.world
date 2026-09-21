@@ -14,13 +14,12 @@ import java.time.LocalDate
 
 /**
  * `POST /api/ingest/health` — push from the iOS shortcut (12/18/24 MSK), idempotent: day stats
- * upsert by date and workouts are replaced wholesale, as Health hands over the entire day. Null
- * is not 0, with one exception — a 0-minute night normalises to `null`. PRD §5.4
+ * upsert by date and sleep chunks are replaced wholesale, as Health hands over the entire day.
+ * Null is not 0, with one exception — a 0-minute night normalises to `null`. PRD §5.4
  */
 @Path("/api/ingest/health")
 class HealthIngestResource(
     private val dayRecordService: DayRecordService,
-    private val workoutRepository: WorkoutRepository,
     private val sleepSegmentRepository: SleepSegmentRepository,
     private val journalMarker: JournalMarker,
     private val timeConfig: TimeConfig,
@@ -32,13 +31,6 @@ class HealthIngestResource(
         val deep: Int? = null,
         val light: Int? = null,
         val awake: Int? = null,
-    )
-
-    data class WorkoutDto(
-        val type: String? = null,
-        val durationMinutes: Int? = null,
-        val activeEnergyKcal: Int? = null,
-        val distanceMeters: Int? = null,
     )
 
     /** A raw sleep chunk: phase name and bounds as strings (`2026-07-27T23:20:00+03:00`). */
@@ -61,7 +53,6 @@ class HealthIngestResource(
         val sleepStages: SleepStagesDto? = null,
         val sleepSegments: List<SleepSegmentDto>? = null,
         val mindfulSegments: List<MindfulSegmentDto>? = null,
-        val workouts: List<WorkoutDto> = emptyList(),
     )
 
     @POST
@@ -71,17 +62,6 @@ class HealthIngestResource(
     fun ingest(req: HealthIngestRequest): Response {
         val date = req.date
             ?: return badRequest("missing_field", "date")
-
-        val workouts = req.workouts.map { dto ->
-            val type = dto.type?.takeIf { it.isNotBlank() }
-                ?: return badRequest("missing_field", "workouts[].type")
-            Workout().apply {
-                this.type = type
-                durationMinutes = dto.durationMinutes ?: 0
-                activeEnergyKcal = dto.activeEnergyKcal
-                distanceMeters = dto.distanceMeters
-            }
-        }
 
         val zone = timeConfig.zoneId()
         val segments = req.sleepSegments
@@ -155,8 +135,6 @@ class HealthIngestResource(
             sleepAwake = sleep.awake,
             overwriteSleep = !blankRun,
         )
-        workoutRepository.replaceForDate(date, workouts)
-
         // The night's raw chunks (I-23) are stored as they came, so the night band can be shown
         // later and asked new questions. Same rights as the sum: an empty run leaves the night
         // alone, and the only channel that erases it is an explicit `sleepMinutes = 0`.
@@ -185,7 +163,6 @@ class HealthIngestResource(
         return Response.ok(
             mapOf(
                 "date" to date.toString(),
-                "workouts" to workouts.size,
                 "sleepMinutes" to sleep.minutes,
                 "sleepSkipped" to blankRun,
                 "journalMinutes" to journalMinutes.mapKeys { (day, _) -> day.toString() },

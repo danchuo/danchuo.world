@@ -31,11 +31,11 @@ class RateLimitFilterTest {
         val ip = "203.0.113.10"
         // A bucket of 3 tokens: the first three pass…
         repeat(3) {
-            given().header("X-Forwarded-For", ip).get("/api/theme/active")
+            given().header("X-Forwarded-For", ip).get("/api/artifacts")
                 .then().statusCode(200)
         }
         // …the fourth is rejected (a refill over milliseconds is nothing against a 3600s window).
-        given().header("X-Forwarded-For", ip).get("/api/theme/active")
+        given().header("X-Forwarded-For", ip).get("/api/artifacts")
             .then().statusCode(429)
             .body("error", equalTo("rate_limited"))
     }
@@ -44,11 +44,11 @@ class RateLimitFilterTest {
     fun `limit is per-client - a fresh IP keeps its own full bucket`() {
         val noisy = "203.0.113.20"
         // The noisy client drains its own bucket down to 429…
-        repeat(4) { given().header("X-Forwarded-For", noisy).get("/api/theme/active") }
-        given().header("X-Forwarded-For", noisy).get("/api/theme/active")
+        repeat(4) { given().header("X-Forwarded-For", noisy).get("/api/artifacts") }
+        given().header("X-Forwarded-For", noisy).get("/api/artifacts")
             .then().statusCode(429)
         // …and another IP is untouched: the bucket key is X-Forwarded-For.
-        given().header("X-Forwarded-For", "203.0.113.99").get("/api/theme/active")
+        given().header("X-Forwarded-For", "203.0.113.99").get("/api/artifacts")
             .then().statusCode(200)
     }
 
@@ -58,11 +58,11 @@ class RateLimitFilterTest {
         // arrived from outside and is worth nothing. PRD §8
         val real = "198.51.100.7"
         repeat(3) {
-            given().header("X-Forwarded-For", "10.0.0.1, $real").get("/api/theme/active")
+            given().header("X-Forwarded-For", "10.0.0.1, $real").get("/api/artifacts")
                 .then().statusCode(200)
         }
         // Rotating the forged head lands in the SAME (already empty) bucket ⇒ still 429.
-        given().header("X-Forwarded-For", "10.9.9.9, $real").get("/api/theme/active")
+        given().header("X-Forwarded-For", "10.9.9.9, $real").get("/api/artifacts")
             .then().statusCode(429)
             .body("error", equalTo("rate_limited"))
     }
@@ -71,8 +71,8 @@ class RateLimitFilterTest {
     fun `film frames spend their own bucket, not the public one`() {
         val ip = "203.0.113.40"
         // The public bucket is drained dry…
-        repeat(4) { given().header("X-Forwarded-For", ip).get("/api/theme/active") }
-        given().header("X-Forwarded-For", ip).get("/api/theme/active")
+        repeat(4) { given().header("X-Forwarded-For", ip).get("/api/artifacts") }
+        given().header("X-Forwarded-For", ip).get("/api/artifacts")
             .then().statusCode(429)
         // …while drop frames keep flowing: they have their own, more generous bucket. The 404
         // (storage is empty in tests) is the point — NOT 429, so the limiter let the request through.
@@ -102,7 +102,7 @@ class RateLimitFilterTest {
         given().header("X-Forwarded-For", ip).get("/api/film-media/1/1/thumb")
             .then().statusCode(429)
         // …and ordinary reads by the same client are untouched: the buckets are independent both ways.
-        given().header("X-Forwarded-For", ip).get("/api/theme/active")
+        given().header("X-Forwarded-For", ip).get("/api/artifacts")
             .then().statusCode(200)
     }
 
@@ -114,12 +114,12 @@ class RateLimitFilterTest {
         // otherwise every visitor's SSR would fight over one shared limit.
         repeat(6) {
             given().header(RateLimitFilter.INTERNAL_HEADER, "1").header("X-Forwarded-For", ip)
-                .get("/api/theme/active")
+                .get("/api/artifacts")
                 .then().statusCode(200)
         }
         // The client's bucket is intact: internal requests did not spend it.
         repeat(3) {
-            given().header("X-Forwarded-For", ip).get("/api/theme/active")
+            given().header("X-Forwarded-For", ip).get("/api/artifacts")
                 .then().statusCode(200)
         }
     }

@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 import { FaviconSpinner } from "@/components/FaviconSpinner";
 import { FONT_GATE_SCRIPT } from "@/lib/fontGate";
-import { fetchDisplayTheme, serializeTokensToCss } from "@/lib/theme";
 import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
+import { resolveDisplayWave } from "@/lib/waves";
+import { serializeTokensToCss } from "@/lib/waves/tokens";
 import "./globals.css";
 
 // Inter for UI/headings; JetBrains Mono for numbers and day names. DESIGN §2.2.
@@ -42,23 +43,19 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // SSR resolves the visitor's wave before the owner's default; missing backend data falls back to CSS defaults. DESIGN §10.
-  const preferredWave = decodeWaveCookie((await cookies()).get(WAVE_COOKIE)?.value);
-  const theme = await fetchDisplayTheme(preferredWave);
-  const tokens = theme?.tokens ?? null;
+  // SSR resolves the visitor's wave before the owner's default; waves are local, so this costs no I/O. DESIGN §10.
+  const wave = resolveDisplayWave(decodeWaveCookie((await cookies()).get(WAVE_COOKIE)?.value));
 
   return (
     // The font gate sets data-fonts before hydration; suppress this expected root-attribute mismatch. DESIGN §7.10.
-    <html suppressHydrationWarning lang="ru" data-wave={theme?.key ?? undefined} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
+    <html suppressHydrationWarning lang="ru" data-wave={wave.key} className={`${inter.variable} ${jetbrains.variable} ${jersey.variable} ${manrope.variable} ${plexMono.variable}`}>
       <head>
         {/* The font gate (DESIGN §8.3) stands FIRST in the head and before the markup: from a
             React effect it would run after the first paint, and the board would flash in the
             system typeface — exactly what the gate cures. */}
         <script dangerouslySetInnerHTML={{ __html: FONT_GATE_SCRIPT }} />
-        {tokens && (
-          // Override CSS defaults with the resolved wave's database tokens.
-          <style id="wave-tokens" dangerouslySetInnerHTML={{ __html: serializeTokensToCss(tokens) }} />
-        )}
+        {/* Override the CSS defaults with the resolved wave's tokens. */}
+        <style id="wave-tokens" dangerouslySetInnerHTML={{ __html: serializeTokensToCss(wave.tokens) }} />
       </head>
       <body>
         {children}

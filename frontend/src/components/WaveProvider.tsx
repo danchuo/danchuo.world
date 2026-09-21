@@ -7,13 +7,14 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import type { ThemeView } from "@/lib/api/types";
-import { resolveLayout, type ResolvedLayout, type WaveLayout } from "@/lib/layout";
-import { applyThemeTokens } from "@/lib/theme";
+import { resolveLayout, type ResolvedLayout } from "@/lib/layout";
 import { rememberWave } from "@/lib/waveCookie";
+import type { Wave } from "@/lib/waves";
+import { applyThemeTokens } from "@/lib/waves/tokens";
 
 /**
  * The active wave's context: it holds the RESOLVED board layout and can swap waves live, tokens
@@ -22,20 +23,8 @@ import { rememberWave } from "@/lib/waveCookie";
  */
 interface WaveContextValue {
   layout: ResolvedLayout;
-  activeKey: string | null;
-  /**
-   * `remember: false` — apply without persisting to the cookie: used by the switcher's
-   * self-heal after a degraded SSR, so a visitor who never picked a wave doesn't get
-   * pinned to whatever was active at heal time.
-   */
-  applyWave: (theme: ThemeView, opts?: { remember?: boolean }) => void;
-}
-
-/** The wave applied to the board: layout, skin key and tokens (the SSR wave has none). */
-interface Applied {
-  layout: ResolvedLayout;
-  key: string | null;
-  tokens: ThemeView["tokens"] | null;
+  activeKey: string;
+  applyWave: (wave: Wave) => void;
 }
 
 const WaveContext = createContext<WaveContextValue | null>(null);
@@ -50,28 +39,19 @@ export function useWave(): WaveContextValue {
   return ctx;
 }
 
-export function WaveProvider({
-  initialLayout,
-  initialActiveKey,
-  children,
-}: {
-  initialLayout?: WaveLayout | null;
-  initialActiveKey?: string | null;
-  children: ReactNode;
-}) {
-  // The wave's layout is merged over the default once at start, and then on every wave swap. Skin and
-  // layout are held in ONE state deliberately — see the note at the effect below.
-  const [wave, setWave] = useState<Applied>(() => ({
-    layout: resolveLayout(initialLayout),
-    key: initialActiveKey ?? null,
-    tokens: null,
-  }));
+export function WaveProvider({ initialWave, children }: { initialWave: Wave; children: ReactNode }) {
+  const [wave, setWave] = useState<Wave>(initialWave);
+  const layout = useMemo(() => resolveLayout(wave.layout), [wave]);
 
-  const applyWave = useCallback((theme: ThemeView, opts?: { remember?: boolean }) => {
-    setWave({ layout: resolveLayout(theme.layout), key: theme.key, tokens: theme.tokens });
+  const applyWave = useCallback((next: Wave) => {
+    setWave(next);
     // Persist the pick so a reload re-renders the same wave via SSR (see waveCookie.ts).
-    if (opts?.remember !== false) rememberWave(theme.key);
+    rememberWave(next.key);
   }, []);
+
+  /* The SSR wave's tokens already stand in `:root` as a <style> block, so the first commit writes
+     none; every later wave does. */
+  const ssrTokensStand = useRef(true);
 
   /**
    * The wave's skin goes into the markup IN THE SAME FRAME as the layout. Writing `data-wave` from
@@ -79,17 +59,17 @@ export function WaveProvider({
    * a paint slips between — the board stands in OLD editions under the NEW skin for ~100ms.
    */
   useIsomorphicLayoutEffect(() => {
-    if (!wave.key || typeof document === "undefined") return;
-    // Only an arrived wave has tokens: at start they already stand in `:root` from SSR.
-    if (wave.tokens) applyThemeTokens(wave.tokens);
+    if (typeof document === "undefined") return;
+    if (ssrTokensStand.current) ssrTokensStand.current = false;
+    else applyThemeTokens(wave.tokens);
     // `data-wave` on <html> switches the wave's SKIN (borders, ground, decor, font) — the CSS under
     // `[data-wave="…"]` in globals.css (DESIGN §10.2). That is what "different styles per wave" means.
     document.documentElement.setAttribute("data-wave", wave.key);
   }, [wave]);
 
   const value = useMemo<WaveContextValue>(
-    () => ({ layout: wave.layout, activeKey: wave.key, applyWave }),
-    [wave, applyWave],
+    () => ({ layout, activeKey: wave.key, applyWave }),
+    [layout, wave.key, applyWave],
   );
 
   return <WaveContext.Provider value={value}>{children}</WaveContext.Provider>;

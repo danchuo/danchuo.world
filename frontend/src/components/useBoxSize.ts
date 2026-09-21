@@ -10,16 +10,26 @@ import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 export function useBoxSize(): [RefObject<HTMLDivElement | null>, { w: number; h: number }] {
   const ref = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const watched = useRef<Element | null>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+
+  /* ⚠️ Checked after EVERY commit, not once on mount: a tile shows its content only once loaded
+     (`TileShell`), so on a slow answer the node is not there yet and a one-shot effect would
+     measure nothing, ever. The identity guard makes every later pass a no-op. */
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    if (typeof ResizeObserver === "undefined") return; // jsdom has none; tests need the quiet path
-    const ro = new ResizeObserver(([e]) => {
+    if (el === watched.current) return;
+    observer.current?.disconnect();
+    watched.current = el;
+    if (!el || typeof ResizeObserver === "undefined") return; // jsdom has none; tests stay quiet
+    observer.current = new ResizeObserver(([e]) => {
       const { width, height } = e.contentRect;
       setSize({ w: width, h: height });
     });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    observer.current.observe(el);
+  });
+
+  useLayoutEffect(() => () => observer.current?.disconnect(), []);
+
   return [ref, size];
 }

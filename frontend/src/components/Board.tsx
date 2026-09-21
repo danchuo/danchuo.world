@@ -10,7 +10,6 @@ import { statsWindow, type StatsRange } from "@/lib/statsWindow";
 import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
-import { useLensPreview } from "./useLensPreview";
 import { FreshnessTile } from "./FreshnessTile";
 import { HeroTile } from "./HeroTile";
 import { LatestDropTile } from "./LatestDropTile";
@@ -123,18 +122,16 @@ export function Board() {
   // The lens lives on the board, not in a tile: the Today quest map sets it and the calendar reads
   // it. It deliberately survives a change of day — it is a view of history, not a day's state.
   const [pinnedLens, setPinnedLens] = useState<DisciplineLens | null>(null);
-  // Hovering a ledge socket TRIES a lens on, and the try-on outlives the socket: it dies when the
-  // pointer leaves the today tile and the calendar both (DESIGN §5.2).
-  const { lens, hover: previewLens, clear: clearPreview } = useLensPreview(pinnedLens);
+  // Hovering a ledge socket TRIES a lens on, and the try-on dies the moment the ledge row is left:
+  // no forgiving window is given for walking the pointer down to the calendar (DESIGN §5.2).
+  const [previewedLens, setPreviewedLens] = useState<DisciplineLens | null>(null);
+  const lens = previewedLens ?? pinnedLens;
   // Toggling belongs with the pinned state, not with the tile: under a try-on a tile comparing
   // against what it SEES would unpin the very lens the click meant to fix.
-  const setLens = useCallback(
-    (next: DisciplineLens | null) => {
-      clearPreview();
-      setPinnedLens((prev) => pinLens(prev, next));
-    },
-    [clearPreview],
-  );
+  const setLens = useCallback((next: DisciplineLens | null) => {
+    setPreviewedLens(null);
+    setPinnedLens((prev) => pinLens(prev, next));
+  }, []);
   // The day layer has its own seam ([useSelectedDay]), which has something to hold the screen with
   // while loading: the previously selected day.
   const { day, status: dayStatus, retry: retryDay } = useSelectedDay(selected);
@@ -211,7 +208,7 @@ export function Board() {
     canGoBack,
     edgeWeeks,
     lens,
-    previewLens,
+    previewLens: setPreviewedLens,
     setLens,
     retryDay,
     retryRange,

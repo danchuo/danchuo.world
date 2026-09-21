@@ -19,7 +19,6 @@ data class DayView(
     /** Whether the day exists in the DB, for the per-tile empty/loaded state. */
     val hasData: Boolean,
     val health: HealthView,
-    val workouts: List<WorkoutView>,
     /** Discipline progress as fractions (§5.6): one entry per active item. */
     val discipline: List<DisciplineItemView>,
     /**
@@ -50,14 +49,6 @@ data class SleepStagesView(
     val deep: Int?,
     val light: Int?,
     val awake: Int?,
-)
-
-@RegisterForReflection
-data class WorkoutView(
-    val type: String,
-    val durationMinutes: Int,
-    val activeEnergyKcal: Int?,
-    val distanceMeters: Int?,
 )
 
 /**

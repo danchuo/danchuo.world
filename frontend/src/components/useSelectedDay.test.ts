@@ -9,7 +9,7 @@ const { getDay } = await import("@/lib/api/client");
 const mockGetDay = vi.mocked(getDay);
 
 function dayOf(date: string): DayView {
-  return { date, title: null, items: [], workouts: [] } as unknown as DayView;
+  return { date, title: null, items: [] } as unknown as DayView;
 }
 
 /** A deferred answer: the test decides when the day "arrives". */

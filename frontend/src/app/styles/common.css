@@ -795,6 +795,7 @@ body {
   /* Own stacking context: the light layer sits under the digit, and without isolation its z-index
      would join the whole grid's stack instead of its own cell's. */
   isolation: isolate;
+  transition: background-color var(--cal-lens-fade, 0ms) ease;
 }
 .cal-grid--field .t-cal-day::before {
   content: "";
@@ -803,16 +804,21 @@ body {
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
+  /* The outer stop is a variable so a lens state only SWAPS it: one gradient declaration in every
+     state is what lets the browser interpolate instead of cutting from light to chip. */
   background: radial-gradient(
     120% 120% at 50% 62%,
     var(--cal-field-ink) 0%,
-    transparent 72%
+    var(--cal-field-edge, transparent) 72%
   );
   /* The variable part only — the floor is already in the plate. The ceiling keeps the densest day
      from arguing with the digit. */
   opacity: calc(
     var(--day-weight, 0) * (var(--cal-field-ceil, 0.55) - var(--cal-field-floor, 0.06))
   );
+  transition:
+    opacity var(--cal-lens-fade, 0ms) ease,
+    background-image var(--cal-lens-fade, 0ms) ease;
 }
 /* A field cell has neither border nor ground, so until hover only the cursor says it is pressable.
    Hover TRIES ON the selection ring at half strength — the reader sees where selection would move.
@@ -836,6 +842,7 @@ body {
    is load-bearing here, so it is stated rather than left to tree order. */
 .cal-grid--field .cal-lens-digit {
   z-index: 1;
+  transition: color var(--cal-lens-fade, 0ms) ease;
 }
 /* A weekend is marked by HUE: lightness is taken by weight, so the §5 weekend lightness ladder
    cannot work in this edition — two questions would be sharing one channel. */
@@ -1024,6 +1031,19 @@ body {
   .cal-edge {
     --cal-roll-ms: 0ms;
   }
+  .cal-grid--field,
+  .cal-grid--field[data-lens] {
+    --cal-lens-fade: 0ms;
+  }
+}
+
+/* A try-on dies the moment the ledge row is left (§5.2), so the field must not SNAP: it fades out
+   softly and comes back quickly — the answer still has to arrive under the cursor. */
+.cal-grid--field {
+  --cal-lens-fade: 260ms;
+}
+.cal-grid--field[data-lens] {
+  --cal-lens-fade: 140ms;
 }
 
 /* With a lens on, the field dims: the stronger signal is the one the lens was turned on for, and a
@@ -1051,8 +1071,10 @@ body {
 }
 /* The LIVE run is a FILLED chip rather than a glow: the days running up to today are the answer
    the lens was turned on for, and a soft light of the same hue reads as "a bit more of the same". */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"] {
+  --cal-field-edge: var(--accent);
+}
 .cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"]::before {
-  background: var(--accent);
   opacity: var(--cal-lens-run, 0.82);
 }
 /* On a filled chip the light IS the ground, so the digit takes the page's own darkness — the board
@@ -1064,8 +1086,11 @@ body {
 }
 /* A day the run STEPPED OVER (a weekend, or a today still going on — PRD §5.6): the same fill at a
    fraction, so the stretch stays one piece without claiming the day was done. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-run="step"] {
+  --cal-field-ink: var(--accent);
+  --cal-field-edge: var(--accent);
+}
 .cal-grid--field[data-lens] .t-cal-day[data-lens-run="step"]::before {
-  background: var(--accent);
   opacity: var(--cal-lens-step, 0.3);
 }
 /* The run's head is today, and it keeps its own ring: the stretch must read as ending HERE rather
@@ -1091,10 +1116,10 @@ body {
    colour rather than the accent — a clean day is not an achievement the field lights up for. */
 .cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"] {
   --cal-field-ink: var(--danger);
+  --cal-field-edge: var(--danger);
   background: color-mix(in srgb, var(--danger) calc(var(--cal-lens-floor, 0.16) * 100%), transparent);
 }
 .cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"]::before {
-  background: var(--danger);
   opacity: var(--cal-lens-drunk, 0.72);
 }
 /* The run's length in words, beside the lens's name in the tile's label. */
@@ -4931,6 +4956,12 @@ button.sleep-echo:focus-visible {
 /* Green, not the accent: the accent would read "did this N days running", which is the opposite
    of what a clean run means. Same token and same reason as the trail map's verdict. DESIGN §4.1 */
 .today-sheet__monster.is-clean .today-sheet__monstersay { color: var(--accent-clean); }
+/* "No data" is the absence of a verdict, so it speaks quieter than one — it names the silence
+   where an empty line used to read as a defect. */
+.today-sheet__monster.is-unreported .today-sheet__monstersay {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
 /* The lens answers in LIGHT and in the verdict's OWN colour, never by repainting it: this line
    belongs to the day's answer, not to a control's state. Hover says nothing at all — the figure
    turning under the cursor is the whole of the reply. DESIGN §4.3 */

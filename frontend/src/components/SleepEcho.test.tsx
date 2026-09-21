@@ -26,7 +26,6 @@ const day = (date: string, over: Partial<DayView["health"]> = {}): DayView =>
       sleepStages: { rem: 20, deep: 30, light: 60, awake: 10 },
       ...over,
     },
-    workouts: [],
     discipline: [],
     monsterDrunk: null,
     monsterCleanStreak: 0,

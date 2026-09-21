@@ -5,7 +5,6 @@ import jakarta.enterprise.context.ApplicationScoped
 import world.danchuo.checklist.ChecklistEntryRepository
 import world.danchuo.checklist.ChecklistItemRepository
 import world.danchuo.core.config.MskTime
-import world.danchuo.health.WorkoutRepository
 import world.danchuo.reading.ReadingDayRollup
 import world.danchuo.reading.ReadingService
 import world.danchuo.reading.ReadingSession
@@ -24,7 +23,6 @@ import java.time.LocalDate
 @ApplicationScoped
 class DayAggregator(
     private val days: DayRecordRepository,
-    private val workouts: WorkoutRepository,
     private val checklistItems: ChecklistItemRepository,
     private val checklistEntries: ChecklistEntryRepository,
     private val podcasts: PodcastListenService,
@@ -129,9 +127,6 @@ class DayAggregator(
                 sleepMinutes = record?.sleepMinutes,
                 sleepStages = record?.let(::stagesOf),
             ),
-            workouts = workouts.listByDate(date).map {
-                WorkoutView(it.type, it.durationMinutes, it.activeEnergyKcal, it.distanceMeters)
-            },
             discipline = discipline,
             monsterDrunk = drunkOn(date),
             monsterCleanStreak = monsterCleanStreak,

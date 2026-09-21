@@ -14,7 +14,6 @@ function day(over: Partial<DayView> = {}): DayView {
     title: null,
     hasData: true,
     health: { steps: null, sleepMinutes: null },
-    workouts: [],
     discipline: [],
     ...over,
   } as DayView;
@@ -305,13 +304,73 @@ describe("TodaySheet", () => {
     expect(onLensPreview).not.toHaveBeenCalled();
   });
 
+  /* Leaving is asked of the ROW, not of a socket: between two sockets the pointer leaves one and
+     enters the next, and a drop in that gap would blink the whole field for a frame. §5.2 */
+  it("keeps the try-on while the pointer sweeps the row, and drops it on leaving", () => {
+    const onLensPreview = vi.fn();
+    render(
+      <TodaySheet
+        day={day({
+          discipline: [
+            item({ key: "stretch", label: "Растяжка", count: 1 }),
+            item({ key: "water", label: "Вода", count: 1 }),
+          ],
+        })}
+        today="2026-09-19"
+        onLensPreview={onLensPreview}
+      />,
+    );
+    const stretch = screen.getByRole("button", { name: /Растяжка/ });
+    const water = screen.getByRole("button", { name: /Вода/ });
+
+    fireEvent.pointerOver(stretch, { pointerType: "mouse" });
+    fireEvent.pointerOut(stretch, { pointerType: "mouse", relatedTarget: water });
+    fireEvent.pointerOver(water, { pointerType: "mouse", relatedTarget: stretch });
+
+    expect(onLensPreview).not.toHaveBeenCalledWith(null);
+    expect(onLensPreview).toHaveBeenLastCalledWith({ key: "water", occurrence: 1, label: "Вода" });
+
+    fireEvent.pointerOut(water, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenLastCalledWith(null);
+  });
+
+  /* The monster's lens answers to the FIGURE, not to the square it stands in: most of that square
+     is empty canvas, and hovering it offered a lens the cursor was nowhere near. DESIGN §4.3 */
+  it("offers the monster's lens from the figure, not from the canvas around it", () => {
+    const onLensPreview = vi.fn();
+    const { container } = render(
+      <TodaySheet day={day()} today="2026-09-19" onLensPreview={onLensPreview} />,
+    );
+    const shot = container.querySelector(".today-sheet__monster .today-sheet__shot") as HTMLElement;
+    // jsdom lays nothing out, so the square states its own size.
+    shot.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
+
+    // The canvas margin beside the can: the pointer is on the card, not on the monster.
+    fireEvent.pointerMove(shot, { pointerType: "mouse", clientX: 5, clientY: 50 });
+    expect(onLensPreview).not.toHaveBeenCalledWith(expect.objectContaining({ key: "monster" }));
+
+    fireEvent.pointerMove(shot, { pointerType: "mouse", clientX: 50, clientY: 50 });
+    expect(onLensPreview).toHaveBeenLastCalledWith({
+      key: "monster",
+      occurrence: 1,
+      label: "монстр",
+    });
+
+    // Off the figure again, still on the square: the try-on dies here too.
+    fireEvent.pointerMove(shot, { pointerType: "mouse", clientX: 95, clientY: 50 });
+    expect(onLensPreview).toHaveBeenLastCalledWith(null);
+  });
+
   // The monster is a card among the frames, not a socket: an unreported day shows the figure and
-  // says nothing, because a silent monster is not a clean one (PRD §5.6).
-  it("gives the monster a card of its own, silent on a day with no record", () => {
+  // says "no data", because a silent monster is not a clean one (PRD §5.6).
+  it("gives the monster a card of its own, naming the silence on a day with no record", () => {
     const { container, unmount } = render(<TodaySheet day={day()} today="2026-09-19" />);
     expect(screen.getByRole("button", { name: "Монстр: не отмечен" })).toBeInTheDocument();
+    // The line under the figure NAMES the silence instead of standing empty.
+    expect(screen.getByText("данных нет")).toBeInTheDocument();
     expect(container.querySelector(".today-sheet__monster.is-unreported")).not.toBeNull();
-    expect(container.querySelector(".today-sheet__monstersay")!.textContent).toBe("");
+    expect(container.querySelector(".today-sheet__monstersay")!.textContent).toBe("данных нет");
     expect(container.querySelector(".today-sheet__cell.is-unreported")).toBeNull();
     unmount();
 

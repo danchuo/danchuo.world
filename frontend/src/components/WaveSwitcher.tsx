@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
-import { getThemes } from "@/lib/api/client";
-import type { DaySummary, ThemeView } from "@/lib/api/types";
+import { useMemo, type CSSProperties } from "react";
+import type { DaySummary } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { buildRibbon } from "@/lib/waveRibbon";
-import { readWaveCookie } from "@/lib/waveCookie";
+import { WAVES } from "@/lib/waves";
 import { TileShell } from "./TileShell";
-import { useTileData } from "./useTileData";
 import { useWave } from "./WaveProvider";
 
 interface WaveSwitcherProps {
@@ -29,8 +27,8 @@ interface WaveSwitcherProps {
 
 /**
  * A wave's tokens into the inline `--chip-*` variables of its chip. The point: a chip is drawn in
- * the palette of THE WAVE IT OFFERS, not the active one, so values come from `theme.tokens` rather
- * than `:root`. Variables, not classes — a new wave previews itself the moment it exists. §2.6
+ * the palette of THE WAVE IT OFFERS, not the active one, so values come from the wave's own tokens
+ * rather than `:root`. Variables, not classes — a new wave previews itself the moment it exists. §2.6
  */
 function chipVars(tokens: Record<string, string>): CSSProperties {
   const pick = (name: string, fallback: string) => tokens[name] ?? fallback;
@@ -63,27 +61,9 @@ export function WaveSwitcher({
   today,
 }: WaveSwitcherProps) {
   const vertical = orientation === "vertical";
-  const { phase, data, retry } = useTileData<ThemeView[]>(
-    useCallback((signal) => getThemes({ signal }), []),
-    "themes",
-  );
-  // Stable identity: a fresh `[]` fallback each render would retrigger the self-heal effect.
-  const themes = useMemo(() => data ?? [], [data]);
   // The active wave and the swap come from context (the SSR default is the owner's active wave). A
   // swap changes both the tokens and the board's layout at once.
   const { activeKey, applyWave } = useWave();
-
-  // Self-heal after a degraded SSR: with the backend down at render time the page arrives with no
-  // resolved wave. Once the released list is here, apply the visitor's cookie pick so skin, tokens
-  // and layout recover without a reload. `remember: false` — healing is not a pick.
-  useEffect(() => {
-    if (activeKey !== null || themes.length === 0) return;
-    const preferred = readWaveCookie();
-    const target = themes.find((t) => t.key === preferred) ?? themes.find((t) => t.active);
-    if (target) applyWave(target, { remember: false });
-  }, [activeKey, themes, applyWave]);
-
-  const isEmpty = phase === "loaded" && themes.length === 0;
 
   // The ribbon of lived days is the card's MATERIAL, not a caption: a wave whose backdrop is made
   // of data shows a piece of that backdrop in its chip. The seam sits in EVERY chip and is
@@ -95,15 +75,13 @@ export function WaveSwitcher({
 
   return (
     <TileShell
-      state={isEmpty ? "empty" : phase}
-      emptyText="нет волн"
-      onRetry={retry}
+      state="loaded"
       label="волны"
       ariaLabel="Переключатель волн"
       style={style}
       className={className}
     >
-      {phase === "loaded" && !isEmpty && (
+      {
         // `tile-frame` is required: without its own container the chip's `cqw` latches onto a
         // distant ancestor and hits the clamp ceiling. `flex-nowrap` is deliberate — browser zoom
         // shrinks the viewport, and wrapping silently stood the row up as a column.
@@ -112,7 +90,7 @@ export function WaveSwitcher({
             vertical ? "flex-col" : "flex-row"
           }`}
         >
-          {themes.map((t) => {
+          {WAVES.map((t) => {
             const isActive = t.key === activeKey;
             return (
               <button
@@ -148,7 +126,7 @@ export function WaveSwitcher({
             );
           })}
         </div>
-      )}
+      }
     </TileShell>
   );
 }

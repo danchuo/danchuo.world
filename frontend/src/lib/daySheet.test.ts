@@ -4,6 +4,7 @@ import {
   sheetCells,
   sheetHeadline,
   sheetMonster,
+  onMonsterFigure,
   sheetMonsterCard,
   sheetSessions,
 } from "./daySheet";
@@ -18,7 +19,6 @@ function day(over: Partial<DayView> = {}): DayView {
     title: null,
     hasData: true,
     health: { steps: null, sleepMinutes: null },
-    workouts: [],
     discipline: [],
     ...over,
   } as DayView;
@@ -358,14 +358,14 @@ describe("sheetMonsterCard", () => {
     expect(sheetMonsterCard(day({ monsterDrunk: false, monsterCleanStreak: 1 })).caption).toBe("не пил");
   });
 
-  it("says the drunk day plainly, and keeps silent on a day with no record", () => {
+  it("says the drunk day plainly, and names the silence on a day with no record", () => {
     expect(sheetMonsterCard(day({ monsterDrunk: true })).caption).toBe("пил");
     const mute = sheetMonsterCard(day());
-    expect(mute.caption).toBeNull();
+    expect(mute.caption).toBe("данных нет");
     expect(mute.verdict).toBe("unreported");
   });
 
-  it("names the verdict for a screen reader even when the card is silent", () => {
+  it("names the verdict for a screen reader too", () => {
     expect(sheetMonsterCard(day()).ariaLabel).toBe("Монстр: не отмечен");
     expect(sheetMonsterCard(day({ monsterDrunk: true })).ariaLabel).toBe("Монстр: выпит сегодня");
   });
@@ -386,5 +386,31 @@ describe("sheetHeadline", () => {
       relative: "вчера",
       title: null,
     });
+  });
+});
+
+/**
+ * The figure's own box inside its square (DESIGN §4.3): the lens answers to the MONSTER, and the
+ * square around it is mostly canvas. A can is a cylinder, so one rectangle holds it at any yaw.
+ */
+describe("onMonsterFigure", () => {
+  const box = { left: 100, top: 200, width: 104, height: 104 };
+
+  it("ловит фигуру в середине квадрата", () => {
+    expect(onMonsterFigure(box, 152, 252)).toBe(true);
+  });
+
+  it("не ловит поля квадрата по бокам от банки", () => {
+    expect(onMonsterFigure(box, 105, 252)).toBe(false);
+    expect(onMonsterFigure(box, 199, 252)).toBe(false);
+  });
+
+  it("не ловит то, что лежит вне квадрата вовсе", () => {
+    expect(onMonsterFigure(box, 152, 190)).toBe(false);
+    expect(onMonsterFigure(box, 152, 320)).toBe(false);
+  });
+
+  it("квадрат нулевого размера не отвечает «да» на всё", () => {
+    expect(onMonsterFigure({ left: 0, top: 0, width: 0, height: 0 }, 0, 0)).toBe(false);
   });
 });

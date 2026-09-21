@@ -9,7 +9,6 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
     title: "первый забег",
     hasData: true,
     health: { steps: 8421, sleepMinutes: 437, sleepStages: null },
-    workouts: [{ type: "бег", durationMinutes: 31, activeEnergyKcal: 305, distanceMeters: 5100 }],
     discipline: [
       { key: "reading", label: "чтение", icon: null, count: 2, target: 2 },
       { key: "stretch", label: "растяжка", icon: null, count: 0, target: 1 },
@@ -21,16 +20,15 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 }
 
 describe("TodayTile", () => {
-  it("рендерит дату, имя дня и карту-тропу дисциплины (статы/тренировка переехали, монстр — детур карты)", () => {
+  it("рендерит дату, имя дня и карту-тропу дисциплины (статы переехали, монстр — детур карты)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
     expect(screen.getByTestId("today-title")).toHaveTextContent("первый забег");
-    // Steps, sleep and workouts moved out of "Today" into their own widgets.
+    // Steps and sleep moved out of "Today" into their own widgets.
     expect(screen.queryByText(/шаги/)).not.toBeInTheDocument();
     expect(screen.queryByText(/сон/)).not.toBeInTheDocument();
     expect(screen.queryByText(/8.421/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
 
     // discipline is the quest map: reading closed at both stops, stretching not
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
@@ -69,15 +67,13 @@ describe("TodayTile", () => {
       title: null,
       hasData: false,
       health: { steps: null, sleepMinutes: null, sleepStages: null },
-      workouts: [],
       monsterDrunk: null,
     });
     render(<TodayTile day={empty} today="2026-06-18" state="loaded" />);
 
     expect(screen.queryByTestId("today-title")).not.toBeInTheDocument();
-    // With no workout and no stats: the header plus the map, and no stats line in the tile.
+    // With no stats: the header plus the map, and no stats line in the tile.
     expect(screen.queryByText(/шаги/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/тренировка/)).not.toBeInTheDocument();
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "false");
     // Neither "not drunk" nor "drunk" — nobody marked the monster on an empty day.

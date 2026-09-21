@@ -63,15 +63,21 @@ export const WAVE_03: Wave = {
       freshness: { hidden: true },
       waveSwitcher: { col: 2, row: 18, colSpan: 6, rowSpan: 2 },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
-      photoDrops: { col: 32, row: 11, colSpan: 8, rowSpan: 9, edition: "carousel" },
-      stats: { col: 9, row: 21, colSpan: 9, rowSpan: 7, hidden: false, edition: "ghosts" },
+      photoDrops: { col: 32, row: 10, colSpan: 8, rowSpan: 9, edition: "carousel" },
+      stats: { col: 9, row: 22, colSpan: 9, rowSpan: 7, hidden: false, edition: "ghosts" },
       sleep: { col: 33, row: 1, colSpan: 8, rowSpan: 7, hidden: false, edition: "echo" },
-      today: { col: 14, row: 9, colSpan: 16, rowSpan: 11, hidden: false, edition: "sheet" },
-      calendar: { col: 22, row: 21, colSpan: 9, rowSpan: 7, hidden: false, edition: "field" },
-      projects: { col: 1, row: 21, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
+      today: { col: 14, row: 9, colSpan: 16, rowSpan: 12, hidden: false, edition: "sheet" },
+      calendar: { col: 22, row: 22, colSpan: 9, rowSpan: 7, hidden: false, edition: "field" },
+      projects: { col: 1, row: 23, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
       ride: { col: 34, row: 21, colSpan: 7, rowSpan: 7, edition: "map" },
       hero: { hidden: true },
-      social: { col: 33, row: 9, colSpan: 7, rowSpan: 1, edition: "peek" },
+      /* Four marks in the board's two vertical channels, a pair each. EACH TILE SPANS ITS WHOLE
+         CHANNEL: the mark then centres on the channel, not on a cell inside it. DESIGN §10.2 */
+      social: { only: "stack", edition: "peek" },
+      socialInstagram: { col: 18, row: 22, colSpan: 4, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialGithub: { col: 18, row: 26, colSpan: 4, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialTelegram: { col: 31, row: 22, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialX: { col: 31, row: 26, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
       marquee: { col: 25, row: 1, colSpan: 7, rowSpan: 7, hidden: false, edition: "shaft" },
       // Beside the wave switcher, sharing its row and its height: the board's two controls read
       // as one pair. Words only here — an envelope next to type is clutter on glass.

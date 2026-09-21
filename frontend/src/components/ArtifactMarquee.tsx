@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { getArtifacts } from "@/lib/api/client";
 import { ARTIFACT_SIZE, artifactBox } from "@/lib/artifactBox";
@@ -113,9 +113,11 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
   const isEmpty = phase === "loaded" && artifacts.length === 0;
   const [active, setActive] = useState<number | null>(null);
 
-  // Whether the ribbon travels: one copy of the content overflows the tile, so it is duplicated.
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
+  /* The nodes are STATE, not refs: a wave dressing the tile as a shaft tears the ribbon out and
+     builds it anew, and a ref change wakes no effect — the listeners stayed on the detached nodes
+     and the ribbon froze on the way back. DESIGN §10.1 */
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const [track, setTrack] = useState<HTMLDivElement | null>(null);
   const [scrolling, setScrolling] = useState(false);
   /** The loop's step — the size of ONE copy of the content. Dragging is measured by it too. */
   const [span, setSpan] = useState(0);
@@ -124,8 +126,6 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
      zero, and a zero loop step means "the ribbon fits" — so travel, dragging and the wheel all do
      nothing. One missed frame is invisible, but a gesture caught in that gap is lost. */
   useIsomorphicLayoutEffect(() => {
-    const box = containerRef.current;
-    const track = trackRef.current;
     if (!box || !track) return;
     const measure = () => {
       // Once duplicated, one copy's natural size is half the track.
@@ -145,7 +145,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
     /* `phase` is in the dependencies for a reason: content renders only in the `loaded` state, and
        before that neither ref exists, so the effect returns early. Without it the effect would
        never re-run when the ribbon's contents happened to stay the same. */
-  }, [vertical, scrolling, artifacts.length, phase]);
+  }, [box, track, vertical, scrolling, artifacts.length, phase]);
 
   // The system Back closes the menu instead of leaving the site (DESIGN §9).
   useBackToClose(active !== null, () => setActive(null));
@@ -162,7 +162,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
   const seconds = Math.max(20, artifacts.length * 6);
   // Own travel, hand dragging and wheel are ONE mechanism (§7.2): all three move the same offset,
   // so the ribbon continues from wherever it was left.
-  const marquee = useMarqueeDrag({ trackRef, containerRef, span, vertical, seconds });
+  const marquee = useMarqueeDrag({ track, container: box, span, vertical, seconds });
   const activeArtifact = active !== null ? artifacts[active] : null;
   /* The same index in the shaft's own list: it carries the model, so the card takes it from here
      rather than re-deriving a thing's address from a list that may not hold it. */
@@ -192,7 +192,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
 
       {phase === "loaded" && !isEmpty && !shaft && (
         <div
-          ref={containerRef}
+          ref={setBox}
           {...marquee.handlers}
           className={`tile-frame relative flex h-full overflow-hidden ${
             vertical ? "justify-center" : scrolling ? "items-center" : "items-center justify-center"
@@ -205,7 +205,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
           }}
         >
           <div
-            ref={trackRef}
+            ref={setTrack}
             className={`artifact-track${vertical ? " artifact-track--vertical" : ""}${scrolling ? " is-scrolling" : ""}`}
           >
             {items.map((a, i) => {

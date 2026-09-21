@@ -21,6 +21,10 @@ export type TileId =
   | "ride"
   | "hero"
   | "social"
+  | "socialInstagram"
+  | "socialTelegram"
+  | "socialX"
+  | "socialGithub"
   | "marquee"
   | "feedback";
 
@@ -38,6 +42,11 @@ export interface TileSpan {
   rowSpan: number;
   /** A wave may hide a tile entirely — it renders in neither bento nor the stack. */
   hidden?: boolean;
+  /**
+   * Which of the two boards the tile belongs to; absent ⇒ both. A device that needs the grid's
+   * geometry is `bento`, and the stack keeps whatever says the same thing in one column. DESIGN §10.1
+   */
+  only?: "bento" | "stack";
   /** A wave may turn a tile's content (see [TileOrientation]). */
   orientation?: TileOrientation;
   /**
@@ -103,6 +112,12 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   // A caption over a glyph needs no more room than this. Placed so exactly one track of air
   // falls between it and each of its three neighbours: calendar, freshness, projects.
   feedback: { col: 31, row: 21, colSpan: 3, rowSpan: 3 },
+  /* One mark per tile, for a wave that scatters the four across the board instead of gathering
+     them in one plate. Hidden by default: a wave takes either the grid above or these. §10.1 */
+  socialInstagram: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
+  socialTelegram: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
+  socialX: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
+  socialGithub: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
 };
 
 /** Order of the single-column stack on mobile (<640px, DESIGN §8). */
@@ -178,6 +193,7 @@ export interface WaveTileSpan {
   colSpan?: number;
   rowSpan?: number;
   hidden?: boolean;
+  only?: "bento" | "stack";
   orientation?: TileOrientation;
   edition?: string;
   planet?: string;
@@ -227,6 +243,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       colSpan: ov?.colSpan ?? base.colSpan,
       rowSpan: ov?.rowSpan ?? base.rowSpan,
       hidden: (ov?.hidden ?? base.hidden ?? false) && !UNHIDEABLE.has(id),
+      only: ov?.only ?? base.only,
       orientation: ov?.orientation ?? base.orientation,
       edition: ov?.edition ?? base.edition,
       planet: ov?.planet ?? base.planet,

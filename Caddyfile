@@ -46,6 +46,15 @@
 danchuo.world {
 	encode zstd gzip
 
+	# Carried by every response, /api and /dav included. HSTS without `preload` and without
+	# `includeSubDomains` deliberately: both are one-way doors and nothing here asks for them.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+	}
+
 	# THE access log — one line per request with client, path, status and duration. It must live
 	# inside the site block: the global `log` above does not produce it, and without this line
 	# there is no record of traffic at all, only of what broke. PRD §8
@@ -55,6 +64,10 @@ danchuo.world {
 	}
 
 	handle /api/* {
+		# The API answers JSON, images and two one-off OAuth pages; no document of its own loads
+		# anything. `none` is the echelon under escaping: a reflected parameter cannot run. PRD §8
+		header Content-Security-Policy "default-src 'none'; base-uri 'none'; form-action 'none'"
+
 		# Body ceilings by tier, because Quarkus `max-body-size` is global and the drop zip sets
 		# it to 512M for everyone. The matchers MUST NOT overlap: when two `request_body`
 		# directives match one request, the last one's ceiling is what survives. PRD §8

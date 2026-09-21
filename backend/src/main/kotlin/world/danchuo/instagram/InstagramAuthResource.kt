@@ -7,6 +7,8 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import org.jboss.logging.Logger
+import world.danchuo.core.oauth.OAuthCallbackPage
 import world.danchuo.core.oauth.OneTimeOAuthState
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -71,7 +73,9 @@ class InstagramCallbackResource(
         @QueryParam("state") state: String?,
         @QueryParam("error") error: String?,
     ): Response {
-        if (error != null) return page(Response.Status.BAD_REQUEST, "Instagram отказал: $error")
+        if (error != null) {
+            return page(Response.Status.BAD_REQUEST, "Instagram отказал: ${OAuthCallbackPage.detail(error)}")
+        }
         // The state is always burned (it is one-time), even if we fail further down.
         if (!oauthState.consume(state)) return page(Response.Status.BAD_REQUEST, "Неверный или истёкший state.")
         if (code.isNullOrBlank()) return page(Response.Status.BAD_REQUEST, "Instagram не вернул code.")
@@ -82,13 +86,19 @@ class InstagramCallbackResource(
             tokenService.exchangeCode(code)
             page(Response.Status.OK, "Instagram подключён. Можно закрыть вкладку.")
         } catch (e: Exception) {
-            page(Response.Status.BAD_GATEWAY, "Не удалось обменять код: ${e.message}")
+            // The reason goes to the log, not to the page: it is our own text, of our own width.
+            log.error("Instagram code exchange failed", e)
+            page(Response.Status.BAD_GATEWAY, "Не удалось обменять код. Подробности — в логе сервера.")
         }
     }
 
     private fun page(status: Response.Status, message: String): Response =
         Response.status(status)
             .type(MediaType.TEXT_HTML)
-            .entity("<!doctype html><meta charset=utf-8><title>danchuo.world · Instagram</title><p>$message</p>")
+            .entity(OAuthCallbackPage.html("Instagram", message))
             .build()
+
+    private companion object {
+        private val log: Logger = Logger.getLogger(InstagramCallbackResource::class.java)
+    }
 }

@@ -46,7 +46,7 @@ export const WAVE_02: Wave = {
     tiles: {
       identity: { col: 16, row: 1, colSpan: 13, rowSpan: 3, hidden: false },
       latestDrop: { col: 5, row: 1, colSpan: 10, rowSpan: 11, edition: "sheet" },
-      freshness: { col: 36, row: 1, colSpan: 5, rowSpan: 3 },
+      freshness: { hidden: true },
       waveSwitcher: { col: 30, row: 1, colSpan: 5, rowSpan: 3 },
       music: { col: 17, row: 19, colSpan: 7, rowSpan: 10 },
       photoDrops: { col: 30, row: 11, colSpan: 5, rowSpan: 11, orientation: "vertical" },
@@ -75,7 +75,6 @@ export const WAVE_02: Wave = {
       "social",
       "marquee",
       "waveSwitcher",
-      "freshness",
     ],
   },
 };

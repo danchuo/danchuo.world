@@ -250,7 +250,8 @@ export function Board() {
       >
         {(Object.keys(layout.tiles) as TileId[]).map((id) => {
           const span = layout.tiles[id];
-          if (span.hidden) return null; // the wave hid this tile (DESIGN §10)
+          // Hidden everywhere, or kept for the other board only (DESIGN §10, §10.1).
+          if (span.hidden || span.only === "stack") return null;
           // Place in the grid and height within it come from the registry ([tileBox]): almost every
           // tile fills its span, while a content-height tile gets that span as a ceiling.
           const box = tileBox(id, span);
@@ -276,7 +277,7 @@ export function Board() {
           ~44px, exactly a tap target. A week strip was considered and rejected (DESIGN §8). */}
       <div data-testid="stack" className="board-stack flex-col gap-4">
         {layout.mobileOrder.map((id) =>
-          layout.tiles[id]?.hidden ? null : (
+          layout.tiles[id]?.hidden || layout.tiles[id]?.only === "bento" ? null : (
             <div key={id} data-tile-id={id}>
               {/* The edition travels into the stack too: it is a choice of layout, not of flow. */}
               <BoardTile
@@ -401,6 +402,17 @@ function BoardTile({
       return <RideTile wave={data.wave} edition={edition} style={style} className={className} />;
     case "social":
       return <SocialTile edition={edition} style={style} className={className} />;
+    /* One mark per tile: the wave scatters the four over the board's leftover cells instead of
+       gathering them on one plate. The platform is the BINDING, not a position in the list —
+       the order of links is data (PRD §5.8) and must not decide which cell a mark lands in. */
+    case "socialInstagram":
+      return <SocialTile platform="instagram" edition={edition} style={style} className={className} />;
+    case "socialTelegram":
+      return <SocialTile platform="telegram" edition={edition} style={style} className={className} />;
+    case "socialX":
+      return <SocialTile platform="x" edition={edition} style={style} className={className} />;
+    case "socialGithub":
+      return <SocialTile platform="github" edition={edition} style={style} className={className} />;
     case "marquee":
       return (
         <ArtifactMarquee orientation={orientation} edition={edition} style={style} className={className} />
@@ -441,28 +453,11 @@ function BoardTile({
       );
     case "identity":
       return <PlaceholderTile brand label="danchuo.world" style={style} className={className} />;
-    default:
-      // No empty seams are left on the board — every TileId has its component.
-      return <PlaceholderTile label={TILE_NOTES[id]} style={style} className={className} />;
+    default: {
+      // Exhaustiveness, not a fallback: a new TileId without a component is a compile error.
+      const unreached: never = id;
+      return unreached;
+    }
   }
 }
 
-/** Captions for the board's empty seams (tiles of future eras, DESIGN §7). */
-const TILE_NOTES: Record<TileId, string> = {
-  identity: "danchuo.world",
-  photoDrops: "дропы",
-  latestDrop: "последний дроп",
-  waveSwitcher: "волны",
-  freshness: "свежесть данных",
-  music: "музыка",
-  stats: "статы",
-  sleep: "сон",
-  today: "сегодня",
-  calendar: "календарь",
-  projects: "проекты",
-  ride: "велобайк",
-  hero: "hero",
-  social: "соцсети",
-  marquee: "артефакты",
-  feedback: "обратная связь",
-};

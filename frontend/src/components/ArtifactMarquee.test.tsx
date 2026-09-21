@@ -522,4 +522,26 @@ describe("ArtifactMarquee — смена волны не оставляет ле
 
     await waitFor(() => expect(track.style.left).toBe(""));
   });
+
+  it("возврат с волны 03 на 01 ⇒ лента снова живая, а не застывшая", async () => {
+    // Wave 03 dresses the tile as a shaft, so the ribbon's nodes are torn out and built anew on
+    // the way back. Nothing in the effects' dependencies notices that swap — the counts and the
+    // loop step are the same — so the listeners stayed on the detached nodes and the ribbon froze.
+    forceScrolling();
+    getArtifactsMock.mockResolvedValue([{ ...camera, model3dUrl: "/assets/artifacts/camera.glb" }]);
+    const { container, rerender } = render(<ArtifactMarquee />);
+    await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
+
+    rerender(<ArtifactMarquee edition="shaft" />);
+    await waitFor(() => expect(container.querySelector(".artifact-track")).toBeNull());
+
+    rerender(<ArtifactMarquee />);
+    await waitFor(() => expect(screen.getAllByText("Камера")).toHaveLength(2));
+
+    const track = container.querySelector(".artifact-track") as HTMLElement;
+    const frame = container.querySelector(".tile-frame") as HTMLElement;
+    fireEvent.wheel(frame, { deltaX: 0, deltaY: 120 });
+
+    expect(track.style.left).not.toBe("");
+  });
 });

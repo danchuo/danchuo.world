@@ -1,6 +1,5 @@
 /** Mirrors Kotlin DayView / DaySummary; keep nullable metrics distinct from zero. PRD §5.4. */
 
-import type { WaveLayout } from "@/lib/layout";
 
 export interface SleepStagesView {
   rem: number | null;
@@ -38,13 +37,6 @@ export interface SleepNightView {
   axisStartHour: number;
   /** null when no segments are available for this night. */
   band: SleepBandView | null;
-}
-
-export interface WorkoutView {
-  type: string;
-  durationMinutes: number;
-  activeEnergyKcal: number | null;
-  distanceMeters: number | null;
 }
 
 export interface DisciplineItemView {
@@ -117,7 +109,6 @@ export interface DayView {
   title: string | null;
   hasData: boolean;
   health: HealthView;
-  workouts: WorkoutView[];
   discipline: DisciplineItemView[];
   /** null or absent = unreported; true = consumed; false = explicitly abstained. hasData cannot distinguish these. PRD §5.6. */
   monsterDrunk?: boolean | null;
@@ -234,17 +225,6 @@ export interface ArtifactView {
   rotatable?: boolean;
   /** The item's own `.glb`; null keeps it out of editions built on volume. DESIGN §7.2. */
   model3dUrl?: string | null;
-}
-
-/** GET /api/theme/active or /api/themes; tokens become :root CSS properties named --<key>. */
-export interface ThemeView {
-  key: string;
-  name: string;
-  tokens: Record<string, string>;
-  /** Wave layout overrides; null uses layout.ts defaults. DESIGN §10.1. */
-  layout: WaveLayout | null;
-  active: boolean;
-  releasedAt: string;
 }
 
 /** Drop teaser: GET /api/drops. */

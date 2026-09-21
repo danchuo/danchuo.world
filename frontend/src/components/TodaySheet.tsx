@@ -4,6 +4,7 @@ import { useState, type CSSProperties, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { DayView } from "@/lib/api/types";
 import {
+  onMonsterFigure,
   sheetCells,
   sheetHeadline,
   sheetMonsterCard,
@@ -58,18 +59,23 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
   }
 
   /* A try-on only makes sense under a mouse: a tap has no hover to leave, so on touch the click
-     stays the whole mechanic. Leaving a socket cancels a try-on that has not opened yet — it is
-     the ZONE that ends an open one (DESIGN §5.2). */
-  function hover(next: DisciplineLens | null) {
+     stays the whole mechanic (DESIGN §5.2). */
+  function hover(next: DisciplineLens) {
     return {
-      onPointerEnter: (e: PointerEvent<HTMLButtonElement>) => {
+      onPointerEnter: (e: PointerEvent<HTMLElement>) => {
         if (e.pointerType === "mouse") onLensPreview?.(next);
-      },
-      onPointerLeave: (e: PointerEvent<HTMLButtonElement>) => {
-        if (e.pointerType === "mouse") onLensPreview?.(null);
       },
     };
   }
+
+  /* Leaving is asked of the ROW, not of a socket: sweeping the row the pointer leaves one socket
+     and enters the next, and a drop in that gap would blink the whole field for a frame. Off the
+     row the try-on dies at once — nobody is given seconds to walk it down to the calendar. */
+  const leave = {
+    onPointerLeave: (e: PointerEvent<HTMLElement>) => {
+      if (e.pointerType === "mouse") onLensPreview?.(null);
+    },
+  };
 
   return (
     <div className="today-sheet">
@@ -88,7 +94,7 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
             card={monster}
             active={lens?.key === MONSTER_LENS_KEY}
             onPick={() => pick(MONSTER_LENS)}
-            hover={hover(MONSTER_LENS)}
+            onFigure={(on) => onLensPreview?.(on ? MONSTER_LENS : null)}
           />
         </div>
 
@@ -97,6 +103,7 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
         <div
           className="today-sheet__sockets"
           style={{ "--sheet-sockets": cells.length } as CSSProperties}
+          {...leave}
         >
           {cells.map((cell) => (
             <Cell
@@ -238,13 +245,22 @@ function MonsterCard({
   card,
   active,
   onPick,
-  hover,
+  onFigure,
 }: {
   card: SheetMonsterCard;
   active: boolean;
   onPick: () => void;
-  hover: HoverProps;
+  /** The try-on, switched by the FIGURE: the square around it belongs to nobody. */
+  onFigure: (on: boolean) => void;
 }) {
+  /* The lens answers to the monster, and the can fills barely half of its square — a try-on off
+     the figure offered a lens the cursor was nowhere near. The test is geometric and rides
+     `pointermove` on the square, so the canvas below keeps the enter/leave that spin it. */
+  const figure = (e: PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== "mouse") return;
+    onFigure(onMonsterFigure(e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY));
+  };
+
   return (
     <button
       type="button"
@@ -252,9 +268,14 @@ function MonsterCard({
       aria-pressed={active}
       aria-label={card.ariaLabel}
       onClick={onPick}
-      {...hover}
     >
-      <span className="today-sheet__shot today-sheet__shot--bare">
+      <span
+        className="today-sheet__shot today-sheet__shot--bare"
+        onPointerMove={figure}
+        onPointerLeave={(e) => {
+          if (e.pointerType === "mouse") onFigure(false);
+        }}
+      >
         <Artifact3D
           src={MONSTER_MODEL_SRC}
           className="today-sheet__monsterbody"
@@ -264,7 +285,7 @@ function MonsterCard({
       </span>
       {/* Stands in for a sitting's track so the verdict sits on the frame names' own line. */}
       <span className="today-sheet__track today-sheet__track--void" aria-hidden />
-      <span className="today-sheet__monstersay">{card.caption ?? ""}</span>
+      <span className="today-sheet__monstersay">{card.caption}</span>
     </button>
   );
 }
@@ -276,10 +297,9 @@ function cellLens(cell: SheetCell): DisciplineLens {
 
 const MONSTER_LENS: DisciplineLens = { key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" };
 
-/** What [hover] hands a socket: the try-on's pointer handlers, spread onto the button. */
+/** What [hover] hands a socket: the try-on's pointer handler, spread onto the button. */
 interface HoverProps {
-  onPointerEnter: (e: PointerEvent<HTMLButtonElement>) => void;
-  onPointerLeave: (e: PointerEvent<HTMLButtonElement>) => void;
+  onPointerEnter: (e: PointerEvent<HTMLElement>) => void;
 }
 
 const MONSTER_MODEL_SRC = "/assets/3d/white-monster.glb";

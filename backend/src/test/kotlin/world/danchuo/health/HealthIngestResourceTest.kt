@@ -24,9 +24,6 @@ class HealthIngestResourceTest {
     lateinit var dayRecordRepository: DayRecordRepository
 
     @Inject
-    lateinit var workoutRepository: WorkoutRepository
-
-    @Inject
     lateinit var sleepSegmentRepository: SleepSegmentRepository
 
     @Inject
@@ -46,12 +43,11 @@ class HealthIngestResourceTest {
     }
 
     @Test
-    fun `ingest stores stats and workouts, repeat is idempotent`() {
+    fun `ingest stores stats, repeat is idempotent`() {
         val date = LocalDate.of(2026, 6, 11)
         val body = """
             {"date":"$date","steps":8421,"sleepMinutes":437,
-             "sleepStages":{"rem":92,"deep":61,"light":264,"awake":20},
-             "workouts":[{"type":"running","durationMinutes":31,"activeEnergyKcal":305,"distanceMeters":5100}]}
+             "sleepStages":{"rem":92,"deep":61,"light":264,"awake":20}}
         """.trimIndent()
 
         repeat(2) {
@@ -65,8 +61,6 @@ class HealthIngestResourceTest {
             assertEquals(8421, day.steps)
             assertEquals(437, day.sleepMinutes)
             assertEquals(92, day.sleepRemMinutes)
-            // a repeat replaces the date's set of workouts rather than adding to it
-            assertEquals(1, workoutRepository.listByDate(date).size)
         }
     }
 

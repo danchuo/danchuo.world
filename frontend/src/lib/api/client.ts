@@ -16,7 +16,6 @@ import type {
   SleepNightView,
   SocialLinkView,
   SummaryView,
-  ThemeView,
 } from "./types";
 import type { SummaryKind } from "../summarySubject";
 
@@ -93,11 +92,6 @@ export async function getTelegramProfile(init?: RequestInit): Promise<TelegramPr
 /** Get marquee artifacts. */
 export function getArtifacts(init?: RequestInit): Promise<ArtifactView[]> {
   return getJson<ArtifactView[]>(`/api/artifacts`, init);
-}
-
-/** Get released themes for the wave switcher. */
-export function getThemes(init?: RequestInit): Promise<ThemeView[]> {
-  return getJson<ThemeView[]>(`/api/themes`, init);
 }
 
 /** Get photo drops. */

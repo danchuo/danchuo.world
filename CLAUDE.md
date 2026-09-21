@@ -46,7 +46,6 @@ external source entirely to itself; the core knows nothing about it.
 | `film` | photo drops: zip → web+thumb, frame rotation through an LLM, artifact detection | `GET /api/drops`, `/api/film-media/…` |
 | `llm` | a client for external LLMs behind `LlmClient` (Groq + Gemini); two **lanes** — the main one (which may be paid) and the free `LlmLane.FREE` for background work; speech recognition (`transcribe`, multipart, its own limit in audio-seconds); with no key, a quiet `null` | — |
 | `projects`, `social` | board content (projects, social links, artifacts) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
-| `theme` | waves: tokens **and** the layout delta, in JSONB | `GET /api/theme/active`, `/api/themes` |
 | `analytics` | a cookieless beacon plus a per-tile heatmap (private summary behind a bearer) | `POST /api/analytics/{beacon,interactions}` |
 | `core` | bearer filter on `/api/ingest/*`, a soft rate limit (two buckets per client: reads and drop frames; SSR is marked `X-Danchuo-Internal` and is not limited), MSK and genesis config, the cache seam | — |
 
@@ -61,7 +60,11 @@ container over the local network (`--network danchuoworld_default`).
 (read-only).
 
 - `src/lib/layout.ts` — the tile registry (`TileId`) and the bento layout; `resolveLayout(wave)`
-  merges a wave's delta over the default. A new wave is a database row, with no code edits (DESIGN §10.1).
+  merges a wave's delta over the default.
+- `src/lib/waves/` — the waves themselves: a file per wave (palette + layout delta) beside its skin
+  in `app/styles/waves/`, plus the registry and the active key. They used to be database rows; why
+  they are code now is PRD §5.9 / DESIGN §10.1. `index.test.ts` checks every wave's board for
+  overlaps and grid overflow.
 - `src/components/*Tile.tsx` — one tile per widget, each fetching its own source
   (`useTileData`, per-tile loading/empty/error/loaded states); the shared shell is `TileShell`.
 - The day and window layers are the `useSelectedDay` / `useCalendarWindow` seams over a shared
@@ -154,8 +157,9 @@ A decoupled monolith, **not** microservices:
 
 ### Design architecture (DESIGN.md is the truth)
 
-- **Zero hardcoded colours or sizes in components.** Every visual value is a design token (a CSS variable), stored in the database (JSONB) and injected into `:root`. `GET /api/theme/active` serves the active wave's tokens.
+- **Zero hardcoded colours or sizes in components.** Every visual value is a design token (a CSS variable) declared in the wave's file and injected into `:root` by SSR.
 - **The "wave" system:** a wave is a named visual style (palette, typography, decor layer, layout spans), swapped between releases. Changing the active wave changes the whole site with no component edits, and a wave may override the spans of bento tiles.
+- **The backend knows nothing about waves.** They travel with the frontend, so SSR makes no backend call to render the board.
 - **A wave's decor sits ON TOP of a clean AA base,** whatever the wave: it lives in borders, icons,
   accents, loaders and the calendar, and **never** in body text, data figures or navigation. When in
   doubt: clarity > craft.
@@ -253,10 +257,34 @@ docs: a rule goes into PRD or DESIGN beside its decision; a genuinely tried and 
 goes there too, as a line "considered and rejected: X, because Y"; a tool pitfall goes into
 `docs/pitfalls.md`. There is no "current state" section in this file, and none should be started.
 
+## Text density — the same rule for documents
+
+A comment is capped at three lines (above); a document has no ceiling, so it needs the rule stated
+rather than counted. Prose is compressed the way `caveman` compresses a payload: **lossy, but
+reversible** — what a reader recomputes from the rest goes, what the rest does not hold stays. A
+measurement, a reason, a rejected alternative are never recoverable from the surrounding text; a
+retelling of the neighbouring paragraph always is.
+
+- **An elision states the invariant computed from what it replaced.** Not a dozen same-shaped cases
+  listed, but one line with the fact that holds across them — how many, the range, what they share.
+  Caveman writes `340 rows elided: all state=charged; range 5.00..199.99`; a document writes "every
+  wave takes the default edge, wave 02 declines it". The particular case is restored from the invariant.
+- **Uniform records go as rows, not as prose** — the slice map in this file, the idea registry in
+  PRD §9. A paragraph per item repeats the item's shape as many times as there are items.
+- **One broad pass instead of a series of narrow ones.** A section is rewritten whole rather than
+  grown by appendices: each appendix makes the reader re-read the ones before it, and the section
+  ends up answering the same question twice, in two tenses.
+- **Fails closed.** A shortening that does not make the text shorter, or that costs a fact, is rolled
+  back and the text stays as it was. Brevity is not the goal — the goal is that nothing in the text
+  is derivable from the text.
+
+A `§`-reference REPLACES the retelling in a document exactly as it does in a comment, and the same
+material is banned in both: session provenance, dead numbers, a retelling of the process.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **danchuo.world** (8194 symbols, 17229 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **danchuo.world** (8981 symbols, 18621 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

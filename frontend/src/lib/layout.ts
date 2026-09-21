@@ -162,8 +162,8 @@ export function tileBox(id: TileId, span: TileSpan): TileBox {
 }
 
 /* A wave may carry its own layout and override the default below: move, resize and HIDE tiles,
- * change the grid size and the mobile stack order. The tile registry stays in code — a new tile is
- * a new component — so everything merges OVER the default and later tiles work on older waves.
+ * change the grid size and the mobile stack order. Waves live in `lib/waves/` — a delta of the map
+ * above, merged OVER it, so a tile added later gets a position on older waves too.
  */
 
 /** A tile's span from a wave: every field is optional, so a wave states only what it changes. */
@@ -178,12 +178,11 @@ export interface WaveTileSpan {
   planet?: string;
 }
 
-/** A wave's layout block (`ThemeView.layout`); every field is optional and falls back below. */
+/** A wave's layout block (`Wave.layout`); every field is optional and falls back below. */
 export interface WaveLayout {
   grid?: { cols?: number; rows?: number };
-  /** Keys are machine tile ids; ones the code does not know are ignored (forward compatibility). */
-  tiles?: Record<string, WaveTileSpan>;
-  mobileOrder?: string[];
+  tiles?: Partial<Record<TileId, WaveTileSpan>>;
+  mobileOrder?: TileId[];
   /**
    * Drop gallery edition (DESIGN §10.1): `mosaic` (default) or `roll`, the reel. A field of the wave
    * rather than of a tile, because the gallery is opened BOTH by the latest-drop tile and by the rail
@@ -207,24 +206,10 @@ const UNHIDEABLE: ReadonlySet<TileId> = new Set<TileId>(["waveSwitcher"]);
 
 const ALL_TILE_IDS = Object.keys(TILE_LAYOUT) as TileId[];
 
-function isTileId(key: string): key is TileId {
-  return Object.prototype.hasOwnProperty.call(TILE_LAYOUT, key);
-}
-
-/** Orientation from a wave's JSON: anything but a valid value ⇒ `undefined`, the tile's default. */
-function sanitizeOrientation(value: unknown): TileOrientation | undefined {
-  return value === "horizontal" || value === "vertical" ? value : undefined;
-}
-
-/** Edition name from a wave's JSON: a short kebab-case identifier, anything else ⇒ `undefined`. */
-function sanitizeEdition(value: unknown): string | undefined {
-  return typeof value === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(value) ? value : undefined;
-}
-
 /**
  * Merges a wave's layout over the default and returns a resolved one. A SPAN IS ASSEMBLED FIELD BY
- * FIELD, so a NEW contract field must be carried here explicitly — a forgotten key is lost
- * silently, as a fallback to default, which looks like "the wave did not work". DESIGN §3, §10
+ * FIELD, so a NEW field of [WaveTileSpan] must be carried here explicitly — a forgotten one is
+ * lost silently, as a fallback to default, which looks like "the wave did not work". DESIGN §3, §10
  */
 export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
   const tiles = {} as Record<TileId, TileSpan>;
@@ -237,14 +222,13 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       colSpan: ov?.colSpan ?? base.colSpan,
       rowSpan: ov?.rowSpan ?? base.rowSpan,
       hidden: (ov?.hidden ?? base.hidden ?? false) && !UNHIDEABLE.has(id),
-      // Broken values from a wave's JSON are dropped and the tile returns to its own default.
-      orientation: sanitizeOrientation(ov?.orientation) ?? base.orientation,
-      edition: sanitizeEdition(ov?.edition) ?? base.edition,
-      planet: sanitizeEdition(ov?.planet) ?? base.planet,
+      orientation: ov?.orientation ?? base.orientation,
+      edition: ov?.edition ?? base.edition,
+      planet: ov?.planet ?? base.planet,
     };
   }
 
-  const waveOrder = (wave?.mobileOrder ?? []).filter(isTileId);
+  const waveOrder = wave?.mobileOrder ?? [];
   const seen = new Set(waveOrder);
   const mobileOrder =
     waveOrder.length > 0
@@ -254,7 +238,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
   return {
     cols: wave?.grid?.cols ?? BENTO_COLS,
     rows: wave?.grid?.rows ?? BENTO_ROWS,
-    gallery: sanitizeEdition(wave?.gallery) ?? "mosaic",
+    gallery: wave?.gallery ?? "mosaic",
     tiles,
     mobileOrder,
   };

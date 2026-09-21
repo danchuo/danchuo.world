@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Волны уезжают из БД в код фронта (PRD §5.9, DESIGN §10.1). Палитра и раскладка лежат
+      в frontend/src/lib/waves/ рядом со скином волны, слайс theme удалён целиком.
+
+      Почему: обещание «волна = запись в БД, меняется на проде без деплоя» не исполнилось ни разу —
+      ручки записи не появилось, и каждая подвижка плитки на трек приезжала миграцией плюс выкат
+      бэка. 49 из 105 файлов этой папки — ровно такие правки 2.5 КБ JSON. В коде это правка
+      TypeScript под typecheck и тест раскладки (непересечения плиток проверяет машина, а не
+      комментарий в миграции).
+
+      Откат воссоздаёт пустую таблицу: содержимое волн теперь в репозитории фронта, а не здесь.
+    -->
+    <changeSet id="1050-drop-theme" author="danchuo">
+        <dropTable tableName="theme"/>
+        <rollback>
+            <createTable tableName="theme">
+                <column name="id" type="BIGINT" autoIncrement="true">
+                    <constraints primaryKey="true" nullable="false"/>
+                </column>
+                <column name="key" type="VARCHAR(64)">
+                    <constraints nullable="false" unique="true"/>
+                </column>
+                <column name="name" type="VARCHAR(128)">
+                    <constraints nullable="false"/>
+                </column>
+                <column name="tokens" type="jsonb">
+                    <constraints nullable="false"/>
+                </column>
+                <column name="layout" type="jsonb"/>
+                <column name="active" type="BOOLEAN" defaultValueBoolean="false">
+                    <constraints nullable="false"/>
+                </column>
+                <column name="released_at" type="TIMESTAMP WITH TIME ZONE">
+                    <constraints nullable="false"/>
+                </column>
+            </createTable>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

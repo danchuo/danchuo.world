@@ -19,10 +19,10 @@ import { fileURLToPath } from "node:url";
  * leaves in v4; the supported replacement is `projects`.
  */
 
-/** The one module in `src/lib` that needs a real DOM: it writes theme tokens into `:root`.
+/** The one module in `src/lib` that needs a real DOM: it writes wave tokens into `:root`.
  *  The extglob exception is held as a single constant, or the set would have to be maintained
  *  in two places and a file falling out of both projects would silently stop running. */
-const LOGIC_TESTS = "src/lib/**/!(theme).test.ts";
+const LOGIC_TESTS = "src/lib/**/!(tokens).test.ts";
 
 export default defineConfig({
   plugins: [react()],

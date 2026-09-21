@@ -155,9 +155,9 @@ export function TodayTile({
             )}
           </div>
 
-          {/* Steps, sleep and the workout line all moved out of the today tile — steps/sleep onto
-              their own widgets (stats sparkline + sleep tile), the workout to be re-homed later.
-              The header now sits directly above the quest map, which takes all the freed space. */}
+          {/* Steps and sleep moved out of the today tile onto their own widgets (stats sparkline +
+              sleep tile). The header now sits directly above the quest map, which takes the freed
+              space. */}
 
           {/* Weekdays get the discipline quest map (§5.6). Weekends get rest: the map gives way to
               a horizon scene, because every item is a weekday one and an empty trail on a Saturday

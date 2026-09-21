@@ -43,7 +43,7 @@ class SleepSegmentRecord {
 
 /**
  * Access to a night's chunks. Ingest for a date is a FULL REPLACEMENT of the set
- * ([replaceForWakeDate]): idempotent, so a repeated run makes no duplicates, as with workouts.
+ * ([replaceForWakeDate]): idempotent, so a repeated run makes no duplicates.
  */
 @ApplicationScoped
 class SleepSegmentRepository : PanacheRepository<SleepSegmentRecord> {

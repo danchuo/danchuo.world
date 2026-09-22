@@ -204,8 +204,8 @@ export function RideMap({
         dragRotate: false,
         pitchWithRotate: false,
         // `preserveDrawingBuffer`: without it the map is on screen but blank in any SNAPSHOT —
-        // WebGL drops the buffer right after presenting a frame, so visual regression and browser
-        // screenshots get a transparent rectangle. Antialiasing goes with it, or streets stair-step.
+        // WebGL drops the buffer after presenting a frame: visual regression, screenshots and the
+        // modal's flight preview (RideTile) would get a blank. Antialiasing goes with it.
         canvasContextAttributes: { preserveDrawingBuffer: true, antialias: true },
       });
       if (interactive) {

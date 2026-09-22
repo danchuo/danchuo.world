@@ -33,6 +33,11 @@ interface RidesModalProps {
    * Whether the movement plays is decided by the wave's skin (`--drop-morph`); only the source is here.
    */
   origin?: RefObject<HTMLElement | null>;
+  /**
+   * The tile map's frame as an image URL, flown as the hero until the window's own map has tiles.
+   * Without it the flight waits for the map and usually misses the seam's wait cap. DESIGN §7.6
+   */
+  preview?: string | null;
   onClose: () => void;
 }
 
@@ -44,7 +49,7 @@ const hasCoords = (r: RideView | undefined): r is RideView =>
  * selectable list and a month summary. The `map` edition lays those three as a SPREAD, because in
  * that edition the tile is all map and a narrow strip above a list would read as a step back.
  */
-export function RidesModal({ rides, today, wave, edition, origin, onClose }: RidesModalProps) {
+export function RidesModal({ rides, today, wave, edition, origin, preview, onClose }: RidesModalProps) {
   const spread = edition === "map";
   const sceneRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -58,6 +63,8 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
     () => rides.find((r) => r.id === selectedId) ?? rides[0],
     [rides, selectedId],
   );
+  // The snapshot shows the tile's ride, the freshest one, so another selection drops it at once.
+  const shot = preview && selected?.id === rides[0]?.id && hasCoords(selected) ? preview : null;
 
   // Current month's summary (the header under the map), fetched lazily on opening; a failure is
   // swallowed, the line being secondary. The money is computed by the backend with tariff purchases
@@ -79,8 +86,8 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
   // all (a ride without coordinates gets a placeholder). A layout effect, as in the gallery — the
   // transform must land BEFORE the window's first paint.
   useLayoutEffect(() => {
-    if (mapReady || !hasCoords(selected)) playIn();
-  }, [mapReady, selected, playIn]);
+    if (shot || mapReady || !hasCoords(selected)) playIn();
+  }, [shot, mapReady, selected, playIn]);
 
   // The system Back closes the window rather than leaving the site (DESIGN §9).
   useBackToClose(true, requestClose);
@@ -140,7 +147,7 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
       style={
         spread
           ? undefined
-          : { height: "var(--modal-map-h)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }
+          : { position: "relative", height: "var(--modal-map-h)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }
       }
     >
       {hasCoords(selected) ? (
@@ -163,6 +170,14 @@ export function RidesModal({ rides, today, wave, edition, origin, onClose }: Rid
         >
           нет данных о маршруте
         </div>
+      )}
+      {/* Contained, the sharp copy fills exactly the flight's starting clip, so take-off matches the
+          tile; the blurred cover copy fills the sides the clip opens onto. */}
+      {shot && (
+        <span className={`ride-modal__shot${mapReady ? " is-gone" : ""}`} aria-hidden>
+          <img className="ride-modal__preview ride-modal__preview--fill" src={shot} alt="" />
+          <img className="ride-modal__preview" src={shot} alt="" />
+        </span>
       )}
     </div>
   );

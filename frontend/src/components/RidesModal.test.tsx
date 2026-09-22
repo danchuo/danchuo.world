@@ -229,6 +229,20 @@ describe("RidesModal — редакция `map` (разворот)", () => {
     expect(hero!.hasAttribute("data-morph-face")).toBe(true);
   });
 
+  it("снимок карты с плитки летит героем, пока живая карта не готова, и уходит с выбором другой поездки", () => {
+    const { container } = render(
+      <RidesModal rides={rides} today="2026-07-13" edition="map" preview="data:image/png;base64,AAAA" onClose={() => {}} />,
+    );
+
+    const hero = container.querySelector("[data-morph-hero]")!;
+    const shots = hero.querySelectorAll("img.ride-modal__preview");
+    expect(shots.length).toBeGreaterThan(0);
+    shots.forEach((img) => expect(img.getAttribute("src")).toBe("data:image/png;base64,AAAA"));
+
+    fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("button")[1]);
+    expect(hero.querySelector("img.ride-modal__preview")).toBeNull();
+  });
+
   it("без редакции — прежняя колонка: карта сверху, разворота нет", () => {
     const { container } = render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 

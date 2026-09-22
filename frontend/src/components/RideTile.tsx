@@ -34,6 +34,20 @@ function resolveEdition(value: string | undefined): RideEdition {
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
 
 /**
+ * The map's current frame as a data URL, or null. It exists only because RideMap keeps its drawing
+ * buffer; a tainted or absent canvas simply means the flight waits for the window's own map.
+ */
+function snapshotMap(host: HTMLElement | null): string | null {
+  const canvas = host?.querySelector("canvas");
+  if (!canvas) return null;
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The latest Velobike ride. There are only two geo points, and both editions show them on a map;
  * they differ in what surrounds it. Both lead to the same modal, which inherits the edition.
  * Empty until the first ingest is a quiet empty, and there are no hardcoded colours. DESIGN §7.6
@@ -45,6 +59,11 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
     "rides",
   );
   const [modalOpen, setModalOpen] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const openModal = () => {
+    setPreview(snapshotMap(mapCardRef.current));
+    setModalOpen(true);
+  };
   const today = mskToday();
   const rides = data ?? [];
   const latest = rides[0];
@@ -108,7 +127,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
         <button
           ref={mapCardRef}
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={openModal}
           className="ride-frame"
           aria-label="Открыть карту поездок"
         >
@@ -153,7 +172,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
             <button
               ref={mapCardRef}
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={openModal}
               aria-label="Открыть карту поездок"
               // The box's geometry lives in `.ride-map-box`: in bento it is a share of tile height,
               // while in the stack (DESIGN §8) there is none, and the map initialised into zero height.
@@ -186,7 +205,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
               {rides.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => setModalOpen(true)}
+                  onClick={openModal}
                   aria-label="Предыдущие поездки"
                   className="tap-target t-ride-more shrink-0 cursor-pointer"
                   style={{ ...mono, color: "var(--accent)", background: "none", border: "none" }}
@@ -220,6 +239,7 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
           // The tile's map is what the modal's map grows from (DESIGN §7.5). The ref is always given:
           // whether the transition plays is decided by the wave's skin, not by the edition.
           origin={mapCardRef}
+          preview={preview}
           onClose={() => setModalOpen(false)}
         />
       )}

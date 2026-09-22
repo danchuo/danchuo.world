@@ -14,12 +14,16 @@ vi.mock("./RideMap", () => ({
       return () => clearTimeout(t);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [wave]);
-    return <div data-testid="ride-map" />;
+    return (
+      <div data-testid="ride-map">
+        <canvas />
+      </div>
+    );
   },
 }));
 vi.mock("./RidesModal", () => ({
-  RidesModal: ({ edition, onClose }: { edition?: string; onClose: () => void }) => (
-    <div data-testid="rides-modal" data-edition={edition ?? ""}>
+  RidesModal: ({ edition, preview, onClose }: { edition?: string; preview?: string | null; onClose: () => void }) => (
+    <div data-testid="rides-modal" data-edition={edition ?? ""} data-preview={preview ?? ""}>
       <button onClick={onClose}>close-stub</button>
     </div>
   ),
@@ -53,7 +57,10 @@ const base = (over: Partial<RideView>): RideView => ({
   ...over,
 });
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+});
 
 describe("RideTile — входы в модалку поездок", () => {
   it("клик по мини-карте открывает модалку", async () => {
@@ -65,6 +72,26 @@ describe("RideTile — входы в модалку поездок", () => {
 
     fireEvent.click(mapButton);
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
+  });
+
+  it("клик снимает кадр карты плитки и отдаёт его модалке — полёту не ждать тайлов окна", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,SHOT");
+    getRidesMock.mockResolvedValue([base({ id: 10 })]);
+    render(<RideTile edition="map" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть карту поездок" }));
+    expect(screen.getByTestId("rides-modal").dataset.preview).toBe("data:image/png;base64,SHOT");
+  });
+
+  it("холст не отдал кадр (tainted) — модалка открывается без снимка", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockImplementation(() => {
+      throw new DOMException("tainted", "SecurityError");
+    });
+    getRidesMock.mockResolvedValue([base({ id: 10 })]);
+    render(<RideTile edition="map" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть карту поездок" }));
+    expect(screen.getByTestId("rides-modal").dataset.preview).toBe("");
   });
 
   it("бокс мини-карты зацеплен за .ride-map-box — свою высоту ему даёт CSS", async () => {

@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волны уезжают из БД в код фронта (PRD §5.9, DESIGN §10.1). Палитра и раскладка лежат
-      в frontend/src/lib/waves/ рядом со скином волны, слайс theme удалён целиком.
+      The waves move from the DB into the frontend's code (PRD §5.9, DESIGN §10.1). The palette and layout live
+      in frontend/src/lib/waves/ next to the wave's skin, the theme slice is removed entirely.
 
-      Почему: обещание «волна = запись в БД, меняется на проде без деплоя» не исполнилось ни разу —
-      ручки записи не появилось, и каждая подвижка плитки на трек приезжала миграцией плюс выкат
-      бэка. 49 из 105 файлов этой папки — ровно такие правки 2.5 КБ JSON. В коде это правка
-      TypeScript под typecheck и тест раскладки (непересечения плиток проверяет машина, а не
-      комментарий в миграции).
+      Why: the promise "a wave is a DB row, changed in prod without a deploy" was never kept:
+      no write knob ever appeared, and every one-track tile nudge came as a migration plus a backend
+      rollout. 49 of the 105 files in this folder are exactly such 2.5 KB JSON edits. In code it is a
+      TypeScript edit under typecheck and a layout test (tile non-overlap is checked by a machine, not
+      by a comment in a migration).
 
-      Откат воссоздаёт пустую таблицу: содержимое волн теперь в репозитории фронта, а не здесь.
+      The rollback recreates an empty table: the waves' content now lives in the frontend repository, not here.
     -->
     <changeSet id="1050-drop-theme" author="danchuo">
         <dropTable tableName="theme"/>

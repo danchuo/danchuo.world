@@ -6,21 +6,21 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 02: на телефоне Spotify и календарь меняются местами — календарь идёт сразу за
-      «Сегодня», музыка после него. Бенто не трогаем, это только порядок стопки.
+      Wave 02: on the phone Spotify and the calendar swap places: the calendar comes right after
+      "Today", music after it. Bento is untouched, this is only the stack order.
 
-      Волна 03, бенто. «Сегодня» и лента дропов на трек вправо (13 → 14 и 31 → 32), графики и
-      календарь короче на трек снизу (rowSpan 8 → 7, ряд начала прежний).
+      Wave 03, bento. "Today" and the drop ribbon a track right (13 → 14 and 31 → 32), the charts and
+      the calendar a track shorter at the bottom (rowSpan 8 → 7, the start row is the same).
 
-      Поклеточно: «Сегодня» встаёт кол. 14..29 и расходится с лентой дропов (32..39) через пустые
-      треки 30..31; по рядам (9..19 против 11..19) они и так не встречались бы, но зазор нужен
-      глазу. Лента упирается в кол. 39 при сетке в 40 — последний трек остаётся полем. Графики
-      (9..17) и календарь (22..30) освобождают ряд 28, нижний трек борда становится воздухом.
+      Cell by cell: "Today" stands at col. 14..29 and clears the drop ribbon (32..39) across the empty
+      tracks 30..31; in rows (9..19 against 11..19) they would not meet anyway, but the eye needs the gap.
+      The ribbon stops at col. 39 with a 40 grid: the last track stays a margin. The charts
+      (9..17) and the calendar (22..30) free row 28, the board's bottom track becomes air.
 
-      Волна 03, телефон: порядок задан целиком — «Сегодня», календарь, сон, Spotify, графики,
-      последний дроп, велобайк, дропы, соцсети, проекты, артефакты, волны. Переключатель волн
-      последний: он служебный и внизу не мешает. Сон в прежнем списке не перечислялся вовсе и
-      падал в хвост по умолчанию — теперь стоит третьим явно.
+      Wave 03, phone: the order is set in full: "Today", calendar, sleep, Spotify, charts,
+      latest drop, Velobike, drops, social, projects, artifacts, waves. The wave switcher is
+      last: it is a utility and does not get in the way at the bottom. Sleep was not listed in the old list at all and
+      fell to the tail by default: now it stands third explicitly.
     -->
     <changeSet id="1040-wave-polish-layout" author="danchuo">
         <sql><![CDATA[

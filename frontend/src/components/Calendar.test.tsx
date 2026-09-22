@@ -38,8 +38,8 @@ function buildMonsterWindow(): DaySummary[] {
   );
 }
 
-describe("Calendar — колонка выходных", () => {
-  it("будущий выходной остаётся выходным, а не будущим днём", () => {
+describe("Calendar — weekend column", () => {
+  it("a future weekend stays a weekend, not a future day", () => {
     // Fill priority: neighbouring month → weekend → future. Half the window is the future, and
     // without this rule half of the Sat/Sun column would be painted "future" and the weekend
     // column would break off at today.
@@ -54,7 +54,7 @@ describe("Calendar — колонка выходных", () => {
     }
   });
 
-  it("прошедший выходной красится тем же токеном, что и будущий", () => {
+  it("a past weekend uses the same token as a future one", () => {
     // The column must read as solid top to bottom, or "weekend" becomes a shade of "when",
     // and that channel is taken.
     render(
@@ -67,8 +67,8 @@ describe("Calendar — колонка выходных", () => {
   });
 });
 
-describe("Calendar (окно целыми неделями)", () => {
-  it("рисует непрерывную сетку из 4 целых недель = 28 ячеек с числами дней", () => {
+describe("Calendar (window of whole weeks)", () => {
+  it("draws a continuous grid of 4 whole weeks = 28 cells with day numbers", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
@@ -76,7 +76,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveTextContent("18");
   });
 
-  it("помечает сегодня (aria-current) и день с именем", () => {
+  it("marks today (aria-current) and a named day", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
@@ -86,7 +86,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("name-mark-2026-06-18")).toBeInTheDocument();
   });
 
-  it("монстр не показывается в ячейке: ни метки, ни строки в ховер-сводке", () => {
+  it("the monster is not shown in a cell: no mark, no line in the hover summary", () => {
     // A day the monster WAS drunk on — without the lens the cell says nothing about it (§6).
     render(
       <Calendar days={buildMonsterWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
@@ -98,7 +98,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(cell.getAttribute("title")).toContain("шаги");
   });
 
-  it("размечает выходные и дни соседнего месяца", () => {
+  it("marks weekends and the neighbouring month's days", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
@@ -108,7 +108,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("day-2026-06-18")).not.toHaveAttribute("data-weekend");
   });
 
-  it("отличает дырку в записи от будущего дня", () => {
+  it("tells a gap in the record from a future day", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
@@ -120,7 +120,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId(`day-${TODAY}`)).not.toHaveAttribute("data-gap");
   });
 
-  it("месяц не метится заливкой вовсе — ни у своих дней, ни у чужих", () => {
+  it("the month is not marked with a fill at all — neither its own days nor others'", () => {
     // The "foreign month" fill is gone (§5.3): it depended on where the window sat, so paging
     // inverted the whole sheet at once. A month is marked by its border, not by tone.
     const stride = "2026-07-02"; // window 15.06 → 12.07 — a month edge
@@ -140,7 +140,7 @@ describe("Calendar (окно целыми неделями)", () => {
     }
   });
 
-  it("цифра чужого месяца не приглушается — это тот же сигнал, что и снятая заливка", () => {
+  it("another month's figure is not dimmed — it is the same signal as the removed fill", () => {
     const stride = "2026-07-02";
     render(
       <Calendar
@@ -157,7 +157,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(july).toContain("var(--text-primary)");
   });
 
-  it("выходной остаётся выходным в любом месяце окна", () => {
+  it("a weekend stays a weekend in any month of the window", () => {
     // A regression anchor: dropping the month fill must not disturb the Sat/Sun column, which
     // used to break inside a foreign month and which has its own token because of it.
     const stride = "2026-07-02";
@@ -177,7 +177,7 @@ describe("Calendar (окно целыми неделями)", () => {
     }
   });
 
-  it("граница месяца рисуется отрезками в своём слое, а не кусками внутри клеток", () => {
+  it("the month boundary is drawn as segments in its own layer, not as pieces inside cells", () => {
     // Window 15.06 → 12.07, with 1 July a Wednesday: the edge is a step — a vertical left of the
     // 1st, a horizontal along the tail of row 2 and the head of row 3. Pieces drawn inside cells
     // overlapped into the gutter and depended on the cell's border width.
@@ -200,7 +200,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("day-2026-07-01").querySelector(".cal-month-edge")).toBeNull();
   });
 
-  it("слой границ не перехватывает клики по дням", () => {
+  it("the boundary layer does not intercept clicks on days", () => {
     // The layer covers the whole grid, so without `pointer-events: none` it would eat navigation.
     const stride = "2026-07-02";
     render(
@@ -217,7 +217,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(layer?.className).toContain("cal-month-edges");
   });
 
-  it("первое число месяца названо словом — граница говорит «где», подпись «какой»", () => {
+  it("the first day of a month is named in words — the boundary says \"where\", the caption \"which\"", () => {
     const stride = "2026-07-02";
     render(
       <Calendar
@@ -234,7 +234,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.queryByTestId("month-mark-2026-07-02")).toBeNull();
   });
 
-  it("стык с ТЕКУЩИМ месяцем молчит — ни линии, ни подписи", () => {
+  it("a seam with the CURRENT month is silent — no line, no caption", () => {
     // In the home window a border would be constant noise — the month is already named by the
     // "Today" tile. The mark earns its place in history, where months merge. Window 20.07 → 16.08
     // with today on 4 August: the 01.08 edge starts the current month.
@@ -252,7 +252,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.queryByTestId("month-mark-2026-08-01")).toBeNull();
   });
 
-  it("верхний край окна границей не метится — там не стык месяцев, а обрез выборки", () => {
+  it("the window's top edge is not marked as a boundary — it is the sample's cut, not a month seam", () => {
     // Window 15.06 → 12.07: the first row starts on 15 June with nothing above it.
     const stride = "2026-07-02";
     render(
@@ -270,7 +270,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(document.querySelector('[data-testid^="month-edge-h-0-"]')).toBeNull();
   });
 
-  it("клик по дню перефокусирует (onSelect с датой)", async () => {
+  it("a click on a day refocuses (onSelect with the date)", async () => {
     const onSelect = vi.fn();
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={onSelect} state="loaded" />,
@@ -279,7 +279,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(onSelect).toHaveBeenCalledWith("2026-06-21");
   });
 
-  it("без линзы ячейки не размечены её ответом (календарь прежний)", () => {
+  it("without a lens cells are not marked with its answer (the calendar as before)", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
@@ -287,7 +287,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByText("календарь")).toBeInTheDocument();
   });
 
-  it("линза размечает дни: совпал / не совпал / нет ответа", () => {
+  it("the lens marks days: matched / not matched / no answer", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -305,7 +305,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("day-2026-06-20")).toHaveAttribute("data-lens", "unknown");
   });
 
-  it("совпавший день несёт рамку-отметку, заливка ячейки при этом не трогается", () => {
+  it("a matching day carries a frame mark, the cell's fill is left untouched", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -325,7 +325,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(weekend.getAttribute("style")).not.toContain("color-mix");
   });
 
-  it("линза не отбирает у ячейки её собственные состояния (пропуск/выходной/сегодня)", () => {
+  it("the lens does not take away a cell's own states (gap/weekend/today)", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -341,7 +341,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-today", "true");
   });
 
-  it("ответ линзы едет в ховер-сводку и подпись для скринридера", () => {
+  it("the lens answer goes into the hover summary and the screen reader caption", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -359,7 +359,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId(`day-${GAP}`).getAttribute("title")).not.toContain("растяжка");
   });
 
-  it("ярлык плитки называет линзу и даёт снять её крестиком", async () => {
+  it("the tile label names the lens and lets you remove it with a cross", async () => {
     const onLensChange = vi.fn();
     render(
       <Calendar
@@ -377,7 +377,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(onLensChange).toHaveBeenCalledWith(null);
   });
 
-  it("ярлык линзы монстра называет предмет линзы: полярность теперь несут сами ячейки", () => {
+  it("the monster lens label names the lens's subject: the cells themselves now carry the polarity", () => {
     // Inverting to "monster not drunk" was a crutch for a one-sided mark — see `lensTitle`.
     render(
       <Calendar
@@ -392,7 +392,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("calendar-lens-label")).toHaveTextContent("календарь — монстр");
   });
 
-  it("линза монстра метит ТОЛЬКО «пил» — чистые дни остаются обычными ячейками", () => {
+  it("the monster lens marks ONLY \"drank\" — clean days stay ordinary cells", () => {
     render(
       <Calendar
         days={buildMonsterWindow()}
@@ -413,7 +413,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.queryByTestId(`lens-frame-${GAP}`)).toBeNull();
   });
 
-  it("день без запуска шортката не считается чистым: ни отметки, ни строки «не пил»", () => {
+  it("a day without the shortcut run is not clean: no mark and no \"did not drink\" line", () => {
     // The day has a record (health ingest creates it), but nobody marked the monster.
     const days = buildWindow().map((d) =>
       d.date === "2026-06-17" ? { ...d, monsterDrunk: null } : d,
@@ -433,7 +433,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(cell.getAttribute("title")).not.toContain("не пил");
   });
 
-  it("отмеченный «пил» не гаснет заодно: приглушение и отметка — взаимоисключающие каналы", () => {
+  it("a marked \"drank\" does not dim along with the rest: dimming and marking are mutually exclusive channels", () => {
     render(
       <Calendar
         days={buildMonsterWindow()}
@@ -451,7 +451,7 @@ describe("Calendar (окно целыми неделями)", () => {
     );
   });
 
-  it("ховер-сводка монстра говорит тем же вердиктом, что карта-тропа", () => {
+  it("the monster's hover summary speaks with the same verdict as the trail map", () => {
     render(
       <Calendar
         days={buildMonsterWindow()}
@@ -466,7 +466,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByTestId("day-2026-06-17").getAttribute("title")).toContain("не пил монстр");
   });
 
-  it("сетка несёт собственную пропорцию — в мобильном стеке высоты ей никто не даёт", () => {
+  it("the grid carries its own proportion — in the mobile stack nobody gives it a height", () => {
     // DESIGN §8: in bento the height comes from a board pinned to the viewport, in the stack there
     // is none, so a block derived from its parent would collapse to a strip of digits. The
     // proportion is computed from the window's week count rather than hardcoded.
@@ -476,7 +476,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(screen.getByRole("grid").style.aspectRatio).toBe("7 / 4");
   });
 
-  it("пропорции нечем задать ШИРИНУ сетки — иначе календарь выезжает за плитку", () => {
+  it("the proportion has nothing to set the grid's WIDTH with — otherwise the calendar spills out of the tile", () => {
     // The §8 trick only works as a full triple (the reference is `.quest-map`). Without
     // `width: 100%` the proportion may size the width instead of the height, as Safari did; without
     // `flex: 1 1 auto` the proportion takes the height too. One cause, so one lock.
@@ -490,7 +490,7 @@ describe("Calendar (окно целыми неделями)", () => {
     expect(grid.className).not.toMatch(/flex-1/);
   });
 
-  it("в состоянии error показывает тихий ретрай", async () => {
+  it("in the error state shows a quiet retry", async () => {
     const onRetry = vi.fn();
     render(
       <Calendar days={[]} selected={TODAY} today={TODAY} onSelect={() => {}} state="error" onRetry={onRetry} />,
@@ -500,7 +500,7 @@ describe("Calendar (окно целыми неделями)", () => {
   });
 });
 
-describe("Calendar — листание прошлых недель (§5.3)", () => {
+describe("Calendar — paging past weeks (§5.3)", () => {
   /** A window around [anchor] with "today" living apart — material for a shifted window. */
   function windowAround(anchor: string, today: string): DaySummary[] {
     const { from, to } = weekWindowAround(anchor, 2, 1);
@@ -516,7 +516,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     }));
   }
 
-  it("без обработчика листания в календаре нет ни одной стрелки", () => {
+  it("without a paging handler the calendar has no arrows at all", () => {
     // A regression anchor: the home tile grew no chrome where there is nothing to page through.
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
@@ -525,7 +525,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.queryByTestId("calendar-next")).toBeNull();
   });
 
-  it("в домашнем положении видна только стрелка назад", () => {
+  it("at home only the back arrow is visible", () => {
     // There is nowhere forward from today and nowhere to come back from — both buttons would be dead.
     render(
       <Calendar
@@ -543,7 +543,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.queryByTestId("calendar-home")).toBeNull();
   });
 
-  it("стрелка назад листает ровно на неделю", async () => {
+  it("the back arrow pages exactly one week", async () => {
     const onShiftWeeks = vi.fn();
     render(
       <Calendar
@@ -559,7 +559,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(onShiftWeeks).toHaveBeenCalledWith(-1);
   });
 
-  it("колесо вверх листает назад, а страницу при этом не прокручивает", () => {
+  it("the wheel up pages back without scrolling the page", () => {
     const onShiftWeeks = vi.fn();
     render(
       <Calendar
@@ -577,7 +577,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(consumed).toBe(true);
   });
 
-  it("дома колесо вниз не листает и не перехватывает прокрутку страницы", () => {
+  it("at home the wheel down neither pages nor intercepts the page scroll", () => {
     // Nowhere forward from today, so the gesture must fall through to the page as if the tile
     // were not there.
     const onShiftWeeks = vi.fn();
@@ -596,7 +596,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(consumed).toBe(false);
   });
 
-  it("у генезиса колесо вверх молчит: листать назад уже некуда", () => {
+  it("at genesis the wheel up is silent: there is nowhere to page back to", () => {
     const onShiftWeeks = vi.fn();
     render(
       <Calendar
@@ -613,7 +613,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(onShiftWeeks).not.toHaveBeenCalled();
   });
 
-  it("в сдвинутом окне колесо вниз листает вперёд", () => {
+  it("in a shifted window the wheel down pages forward", () => {
     const onShiftWeeks = vi.fn();
     const anchor = "2026-06-11";
     render(
@@ -631,7 +631,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(onShiftWeeks).toHaveBeenCalledWith(1);
   });
 
-  it("мелкие дельты тачпада складываются в один шаг, а инерция после него глотается", () => {
+  it("small touchpad deltas add up to one step, and the inertia after it is swallowed", () => {
     const onShiftWeeks = vi.fn();
     render(
       <Calendar
@@ -648,7 +648,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(onShiftWeeks).toHaveBeenCalledTimes(1);
   });
 
-  it("без обработчика листания колесо ничего не перехватывает", () => {
+  it("without a paging handler the wheel intercepts nothing", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" />,
     );
@@ -656,7 +656,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(consumed).toBe(false);
   });
 
-  it("сдвинутое окно даёт шаг вперёд и возврат к сегодня", async () => {
+  it("a shifted window gives a forward step and a return to today", async () => {
     const onShiftWeeks = vi.fn();
     const onResetWindow = vi.fn();
     const anchor = "2026-06-11";
@@ -678,7 +678,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(onResetWindow).toHaveBeenCalledOnce();
   });
 
-  it("на границе генезиса стрелки назад нет", () => {
+  it("at the genesis boundary there is no back arrow", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -693,7 +693,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.queryByTestId("calendar-prev")).toBeNull();
   });
 
-  it("сдвинутое окно называет свой месяц, а не «сегодня»", () => {
+  it("a shifted window names its month, not \"today\"", () => {
     render(
       <Calendar
         days={windowAround("2026-06-11", "2026-07-02")}
@@ -708,7 +708,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.getByTestId("calendar-window-month")).toHaveTextContent("июнь");
   });
 
-  it("месяц чужого года назван вместе с годом", () => {
+  it("a month of another year is named together with the year", () => {
     render(
       <Calendar
         days={windowAround("2025-12-10", "2026-07-02")}
@@ -723,7 +723,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.getByTestId("calendar-window-month")).toHaveTextContent("декабрь 2025");
   });
 
-  it("вид дня не зависит от положения окна — листание ничего не перекрашивает", () => {
+  it("a day's look does not depend on the window position — paging repaints nothing", () => {
     // The main contract of this change. While a month was marked by an own/foreign fill, the
     // anchor moved the tone of EVERY cell: once every four or five clicks it crossed a month
     // border and the whole sheet inverted — that read as paging, not as moving by a week.
@@ -757,7 +757,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
     expect(screen.getByTestId("day-2026-06-15").getAttribute("style")).toBe(before);
   });
 
-  it("«сегодня» и «будущее» остаются привязанными к настоящей дате, а не к якорю", () => {
+  it("\"today\" and \"future\" stay tied to the real date, not to the anchor", () => {
     // The anchor moves only the window and the month's reference. Today's frame, the dimming of
     // the future and a gap in the record are all counted from the real day, or a paged-away
     // window would start to lie.
@@ -778,7 +778,7 @@ describe("Calendar — листание прошлых недель (§5.3)", ()
   });
 });
 
-describe("Calendar — редакция «поле» (§5.2)", () => {
+describe("Calendar — the \"field\" edition (§5.2)", () => {
   function renderField(days = buildWindow(), extra: Record<string, unknown> = {}) {
     return render(
       <Calendar
@@ -793,7 +793,7 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     );
   }
 
-  it("базовая редакция поля не заводит — незнакомая волна не должна получить его случайно", () => {
+  it("the base edition sets up no field — an unknown wave must not get it by accident", () => {
     render(
       <Calendar days={buildWindow()} selected={TODAY} today={TODAY} onSelect={() => {}} state="loaded" edition="таблица" />,
     );
@@ -802,7 +802,7 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     expect(screen.getByTestId(`day-${TODAY}`).getAttribute("style")).toContain("border");
   });
 
-  it("в поле клетка не несёт ни рамки, ни заливки — вид целиком за скином", () => {
+  it("in the field a cell carries neither a frame nor a fill — the look is entirely the skin's", () => {
     renderField();
     expect(document.querySelector(".cal-grid--field")).not.toBeNull();
     const style = screen.getByTestId(`day-${TODAY}`).getAttribute("style") ?? "";
@@ -810,7 +810,7 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     expect(style).not.toContain("background:");
   });
 
-  it("клетка несёт вес дня переменной, а не готовым цветом", () => {
+  it("a cell carries the day's weight as a variable, not a ready colour", () => {
     renderField();
     // Two of today's four channels arrived: steps (8421 of 10000) and discipline (both items
     // closed). Sleep and contributions are absent and honestly drag the weight down.
@@ -818,7 +818,7 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     expect(today).toMatch(/--day-weight:\s*0\.461/);
   });
 
-  it("у будущего дня и у пропуска вес нулевой", () => {
+  it("a future day and a gap have zero weight", () => {
     renderField();
     for (const date of ["2026-06-20", GAP]) {
       const style = screen.getByTestId(`day-${date}`).getAttribute("style") ?? "";
@@ -826,17 +826,17 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     }
   });
 
-  it("включённая линза гасит поле: свет и отметка не спорят за один тон", () => {
+  it("an active lens dims the field: the light and the mark do not fight over one tone", () => {
     renderField(buildWindow(), { lens: STRETCH_LENS, onLensChange: () => {} });
     expect(document.querySelector(".cal-grid--field[data-lens]")).not.toBeNull();
   });
 
-  it("без линзы гасить нечего", () => {
+  it("without a lens there is nothing to dim", () => {
     renderField();
     expect(document.querySelector(".cal-grid--field[data-lens]")).toBeNull();
   });
 
-  it("точки «есть имя» в поле нет — на «доехал ли день» отвечает свет клетки", () => {
+  it("no \"has a name\" dot in the field — the cell's light answers \"did the day arrive\"", () => {
     renderField();
     expect(screen.queryByTestId(`name-mark-${TODAY}`)).toBeNull();
     // In the base edition the dot stays: light is not counted there at all.
@@ -846,7 +846,7 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
     expect(screen.getByTestId(`name-mark-${TODAY}`)).toBeInTheDocument();
   });
 
-  it("нативной подсказки в поле нет, а сводка дня остаётся скринридеру", () => {
+  it("no native tooltip in the field, while the day summary stays for screen readers", () => {
     renderField();
     const cell = screen.getByTestId(`day-${TODAY}`);
     expect(cell).not.toHaveAttribute("title");
@@ -854,7 +854,7 @@ describe("Calendar — редакция «поле» (§5.2)", () => {
   });
 })
 
-describe("Calendar — кромка вместо стрелок (§5.2)", () => {
+describe("Calendar — edge instead of arrows (§5.2)", () => {
   /** A window a week wider than the grid on each side — exactly what the board sends this edition. */
   function buildWideWindow(today: string = TODAY): DaySummary[] {
     const { from, to } = weekWindowAround(today, 3, 2);
@@ -892,7 +892,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     return { onShiftWeeks, onSelect, onFocusDay };
   }
 
-  it("день, забранный в сетку, ФАНТОМНОГО шага не делает: окно не съехало", () => {
+  it("a day pulled into the grid makes no PHANTOM step: the window did not shift", () => {
     // `onFocusDay` anchors ON a day, and the window is built around that day's WEEK. An anchor on
     // any day of this week gives the very same window, so comparing dates lit the forward edge,
     // the "today" button and the month heading — as if the reader had paged, having picked a day.
@@ -901,7 +901,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(screen.queryByTestId("calendar-window-month")).not.toBeInTheDocument();
   });
 
-  it("подъезд окна играется на смене НЕДЕЛИ, а не на смене опоры", () => {
+  it("the window's slide plays on a WEEK change, not on an anchor change", () => {
     // The glide is the window travelling through weeks. An anchor inside this week moves nothing,
     // and playing it there read as the calendar jumping vertically on a plain change of day.
     const field = (anchor: string) => (
@@ -928,12 +928,12 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(container.querySelector("[data-roll]")).not.toBeNull();
   });
 
-  it("настоящий шаг кромку вперёд зажигает", () => {
+  it("a real step lights the forward edge", () => {
     renderEdge({ anchor: "2026-06-04", onResetWindow: () => {} });
     expect(screen.getByTestId("calendar-edge-next")).toBeInTheDocument();
   });
 
-  it("клик по дню кромки забирает его в сетку, а не листает вслепую", async () => {
+  it("a click on an edge day pulls it into the grid instead of paging blindly", async () => {
     const { onShiftWeeks, onFocusDay } = renderEdge();
     const cell = screen.getByTestId("calendar-edge-prev").querySelectorAll("button")[3];
     const date = cell.getAttribute("data-testid")?.replace("edge-day-", "");
@@ -944,7 +944,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onShiftWeeks).not.toHaveBeenCalled();
   });
 
-  it("без обработчика «забрать в сетку» клик по кромке просто выбирает день", async () => {
+  it("without a \"pull into the grid\" handler a click on the edge just selects the day", async () => {
     const { onSelect } = renderEdge({ onFocusDay: undefined });
     const cell = screen.getByTestId("calendar-edge-prev").querySelectorAll("button")[0];
     const date = cell.getAttribute("data-testid")?.replace("edge-day-", "");
@@ -952,28 +952,28 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onSelect).toHaveBeenCalledWith(date);
   });
 
-  it("нативной подсказки с диапазоном недели у кромки нет", () => {
+  it("no native tooltip with the week range on the edge", () => {
     renderEdge();
     const edge = screen.getByTestId("calendar-edge-prev");
     expect(edge).not.toHaveAttribute("title");
     expect([...edge.querySelectorAll("button")].some((b) => b.hasAttribute("title"))).toBe(false);
   });
 
-  it("недели кромок не попадают в сетку — высота сетки не зависит от них", () => {
+  it("edge weeks do not enter the grid — the grid's height does not depend on them", () => {
     renderEdge();
     // A 42-day window: one week goes into the tail margin and two more do not fit the height
     // ceiling (§5.2), leaving three rows — the two past weeks and the current one.
     expect(screen.getAllByRole("gridcell")).toHaveLength(21);
   });
 
-  it("у каждого дня кромки своя кнопка: действия у них разные", () => {
+  it("each edge day has its own button: their actions differ", () => {
     renderEdge();
     const edge = screen.getByTestId("calendar-edge-prev");
     expect(edge.tagName).not.toBe("BUTTON");
     expect(edge.querySelectorAll("button.cal-edge-cell")).toHaveLength(7);
   });
 
-  it("клетки кромки несут вес дня — полоска светится, а не просто нумерует", () => {
+  it("edge cells carry the day's weight — the strip glows instead of just numbering", () => {
     renderEdge();
     const cells = screen.getByTestId("calendar-edge-prev").querySelectorAll(".cal-edge-cell");
     const lit = [...cells].filter((c) =>
@@ -982,19 +982,19 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(lit.length).toBeGreaterThan(0);
   });
 
-  it("в поле стрелок нет: шаг несёт кромка, глиф сказал бы то же дважды", () => {
+  it("no arrows in the field: the edge carries the step, a glyph would say it twice", () => {
     renderEdge({ anchor: "2026-06-04" });
     expect(screen.queryByTestId("calendar-prev")).toBeNull();
     expect(screen.queryByTestId("calendar-next")).toBeNull();
   });
 
-  it("дома строка листания не рисуется вовсе — пустой ряд читался бы дырой", () => {
+  it("at home the paging row is not drawn at all — an empty row would read as a hole", () => {
     renderEdge();
     expect(document.querySelector(".cal-nav")).toBeNull();
     expect(screen.queryByTestId("calendar-edge-next")).toBeNull();
   });
 
-  it("у сдвинутого окна появляются кромка вперёд и возврат «сегодня»", async () => {
+  it("a shifted window gets a forward edge and a \"today\" return", async () => {
     const { onFocusDay } = renderEdge({ anchor: "2026-06-04" });
     expect(screen.getByTestId("calendar-home")).toBeTruthy();
     const next = screen.getByTestId("calendar-edge-next").querySelectorAll("button")[0];
@@ -1003,13 +1003,13 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onFocusDay).toHaveBeenCalledWith(date);
   });
 
-  it("у генезиса кромки назад нет, а её дни достаются сетке", () => {
+  it("at genesis there is no back edge, and its days go to the grid", () => {
     renderEdge({ canGoBack: false });
     expect(screen.queryByTestId("calendar-edge-prev")).toBeNull();
     expect(screen.getAllByRole("gridcell")).toHaveLength(35);
   });
 
-  it("«сегодня» уходит из ярлыка на нижний край плитки — строка сверху не появляется", async () => {
+  it("\"today\" moves from the label to the tile's bottom edge — no row appears on top", async () => {
     const onResetWindow = vi.fn();
     renderEdge({ anchor: "2026-06-04", onResetWindow });
     const home = screen.getByTestId("calendar-home");
@@ -1020,7 +1020,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onResetWindow).toHaveBeenCalled();
   });
 
-  it("«сегодня» возвращает и окно, и выбранный день", async () => {
+  it("\"today\" returns both the window and the selected day", async () => {
     const onResetWindow = vi.fn();
     const { onSelect } = renderEdge({ anchor: "2026-06-04", selected: "2026-06-02", onResetWindow });
     await userEvent.click(screen.getByTestId("calendar-home"));
@@ -1028,7 +1028,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onSelect).toHaveBeenCalledWith(TODAY);
   });
 
-  it("базовая редакция держит «сегодня» в строке листания", () => {
+  it("the base edition keeps \"today\" in the paging row", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -1046,7 +1046,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(document.querySelector(".cal-nav")?.contains(home)).toBe(true);
   });
 
-  it("«сегодня» базовой редакции возвращает выбранный день так же, как таблетка «поля»", async () => {
+  it("the base edition's \"today\" returns the selected day just like the \"field\" pill", async () => {
     const onResetWindow = vi.fn();
     const onSelect = vi.fn();
     render(
@@ -1066,7 +1066,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
     expect(onSelect).toHaveBeenCalledWith(TODAY);
   });
 
-  it("базовая редакция кромок не заводит и стрелки сохраняет", () => {
+  it("the base edition sets up no edges and keeps the arrows", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -1082,7 +1082,7 @@ describe("Calendar — кромка вместо стрелок (§5.2)", () => 
   });
 });
 
-describe("Calendar — месяц с новой строки (§5.2)", () => {
+describe("Calendar — a month starts on a new row (§5.2)", () => {
   /** A Wednesday in September: the window spans the edge, and 1 September 2026 is a Tuesday. */
   const SEP = "2026-09-15";
 
@@ -1115,7 +1115,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     );
   }
 
-  it("первое число уезжает на новую строку — стык метит перенос, а не линия", () => {
+  it("the first day moves to a new row — the seam marks the wrap, not a line", () => {
     renderCross();
     // Monday 31 August stays the last day of its row; Tuesday 1 September starts the next one
     // and stands in its own weekday column.
@@ -1126,7 +1126,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(document.querySelector(".cal-month-edges")).toBeNull();
   });
 
-  it("имя месяца встаёт в пустой кусок перед ним, а не в клетку дня", () => {
+  it("the month name goes into the empty piece before it, not into a day cell", () => {
     renderCross();
     const mark = screen.getByTestId("month-gap-2026-09-01");
     expect(mark).toHaveTextContent(/сентябрь/i);
@@ -1137,7 +1137,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(screen.queryByTestId("month-mark-2026-09-01")).toBeNull();
   });
 
-  it("сетка вырастает на ряд: перенос стоит неделю слотов", () => {
+  it("the grid grows by a row: a wrap costs a week of slots", () => {
     renderCross();
     const grid = document.querySelector(".cal-grid--field") as HTMLElement;
     expect(grid.style.gridTemplateRows).toContain("repeat(5");
@@ -1145,7 +1145,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(grid.style.aspectRatio).toBe("7 / 5");
   });
 
-  it("с кромками перенос сетку не растит: верхняя строка уходит за край", () => {
+  it("with edges a wrap does not grow the grid: the top row goes past the edge", () => {
     // The window the board sends this edition: two past weeks and the current one, plus a week of
     // margin each side. A month break adds a row and the top one becomes surplus, so the tile's
     // height does not depend on whether a month edge fell inside the window.
@@ -1181,7 +1181,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(screen.getByTestId("month-mark-2026-09-01")).toHaveTextContent(/сен/i);
   });
 
-  it("ход окна метится направлением — по нему скин и рисует наплыв", () => {
+  it("the window's movement is marked with a direction — the skin draws the slide by it", () => {
     const { rerender } = renderCross({ anchor: SEP });
     const frame = () => document.querySelector(".tile-frame")?.getAttribute("data-roll");
     // A still window is not marked: the surge is an event, not a state.
@@ -1201,7 +1201,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(frame()).toBe("back");
   });
 
-  it("базовая редакция наплыва не заводит", () => {
+  it("the base edition sets up no fade-in", () => {
     const { rerender } = render(
       <Calendar days={crossWindow()} selected={SEP} today={SEP} anchor={SEP} onSelect={() => {}} state="loaded" />,
     );
@@ -1211,7 +1211,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
     expect(document.querySelector(".tile-frame")?.getAttribute("data-roll")).toBeNull();
   });
 
-  it("базовая редакция переноса не заводит — стык там по-прежнему в слое линий", () => {
+  it("the base edition sets up no wrap — the seam there stays in the line layer", () => {
     render(
       <Calendar
         days={crossWindow()}
@@ -1232,7 +1232,7 @@ describe("Calendar — месяц с новой строки (§5.2)", () => {
  * was the day" and answers "did this one thing happen", with the live run burning brightest — so
  * the length of the lit stretch is the streak, read without a numeral.
  */
-describe("Calendar — свет серии под линзой (редакция «поле»)", () => {
+describe("Calendar — the streak's light under a lens (\"field\" edition)", () => {
   /** Stretching done on Friday the 12th and again Mon–Thu the 15th–18th: a run across a weekend. */
   function buildRunWindow(): DaySummary[] {
     const done = (iso: string) => iso === "2026-06-12" || (iso >= "2026-06-15" && iso <= TODAY);
@@ -1256,7 +1256,7 @@ describe("Calendar — свет серии под линзой (редакция
     );
   }
 
-  it("дни живой серии горят, а перешагнутый выходной светит вполсилы", () => {
+  it("the days of a live streak glow, a stepped-over weekend glows at half strength", () => {
     renderRun();
 
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-lens-run", "on");
@@ -1267,19 +1267,19 @@ describe("Calendar — свет серии под линзой (редакция
     expect(screen.getByTestId("day-2026-06-14")).toHaveAttribute("data-lens-run", "step");
   });
 
-  it("день до обрыва серии света не получает", () => {
+  it("a day before the streak broke gets no light", () => {
     renderRun();
 
     expect(screen.getByTestId("day-2026-06-11")).not.toHaveAttribute("data-lens-run");
   });
 
-  it("длина серии стоит словами в ярлыке — там же, где её рисует свет", () => {
+  it("the streak length is in words in the label — where the light draws it", () => {
     renderRun();
 
     expect(screen.getByTestId("calendar-lens-run")).toHaveTextContent("5 дней подряд");
   });
 
-  it("серия в один день ярлыка не получает: это ещё не серия", () => {
+  it("a one-day streak gets no label: it is not a streak yet", () => {
     render(
       <Calendar
         days={buildWindow()}
@@ -1295,7 +1295,7 @@ describe("Calendar — свет серии под линзой (редакция
     expect(screen.queryByTestId("calendar-lens-run")).toBeNull();
   });
 
-  it("обводки на цифре в «поле» нет: свет уже сказал то же самое", () => {
+  it("no outline on the figure in the \"field\": the light already says the same", () => {
     renderRun();
 
     expect(screen.queryByTestId(`lens-frame-${TODAY}`)).toBeNull();
@@ -1303,7 +1303,7 @@ describe("Calendar — свет серии под линзой (редакция
     expect(screen.getByTestId(`day-${TODAY}`)).toHaveAttribute("data-lens-tone", "match");
   });
 
-  it("базовая сетка света серии не знает: он — материал «поля»", () => {
+  it("the base grid knows nothing of the streak's light: it is the \"field\" material", () => {
     render(
       <Calendar
         days={buildRunWindow()}

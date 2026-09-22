@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Индикатор свежести данных (PRD §8, эра M5). Singleton-строка: «когда телефон
-      последний раз достучался до ingest» (последний успешный upsert дня — оба канала,
-      health 12/18/24 и интерактивная дисциплина, пишут через DayRecordService).
-      Семантика — момент *приёма*, не последнего изменения дня; алерт об отвале шортката —
-      бэклог (B5), здесь только тихий индикатор в UI. Сидим единственную строку (id=1)
-      с пустым last_ingest_at (NULL = «приёмов ещё не было», UI покажет пусто).
+      The data freshness indicator (PRD §8, the M5 era). A singleton row: "when the phone
+      last reached ingest" (the last successful day upsert; both channels,
+      health 12/18/24 and the interactive discipline, write through DayRecordService).
+      The semantics are the moment of *ingest*, not of the day's last change; an alert about the shortcut dying is
+      backlog (B5), here there is only a quiet indicator in the UI. We seed the single row (id=1)
+      with an empty last_ingest_at (NULL = "no ingests yet", the UI shows empty).
     -->
     <changeSet id="0110-ingest-status" author="danchuo">
         <createTable tableName="ingest_status">

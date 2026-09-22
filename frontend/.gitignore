@@ -14,7 +14,7 @@ next-env.d.ts
 # testing
 /coverage
 
-# playwright (эталоны e2e/__screenshots__ — коммитим; артефакты прогона — нет)
+# playwright (e2e/__screenshots__ baselines are committed; run artifacts are not)
 /test-results/
 /playwright-report/
 /blob-report/

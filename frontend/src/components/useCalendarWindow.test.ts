@@ -40,7 +40,7 @@ describe("useCalendarWindow", () => {
     vi.restoreAllMocks();
   });
 
-  it("первое окно без копии — честный лоадер", async () => {
+  it("the first window without a copy — an honest loader", async () => {
     const first = deferred();
     mockGetDays.mockReturnValue(first.promise);
 
@@ -58,7 +58,7 @@ describe("useCalendarWindow", () => {
    * INSTEAD of the grid, so every step back would collapse the tile into an empty box — the same
    * trouble the day layer was already saved from ([useSelectedDay], DESIGN §7).
    */
-  it("шаг назад не гасит уже показанное окно", async () => {
+  it("a step back does not blank the window already shown", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDays.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -80,7 +80,7 @@ describe("useCalendarWindow", () => {
    * foreign month are computed from it, and a reference that ran ahead would describe a window
    * not yet on screen.
    */
-  it("опора меняется только когда приехало её окно", async () => {
+  it("the anchor changes only once its window has arrived", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDays.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -95,7 +95,7 @@ describe("useCalendarWindow", () => {
     expect(result.current.shownAnchor).toBe("2026-06-30");
   });
 
-  it("ответ на бро́шенное окно не перебивает текущее", async () => {
+  it("an answer for an abandoned window does not override the current one", async () => {
     const slow = deferred();
     const fast = deferred();
     mockGetDays.mockReturnValueOnce(slow.promise).mockReturnValueOnce(fast.promise);
@@ -111,7 +111,7 @@ describe("useCalendarWindow", () => {
     expect(result.current.days[0].date).toBe("2026-07-06");
   });
 
-  it("отказ сети — честная ошибка, а не тихое чужое окно", async () => {
+  it("a network failure is an honest error, not a quiet stale window", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDays.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -124,7 +124,7 @@ describe("useCalendarWindow", () => {
     await waitFor(() => expect(result.current.status).toBe("error"));
   });
 
-  it("возврат на уже открытое окно идёт из памяти, без запроса", async () => {
+  it("returning to an already open window comes from memory, without a request", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDays.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -140,7 +140,7 @@ describe("useCalendarWindow", () => {
     expect(mockGetDays).toHaveBeenCalledTimes(2);
   });
 
-  it("окно, обрезанное генезисом, дальше назад не листается", async () => {
+  it("a window cut by genesis does not page further back", async () => {
     // The backend clamps `from` to genesis: the first day arrived later than requested ⇒ there is
     // nothing earlier.
     const first = deferred();
@@ -151,7 +151,7 @@ describe("useCalendarWindow", () => {
     expect(result.current.canGoBack).toBe(false);
   });
 
-  it("целое окно историю не исчерпало", async () => {
+  it("a full window has not exhausted the history", async () => {
     const first = deferred();
     mockGetDays.mockReturnValue(first.promise);
 

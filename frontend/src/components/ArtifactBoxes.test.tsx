@@ -23,20 +23,20 @@ const flat: ArtifactBoxView = {
 };
 
 describe("ArtifactBoxes", () => {
-  it("имя находки лежит в разметке всегда — у ховера нет скринридера", () => {
+  it("the find's name is always in the markup — hover has no screen reader", () => {
     render(<ArtifactBoxes boxes={[solid, flat]} shown={[]} />);
     expect(screen.getByText("банка монстра")).toBeInTheDocument();
     expect(screen.getByText("ракетка")).toBeInTheDocument();
   });
 
-  it("рамка под рукой помечена — по этой метке волна её и подсвечивает", () => {
+  it("the box under the hand is marked — that is the mark the wave highlights it by", () => {
     const { container } = render(<ArtifactBoxes boxes={[solid, flat]} shown={[2]} />);
     const marked = container.querySelectorAll(".artifact-box[data-shown]");
     expect(marked).toHaveLength(1);
     expect(marked[0].textContent).toContain("ракетка");
   });
 
-  it("рядом с кадром находка встаёт предметом, и подложки под ним нет", () => {
+  it("next to the frame the find stands as an item, with no backing under it", () => {
     const { container } = render(<ArtifactBoxes boxes={[solid]} shown={[1]} aside />);
 
     expect(container.querySelector(".artifact-finds")).toBeInTheDocument();
@@ -45,7 +45,7 @@ describe("ArtifactBoxes", () => {
     expect(container.querySelector(".artifact-card")).toBeNull();
   });
 
-  it("у находки без модели показывается её картинка — в том же слоте", () => {
+  it("a find without a model shows its picture — in the same slot", () => {
     const { container } = render(<ArtifactBoxes boxes={[flat]} shown={[2]} aside />);
 
     const img = container.querySelector<HTMLImageElement>("img.artifact-find__face");
@@ -54,14 +54,14 @@ describe("ArtifactBoxes", () => {
     expect(container.querySelector("canvas")).toBeNull();
   });
 
-  it("без метки наведения рядом с кадром не появляется ничего", () => {
+  it("without a mark nothing appears on hover beside the frame", () => {
     const { container } = render(<ArtifactBoxes boxes={[solid, flat]} shown={[]} aside />);
     expect(container.querySelector(".artifact-finds")).toBeNull();
   });
 });
 
-describe("ArtifactBoxes — окно кадра в находке", () => {
-  it("адрес кадра доезжает до области переменными, а не вторым запросом", () => {
+describe("ArtifactBoxes — the frame window in a find", () => {
+  it("the frame address reaches the area via variables, not a second request", () => {
     const { container } = render(
       <ArtifactBoxes boxes={[solid]} shown={[]} aside shot="/api/film-media/4/26/web" />,
     );
@@ -72,7 +72,7 @@ describe("ArtifactBoxes — окно кадра в находке", () => {
     expect(box.style.getPropertyValue("--shot-pos")).not.toBe("");
   });
 
-  it("без кадра переменных нет — волне нечего проявлять, и она ничего не рисует", () => {
+  it("without a frame there are no variables — the wave has nothing to develop and draws nothing", () => {
     const { container } = render(<ArtifactBoxes boxes={[solid]} shown={[]} aside />);
 
     const box = container.querySelector(".artifact-box") as HTMLElement;

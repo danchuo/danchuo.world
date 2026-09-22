@@ -66,8 +66,8 @@ const rides: RideView[] = [
 
 afterEach(() => vi.clearAllMocks());
 
-describe("RidesModal — карта выбранной поездки", () => {
-  it("по умолчанию выбрана самая свежая (первая), карта рисует её путь", () => {
+describe("RidesModal — map of the selected ride", () => {
+  it("by default the freshest (first) is selected and the map draws its path", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
     const selected = screen.getByRole("option", { selected: true });
@@ -81,7 +81,7 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(map).toHaveAttribute("data-finish-label", "пл. Финиш, 2");
   });
 
-  it("клик по другой поездке переносит выделение и перерисовывает карту", () => {
+  it("a click on another ride moves the selection and redraws the map", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
     const rows = screen.getAllByRole("option");
@@ -92,7 +92,7 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(screen.getByTestId("ride-map")).toHaveAttribute("data-start", "55.82");
   });
 
-  it("у поездки без координат — заглушка вместо карты", () => {
+  it("a ride without coordinates — a placeholder instead of the map", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
     fireEvent.click(within(screen.getAllByRole("option")[2]).getByRole("button")); // 2026-07-07, no geo
@@ -101,13 +101,13 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(screen.getByText("нет данных о маршруте")).toBeInTheDocument();
   });
 
-  it("в строке поездки показана стоимость (справа от ккал)", () => {
+  it("the ride row shows the cost (to the right of kcal)", () => {
     render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
     // 5243 kopecks → "52 ₽"; the metrics line carries both calories and cost.
     expect(screen.getAllByText(/168 ккал · 52 ₽/).length).toBeGreaterThan(0);
   });
 
-  it("бесплатная поездка под тарифом — «в рамках тарифа за N ₽» вместо «бесплатно»", () => {
+  it("a free ride under a tariff — \"within the N ₽ tariff\" instead of \"free\"", () => {
     const covered: RideView[] = [
       base({ id: 20, costKopecks: 0, coveredByTariffKopecks: 90000 }), // a 900 ₽ covering tariff
       base({ id: 21, costKopecks: 0, coveredByTariffKopecks: null }), // no purchase found → free
@@ -117,7 +117,7 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(screen.getAllByText(/· бесплатно/).length).toBeGreaterThan(0);
   });
 
-  it("час за 399 ₽ плюс превышение — строка показывает всю цену, а не одни 7 ₽", () => {
+  it("an hour for 399 ₽ plus overage — the row shows the full price, not just 7 ₽", () => {
     const hour: RideView[] = [
       base({ id: 22, durationSeconds: 3720, costKopecks: 749, accessKopecks: 39900, totalKopecks: 40649 }),
     ];
@@ -125,7 +125,7 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(screen.getAllByText(/406 ₽ \(доступ 399 \+ 7 сверх\)/).length).toBeGreaterThan(0);
   });
 
-  it("адрес-заглушка «Москва» (вне станции) показывается как «вне станции»", () => {
+  it("the placeholder address \"Moscow\" (off-station) shows as \"off-station\"", () => {
     const outside: RideView[] = [
       base({ id: 30, startAddress: "Москва", finishAddress: "ст. м. Молодёжная (выход № 2)" }),
     ];
@@ -141,7 +141,7 @@ describe("RidesModal — карта выбранной поездки", () => {
     expect(screen.getByTestId("ride-map")).toHaveAttribute("data-start-label", "вне станции");
   });
 
-  it("Esc и кнопка закрытия зовут onClose", () => {
+  it("Esc and the close button call onClose", () => {
     const onClose = vi.fn();
     render(<RidesModal rides={rides} today="2026-07-13" onClose={onClose} />);
 
@@ -153,8 +153,8 @@ describe("RidesModal — карта выбранной поездки", () => {
   });
 });
 
-describe("RidesModal — сводка за текущий месяц", () => {
-  it("рисует строку под картой: поездки, минуты, рубли (с корректным склонением)", async () => {
+describe("RidesModal — current month summary", () => {
+  it("draws a line under the map: rides, minutes, roubles (with correct declension)", async () => {
     getRideMonthSummary.mockResolvedValueOnce({
       month: "2026-07",
       rides: 4, // 4 takes the plural form
@@ -173,7 +173,7 @@ describe("RidesModal — сводка за текущий месяц", () => {
     expect(within(strip).getByText("рублей")).toBeInTheDocument();
   });
 
-  it("нет поездок в этом месяце (rides 0) — строка не рисуется", async () => {
+  it("no rides this month (rides 0) — the line is not drawn", async () => {
     getRideMonthSummary.mockResolvedValueOnce({
       month: "2026-07",
       rides: 0,
@@ -188,13 +188,13 @@ describe("RidesModal — сводка за текущий месяц", () => {
   });
 });
 
-describe("RidesModal — редакция `map` (разворот)", () => {
+describe("RidesModal — `map` edition (spread)", () => {
   const rides = [
     base({ id: 1, rideDate: "2026-07-12", startLat: 55.7 }),
     base({ id: 2, rideDate: "2026-07-11", startLat: 55.8 }),
   ];
 
-  it("карта и список стоят рядом в развороте, сводка — строкой под ними", async () => {
+  it("the map and the list stand side by side in the spread, the summary as a line below them", async () => {
     getRideMonthSummary.mockResolvedValueOnce({
       month: "2026-07",
       rides: 4,
@@ -217,7 +217,7 @@ describe("RidesModal — редакция `map` (разворот)", () => {
     expect(strip.previousElementSibling).toBe(body);
   });
 
-  it("карта — «герой» и «лицо» проявки: из плитки борда растёт именно она", () => {
+  it("the map is the \"hero\" and the \"face\" of the development: it is what grows out of the board tile", () => {
     const { container } = render(
       <RidesModal rides={rides} today="2026-07-13" edition="map" onClose={() => {}} />,
     );
@@ -229,7 +229,7 @@ describe("RidesModal — редакция `map` (разворот)", () => {
     expect(hero!.hasAttribute("data-morph-face")).toBe(true);
   });
 
-  it("снимок карты с плитки летит героем, пока живая карта не готова, и уходит с выбором другой поездки", () => {
+  it("a snapshot of the tile's map flies as the hero until the live map is ready, and leaves when another ride is picked", () => {
     const { container } = render(
       <RidesModal rides={rides} today="2026-07-13" edition="map" preview="data:image/png;base64,AAAA" onClose={() => {}} />,
     );
@@ -243,7 +243,7 @@ describe("RidesModal — редакция `map` (разворот)", () => {
     expect(hero.querySelector("img.ride-modal__preview")).toBeNull();
   });
 
-  it("без редакции — прежняя колонка: карта сверху, разворота нет", () => {
+  it("without the edition — the old column: map on top, no spread", () => {
     const { container } = render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
 
     expect(container.querySelector(".ride-modal__body")).toBeNull();
@@ -256,13 +256,13 @@ describe("RidesModal — редакция `map` (разворот)", () => {
  * to where" in the list rows. While the figures stood in both, the list read as a table of
  * equally loud rows. The column layout has no data header, and the figures stay in the row.
  */
-describe("RidesModal — данные выбранной поездки в шапке разворота", () => {
+describe("RidesModal — the selected ride's data in the spread header", () => {
   const withCost = [
     base({ id: 1, rideDate: "2026-07-12", distanceMeters: 6900, durationSeconds: 2640, calories: 168 }),
     base({ id: 2, rideDate: "2026-07-11", distanceMeters: 4200, durationSeconds: 1260, calories: 96 }),
   ];
 
-  it("в шапке — километры, время, калории и деньги выбранной поездки, а не слово «поездки»", () => {
+  it("the header shows the selected ride's kilometres, time, calories and money, not the word \"rides\"", () => {
     const { container } = render(
       <RidesModal rides={withCost} today="2026-07-13" edition="map" onClose={() => {}} />,
     );
@@ -273,7 +273,7 @@ describe("RidesModal — данные выбранной поездки в ша�
     expect(screen.queryByText("поездки")).toBeNull();
   });
 
-  it("выбрали другую поездку — шапка пересчиталась", () => {
+  it("picked another ride — the header recalculated", () => {
     const { container } = render(
       <RidesModal rides={withCost} today="2026-07-13" edition="map" onClose={() => {}} />,
     );
@@ -283,7 +283,7 @@ describe("RidesModal — данные выбранной поездки в ша�
     expect(within(head as HTMLElement).getByText("4.2 км")).toBeInTheDocument();
   });
 
-  it("в строке разворота — день, километры при нём, дата и станции; прочих цифр нет", () => {
+  it("the spread row has the day, its kilometres, the date and the stations; no other figures", () => {
     render(
       <RidesModal
         rides={[
@@ -311,7 +311,7 @@ describe("RidesModal — данные выбранной поездки в ша�
     expect(within(row).queryByText(/мин/)).toBeNull();
   });
 
-  it("в колоночной раскладке цифры остаются в строке, а шапка — слово «поездки»", () => {
+  it("in the column layout the figures stay in the row and the header is the word \"rides\"", () => {
     render(<RidesModal rides={withCost} today="2026-07-13" onClose={() => {}} />);
 
     expect(screen.getByText("поездки")).toBeInTheDocument();

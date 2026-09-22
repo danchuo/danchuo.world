@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Колонки-заготовки дня (PRD §9). Заведены были «на будущее» и год простояли пустыми:
-      экранное время Apple программно недоступно, фото дня не делали, а прогресс чтения
-      давно считает слайс reading — посессионно и в процентах, то есть точнее и в другом
-      месте. Ничего не переносим: писать в них было нечему. Понадобятся — заведём вместе
-      с каналом, который в них пишет.
+      The day's placeholder columns (PRD §9). They were created "for the future" and stood empty for a year:
+      Apple's screen time is not available programmatically, day photos were never taken, and reading progress
+      has long been counted by the reading slice, per session and in percent, i.e. more precisely and elsewhere.
+      Nothing is migrated: there was nothing to write into them. If they are ever needed, they will be created together
+      with the channel that writes into them.
     -->
     <changeSet id="0730-day-record-drop-backlog-columns" author="danchuo">
         <dropColumn tableName="day_record" columnName="screen_time_minutes"/>

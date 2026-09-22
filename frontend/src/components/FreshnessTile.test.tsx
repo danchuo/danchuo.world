@@ -15,13 +15,13 @@ function hoursAgo(h: number): string {
 }
 
 describe("FreshnessTile", () => {
-  it("рендерит «N назад» от последнего приёма", async () => {
+  it("renders \"N ago\" from the last ingest", async () => {
     getFreshnessMock.mockResolvedValue({ lastIngestAt: hoursAgo(3) });
     render(<FreshnessTile />);
     expect(await screen.findByTestId("freshness-ago")).toHaveTextContent("3 ч назад");
   });
 
-  it("вместо подписи «свежесть» — дозвон с той же ролью для скринридера", async () => {
+  it("instead of the \"freshness\" caption — the dial-up with the same role for screen readers", async () => {
     getFreshnessMock.mockResolvedValue({ lastIngestAt: hoursAgo(3) });
     render(<FreshnessTile />);
     expect(await screen.findByRole("img", { name: "свежесть" })).toBeInTheDocument();
@@ -32,20 +32,20 @@ describe("FreshnessTile", () => {
     );
   });
 
-  it("дозвон — это ярлык плитки: остаётся и когда приёмов не было", async () => {
+  it("the dial-up is the tile's label: it stays even when there were no ingests", async () => {
     getFreshnessMock.mockResolvedValue({ lastIngestAt: null } satisfies FreshnessView);
     render(<FreshnessTile />);
     await screen.findByText("нет приёмов");
     expect(screen.getByRole("img", { name: "свежесть" })).toBeInTheDocument();
   });
 
-  it("нет приёмов (null) → тихое пустое состояние", async () => {
+  it("no ingests (null) → a quiet empty state", async () => {
     getFreshnessMock.mockResolvedValue({ lastIngestAt: null } satisfies FreshnessView);
     render(<FreshnessTile />);
     expect(await screen.findByText("нет приёмов")).toBeInTheDocument();
   });
 
-  it("сбой → состояние ошибки", async () => {
+  it("failure → error state", async () => {
     getFreshnessMock.mockRejectedValue(new Error("boom"));
     render(<FreshnessTile />);
     await waitFor(() => expect(screen.getByText("не удалось загрузить")).toBeInTheDocument());

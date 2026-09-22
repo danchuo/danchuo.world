@@ -6,34 +6,34 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: на борд возвращается лента прошлых дропов — в редакции `carousel`
+      Wave 03 "PRIME": the ribbon of past drops returns to the board, in the `carousel` edition
       (DESIGN §7.5, §10.2).
 
-      Дропы едут вертикальной лентой, и главный тот, что встал в СЕРЕДИНУ окна: вид кадра —
-      чистая функция расстояния до середины, раскладка при этом не пересчитывается вовсе.
-      Поэтому плитка ведёт себя одинаково на трёх дропах и на трёхстах, а архив листается
-      бесконечно в обе стороны.
+      Drops travel as a vertical ribbon, and the main one is the one that lands in the MIDDLE of the window: a frame's look is
+      a pure function of its distance to the middle, and the layout is not recalculated at all.
+      So the tile behaves the same with three drops and with three hundred, and the archive pages
+      endlessly in both directions.
 
-      Путь к этому виду занял два захода прототипов на живом холсте, и оба стоит помнить.
-      Первый — раскрытие кадра по наведению (корешки архива): упирается в стену, которую не
-      обойти подкруткой чисел, потому что раскрытый кадр забирает место у колонки —
-      «обложка ≤ окно − 32 × соседей», то есть 137px на четырёх дропах и 41px на семи.
-      Второй заход снимался уже с прокруткой в роли механизма (плёнка · карусель · слоты ·
-      разворот · скраббер); владелец выбрал карусель.
+      The path to this look took two rounds of prototypes on the live canvas, and both are worth remembering.
+      The first was expanding a frame on hover (archive spines): it hits a wall that cannot
+      be bypassed by tweaking numbers, because an expanded frame takes space from the column:
+      "cover ≤ window − 32 × neighbours", i.e. 137px with four drops and 41px with seven.
+      The second round was already shot with scrolling as the mechanism (film · carousel · slots ·
+      spread · scrubber); the owner chose the carousel.
 
-      Геометрия. Колонка стоит между кадром последнего дропа и плашкой Spotify — вплотную к
-      снимку, из которого выросла. Ради неё кластер пересобран: кадр ушёл левее (10 → 5),
-      музыка и переключатель правее (22 → 27, 24 → 29), и борд снова встал по центру сетки
-      40x28 (5..36 при центре 21). Сама колонка поднята к ВЕРХНЕМУ краю холста (ряд 3): в
-      середине сетки она делила высоту с кадром и читалась второй такой же колонкой.
+      Geometry. The column stands between the latest drop's frame and the Spotify plate, right next to
+      the photo it grew out of. For it the cluster was rebuilt: the frame moved left (10 → 5),
+      music and the switcher right (22 → 27, 24 → 29), and the board is centred on the 40x28 grid
+      again (5..36 with the centre at 21). The column itself is raised to the canvas's TOP edge (row 3): in
+      the middle of the grid it shared its height with the frame and read as a second identical column.
 
-      Размер — 8 треков ширины на 9 высоты. Высота слота фиксирована (83px), поэтому число
-      видимых кадров задаёт не архив, а плитка: в её окне их два с половиной, и обрезанный
-      снизу третий — та самая подсказка, что лента продолжается.
+      Size: 8 tracks wide by 9 high. The slot height is fixed (83px), so the number
+      of visible frames is set not by the archive but by the tile: two and a half fit in its window, and the third,
+      cut off at the bottom, is exactly the hint that the ribbon goes on.
 
-      `orientation` не задаём намеренно: у карусели вёрстка вертикальная по своей природе,
-      и тайл гасит ориентацию сам. Волны 01 и 02 поля `edition` не имеют и остаются на
-      прежних лентах (дефолт кода).
+      `orientation` is not set on purpose: the carousel's layout is vertical by nature,
+      and the tile drops the orientation itself. Waves 01 and 02 have no `edition` field and stay on
+      the old ribbons (the code default).
     -->
     <changeSet id="0630-wave-03-drop-carousel" author="danchuo">
         <sql><![CDATA[

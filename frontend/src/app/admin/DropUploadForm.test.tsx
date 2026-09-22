@@ -26,12 +26,12 @@ async function upload() {
   await waitFor(() => expect(screen.getByText(/загружено/)).toBeInTheDocument());
 }
 
-describe("DropUploadForm — свежий дроп зовёт на поиск артефактов (§5.12)", () => {
+describe("DropUploadForm — a fresh drop invites an artifact search (§5.12)", () => {
   beforeEach(() => {
     vi.mocked(uploadDrop).mockResolvedValue({ drop: DROP, processed: 37, skipped: 0 });
   });
 
-  it("до загрузки кнопки поиска нет", () => {
+  it("no search button before loading", () => {
     render(
       <DropUploadForm
         token="t"
@@ -45,7 +45,7 @@ describe("DropUploadForm — свежий дроп зовёт на поиск а
     expect(screen.queryByRole("button", { name: /искать все предметы/ })).toBeNull();
   });
 
-  it("после заливки прямо говорит, что артефакты НЕ проверены, и даёт кнопку", async () => {
+  it("after the upload says plainly that artifacts were NOT checked and offers a button", async () => {
     // The point here: an artifact scan does NOT start by itself (unlike the rotation check), so
     // without this line a fresh drop silently stays unchecked.
     render(
@@ -63,7 +63,7 @@ describe("DropUploadForm — свежий дроп зовёт на поиск а
     expect(screen.getByRole("button", { name: /искать все предметы/ })).toBeInTheDocument();
   });
 
-  it("клик по кнопке запускает прогон", async () => {
+  it("a click on the button starts the run", async () => {
     const onScanArtifacts = vi.fn();
     render(
       <DropUploadForm
@@ -80,7 +80,7 @@ describe("DropUploadForm — свежий дроп зовёт на поиск а
     expect(onScanArtifacts).toHaveBeenCalled();
   });
 
-  it("на бегущем прогоне кнопка занята и показывает счёт", async () => {
+  it("during a run the button is busy and shows the count", async () => {
     render(
       <DropUploadForm
         token="t"
@@ -96,7 +96,7 @@ describe("DropUploadForm — свежий дроп зовёт на поиск а
     expect(screen.getByText(/12\/37/)).toBeInTheDocument();
   });
 
-  it("уход на другой дроп убирает блок — иначе он показывал бы чужой статус", async () => {
+  it("moving to another drop removes the block — otherwise it would show someone else's status", async () => {
     // The admin has one scan status and it belongs to the SELECTED drop; pick another one and the
     // invitation to scan the fresh drop is no longer about it.
     const { rerender } = render(

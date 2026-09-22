@@ -8,19 +8,19 @@ const DAY = 1 / 29.530588853;
 const TOLERANCE = 1.5 * DAY;
 
 describe("moonPhase", () => {
-  it("новолуние 11 января 2024 — начало цикла", () => {
+  it("the new moon of 11 January 2024 — the start of the cycle", () => {
     const phase = moonPhase("2024-01-11")!;
     expect(Math.min(phase.cycle, 1 - phase.cycle)).toBeLessThan(TOLERANCE);
     expect(phase.lit).toBeLessThan(0.02);
   });
 
-  it("полнолуние 25 января 2024 — середина цикла", () => {
+  it("the full moon of 25 January 2024 — the middle of the cycle", () => {
     const phase = moonPhase("2024-01-25")!;
     expect(Math.abs(phase.cycle - 0.5)).toBeLessThan(TOLERANCE);
     expect(phase.lit).toBeGreaterThan(0.98);
   });
 
-  it("первая четверть растёт, последняя убывает — половина диска в обе", () => {
+  it("the first quarter waxes, the last wanes — half a disc in both", () => {
     const first = moonPhase("2024-01-18")!;
     const last = moonPhase("2024-02-02")!;
     expect(Math.abs(first.lit - 0.5)).toBeLessThan(0.1);
@@ -29,24 +29,24 @@ describe("moonPhase", () => {
     expect(last.waxing).toBe(false);
   });
 
-  it("битая дата — пусто, а не NaN в разметке", () => {
+  it("a broken date — empty, not NaN in the markup", () => {
     expect(moonPhase("нет даты")).toBeNull();
   });
 });
 
 describe("moonLitPath", () => {
-  it("новолуние — контур нулевой площади, полнолуние — весь диск", () => {
+  it("new moon is a zero-area outline, full moon the whole disc", () => {
     // In both the terminator runs along the very edge (the semi-axis equals the radius), and only
     // the direction of the bulge tells them apart: towards the light a crescent, away a hump.
     expect(moonLitPath(0, 7)).toContain("A 7 7 0 0 0");
     expect(moonLitPath(0.5, 7)).toContain("A 7 7 0 0 1");
   });
 
-  it("четверть — прямой терминатор", () => {
+  it("a quarter is a straight terminator", () => {
     expect(moonLitPath(0.25, 7)).toContain("A 0 7");
   });
 
-  it("серп и горб выгнуты в разные стороны", () => {
+  it("the crescent and the gibbous bulge in opposite directions", () => {
     const crescent = moonLitPath(0.1, 7).split("A").pop()!;
     const gibbous = moonLitPath(0.4, 7).split("A").pop()!;
     expect(crescent).toContain("0 0 0");
@@ -57,12 +57,12 @@ describe("moonLitPath", () => {
 describe("moonLightAzimuth", () => {
   const PI = Math.PI;
 
-  it("полнолуние освещено из-за спины зрителя, новолуние — из-за самой луны", () => {
+  it("the full moon is lit from behind the viewer, the new moon from behind the moon itself", () => {
     expect(moonLightAzimuth(0.5)).toBeCloseTo(0, 6);
     expect(Math.abs(moonLightAzimuth(0))).toBeCloseTo(PI, 6);
   });
 
-  it("растущая четверть освещена справа, убывающая — слева", () => {
+  it("the waxing quarter is lit from the right, the waning one from the left", () => {
     // +x is the right of the screen: the light stands there, so the right limb is lit.
     expect(moonLightAzimuth(0.25)).toBeCloseTo(PI / 2, 6);
     expect(moonLightAzimuth(0.75)).toBeCloseTo(-PI / 2, 6);

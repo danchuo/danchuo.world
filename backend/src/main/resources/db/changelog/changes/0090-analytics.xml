@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс analytics (PRD §5.11, §7, §12 M4): своё cookieless-решение в Postgres.
-      Сырой IP не хранится — только суточный хэш visitor_day_hash. Индексы под сводку
-      (по дате) и под подсчёт уников (по хэшу) + добивку dwell (по visit_id).
+      The analytics slice (PRD §5.11, §7, §12 M4): our own cookieless solution in Postgres.
+      The raw IP is not stored, only the daily hash visitor_day_hash. Indexes for the summary
+      (by date), for counting uniques (by hash) and for topping up dwell (by visit_id).
     -->
     <changeSet id="0090-analytics-event-table" author="danchuo">
         <createTable tableName="analytics_event">
@@ -47,10 +47,10 @@
     </changeSet>
 
     <!--
-      Хитмапа (PRD §5.11, B2): потайловые клики, cookieless. Сырой IP не хранится — только
-      суточный хэш (как у analytics_event). Координаты — внутри тайла (доля 0..1), не экранные
-      пиксели. Индексы под агрегат (path+occurred_at) и под cap-вклада на чтении
-      (visitor_day_hash). Консолидировано перед 1.0.0: бывший отдельный 0160 — тот же слайс.
+      Heatmap (PRD §5.11, B2): per-tile clicks, cookieless. The raw IP is not stored, only
+      the daily hash (as in analytics_event). Coordinates are inside the tile (a 0..1 fraction), not screen
+      pixels. Indexes for the aggregate (path+occurred_at) and for the per-visitor cap on read
+      (visitor_day_hash). Consolidated before 1.0.0: the former separate 0160 is the same slice.
     -->
     <changeSet id="0090-interaction-event-table" author="danchuo">
         <createTable tableName="interaction_event">

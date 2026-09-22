@@ -6,13 +6,13 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: плашка Spotify теряет ещё одну строку по высоте (7 → 6, строки 8–13).
-      Просьба владельца на живом борде: плашка приплюснута сознательно (её примета, сид 0570),
-      и после возвращения дропа рядом она снова смотрелась высоковатой.
+      Wave 03 "PRIME": the Spotify plate loses one more row of height (7 → 6, rows 8–13).
+      The owner's request on the live board: the plate is flattened on purpose (its mark, seed 0570),
+      and after the drop returned next to it, it again looked a bit tall.
 
-      Верх столбика и низ переключателя не двигаются (8 … 19), поэтому пара «дроп + столбик»
-      остаётся на прежней горизонтальной оси; освободившаяся строка 14 уходит в прослойку
-      между музыкой и переключателем.
+      The column's top and the switcher's bottom do not move (8 … 19), so the "drop + column" pair
+      stays on the same horizontal axis; the freed row 14 goes into the spacer
+      between music and the switcher.
     -->
     <changeSet id="0610-wave-03-music-shorter" author="danchuo">
         <sql><![CDATA[

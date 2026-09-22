@@ -6,13 +6,13 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 02 «Obscura»: плитка музыки сужается ещё на колонку с каждой стороны (DESIGN §7.5).
+      Wave 02 "Obscura": the music tile narrows by another column on each side (DESIGN §7.5).
 
-      Второй шаг того же сужения, что и сид 0540, и по той же причине: кадр с обложкой хочет
-      пропорцию ближе к квадрату. 9 колонок на 8 строк — это 338x238 на экране владельца,
-      то есть уже почти 1.4:1 против 2.2:1, с которых начинали.
+      The second step of the same narrowing as the 0540 seed, for the same reason: a frame with a cover wants
+      a proportion closer to a square. 9 columns by 8 rows is 338x238 on the owner's screen,
+      i.e. almost 1.4:1 against the 2.2:1 it started from.
 
-      Центр плитки снова остаётся на месте: 17→18 при 11→9.
+      The tile's centre again stays in place: 17→18 with 11→9.
     -->
     <changeSet id="0560-wave-02-music-square" author="danchuo">
         <sql><![CDATA[

@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «Сегодня» ужимается на одну колонку слева (хэнд-тюн владельца): 1..19 → 2..19.
+      Wave 03: "Today" shrinks by one column on the left (the owner's hand-tune): 1..19 → 2..19.
 
-      Левый край плитки отходит от края борда и перестаёт стоять в одну линию с дропом над ней;
-      высота и правый край не тронуты. Столкновений нет: слева колонка 1 пустеет, справа плитка
-      по-прежнему упирается в пустой трек 20 перед средней колонной.
+      The tile's left edge moves off the board's edge and stops lining up with the drop above it;
+      the height and the right edge are untouched. No collisions: column 1 on the left empties, on the right the tile
+      still stops at the empty track 20 before the middle column.
     -->
     <changeSet id="0990-wave-03-today-narrower" author="danchuo">
         <sql><![CDATA[

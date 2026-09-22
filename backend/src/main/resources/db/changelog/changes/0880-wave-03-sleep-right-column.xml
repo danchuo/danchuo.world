@@ -6,18 +6,18 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «эхолот» переезжает в правую колонку — под Spotify и над переключателем волн
-      (DESIGN §10.2). Колонки 31..40 (ширина музыкальной плитки), строки 11..16.
+      Wave 03: the "echo sounder" moves to the right column: under Spotify and above the wave switcher
+      (DESIGN §10.2). Columns 31..40 (the music tile's width), rows 11..16.
 
-      Строки выбраны так, чтобы воздух остался ТРЕКОМ, а не зазором сетки: музыка кончается
-      на 9-й, переключатель начинается на 18-й, и пустые треки 10 и 17 держат полосы сверху
-      и снизу. Строка 17 под промер не берётся намеренно — иначе сон упёрся бы в переключатель
-      через один четырёхпиксельный gap, тогда как у всех соседей на борде между плитками
-      лежит целый трек.
+      The rows are chosen so the air stays a TRACK rather than a grid gap: music ends
+      at row 9, the switcher starts at 18, and the empty tracks 10 and 17 hold the bands above
+      and below. Row 17 is deliberately not taken for the sounding: otherwise sleep would hit the switcher
+      across a single four-pixel gap, while all neighbours on the board have a whole track
+      between tiles.
 
-      Пропорция становится более лежачей (около 2.1 против прежних 1.45): промер размечен
-      на спуск слева направо, и лишняя ширина ему в плюс, а высоту у полосы подписи
-      возвращает её собственная редакция.
+      The proportion becomes more landscape (about 2.1 against the old 1.45): the sounding is laid out
+      for a left-to-right descent, and extra width suits it, while the caption band's height
+      is given back by its own edition.
     -->
     <changeSet id="0880-wave-03-sleep-right-column" author="danchuo">
         <sql><![CDATA[

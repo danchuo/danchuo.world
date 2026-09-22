@@ -6,18 +6,18 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: плитка переключателя вырастает 4x4 → 8x5 (DESIGN §2.6, §10.2).
+      Wave 03 "PRIME": the switcher tile grows 4x4 → 8x5 (DESIGN §2.6, §10.2).
 
-      Скин растянул чипы на всю плитку, но на четырёх ячейках сетки 40x28 (около 147x115px
-      на экране владельца) три карты выходили узкими полосками по 31px. Плитка волн сейчас
-      единственный виджет на борде — место под ней есть, и карта волны должна быть картой,
-      а не полоской.
+      The skin stretched the chips over the whole tile, but on four cells of the 40x28 grid (about 147x115px
+      on the owner's screen) the three cards came out as narrow 31px strips. The wave tile is currently
+      the only widget on the board: there is room under it, and a wave card should be a card,
+      not a strip.
 
-      Это состояние РАБОЧЕЕ, как и сам одинокий переключатель из сида 0480: когда виджеты
-      начнут возвращаться, плитка вернётся к своему размеру правкой этих двух чисел.
-      Позиция пересчитана так, чтобы плитка осталась по центру сетки.
+      This state is a WORKING one, like the lone switcher from the 0480 seed itself: when the widgets
+      start coming back, the tile returns to its size by editing these two numbers.
+      The position is recalculated so the tile stays in the centre of the grid.
 
-      UPDATE по jsonb-пути: остальная дельта (скрытые тайлы, mobileOrder) не трогается.
+      An UPDATE by jsonb path: the rest of the delta (hidden tiles, mobileOrder) is untouched.
     -->
     <changeSet id="0510-wave-03-switcher-tile" author="danchuo">
         <sql><![CDATA[

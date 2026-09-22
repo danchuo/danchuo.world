@@ -6,19 +6,19 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME» (DESIGN §10.2) — первая ТЁМНАЯ волна борда.
+      Wave 03 "PRIME" (DESIGN §10.2): the board's first DARK wave.
 
-      Холст: простой градиент плюс лента прожитых дней, набранная через точку и повторённая
-      до края экрана (её рисует общий шов WaveBackdrop, см. фронт). Стекло на плитках приходит
-      следующей веткой; здесь только палитра и холст.
+      Canvas: a plain gradient plus the ribbon of lived days, joined with dots and repeated
+      to the edge of the screen (drawn by the shared WaveBackdrop seam, see the frontend). Glass on the tiles comes
+      in the next branch; here are only the palette and the canvas.
 
-      Layout НЕ задан намеренно ⇒ фронт берёт дефолт `layout.ts`, то есть расположение
-      виджетов волны 01. Раскладку в этой волне не трогаем (решение владельца).
+      Layout is NOT set on purpose ⇒ the frontend takes the `layout.ts` default, i.e. wave 01's
+      widget arrangement. The layout is not touched in this wave (the owner's decision).
 
-      Токен-набор ПОЛНЫЙ, а не дельта: клиентский своп волн перекрывает весь :root, и
-      недостающий ключ утёк бы из предыдущей волны — на тёмном холсте это персиковое пятно.
+      The token set is FULL, not a delta: the client-side wave swap overrides the whole :root, and
+      a missing key would leak from the previous wave: on the dark canvas that is a peach blot.
 
-      Волна неактивна — включается переключателем, борду ничего не грозит.
+      The wave is inactive and is turned on by the switcher; nothing threatens the board.
     -->
     <changeSet id="0450-theme-seed-wave03-prime" author="danchuo">
         <sql><![CDATA[

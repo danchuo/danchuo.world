@@ -5,7 +5,7 @@ import { pluralDays, relativeDayRu } from "./relativeDay";
 const TODAY = "2026-06-18";
 
 describe("relativeDayRu", () => {
-  it("точные термины (±2 дня) приоритетнее всего", () => {
+  it("exact terms (±2 days) take priority over everything", () => {
     expect(relativeDayRu("2026-06-18", TODAY)).toBe("сегодня");
     expect(relativeDayRu("2026-06-17", TODAY)).toBe("вчера");
     expect(relativeDayRu("2026-06-16", TODAY)).toBe("позавчера");
@@ -13,13 +13,13 @@ describe("relativeDayRu", () => {
     expect(relativeDayRu("2026-06-20", TODAY)).toBe("послезавтра");
   });
 
-  it("та же календарная неделя — день недели без префикса", () => {
+  it("the same calendar week — the weekday without a prefix", () => {
     // today is Thu 18.06; the week runs Mon 15.06 to Sun 21.06.
     expect(relativeDayRu("2026-06-15", TODAY)).toBe("в понедельник"); // bare, not "last"
     expect(relativeDayRu("2026-06-21", TODAY)).toBe("в воскресенье"); // bare, not "next"
   });
 
-  it("соседняя неделя — «в прошлый/следующий <день>», согласовано по роду", () => {
+  it("the neighbouring week — \"last/next <day>\", agreeing in gender", () => {
     // last week runs Mon 08.06 to Sun 14.06.
     expect(relativeDayRu("2026-06-08", TODAY)).toBe("в прошлый понедельник");
     expect(relativeDayRu("2026-06-13", TODAY)).toBe("в прошлую субботу");
@@ -28,7 +28,7 @@ describe("relativeDayRu", () => {
     expect(relativeDayRu("2026-06-28", TODAY)).toBe("в следующее воскресенье");
   });
 
-  it("дальше соседней недели — числом с правильным склонением", () => {
+  it("beyond the neighbouring week — a number with the right declension", () => {
     expect(relativeDayRu("2026-06-05", TODAY)).toBe("13 дней назад"); // two weeks back
     expect(relativeDayRu("2026-06-30", TODAY)).toBe("через 12 дней"); // two weeks ahead
     expect(relativeDayRu("2026-05-28", TODAY)).toBe("21 день назад");
@@ -37,7 +37,7 @@ describe("relativeDayRu", () => {
 });
 
 describe("pluralDays", () => {
-  it("ветви склонения день/дня/дней", () => {
+  it("day/days declension branches", () => {
     expect(pluralDays(1)).toBe("день");
     expect(pluralDays(2)).toBe("дня");
     expect(pluralDays(5)).toBe("дней");

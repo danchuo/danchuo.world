@@ -33,7 +33,7 @@ describe("useSelectedDay", () => {
     vi.restoreAllMocks();
   });
 
-  it("первый заход без копии — честный лоадер", async () => {
+  it("the first entry without a copy — an honest loader", async () => {
     const first = deferred();
     mockGetDay.mockReturnValue(first.promise);
 
@@ -50,7 +50,7 @@ describe("useSelectedDay", () => {
    * loading state (which draws a shimmer INSTEAD of the content) collapsed it to zero and the
    * screen jumped on every day change. While a new day travels, the previous one stays.
    */
-  it("переключение дня не гасит уже показанный", async () => {
+  it("switching the day does not blank the one already shown", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDay.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -68,7 +68,7 @@ describe("useSelectedDay", () => {
     expect(result.current.day?.date).toBe("2026-08-02");
   });
 
-  it("ответ на брошенный день не перебивает выбранный", async () => {
+  it("an answer for an abandoned day does not override the selected one", async () => {
     const slow = deferred();
     const fast = deferred();
     mockGetDay.mockReturnValueOnce(slow.promise).mockReturnValueOnce(fast.promise);
@@ -85,7 +85,7 @@ describe("useSelectedDay", () => {
   });
 
   /** A stale day on screen must not silently pass for the selected one when the network fails. */
-  it("отказ на новом дне — ошибка, а не тихий чужой день", async () => {
+  it("a failure on a new day is an error, not a quiet stale day", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDay.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -100,7 +100,7 @@ describe("useSelectedDay", () => {
     await waitFor(() => expect(result.current.status).toBe("error"));
   });
 
-  it("возврат на уже загруженный день идёт из памяти, без запроса", async () => {
+  it("returning to an already loaded day comes from memory, without a request", async () => {
     const first = deferred();
     const second = deferred();
     mockGetDay.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);

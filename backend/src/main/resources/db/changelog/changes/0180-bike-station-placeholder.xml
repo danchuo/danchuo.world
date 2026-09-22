@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс bike: адреса-заглушки «просто город» («Москва» — велосипед оставлен вне именованной
-      станции) успели геокодироваться в центроид города и перекрывали точный GPS пином на Красной
-      площади. Геокодер такие адреса больше не трогает (StationGeocoder.isCityPlaceholder);
-      уже закэшированные строки сбрасываем в «не найдено» — пин честно падает на GPS-фолбэк.
-      Признак заглушки — одно слово без цифр и запятых (все настоящие адреса многословны).
+      The bike slice: "just the city" placeholder addresses ("Moscow": a bike left outside a named
+      station) had been geocoded to the city centroid and overrode the exact GPS with a pin on Red
+      Square. The geocoder no longer touches such addresses (StationGeocoder.isCityPlaceholder);
+      already cached rows are reset to "not found", so the pin honestly falls back to GPS.
+      The placeholder sign is a single word without digits or commas (all real addresses are multi-word).
     -->
     <changeSet id="0180-bike-station-placeholder-reset" author="danchuo">
         <sql>

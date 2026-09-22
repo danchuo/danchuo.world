@@ -22,13 +22,13 @@ function answer(question: string, text: string) {
   fireEvent.change(screen.getByLabelText(question), { target: { value: text } });
 }
 
-describe("FeedbackModal — записка автору (§5.19)", () => {
+describe("FeedbackModal — a note to the author (§5.19)", () => {
   beforeEach(() => {
     postFeedback.mockReset();
     postFeedback.mockResolvedValue(undefined);
   });
 
-  it("вопросы сначала свёрнуты в карточки, по клику разворачиваются в поле", () => {
+  it("the questions start folded into cards and open into a field on click", () => {
     open();
     expect(screen.getByRole("button", { name: LIKED })).toBeInTheDocument();
     expect(screen.queryByLabelText(LIKED)).not.toBeInTheDocument();
@@ -37,7 +37,7 @@ describe("FeedbackModal — записка автору (§5.19)", () => {
     expect(screen.getByLabelText(LIKED)).toBeInTheDocument();
   });
 
-  it("заполненная карточка остаётся развёрнутой, даже когда открыли другую", () => {
+  it("a filled card stays open even when another one is opened", () => {
     open();
     answer(LIKED, "календарь");
     fireEvent.click(screen.getByRole("button", { name: CHANGED }));
@@ -47,7 +47,7 @@ describe("FeedbackModal — записка автору (§5.19)", () => {
     expect(screen.getByLabelText(CHANGED)).toBeInTheDocument();
   });
 
-  it("без единого ответа отправка заблокирована, с одним — доступна", () => {
+  it("with no answer at all sending is blocked, with one it is allowed", () => {
     open();
     const send = screen.getByRole("button", { name: "отправить" });
     expect(send).toBeDisabled();
@@ -59,7 +59,7 @@ describe("FeedbackModal — записка автору (§5.19)", () => {
     expect(send).toBeEnabled();
   });
 
-  it("отправляет ответы вместе с состоянием борда и пустой ловушкой", async () => {
+  it("sends the answers together with the board state and an empty trap", async () => {
     open();
     answer(CHANGED, "цвета");
     fireEvent.click(screen.getByRole("button", { name: "отправить" }));
@@ -74,7 +74,7 @@ describe("FeedbackModal — записка автору (§5.19)", () => {
     });
   });
 
-  it("после успеха форма сменяется подтверждением", async () => {
+  it("after success the form is replaced by a confirmation", async () => {
     open();
     answer(LIKED, "всё");
     fireEvent.click(screen.getByRole("button", { name: "отправить" }));
@@ -83,7 +83,7 @@ describe("FeedbackModal — записка автору (§5.19)", () => {
     expect(screen.queryByRole("button", { name: "отправить" })).not.toBeInTheDocument();
   });
 
-  it("ошибка показывается внутри формы и НЕ стирает введённое", async () => {
+  it("the error is shown inside the form and does NOT erase the input", async () => {
     postFeedback.mockRejectedValue(new FeedbackError("rate_limited"));
     open();
     answer(LIKED, "очень длинный ответ про календарь");
@@ -94,7 +94,7 @@ describe("FeedbackModal — записка автору (§5.19)", () => {
     expect(screen.getByRole("button", { name: "отправить" })).toBeEnabled();
   });
 
-  it("ловушка для ботов скрыта от скринридеров, но есть в DOM", () => {
+  it("the bot trap is hidden from screen readers but present in the DOM", () => {
     open();
     // aria-hidden keeps it out of the accessibility tree; a DOM-walking bot still finds it.
     const trap = document.querySelector(".feedback-modal__trap");

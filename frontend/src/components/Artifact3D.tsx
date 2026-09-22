@@ -34,8 +34,10 @@ export interface Artifact3DProps {
   spin?: boolean;
   /** Light from one direction instead of the studio pair (DESIGN §7.7). Its azimuth may move later. */
   light?: { azimuth: number; ambient: number; intensity?: number };
-  /** Resting pose in degrees: `yaw` turns the object to the viewer's right, `pitch` tips its top. */
-  pose?: { yaw?: number; pitch?: number };
+  /** Multiplier on the studio lights: evens out a model whose texture is brighter than its row. */
+  brightness?: number;
+  /** Resting pose in degrees: `yaw` to the viewer's right, `pitch` tips the top, `roll` in the frame. */
+  pose?: { yaw?: number; pitch?: number; roll?: number };
   /**
    * Fired once the item has finished trying, with whether it stood up. Callers that caption the
    * item wait for it; callers with a flat fallback switch to it on `false`.
@@ -50,7 +52,7 @@ const TURN_PER_PX = (2 * Math.PI) / 520;
 const MAX_DPR = 2;
 
 export function Artifact3D({
-  src, label, className, style, rpm, padding, draggable, spin: policy, light, pose, onSettled,
+  src, label, className, style, rpm, padding, draggable, spin: policy, light, brightness, pose, onSettled,
 }: Artifact3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<ArtifactHandle | null>(null);
@@ -93,7 +95,7 @@ export function Artifact3D({
 
     const start = () => {
       fit();
-      mountArtifact(canvas, { src, rpm, padding, light: sun.current, pose: rest.current, signal: abort.signal })
+      mountArtifact(canvas, { src, rpm, padding, light: sun.current, brightness, pose: rest.current, signal: abort.signal })
         .then((handle) => {
           if (disposed) {
             handle.dispose();
@@ -146,7 +148,7 @@ export function Artifact3D({
       handleRef.current?.dispose();
       handleRef.current = null;
     };
-  }, [src, rpm, padding]);
+  }, [src, rpm, padding, brightness]);
 
   // A new day moves the sun without touching the body: the phase changes, the turn carries on.
   useEffect(() => {

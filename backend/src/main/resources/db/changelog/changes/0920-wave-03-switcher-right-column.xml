@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: переключатель волн возвращается в правую колонну — между промером сна и
-      велобайком (DESIGN §10.2).
+      Wave 03: the wave switcher returns to the right column: between the sleep sounding and
+      Velobike (DESIGN §10.2).
 
-      Колонки 35..40, строки 19..20. Промер кончается на 17-й, велобайк начинается с 22-й,
-      значит строки 18 и 21 остаются пустыми треками: воздух сверху и снизу такой же, как у
-      остальных соседей на борде. Правый край держит стену борда, как у промера и велобайка
-      над и под ним. Размер плитки не меняется — те же 6 колонок на 2 строки.
+      Columns 35..40, rows 19..20. The sounding ends at 17, Velobike starts at 22,
+      so rows 18 and 21 stay empty tracks: the air above and below is the same as for
+      the other neighbours on the board. The right edge holds the board's wall, like the sounding and Velobike
+      above and below it. The tile's size does not change: the same 6 columns by 2 rows.
 
-      Шапка левой колонны (строки 2..5 над последним дропом) остаётся пустой.
+      The left column's header (rows 2..5 above the latest drop) stays empty.
     -->
     <changeSet id="0920-wave-03-switcher-right-column" author="danchuo">
         <sql><![CDATA[

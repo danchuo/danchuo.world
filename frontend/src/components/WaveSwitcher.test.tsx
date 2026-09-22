@@ -51,7 +51,7 @@ function withWave(node: ReactNode) {
 }
 
 describe("WaveSwitcher", () => {
-  it("рендерит только свотчи выпущенных волн, без слотов-заглушек", async () => {
+  it("renders only the swatches of released waves, without placeholder slots", async () => {
     setWaves([wave()]);
     render(withWave(<WaveSwitcher />));
     expect(await screen.findByLabelText("Волна: Волна 01")).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe("WaveSwitcher", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
-  it("клик по свотчу свопит токены в :root", async () => {
+  it("a click on a swatch swaps the tokens in :root", async () => {
     const setProp = vi.spyOn(document.documentElement.style, "setProperty");
     setWaves([
       wave(),
@@ -74,7 +74,7 @@ describe("WaveSwitcher", () => {
     expect(setProp).toHaveBeenCalledWith("--accent", "#33ff99");
   });
 
-  it("клик по свотчу запоминает волну в cookie (переживает перезагрузку)", async () => {
+  it("a click on a swatch saves the wave in a cookie (survives a reload)", async () => {
     setWaves([
       wave(),
       wave({ key: "wave-02", name: "Волна 02" }),
@@ -89,7 +89,7 @@ describe("WaveSwitcher", () => {
   // Waves travel with the frontend, so a chip row cannot depend on the backend being up: the
   // switcher renders without a single request. Previously the list arrived over the network and
   // the component carried a self-heal for a degraded SSR.
-  it("рисует чипы, не ходя в сеть", async () => {
+  it("draws the chips without going to the network", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     setWaves([wave(), wave({ key: "wave-02", name: "Волна 02" })]);
@@ -103,7 +103,7 @@ describe("WaveSwitcher", () => {
   // ── A chip is a mini tile of ITS OWN wave (DESIGN §2.6) ────────────────────────────
   // It is drawn in the palette and edge of the wave it offers, not the active one, so the colours
   // travel as inline --chip-* variables from that wave's tokens and its key hangs as an attribute.
-  it("рисует чип палитрой своей волны, а не активной", async () => {
+  it("draws the chip in its own wave's palette, not the active one's", async () => {
     setWaves([
       wave(),
       wave({
@@ -125,7 +125,7 @@ describe("WaveSwitcher", () => {
   // A chip's edge silhouette is NOT the tile's `pixel-corners` token: that is set in absolute px
   // for a large card and degenerates into a cross at chip scale (see the note in common.css).
   // CSS draws the step at thumbnail scale; a wave may send its own as a separate token.
-  it("не тащит на чип полигон плитки, но уважает собственный токен чипа", async () => {
+  it("does not drag the tile polygon onto the chip but respects the chip's own token", async () => {
     setWaves([
       wave({ tokens: { "pixel-corners": "polygon(0 10px)" } }),
       wave({ key: "wave-02", name: "Волна 02", tokens: { "chip-corners": "polygon(0 0)" } }),
@@ -141,7 +141,7 @@ describe("WaveSwitcher", () => {
 
   // A wave missing some tokens (or a newcomer with a trimmed set) must not tear the chip — what
   // is missing is picked up from the board's tokens.
-  it("не падает на волне с неполным набором токенов", async () => {
+  it("does not crash on a wave with an incomplete token set", async () => {
     setWaves([wave({ tokens: {} })]);
     render(withWave(<WaveSwitcher />));
 
@@ -150,7 +150,7 @@ describe("WaveSwitcher", () => {
   });
 
   // The active wave reads by more than a frame: the chip is raised on its box (wave 01's idiom).
-  it("помечает активный чип для скина и скринридера", async () => {
+  it("marks the active chip for the skin and screen readers", async () => {
     setWaves([
       wave(),
       wave({ key: "wave-02", name: "Волна 02" }),
@@ -166,7 +166,7 @@ describe("WaveSwitcher", () => {
 
   // The row's direction is a layout capability (as for projects, photoDrops and marquee): the wave
   // sets it in the layout and the component does not decide for itself. The default is horizontal.
-  it("кладёт чипы в ряд по умолчанию и в столбец по ориентации волны", async () => {
+  it("lays the chips in a row by default and in a column by the wave's orientation", async () => {
     setWaves([wave()]);
     const { rerender } = render(withWave(<WaveSwitcher />));
     const row = (await screen.findByLabelText("Волна: Волна 01")).parentElement!;
@@ -184,7 +184,7 @@ describe("WaveSwitcher", () => {
   // Zoom shrinks the CSS viewport while the §8.1 damper shrinks a chip half as fast, so at 110%
   // two chips stop fitting. Wrapping is not the answer: a horizontal row must stay a row and the
   // chips squeeze.
-  it("не переносит чипы на вторую строку в горизонтальном ряду", async () => {
+  it("does not wrap chips onto a second line in a horizontal row", async () => {
     setWaves([
       wave(),
       wave({ key: "wave-02", name: "Волна 02" }),
@@ -195,7 +195,7 @@ describe("WaveSwitcher", () => {
     expect(row.className).toContain("flex-nowrap");
   });
 
-  it("не пишет cookie, пока посетитель не выбрал волну", async () => {
+  it("does not write a cookie until the visitor picks a wave", async () => {
     setWaves([wave(), wave({ key: "wave-02", name: "Волна 02" })]);
     render(withWave(<WaveSwitcher />));
 
@@ -205,7 +205,7 @@ describe("WaveSwitcher", () => {
   // ── The card's material: the ribbon of lived days (DESIGN §2.6, §10.2) ─────────────
   // A wave card shows not an emblem but A PIECE OF ITS OWN CANVAS, and one wave's canvas is the
   // data itself. So the switcher carries the same seam as the board's backdrop, off by default.
-  it("кладёт в карту ленту прожитых дней", async () => {
+  it("puts the ribbon of lived days into the card", async () => {
     setWaves([wave()]);
     const { container } = render(
       withWave(
@@ -224,7 +224,7 @@ describe("WaveSwitcher", () => {
   });
 
   // The ribbon is material, not a label: it is not read aloud and does not affect the choice.
-  it("прячет ленту от скринридера", async () => {
+  it("hides the ribbon from screen readers", async () => {
     setWaves([wave()]);
     const { container } = render(
       withWave(<WaveSwitcher summaries={[summary("2026-06-20", { steps: 1 })]} today="2026-06-21" />),
@@ -236,7 +236,7 @@ describe("WaveSwitcher", () => {
 
   // With no data yet (the board is loading) or a wave that draws no backdrop, the card must stay a
   // whole surface rather than an empty layer with padding. The same trade as WaveBackdrop's.
-  it("не рисует слой ленты, когда борду нечего сказать", async () => {
+  it("does not draw the ribbon layer when the board has nothing to say", async () => {
     setWaves([wave()]);
     const { container } = render(withWave(<WaveSwitcher />));
     await screen.findByLabelText("Волна: Волна 01");
@@ -246,7 +246,7 @@ describe("WaveSwitcher", () => {
 
   // Future days do not reach the ribbon (the same "today" anchor as the board's canvas): an
   // unlived day would print on equal terms with a lived one.
-  it("не пускает в ленту дни после сегодня", async () => {
+  it("does not let days after today into the ribbon", async () => {
     setWaves([wave()]);
     const { container } = render(
       withWave(

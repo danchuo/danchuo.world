@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeCache } from "@/lib/api/cache";
 import { useTileData } from "./useTileData";
 
-describe("useTileData — stale-while-revalidate и признак «сеть ответила» (DESIGN §7)", () => {
+describe("useTileData — stale-while-revalidate and the \"network answered\" flag (DESIGN §7)", () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
 
-  it("без копии: loading → loaded, settled только после ответа сети", async () => {
+  it("without a copy: loading → loaded, settled only after the network answers", async () => {
     let resolve!: (v: string) => void;
     const fetcher = () => new Promise<string>((r) => (resolve = r));
     const { result } = renderHook(() => useTileData(fetcher));
@@ -20,7 +20,7 @@ describe("useTileData — stale-while-revalidate и признак «сеть о
     expect(result.current.settled).toBe(true);
   });
 
-  it("копия из кэша показывается сразу, но settled=false, пока сеть не ответила; успех даёт свежее", async () => {
+  it("a cached copy shows at once but settled=false until the network answers; success gives the fresh one", async () => {
     writeCache("t", "cached");
     let resolve!: (v: string) => void;
     const fetcher = () => new Promise<string>((r) => (resolve = r));
@@ -36,7 +36,7 @@ describe("useTileData — stale-while-revalidate и признак «сеть о
     expect(result.current.settled).toBe(true);
   });
 
-  it("сбой сети при живой копии: копия остаётся, settled=true — показанное уже не сменится", async () => {
+  it("a network failure with a live copy: the copy stays, settled=true — what is shown will not change", async () => {
     writeCache("t", "cached");
     let reject!: (e: Error) => void;
     const fetcher = () => new Promise<string>((_, rj) => (reject = rj));
@@ -50,7 +50,7 @@ describe("useTileData — stale-while-revalidate и признак «сеть о
     expect(result.current.stale).toBe(true);
   });
 
-  it("смена ключа перезапрашивает НОВЫМ fetcher-ом: календарь шагает по дням, данные едут за ним", async () => {
+  it("a key change refetches with a NEW fetcher: the calendar steps through days, the data follows", async () => {
     const asked: string[] = [];
     const render = ({ date }: { date: string }) =>
       useTileData(() => {

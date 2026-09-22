@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Спрайты-«планетки» проектов (DESIGN §12.2): wave-agnostic статика фронта в
-      /assets/projects/. Суффикс "px" в имени файла = настоящий пиксель-арт, фронт
-      рендерит его nearest-neighbor; гладкие спрайты живут без суффикса.
+      Project "planet" sprites (DESIGN §12.2): wave-agnostic frontend statics in
+      /assets/projects/. The "px" suffix in a file name means real pixel art, the frontend
+      renders it nearest-neighbour; smooth sprites live without the suffix.
     -->
     <changeSet id="0200-project-planet-sprite-px" author="danchuo">
         <update tableName="project">
@@ -18,7 +18,7 @@
     </changeSet>
 
     <!--
-      Ссылка danchuo.world ведёт на сам сайт, не на GitHub-профиль (замечание владельца).
+      The danchuo.world link leads to the site itself, not to the GitHub profile (the owner's note).
     -->
     <changeSet id="0200-project-danchuo-url" author="danchuo">
         <update tableName="project">
@@ -28,8 +28,8 @@
     </changeSet>
 
     <!--
-      Диапазон danchuo.world: один квартал Q3 2026, закончен (решение владельца — без
-      «по настоящее»). Совпадающие края фронт схлопнет в «Q3 2026».
+      The danchuo.world range: a single quarter Q3 2026, finished (the owner's decision: no
+      "to date"). The frontend collapses matching ends into "Q3 2026".
     -->
     <changeSet id="0200-project-danchuo-q3" author="danchuo">
         <update tableName="project">
@@ -41,9 +41,9 @@
     </changeSet>
 
     <!--
-      Второй проект: proxemics (завершён, жил один квартал; равные края диапазона фронт
-      схлопывает в «Q2 2026»). Идёт ниже danchuo.world: завершённые проекты в публичном
-      списке под идущими «по настоящее».
+      The second project: proxemics (finished, lived one quarter; the frontend collapses equal range ends
+      into "Q2 2026"). It goes below danchuo.world: finished projects in the public
+      list come under the ongoing "to date" ones.
     -->
     <changeSet id="0200-project-proxemics-seed" author="danchuo">
         <insert tableName="project">

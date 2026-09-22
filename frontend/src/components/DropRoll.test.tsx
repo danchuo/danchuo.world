@@ -19,33 +19,33 @@ const photos: FilmPhotoView[] = [
 ];
 
 describe("DropRoll", () => {
-  it("открывается на кадре, по которому кликнули в плитке, а не с начала дропа", () => {
+  it("opens on the frame clicked in the tile, not from the start of the drop", () => {
     render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
 
     expect(screen.getByRole("button", { name: "кадр 3" })).toHaveAttribute("aria-current", "true");
     expect(screen.getByText("кадр 03 / 3")).toBeInTheDocument();
   });
 
-  it("без адреса кадра открывает первый", () => {
+  it("without a frame address opens the first one", () => {
     render(<DropRoll photos={photos} onZoom={() => {}} />);
 
     expect(screen.getByRole("button", { name: "кадр 1" })).toHaveAttribute("aria-current", "true");
   });
 
-  it("показывает находки текущего кадра и их счёт", () => {
+  it("shows the current frame's finds and their count", () => {
     render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
 
     expect(screen.getByText("находок: 1")).toBeInTheDocument();
     expect(screen.getByText("футболка")).toBeInTheDocument();
   });
 
-  it("регулятор один: отдельной полосы прокрутки над гребёнкой больше нет", () => {
+  it("a single control: there is no separate scrollbar above the comb any more", () => {
     render(<DropRoll photos={photos} onZoom={() => {}} />);
 
     expect(screen.queryByRole("scrollbar")).not.toBeInTheDocument();
   });
 
-  it("гребёнка помечает текущий кадр — она же и говорит, где мы в дропе", () => {
+  it("the comb marks the current frame — it also says where we are in the drop", () => {
     render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
 
     expect(screen.getByRole("button", { name: "перейти к кадру 3" })).toHaveAttribute(
@@ -57,7 +57,7 @@ describe("DropRoll", () => {
     );
   });
 
-  it("лупа отдаёт наверх ТЕКУЩИЙ кадр — его и открывать во весь экран", async () => {
+  it("the loupe reports the CURRENT frame upward — that is the one to open full screen", async () => {
     const onZoom = vi.fn();
     render(<DropRoll photos={photos} startAt="/api/film-media/1/1/web" onZoom={onZoom} />);
 
@@ -67,8 +67,8 @@ describe("DropRoll", () => {
   });
 });
 
-describe("DropRoll — кадр наружу", () => {
-  it("сообщает, на каком кадре стоит плёнка: плитке борда возвращаться в него", () => {
+describe("DropRoll — frame out", () => {
+  it("reports which frame the film stands on: the board tile returns to it", () => {
     // The tile follows this address so the developing animation (DESIGN §7.5) lands on the frame
     // you exit from. Otherwise a portrait shot returns into a landscape card and stretches.
     const onCurrent = vi.fn();
@@ -79,7 +79,7 @@ describe("DropRoll — кадр наружу", () => {
     expect(onCurrent).toHaveBeenCalledWith(photos[1]);
   });
 
-  it("без слушателя работает как работал", () => {
+  it("without a listener it works as it did", () => {
     expect(() => render(<DropRoll photos={photos} onZoom={() => {}} />)).not.toThrow();
   });
 });

@@ -6,21 +6,21 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: сон возвращается на борд в редакции «эхолот» (DESIGN §7.7, §10.2).
+      Wave 03: sleep returns to the board in the "echo sounder" edition (DESIGN §7.7, §10.2).
 
-      До сих пор виджет был у этой волны спрятан: прежняя вёрстка (бары долей слева, дорожки
-      ночи справа) — это язык волны 01, и на стекле она читалась гостем. «Эхолот» рисует ночь
-      промером глубины во всю плитку, без полей и без слова «сон», — тем же строем, что кадр
-      в плитке дропа и данные поездки на карте.
+      Until now the widget was hidden on this wave: the old layout (share bars on the left, the night's
+      lanes on the right) is wave 01's language, and on glass it read as a guest. The "echo sounder" draws the night
+      as a depth sounding filling the tile, without margins and without the word "sleep": in the same manner as the frame
+      in the drop tile and the ride data on the map.
 
-      Место: колонки 19..27, строки 12..19 — свободный блок между каруселью дропов (кончается
-      на 10-й строке) и календарём (начинается с 21-й). Ширина ВЗЯТА У КАЛЕНДАРЯ, а не
-      подобрана: обе плитки стоят одной колонкой, и разъехавшиеся края читались бы браком
-      вёрстки. Строки 11 и 20 остаются воздухом — прослойкой до соседей сверху и снизу.
+      Place: columns 19..27, rows 12..19: the free block between the drop carousel (which ends
+      at row 10) and the calendar (which starts at 21). The width is TAKEN FROM THE CALENDAR, not
+      picked: both tiles stand in one column, and edges drifting apart would read as a layout
+      defect. Rows 11 and 20 stay air: a spacer to the neighbours above and below.
 
-      Пропорция при этом получается близкой к 8:5 (335×209 на опорной ширине владельца) —
-      ровно та, на которой промер и размечен: спуск ночи читается слева направо, и плитке
-      положено быть лежачей.
+      The proportion comes out close to 8:5 (335×209 at the owner's reference width):
+      exactly the one the sounding is laid out for: the night's descent reads left to right, and the tile
+      is meant to be landscape.
     -->
     <changeSet id="0860-wave-03-sleep-echo" author="danchuo">
         <sql><![CDATA[

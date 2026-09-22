@@ -20,14 +20,14 @@ const book = (patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
 });
 
 describe("bookForStop", () => {
-  it("раздаёт карточки остановкам по порядку", () => {
+  it("hands cards to the stops in order", () => {
     const books = [book({ title: "первая" }), book({ title: "вторая" })];
 
     expect(bookForStop(books, 1)?.title).toBe("первая");
     expect(bookForStop(books, 2)?.title).toBe("вторая");
   });
 
-  it("оставляет остановку без карточки, когда сессий меньше, чем отметок", () => {
+  it("leaves a stop without a card when there are fewer sessions than marks", () => {
     // An hour in one sitting closes both stops, but there is nothing to tell about a second
     // sitting — there was none.
     expect(bookForStop([book()], 2)).toBeNull();
@@ -36,28 +36,28 @@ describe("bookForStop", () => {
 });
 
 describe("progressLabel", () => {
-  it("показывает пройденный кусок книги", () => {
+  it("shows the piece of the book covered", () => {
     expect(progressLabel(book())).toBe("35% → 42%");
   });
 
-  it("книга, начатая с нуля, так и читается", () => {
+  it("a book started from zero reads that way", () => {
     expect(progressLabel(book({ startPercent: 0, endPercent: 0.1 }))).toBe("0% → 10%");
   });
 
-  it("без известного начала показывает только достигнутое", () => {
+  it("without a known start shows only what was reached", () => {
     // An arrow out of nowhere answers no question at all.
     expect(progressLabel(book({ startPercent: null }))).toBe("42%");
   });
 
-  it("не двигавшийся процент не рисует стрелку сам в себя", () => {
+  it("a percentage that did not move does not draw an arrow into itself", () => {
     expect(progressLabel(book({ startPercent: 0.42, endPercent: 0.42 }))).toBe("42%");
   });
 
-  it("дочитанная книга читается как сто процентов, а не как 99.9", () => {
+  it("a finished book reads as one hundred percent, not 99.9", () => {
     expect(progressLabel(book({ startPercent: 0.9, endPercent: 0.999 }))).toBe("90% → 100%");
   });
 
-  it("у импортированного дня строки прогресса нет вовсе", () => {
+  it("an imported day has no progress row at all", () => {
     expect(progressLabel(book({ startPercent: null, endPercent: null }))).toBeNull();
   });
 });

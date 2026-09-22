@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс film (PRD §5.12, §7, §12 M4; DESIGN §7.5): фото-дропы. Кадры лежат в хранилище
-      (локальный диск за PhotoStorage, позже S3/R2), URL-ы вариантов (web/thumb) генерятся из
-      ключа "{dropId}/{sortOrder}" — путь в БД не хранится (консолидировано перед 1.0.0:
-      каркасная колонка image_url из M4 и её снос в бывшем 0150 схлопнуты). Без сида: таблицы
-      наполняются загрузкой через /admin. film_photo.width/height — для justified-композиции.
+      The film slice (PRD §5.12, §7, §12 M4; DESIGN §7.5): photo drops. Frames live in storage
+      (the local disk behind PhotoStorage, later S3/R2), variant URLs (web/thumb) are generated from
+      the key "{dropId}/{sortOrder}": no path is stored in the DB (consolidated before 1.0.0:
+      the M4 scaffold column image_url and its removal in the former 0150 are collapsed). No seed: the tables
+      are filled by uploading through /admin. film_photo.width/height are for the justified composition.
     -->
     <changeSet id="0100-film-drop-table" author="danchuo">
         <createTable tableName="film_drop">

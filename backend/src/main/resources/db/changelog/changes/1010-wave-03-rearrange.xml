@@ -6,29 +6,29 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: борд пересобран по правилам владельца. Размеры плиток не тронуты ни у одной,
-      состав не тронут — это чистые сдвиги.
+      Wave 03: the board is rebuilt by the owner's rules. No tile's size is touched,
+      the set is untouched: these are pure shifts.
 
-      Правила: переключатель волн и соцсети не стоят рядом; соцсети в верхней части; спотифай
-      слева сверху; сон сверху справа; «Сегодня» в центре; календарь под ним; велобайк справа
-      снизу; проекты снизу слева.
+      Rules: the wave switcher and social do not stand next to each other; social in the upper part; Spotify
+      top left; sleep top right; "Today" in the centre; the calendar under it; Velobike bottom
+      right; the projects bottom left.
 
-      Три колонки. Слева 1..11: дроп (1..16), проекты (18..23), переключатель волн (25..26).
-      Середина 13..31: спотифай и шахта артефактов сверху, «Сегодня» ровно по центру сетки
-      (13..28 × 9..19, середина колонки 20.5 при центре борда 20.5), под ним календарь и статы.
-      Справа 33..40: сон, соцсети, лента дропов, велобайк.
+      Three columns. Left 1..11: the drop (1..16), the projects (18..23), the wave switcher (25..26).
+      Middle 13..31: Spotify and the artifact shaft on top, "Today" exactly in the grid's centre
+      (13..28 × 9..19, the middle column 20.5 with the board's centre at 20.5), the calendar and stats under it.
+      Right 33..40: sleep, social, the drop ribbon, Velobike.
 
-      ОТСТУПЛЕНИЕ, сделанное сознательно: спотифай стоит не в самой левой колонке, а сверху
-      средней. Причина арифметическая, а не вкусовая. Календарь под «Сегодня» прижимает плитку
-      к строкам 9..19, значит над ней в середине остаётся 7 строк, и любая плитка высотой 8+
-      обязана жить в боковой колонке. Таких три: дроп (16), лента дропов (9), статы (8). Левая
-      колонка после спотифая даёт 21 строку — туда влезает только дроп; правая после сна и
-      велобайка даёт 12 — туда влезает только одна из двух оставшихся. Одной высокой плитке
-      места не остаётся вовсе. Поэтому левую колонку целиком занимает дроп (единственное место,
-      где помещается 11x16), а спотифай встаёт сверху середины — он остаётся наверху и левее
-      центра, и это самое дешёвое из возможных отступлений.
+      A DEVIATION made deliberately: Spotify stands not in the leftmost column but at the top
+      of the middle one. The reason is arithmetic, not taste. The calendar under "Today" pins the tile
+      to rows 9..19, so 7 rows remain above it in the middle, and any tile 8+ tall
+      must live in a side column. There are three: the drop (16), the drop ribbon (9), stats (8). The left
+      column after Spotify gives 21 rows: only the drop fits there; the right one after sleep and
+      Velobike gives 12: only one of the remaining two fits there. One tall tile is left with
+      no place at all. So the drop takes the whole left column (the only place
+      where 11x16 fits), and Spotify stands at the top of the middle: it stays on top and left of
+      centre, and this is the cheapest possible deviation.
 
-      Пустой трек между каждой парой соседей сохранён, проверено поклеточно.
+      An empty track between every pair of neighbours is kept, checked cell by cell.
     -->
     <changeSet id="1010-wave-03-rearrange" author="danchuo">
         <sql><![CDATA[

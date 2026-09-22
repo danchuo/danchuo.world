@@ -1,5 +1,5 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
-# Kotlin compiler session metadata (Kotlin 2.x), генерится при каждой сборке
+# Kotlin compiler session metadata (Kotlin 2.x), generated on every build
 .kotlin/

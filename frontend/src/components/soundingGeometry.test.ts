@@ -30,8 +30,8 @@ const longBand = (runs: [SleepBandView["parts"][number]["stage"], number][]): Sl
 const countBy = (bricks: { stage: string }[]) =>
   bricks.reduce<Record<string, number>>((acc, b) => ({ ...acc, [b.stage]: (acc[b.stage] ?? 0) + 1 }), {});
 
-describe("echoNight — ночь брусками", () => {
-  it("сводит минуты к кладке и считает итоги в МИНУТАХ", () => {
+describe("echoNight — the night as bars", () => {
+  it("reduces the minutes to stacking and counts totals in MINUTES", () => {
     const night = echoNight(band)!;
 
     expect(night.bricks).toHaveLength(64);
@@ -43,7 +43,7 @@ describe("echoNight — ночь брусками", () => {
     expect(night.timed).toBe(true);
   });
 
-  it("нумерует брусок внутри его фазы сквозь всю ночь, а не внутри куска", () => {
+  it("numbers a bar within its phase across the whole night, not within the chunk", () => {
     // The whole sum rests on this rank: two separated chunks of one phase must add into a single
     // bar, or the sum's bars would overlap each other.
     const night = echoNight(band)!;
@@ -52,7 +52,7 @@ describe("echoNight — ночь брусками", () => {
     expect(light.map((b) => b.rank)).toEqual([...Array(light.length).keys()]);
   });
 
-  it("держит долю фазы в кладке с точностью до бруска", () => {
+  it("keeps a phase's share in the stacking accurate to the bar", () => {
     const night = echoNight(band)!;
     const laid = countBy(night.bricks);
 
@@ -62,7 +62,7 @@ describe("echoNight — ночь брусками", () => {
     expect(laid.light + laid.deep + laid.rem + laid.awake).toBe(64);
   });
 
-  it("не теряет короткие разрозненные пробуждения, проигрывающие своему окну", () => {
+  it("does not lose short scattered wakings that lose to their window", () => {
     // Seven hours of sleep with four 4-minute wakings: the brick window is wider than any of them,
     // and a vote per window would drop "awake" from the drawing entirely, leaving it in the caption.
     const night = echoNight(
@@ -83,24 +83,24 @@ describe("echoNight — ночь брусками", () => {
     expect(countBy(night.bricks).awake).toBeGreaterThan(0);
   });
 
-  it("короткую ночь не укрупняет: брусков не больше, чем минут", () => {
+  it("does not coarsen a short night: no more bars than minutes", () => {
     const short = echoNight(longBand([["light", 30], ["deep", 10]]))!;
     expect(short.bricks).toHaveLength(40);
   });
 
-  it("ночи без сохранённых кусков не бывает", () => {
+  it("there is no night without saved chunks", () => {
     expect(echoNight(null)).toBeNull();
     expect(echoNight({ ...band, parts: [] })).toBeNull();
   });
 
-  it("ночь из одних пробуждений — это не ночь", () => {
+  it("a night of wakings only is not a night", () => {
     const awakeOnly = { ...band, parts: [{ stage: "awake" as const, fromMinute: 300, toMinute: 320 }] };
     expect(echoNight(awakeOnly)).toBeNull();
   });
 });
 
-describe("echoNightFromStages — деградация без хронологии", () => {
-  it("собирает те же итоги и честно помечает, что времени в ней нет", () => {
+describe("echoNightFromStages — degrading without a timeline", () => {
+  it("collects the same totals and honestly marks that there is no time in it", () => {
     const night = echoNightFromStages({ rem: 20, deep: 30, light: 60, awake: 10 })!;
 
     expect(night.totals).toEqual({ awake: 10, light: 60, deep: 30, rem: 20 });
@@ -109,17 +109,17 @@ describe("echoNightFromStages — деградация без хронологи
     expect(night.timed).toBe(false);
   });
 
-  it("нет фаз — нет и эхолота", () => {
+  it("no phases — no echo sounder either", () => {
     expect(echoNightFromStages(null)).toBeNull();
     expect(echoNightFromStages({ rem: null, deep: null, light: null, awake: 40 })).toBeNull();
   });
 });
 
-describe("echoGeometry — промер глубины", () => {
+describe("echoGeometry — depth sounding", () => {
   const night = echoNight(band)!;
   const geometry = echoGeometry(night);
 
-  it("даёт по столбу на брусок и застилает ширину целиком", () => {
+  it("gives one column per bar and covers the whole width", () => {
     expect(geometry.columns).toHaveLength(64);
     const last = geometry.columns[63];
     const pitch = ECHO_VIEW.width / 64;
@@ -127,13 +127,13 @@ describe("echoGeometry — промер глубины", () => {
     expect(last.x + pitch).toBeCloseTo(ECHO_VIEW.width);
   });
 
-  it("оставляет между брусками просвет, а не склеивает их в заливку", () => {
+  it("leaves a gap between bars instead of gluing them into a fill", () => {
     const pitch = ECHO_VIEW.width / 64;
     expect(geometry.columns[0].width).toBeLessThan(pitch);
     expect(geometry.columns[0].width).toBeGreaterThan(pitch * 0.5);
   });
 
-  it("роняет столб тем глубже, чем глубже фаза", () => {
+  it("drops a column the deeper, the deeper the phase", () => {
     const floorOf = (stage: string) => {
       const c = geometry.columns.find((col) => col.stage === stage)!;
       return c.y + c.height;
@@ -144,7 +144,7 @@ describe("echoGeometry — промер глубины", () => {
     expect(floorOf("light")).toBeLessThan(floorOf("deep"));
   });
 
-  it("сумма — пересортировка тех же столбов: площадь сохраняется по построению", () => {
+  it("the sum re-sorts the same columns: the area is preserved by construction", () => {
     // The shift puts a bar on its rank rather than at a new place from scratch: the sum's bars are
     // laid out by the same columns, and none is lost or doubled.
     const pitch = ECHO_VIEW.width / 64;
@@ -152,7 +152,7 @@ describe("echoGeometry — промер глубины", () => {
     expect(summed).toEqual(night.bricks.map((b) => b.rank));
   });
 
-  it("сжимает столб ко дну его горизонта — дно не двигается", () => {
+  it("compresses a column to the bottom of its horizon — the bottom does not move", () => {
     for (const c of geometry.columns) {
       const floor = c.y + c.height;
       // The squash works from the bottom edge (transform-origin: 50% 100%), so a bar's floor stays
@@ -162,7 +162,7 @@ describe("echoGeometry — промер глубины", () => {
     }
   });
 
-  it("рисует горизонты и ступенчатый профиль дна", () => {
+  it("draws the horizons and the stepped floor profile", () => {
     expect(geometry.floors).toHaveLength(4);
     // The profile only places a point at a phase boundary: inside a chunk the floor does not change.
     const runs = night.bricks.filter((b, i) => i === 0 || night.bricks[i - 1].stage !== b.stage).length;

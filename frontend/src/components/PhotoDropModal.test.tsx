@@ -12,8 +12,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("PhotoDropModal — blur-up загрузка", () => {
-  it("кадр стоит из размытого thumb, полный проступает по onLoad", async () => {
+describe("PhotoDropModal — blur-up loading", () => {
+  it("the frame is built from a blurred thumb, the full one shows through on onLoad", async () => {
     getDropMock.mockResolvedValue([
       { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 300, height: 400 },
     ]);
@@ -38,7 +38,7 @@ describe("PhotoDropModal — blur-up загрузка", () => {
     expect(full.dataset.loaded).toBe("true");
   });
 
-  it("thumb остаётся непрозрачной подложкой — фон не мелькает в кросс-фейде", async () => {
+  it("thumb stays an opaque backing — the background does not flash during the cross-fade", async () => {
     // A regression anchor on the "pink flash": the thumb used to fade out as the full frame faded
     // in, and mid-transition the tile's background showed through both translucent layers. The
     // thumb must get no fading mechanism at all, before or after the full frame loads.
@@ -62,14 +62,14 @@ describe("PhotoDropModal — blur-up загрузка", () => {
     notFaded(); // and after — the backing stays opaque
   });
 
-  it("пустой дроп → «пока нет кадров»", async () => {
+  it("an empty drop → \"no frames yet\"", async () => {
     getDropMock.mockResolvedValue([]);
     render(<PhotoDropModal dropId={2} title="Пусто" monthLabel={null} onClose={() => {}} />);
     expect(await screen.findByText("в этом дропе пока нет кадров")).toBeInTheDocument();
   });
 });
 
-describe("PhotoDropModal — кадр на весь экран", () => {
+describe("PhotoDropModal — full-screen frame", () => {
   const twoFrames = [
     { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 300, height: 400 },
     { imageUrl: "/api/film-media/1/1/web", thumbUrl: "/api/film-media/1/1/thumb", width: 400, height: 300 },
@@ -85,7 +85,7 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     return view;
   };
 
-  it("каждый кадр — кнопка, клик открывает его во весь экран", async () => {
+  it("each frame is a button, a click opens it full screen", async () => {
     const { container } = await openFirst();
 
     const lightbox = screen.getByRole("dialog", { name: "кадр 1 из 2" });
@@ -97,7 +97,7 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     );
   });
 
-  it("Esc закрывает только кадр — галерея дропа остаётся", async () => {
+  it("Esc closes only the frame — the drop gallery stays", async () => {
     const onClose = vi.fn();
     const { container } = await openFirst(onClose);
 
@@ -111,7 +111,7 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("системное «Назад» закрывает сперва кадр, потом галерею — а не уводит с сайта", async () => {
+  it("the system Back closes first the frame, then the gallery — instead of leaving the site", async () => {
     // The main cancel gesture on a phone. While open overlays were absent from history, Back on
     // Android navigated off the site entirely: the browser had nothing to undo.
     vi.spyOn(window.history, "back").mockImplementation(() => {});
@@ -129,7 +129,7 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("клик по фону и по ✕ закрывает кадр, но не галерею", async () => {
+  it("a click on the backdrop and on ✕ closes the frame but not the gallery", async () => {
     const onClose = vi.fn();
     const { container } = await openFirst(onClose);
 
@@ -143,14 +143,14 @@ describe("PhotoDropModal — кадр на весь экран", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("клик по самой картинке кадр не закрывает", async () => {
+  it("a click on the picture itself does not close the frame", async () => {
     // A miss past the backdrop must not cost the viewing — closing is a decision (backdrop/✕/Esc).
     const { container } = await openFirst();
     fireEvent.click(container.querySelector(".lightbox-photo")!);
     expect(container.querySelector(".lightbox-photo")).not.toBeNull();
   });
 
-  it("закрытый кадр возвращает фокус на свою плитку", async () => {
+  it("a closed frame returns focus to its tile", async () => {
     await openFirst();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(document.activeElement).toBe(
@@ -159,8 +159,8 @@ describe("PhotoDropModal — кадр на весь экран", () => {
   });
 });
 
-describe("PhotoDropModal — подсветка артефактов (§5.12)", () => {
-  it("рисует рамку долями кадра, а не пикселями", async () => {
+describe("PhotoDropModal — artifact highlighting (§5.12)", () => {
+  it("draws the box in frame fractions, not pixels", async () => {
     getDropMock.mockResolvedValue([
       {
         imageUrl: "/api/film-media/1/0/web",
@@ -186,7 +186,7 @@ describe("PhotoDropModal — подсветка артефактов (§5.12)", 
     expect(box.style.height).toBe("65%");
   });
 
-  it("подпись артефакта доступна с клавиатуры и скринридеру", async () => {
+  it("the artifact caption is available to keyboard and screen readers", async () => {
     getDropMock.mockResolvedValue([
       {
         imageUrl: "/api/film-media/1/0/web",
@@ -201,7 +201,7 @@ describe("PhotoDropModal — подсветка артефактов (§5.12)", 
     await waitFor(() => expect(screen.getByText("Ракетка")).toBeInTheDocument());
   });
 
-  it("кадр без находок не несёт ни одной рамки", async () => {
+  it("a frame without finds carries no boxes", async () => {
     getDropMock.mockResolvedValue([
       { imageUrl: "/api/film-media/1/0/web", thumbUrl: "/api/film-media/1/0/thumb", width: 300, height: 400 },
     ]);
@@ -215,7 +215,7 @@ describe("PhotoDropModal — подсветка артефактов (§5.12)", 
   });
 });
 
-describe("PhotoDropModal — подсказка о предмете по наведению на рамку", () => {
+describe("PhotoDropModal — an item hint on hovering its box", () => {
   const twoFinds = [
     {
       imageUrl: "/api/film-media/1/0/web",
@@ -245,13 +245,13 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     return { ...view, frame: view.container.querySelector<HTMLElement>(".drop-frame")! };
   };
 
-  it("на пустом месте кадра подсказки нет", async () => {
+  it("no hint on an empty spot of the frame", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.95, 0.02);
     expect(container.querySelectorAll(".artifact-card")).toHaveLength(0);
   });
 
-  it("подсказка показывает картинку предмета и его имя", async () => {
+  it("the hint shows the item's picture and its name", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.1, 0.1);
 
@@ -288,7 +288,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     return screen.getByRole("dialog", { name: "кадр 1 из 1" });
   };
 
-  it("на телефоне полноэкранный кадр подписывает находки сразу — без наведения", async () => {
+  it("on a phone the full-screen frame captions finds at once — without hover", async () => {
     // The touch flow (§7.5): there is no hover on a phone, and a tap on the frame is already taken
     // by opening fullscreen. So the fullscreen frame explains the finding itself — same boxes, but
     // the cards visible without a gesture. There is exactly one frame here, not 36.
@@ -301,7 +301,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(lightbox).toHaveTextContent("Футболка");
   });
 
-  it("на компьютере полноэкранный кадр не несёт ни рамок, ни карточек", async () => {
+  it("on a computer the full-screen frame carries neither boxes nor cards", async () => {
     // With a mouse the finding is shown by hovering in the gallery itself, so fullscreen has
     // nothing to explain — and boxes over the shot get in the way of looking at it.
     const lightbox = await openLightbox();
@@ -309,7 +309,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(lightbox.querySelectorAll(".artifact-card")).toHaveLength(0);
   });
 
-  it("рамки в полноэкранном кадре не перехватывают закрытие по фону", async () => {
+  it("boxes in the full-screen frame do not intercept closing by the backdrop", async () => {
     // The box lies over the picture; if it caught the pointer, a miss past the item would close
     // the viewing (a click on the picture must not close it — a regression anchor).
     getDropMock.mockResolvedValue(twoFinds);
@@ -322,7 +322,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(container.querySelector(".lightbox-photo")).not.toBeNull();
   });
 
-  it("вытянутый предмет с разрешением ложится в карточке набок", async () => {
+  it("an elongated item that is allowed lies on its side in the card", async () => {
     // A racket is drawn upright while the card's slot is landscape: without rotation the item
     // degenerates into a thread. The `rotatable` flag here is the marquee's, and the card must
     // respect it.
@@ -362,7 +362,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(img).toHaveClass("artifact-card__img--tilted");
   });
 
-  it("без разрешения предмет в карточке не поворачивается", async () => {
+  it("without permission the item in the card does not rotate", async () => {
     const view = await renderFrame(); // sunglasses: rotatable is not set
     hoverAt(view.container.querySelector<HTMLElement>(".drop-frame")!, 0.1, 0.1);
     const img = view.container.querySelector<HTMLImageElement>(".artifact-card__img")!;
@@ -372,7 +372,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(img).not.toHaveClass("artifact-card__img--tilted");
   });
 
-  it("две находки на кадре: показывается та, под которой курсор", async () => {
+  it("two finds on a frame: the one under the cursor is shown", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.8, 0.8);
     const cards = container.querySelectorAll(".artifact-card");
@@ -380,7 +380,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(cards[0]).toHaveTextContent("Футболка");
   });
 
-  it("на пересечении рамок показываются обе подсказки", async () => {
+  it("at an intersection of boxes both hints are shown", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.3, 0.3);
     const cards = container.querySelectorAll(".artifact-card");
@@ -388,7 +388,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect([...cards].map((c) => c.textContent)).toEqual(["Очки", "Футболка"]);
   });
 
-  it("на пересечении верхняя плашка — та, на которую навели ПОЗЖЕ", async () => {
+  it("at an intersection the top plate is the one hovered LATER", async () => {
     // Otherwise the markup dictates the order: the same plate is always on top, and the lower
     // finding cannot be reached by mouse at all — its card is never seen.
     const { container, frame } = await renderFrame();
@@ -411,13 +411,13 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(zOf("Футболка")).toBeGreaterThan(zOf("Очки"));
   });
 
-  it("предмет без картинки — подсказка остаётся, просто без картинки", async () => {
+  it("an item without a picture — the hint stays, just without the picture", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.8, 0.8);
     expect(container.querySelector(".artifact-card")!.querySelector("img")).toBeNull();
   });
 
-  it("курсор ушёл с кадра — подсказка гаснет", async () => {
+  it("the cursor left the frame — the hint goes out", async () => {
     const { container, frame } = await renderFrame();
     hoverAt(frame, 0.1, 0.1);
     expect(container.querySelectorAll(".artifact-card")).toHaveLength(1);
@@ -425,7 +425,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
     expect(container.querySelectorAll(".artifact-card")).toHaveLength(0);
   });
 
-  it("имя предмета доступно скринридеру и без наведения", async () => {
+  it("the item's name is available to screen readers without hover", async () => {
     // The hint lives on hover and a screen reader has no hover, so the name must always be in the
     // markup, or the finding simply does not exist for it.
     await renderFrame();
@@ -434,7 +434,7 @@ describe("PhotoDropModal — подсказка о предмете по нав�
   });
 });
 
-describe("PhotoDropModal — подпись артефакта не обрезается", () => {
+describe("PhotoDropModal — the artifact caption is not clipped", () => {
   const frameWith = (box: { x0: number; y0: number; x1: number; y1: number }) => [
     {
       imageUrl: "/api/film-media/1/0/web",
@@ -445,7 +445,7 @@ describe("PhotoDropModal — подпись артефакта не обреза
     },
   ];
 
-  it("клипует картинку, а не весь кадр — ореола нет, подписи есть куда выйти", async () => {
+  it("clips the picture, not the whole frame — no halo, the captions have room to come out", async () => {
     // A regression anchor on two bugs at once. Dropping the clip from the whole frame kept the
     // caption from being trimmed and gave a halo instead: filter: blur() spreads BEYOND the
     // element, and the clip was all that held it. Now only the picture wrapper clips.
@@ -464,7 +464,7 @@ describe("PhotoDropModal — подпись артефакта не обреза
     expect(frame.style.overflow === "" || frame.style.overflow === "visible").toBe(true);
   });
 
-  it("рамке не назначается потолок ширины подписи — имя предмета видно целиком", async () => {
+  it("the box gets no caption width ceiling — the item's name is visible in full", async () => {
     // A narrow box at the right edge is the worst case: the caption used to hit the frame's edge
     // and ellipsise, because the frame clipped. Now only the picture clips and the caption may
     // leave the frame entirely, so it needs no ceiling.
@@ -509,7 +509,7 @@ function imagesPaintable(): () => void {
   };
 }
 
-describe("PhotoDropModal — кадры с плитки", () => {
+describe("PhotoDropModal — frames from the tile", () => {
   const photo = {
     imageUrl: "/api/film-media/1/0/web",
     thumbUrl: "/api/film-media/1/0/thumb",
@@ -517,7 +517,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     height: 200,
   };
 
-  it("открывается на кадрах плитки, не дожидаясь своего запроса", () => {
+  it("opens on the tile's frames without waiting for its own request", () => {
     // The tile already fetched `getDrop(id)` for its own layout, so the gallery need not show a
     // loader over the same data. The network never answers here.
     getDropMock.mockReturnValue(new Promise(() => {}));
@@ -530,7 +530,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     expect(screen.queryByText("загрузка…")).toBeNull();
   });
 
-  it("проявка стартует не раньше, чем стартовый кадр отрисован", async () => {
+  it("the development starts no earlier than the start frame is painted", async () => {
     const restoreImages = imagesPaintable();
     // The frame must SIT at the tile's place for at least one painted frame before moving. Start
     // the timeline before the gallery's first paint and the heavy work (decoding the shot and the
@@ -577,7 +577,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
    * ready simply does not paint for its first third (17–20 frames of 27, with gaps up to 115ms),
    * so "the frame is in the markup" is no reason to fly.
    */
-  it("не летит, пока картинки кадра не готовы к отрисовке", async () => {
+  it("does not fly until the frame's pictures are ready to paint", async () => {
     getDropMock.mockReturnValue(new Promise(() => {}));
     document.documentElement.style.setProperty("--drop-morph", "1");
     const tile = document.createElement("div");
@@ -606,7 +606,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     tile.remove();
   });
 
-  it("галерея снимается не в момент посадки, а после досадки", async () => {
+  it("the gallery is removed not on landing but after settling", async () => {
     const restoreImages = imagesPaintable();
     // The frame reaches the tile in `--drop-morph-out-ms`, and there its only difference from the
     // tile is the blur band with the caption. Removing it at that instant would reveal them with a
@@ -660,7 +660,7 @@ describe("PhotoDropModal — кадры с плитки", () => {
     restoreImages();
   });
 
-  it("волна не просила проявки — галерея закрывается сразу, без ожидания анимации", () => {
+  it("the wave asked for no development — the gallery closes at once, without waiting for the animation", () => {
     // There is no `--drop-morph` opt-in (see [useDropMorph]) ⇒ no return flight, and `onClose`
     // must fire in the same tick, or the gallery would hang on an empty timer.
     getDropMock.mockReturnValue(new Promise(() => {}));

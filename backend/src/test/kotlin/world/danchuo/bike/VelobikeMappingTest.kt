@@ -25,7 +25,7 @@ class VelobikeMappingTest {
     }
 
     @Test
-    fun `парсит страницу истории и пагинацию`() {
+    fun `parses a history page and pagination`() {
         val page = loadPage()
         assertEquals(10, page.content.size)
         assertEquals(76, page.totalElements) // rides on the account in total
@@ -42,7 +42,7 @@ class VelobikeMappingTest {
     }
 
     @Test
-    fun `маппит поездку в доменную модель, дата старта — в MSK`() {
+    fun `maps a ride into the domain model, the start date in MSK`() {
         val item = loadPage().content.first()
         val ride = Ride()
         RideMapper.applyTo(
@@ -62,7 +62,7 @@ class VelobikeMappingTest {
     }
 
     @Test
-    fun `вся выборка фикстуры маппится без потерь и с валидными полями`() {
+    fun `the whole fixture sample maps without losses and with valid fields`() {
         val rides = loadPage().content.map { item ->
             Ride().also {
                 RideMapper.applyTo(
@@ -82,7 +82,7 @@ class VelobikeMappingTest {
     }
 
     @Test
-    fun `обновление из списка не затирает уже сохранённый адрес станции`() {
+    fun `an update from the list does not overwrite an already saved station address`() {
         // The list (rents/client) carries no addresses; those arrive only from getPopulatedRent.
         val item = loadPage().content.first()
         assertNull(item.startParkingAddress)

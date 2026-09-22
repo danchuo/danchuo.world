@@ -6,18 +6,18 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      У проекта появляется ВТОРАЯ ссылка (PRD §5.7), потому что у него два разных адреса:
-      `url` — путь, который блок ПОКАЗЫВАЕТ строкой под названием (репозиторий или сайт),
-      `home_url` — куда ведёт сам предмет: название и картинка.
+      A project gets a SECOND link (PRD §5.7), because it has two different addresses:
+      `url` is the path the block SHOWS as a line under the title (a repository or a site),
+      `home_url` is where the item itself leads: the title and the picture.
 
-      До сих пор адрес был один, и обе роли играл он. Расходятся они там, где код живёт не
-      там, где сам проект: у proxemics репозиторий на гитхабе, а пользоваться им идут в
-      телеграм-бота. Показывать в строке ссылку на бота нельзя — она перестанет быть путём
-      репозитория, то есть сигналом «это код»; вести название на репозиторий тоже нельзя —
-      посетитель хочет открыть сам проект, а не его исходники.
+      Until now there was one address, and it played both roles. They diverge where the code lives
+      somewhere other than the project itself: proxemics has its repository on GitHub, while people use it via
+      a Telegram bot. Showing a link to the bot in the line is not possible: it would stop being a repository
+      path, i.e. the "this is code" signal; leading the title to the repository is not possible either:
+      the visitor wants to open the project itself, not its sources.
 
-      `home_url` = null ⇒ отдельного дома нет, и предмет ведёт туда же, куда путь. Так у
-      сайта: показанный путь и есть его дом.
+      `home_url` = null ⇒ there is no separate home, and the item leads where the path does. That is the case for
+      the site: the shown path is its home.
     -->
     <changeSet id="0650-project-home-url" author="danchuo">
         <addColumn tableName="project">
@@ -26,9 +26,9 @@
     </changeSet>
 
     <!--
-      Проект-сайт показывает СВОЙ АДРЕС (решение владельца): раньше в поле стояла ссылка на
-      профиль владельца, и строка отвечала «чей это код», а не «что это за вещь». Дома у него
-      отдельного нет — показанный путь туда и ведёт.
+      The site project shows ITS OWN ADDRESS (the owner's decision): the field used to hold a link to
+      the owner's profile, and the line answered "whose code is this" rather than "what is this thing". It has no
+      separate home: the shown path leads there.
     -->
     <changeSet id="0650-danchuo-world-site-link" author="danchuo">
         <update tableName="project">
@@ -37,7 +37,7 @@
         </update>
     </changeSet>
 
-    <!-- proxemics: путь остаётся репозиторием, дом — бот в телеграме. -->
+    <!-- proxemics: the path stays the repository, the home is a Telegram bot. -->
     <changeSet id="0650-proxemics-home" author="danchuo">
         <update tableName="project">
             <column name="home_url" value="https://t.me/proxemics_bot"/>

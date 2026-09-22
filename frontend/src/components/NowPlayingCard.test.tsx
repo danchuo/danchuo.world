@@ -9,14 +9,14 @@ afterEach(() => {
 
 const PLATE = <span data-testid="plate" />;
 
-describe("Cover — обложка и её заглушка (§7.1)", () => {
-  it("адреса нет вовсе ⇒ сразу заглушка", () => {
+describe("Cover — the cover and its placeholder (§7.1)", () => {
+  it("no address at all ⇒ the placeholder right away", () => {
     const { queryByTestId, container } = render(<Cover url={null} alt="" fallback={PLATE} />);
     expect(queryByTestId("plate")).toBeInTheDocument();
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("картинка ответила ошибкой ⇒ заглушка, и плитке об этом сказано", () => {
+  it("the picture answered with an error ⇒ a placeholder, and the tile is told about it", () => {
     const onError = vi.fn();
     const { container, queryByTestId } = render(
       <Cover url="https://i.scdn.co/a.jpg" alt="" fallback={PLATE} onError={onError} />,
@@ -31,7 +31,7 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
    * browser reports no error, `onerror` never arrives, and the cover's place stayed empty instead
    * of showing the placeholder.
    */
-  it("картинка не приехала за отведённое время ⇒ та же заглушка, что и при ошибке", () => {
+  it("the picture did not arrive in the allotted time ⇒ the same placeholder as on an error", () => {
     vi.useFakeTimers();
     const onError = vi.fn();
     const { container, queryByTestId } = render(
@@ -51,7 +51,7 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
    * what does empty space read worse than a placeholder", and eight seconds of a hole in the
    * widget was long enough to read as breakage.
    */
-  it("порог ожидания — три секунды: до них ещё ждём, после них уже заглушка", () => {
+  it("the wait threshold is three seconds: before it we still wait, after it the placeholder", () => {
     vi.useFakeTimers();
     const { queryByTestId } = render(<Cover url="https://i.scdn.co/a.jpg" alt="" fallback={PLATE} />);
 
@@ -62,7 +62,7 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
     expect(queryByTestId("plate")).toBeInTheDocument();
   });
 
-  it("картинка успела загрузиться ⇒ ожидание снимается, заглушка не подменяет её потом", () => {
+  it("the picture managed to load ⇒ the wait is lifted, the placeholder does not replace it later", () => {
     vi.useFakeTimers();
     const onError = vi.fn();
     const { container, queryByTestId } = render(
@@ -77,7 +77,7 @@ describe("Cover — обложка и её заглушка (§7.1)", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("новый трек — новая попытка: ожидание считается для каждого адреса заново", () => {
+  it("a new track is a new attempt: the wait is counted afresh for each address", () => {
     vi.useFakeTimers();
     const { container, queryByTestId, rerender } = render(
       <Cover url="https://i.scdn.co/a.jpg" alt="" fallback={PLATE} />,

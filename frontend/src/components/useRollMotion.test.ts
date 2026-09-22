@@ -31,8 +31,8 @@ function mount(el: HTMLElement) {
   return renderHook(() => useRollMotion(ref, "y"));
 }
 
-describe("useRollMotion — движение ленты к ячейке", () => {
-  it("мгновенный заказ ставит ячейку в середину окна и не начинает движения", () => {
+describe("useRollMotion — moving the ribbon to a cell", () => {
+  it("an instant order puts the cell in the middle of the window and starts no motion", () => {
     const el = reel(10, 78, 246);
     const { result } = mount(el);
     act(() => result.current.jump(4));
@@ -41,7 +41,7 @@ describe("useRollMotion — движение ленты к ячейке", () => 
     expect(result.current.target()).toBeNull();
   });
 
-  it("пока лента едет, заказ помнит КАДР, а не положение: цепочка щелчков не топчется", () => {
+  it("while the ribbon moves, the order remembers the FRAME, not the position: a chain of clicks does not stall", () => {
     const el = reel(10, 78, 246);
     const { result } = mount(el);
     act(() => result.current.to(3));
@@ -51,7 +51,7 @@ describe("useRollMotion — движение ленты к ячейке", () => 
     expect(result.current.target()).toBe(4);
   });
 
-  it("на время движения снимает защёлкивание и возвращает его, когда лента встала", () => {
+  it("removes snapping for the duration of the motion and restores it when the ribbon stops", () => {
     const el = reel(10, 78, 246);
     const { result } = mount(el);
     act(() => result.current.to(3));
@@ -61,7 +61,7 @@ describe("useRollMotion — движение ленты к ячейке", () => 
     expect(result.current.target()).toBeNull();
   });
 
-  it("пульт стабилен между рендерами: слушатели звонящих не пересобираются", () => {
+  it("the remote is stable between renders: callers' listeners are not rebuilt", () => {
     const { result, rerender } = mount(reel(3, 78, 246));
     const first = result.current;
     rerender();

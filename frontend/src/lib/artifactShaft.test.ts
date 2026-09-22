@@ -86,15 +86,15 @@ describe("shaftWindow", () => {
 });
 
 describe("shaftArtifacts", () => {
-  const item = (name: string, model3dUrl: string | null) =>
-    ({ id: 1, name, imageUrl: null, firstMentionedOn: "2026-01-01", model3dUrl }) as ArtifactView;
+  const item = (name: string, imageUrl: string | null) =>
+    ({ id: 1, name, imageUrl, firstMentionedOn: "2026-01-01" }) as ArtifactView;
 
-  it("в шахту попадают только предметы со своей моделью", () => {
-    const shown = shaftArtifacts([item("с моделью", "/m.glb"), item("без", null)]);
-    expect(shown.map((a) => a.name)).toEqual(["с моделью"]);
+  it("only items with their own picture get into the shaft", () => {
+    const shown = shaftArtifacts([item("с рисунком", "/p.png"), item("без", null)]);
+    expect(shown.map((a) => a.name)).toEqual(["с рисунком"]);
   });
 
-  it("ни у кого нет модели — шахте нечего показывать", () => {
+  it("no one has a picture — the shaft has nothing to show", () => {
     expect(shaftArtifacts([item("без", null), item("и этот", "")])).toEqual([]);
   });
 });

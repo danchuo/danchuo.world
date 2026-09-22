@@ -25,7 +25,7 @@ const view = {
 };
 
 describe("HeatmapSection", () => {
-  it("каждая плитка встаёт на своё место борда, а не в одну клетку", async () => {
+  it("each tile takes its own place on the board, not one cell", async () => {
     // The overlay is only readable as the board; without gridArea every tile collapses into
     // a single grid cell and the bento turns into a strip.
     getHeatmapMock.mockResolvedValue(view);
@@ -46,7 +46,7 @@ describe("HeatmapSection", () => {
     expect(new Set(cells.map((el) => el.style.gridArea)).size).toBeGreaterThan(1);
   });
 
-  it("облачко кликов рисуется бинами внутри плитки", async () => {
+  it("the click cloud is drawn as bins inside the tile", async () => {
     getHeatmapMock.mockResolvedValue(view);
     const { container } = render(<HeatmapSection token="t" from={view.from} to={view.to} />);
     await waitFor(() => expect(container.querySelector("[aria-hidden]")).not.toBeNull());

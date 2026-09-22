@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("InstagramPeek", () => {
-  it("ведёт с шапки на профиль владельца", () => {
+  it("leads from the header to the owner's profile", () => {
     render(<InstagramPeek post={post()} />);
     expect(screen.getByLabelText("Профиль danchuo_")).toHaveAttribute(
       "href",
@@ -43,7 +43,7 @@ describe("InstagramPeek", () => {
    * navigation (see the note in `lib/instagram.ts`). A button must not promise more than the
    * platform can do.
    */
-  it("лайк и закладка ведут на пост, комментарий — в комментарии", () => {
+  it("like and bookmark lead to the post, comment to the comments", () => {
     render(<InstagramPeek post={post()} />);
     expect(screen.getByLabelText("Нравится")).toHaveAttribute("href", PERMALINK);
     expect(screen.getByLabelText("Сохранить")).toHaveAttribute("href", PERMALINK);
@@ -53,7 +53,7 @@ describe("InstagramPeek", () => {
     );
   });
 
-  it("«поделиться» копирует ссылку на пост и говорит об этом", async () => {
+  it("\"share\" copies the post link and says so", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
 
@@ -67,14 +67,14 @@ describe("InstagramPeek", () => {
    * The card lives in a portal and is marked `aria-hidden` (see HoverTip), so focus inside it
    * would take tabbing to the end of the document, past the mark itself.
    */
-  it("органы карточки из табуляции исключены", () => {
+  it("the card's controls are excluded from tabbing", () => {
     const { container } = render(<InstagramPeek post={post()} />);
     const controls = container.querySelectorAll("a, button");
     expect(controls.length).toBeGreaterThan(0);
     controls.forEach((el) => expect(el).toHaveAttribute("tabindex", "-1"));
   });
 
-  it("пишет число комментариев со склонением, а сами комментарии не показывает", () => {
+  it("writes the comment count with declension but does not show the comments themselves", () => {
     const { rerender } = render(<InstagramPeek post={post({ comments: 2 })} />);
     expect(screen.getByText("2 комментария")).toBeInTheDocument();
     expect(screen.queryByText(/Посмотреть/)).not.toBeInTheDocument();
@@ -86,19 +86,19 @@ describe("InstagramPeek", () => {
     expect(screen.getByText("5 комментариев")).toBeInTheDocument();
   });
 
-  it("счётчик, спрятанный владельцем, не рисует строку вовсе", () => {
+  it("a counter the owner hid draws no row at all", () => {
     render(<InstagramPeek post={post({ likes: null, comments: null })} />);
     expect(screen.queryByText(/Нравится/)).not.toBeInTheDocument();
     expect(screen.queryByText(/коммент/)).not.toBeInTheDocument();
   });
 
-  it("возраст поста пишется один раз", () => {
+  it("the post's age is written once", () => {
     render(<InstagramPeek post={post()} />);
     expect(screen.getByText("20 ч назад")).toBeInTheDocument();
   });
 
   /** The media type is not the post's content: the caption repeated what is already visible. */
-  it("не подписывает тип медиа под ником", () => {
+  it("does not caption the media type under the nickname", () => {
     render(<InstagramPeek post={post({ mediaType: "CAROUSEL_ALBUM" })} />);
     expect(screen.queryByText("несколько кадров")).not.toBeInTheDocument();
     expect(screen.queryByText("видео")).not.toBeInTheDocument();

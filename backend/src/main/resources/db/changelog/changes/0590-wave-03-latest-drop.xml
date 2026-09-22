@@ -6,30 +6,30 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: на борд возвращается второй виджет — последний дроп (DESIGN §10.2),
-      в редакции «кадр» (`edition: "frame"`): один случайный снимок во всю карточку, подпись
-      в нижней полосе прогрессивного блюра.
+      Wave 03 "PRIME": the second widget returns to the board: the latest drop (DESIGN §10.2),
+      in the "frame" edition (`edition: "frame"`): one random photo filling the card, the caption
+      in the bottom band of the progressive blur.
 
-      Композиция из столбика становится парой. Столбик «музыка над переключателем» стоял
-      на оси 20-й колонки; дроп — плитка того же веса, что музыка, и ставить его сверху или
-      снизу значило бы вытянуть столбик на три четверти высоты экрана. Вместо этого дроп
-      встаёт СЛЕВА от столбика. Центроваться на сетке обязана ГРУППА: 10 + прослойка + 10 = 21
-      колонка на чётной сетке 40 промахивается мимо оси на полколонки — те же 19px, что
-      ловили сидом 0530 у одинокого столбика. Поэтому дроп на колонку шире музыки (11):
-      группа 11 + 1 + 10 = 22 колонки, колонки 10–31, по девять пустых с каждого края.
-      Столбик ради этого съезжает вправо на шесть колонок (16→22, 18→24); внутри пары ось
-      «музыка над переключателем» сохранена.
+      The composition turns from a column into a pair. The "music over the switcher" column stood
+      on the axis of column 20; the drop is a tile of the same weight as music, and putting it above or
+      below would stretch the column to three quarters of the screen's height. Instead the drop
+      stands to the LEFT of the column. The GROUP must centre on the grid: 10 + spacer + 10 = 21
+      columns on the even 40 grid misses the axis by half a column: the same 19px that
+      the 0530 seed caught for the lone column. So the drop is one column wider than music (11):
+      the group is 11 + 1 + 10 = 22 columns, columns 10–31, nine empty on each side.
+      For this the column moves right by six columns (16→22, 18→24); within the pair the
+      "music over the switcher" axis is kept.
 
-      Строки — это СЛОТ, а не плитка. Карточка кадра берёт пропорцию самого снимка (решение
-      владельца): лежачий кадр — лежачая карточка во всю ширину слота, стоячий — стоячая во
-      всю высоту, и то и другое центрировано в слоте. Слот поэтому бронируется КВАДРАТОМ с
-      запасом, чтобы ни одна ориентация не заехала на соседей: 11 колонок ≈ 413px, 16 строк ≈
-      448px на опоре 1536 — квадрат в пределах 8%. Строки 6–21: центр слота — строка 14, та
-      же, что у столбика справа (музыка 8–14 + переключатель 16–19), то есть пара сидит на
-      одной горизонтальной оси, и оптический центр по-прежнему выше геометрического.
+      The rows are a SLOT, not a tile. The frame card takes the photo's own proportion (the owner's
+      decision): a landscape frame is a landscape card across the slot's width, a portrait one a portrait card across
+      the slot's height, both centred in the slot. So the slot is reserved as a SQUARE with
+      a margin, so that no orientation runs into the neighbours: 11 columns ≈ 413px, 16 rows ≈
+      448px at the 1536 reference: a square within 8%. Rows 6–21: the slot's centre is row 14, the same
+      as the column on the right (music 8–14 + switcher 16–19), i.e. the pair sits on
+      one horizontal axis, and the optical centre is still above the geometric one.
 
-      Мобильный порядок: дроп между музыкой и переключателем — переключатель остаётся
-      последним, как на всех волнах (орган управления замыкает стек, а не открывает его).
+      Mobile order: the drop between music and the switcher: the switcher stays
+      last, as on every wave (a control closes the stack rather than opening it).
     -->
     <changeSet id="0590-wave-03-latest-drop" author="danchuo">
         <sql><![CDATA[

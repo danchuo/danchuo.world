@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс bike (PRD §9 B4): кэш координат станций по адресу — чтобы рисовать пины поездки по
-      станции (надёжный адрес → геокод), а не по сырому GPS велосипеда (заброс в Шереметьево).
+      The bike slice (PRD §9 B4): a cache of station coordinates by address, so ride pins are drawn by
+      station (a reliable address → geocode) rather than by the bike's raw GPS (a jump to Sheremetyevo).
 
-      - bike_station: адрес → координаты, идемпотентно по address ⇒ UNIQUE. found помечает уже
-        пробованные адреса без матча (не ретраим). Заполняет фоновый StationGeocoder.
+      - bike_station: address → coordinates, idempotent by address ⇒ UNIQUE. found marks
+        already tried addresses without a match (not retried). Filled by the background StationGeocoder.
     -->
     <changeSet id="0150-bike-station-table" author="danchuo">
         <createTable tableName="bike_station">

@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: галерея дропа открывается ПЛЁНКОЙ (`gallery: "roll"`, DESIGN §7.5).
-      Дроп в 37 кадров читается катушкой — крупный кадр, лента миниатюр, засечка на каждый
-      кадр, — а не сеткой: выбор владельца из пяти прототипов (контрольный лист с лупой ·
-      бесконечный стол · плёнка · стопка в глубину · стол разбора).
+      Wave 03 "PRIME": the drop gallery opens as a FILM ROLL (`gallery: "roll"`, DESIGN §7.5).
+      A 37-frame drop reads as a reel (a large frame, a thumbnail strip, a tick per
+      frame) rather than a grid: the owner's choice out of five prototypes (a contact sheet with a loupe ·
+      an endless table · film · a stack in depth · a sorting table).
 
-      Поле лежит в КОРНЕ layout, а не в спане плитки: галерею открывают обе дроп-плитки
-      (последний дроп и лента прошлых), и редакция у волны одна — иначе один и тот же дроп
-      открывался бы по-разному в зависимости от точки входа. Волны 01 и 02 поля не имеют и
-      остаются на мозаике (дефолт кода).
+      The field lives at the layout ROOT, not in the tile's span: both drop tiles open the gallery
+      (the latest drop and the ribbon of past ones), and a wave has one edition: otherwise the same drop
+      would open differently depending on the entry point. Waves 01 and 02 have no field and
+      stay on the mosaic (the code default).
     -->
     <changeSet id="0620-wave-03-drop-roll" author="danchuo">
         <sql><![CDATA[

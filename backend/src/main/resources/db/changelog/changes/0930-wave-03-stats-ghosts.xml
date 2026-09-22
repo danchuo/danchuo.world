@@ -6,17 +6,17 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: плитка статов возвращается на борд в редакции «призраки» (DESIGN §7.4, §10.2).
+      Wave 03: the stats tile returns to the board in the "ghosts" edition (DESIGN §7.4, §10.2).
 
-      До сих пор она была у этой волны спрятана: дефолтная вёрстка — две полосы с колонкой
-      показаний слева — это язык волны 01, и на стекле она читалась гостем. «Призраки» рисуют все
-      метрики разом, каждую в своём масштабе, освещая выбранную: ответ обычно в паре, и одна
-      кривая не умеет сказать «шаги упали на той неделе, когда вырос сон».
+      Until now it was hidden on this wave: the default layout (two bars with a column of
+      readings on the left) is wave 01's language, and on glass it read as a guest. "Ghosts" draws all
+      metrics at once, each on its own scale, lighting the selected one: the answer usually lies in a pair, and a single
+      curve cannot say "steps dropped the week sleep grew".
 
-      Место — середина борда, колонки 19..27, строки 12..19 (335×262 на опорной ширине 1536).
-      Сверху карусель дропов кончается на 10-й строке, снизу календарь начинается с 21-й, поэтому
-      строки 11 и 20 остаются пустыми треками — воздух такой же структурный, как у остальных
-      соседей. Колонки 28..30 остаются межколонным зазором, через который видно холст.
+      Place: the middle of the board, columns 19..27, rows 12..19 (335×262 at the 1536 reference width).
+      Above, the drop carousel ends at row 10, below, the calendar starts at 21, so
+      rows 11 and 20 stay empty tracks: the air is as structural as for the other
+      neighbours. Columns 28..30 stay an inter-column gap through which the canvas shows.
     -->
     <changeSet id="0930-wave-03-stats-ghosts" author="danchuo">
         <sql><![CDATA[

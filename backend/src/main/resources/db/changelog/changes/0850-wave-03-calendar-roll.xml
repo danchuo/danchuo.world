@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 включает ход окна календаря (DESIGN 5.2, 10.2).
+      Wave 03 turns on the calendar window's movement (DESIGN 5.2, 10.2).
 
-      Наплыв редакция «поле» умела с самого начала, но длительность у него — токен волны, и
-      по умолчанию она нулевая: редакция сама ничего не анимирует. Без этой записи окно
-      меняло содержимое мгновенно — жест был, а движения не было.
+      The "field" edition could slide from the start, but its duration is a wave token, and
+      by default it is zero: the edition animates nothing by itself. Without this record the window
+      changed its content instantly: there was a gesture but no movement.
 
-      Смещение соразмерно ряду сетки (на опоре владельца ряд около 49px): недели меняются
-      местами, и мелкий толчок этого не показывал. Длительность не длиннее минимального
-      зазора между шагами жеста — иначе ход отставал бы от колеса.
+      The offset is proportional to a grid row (at the owner's reference a row is about 49px): the weeks swap
+      places, and a small nudge did not show that. The duration is no longer than the minimum
+      gap between the gesture's steps: otherwise the movement would lag behind the wheel.
     -->
     <changeSet id="0850-wave-03-calendar-roll" author="danchuo">
         <sql><![CDATA[

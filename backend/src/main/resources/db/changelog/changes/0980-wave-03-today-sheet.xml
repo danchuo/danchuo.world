@@ -6,13 +6,13 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «Сегодня» одевается в редакцию «контактный лист» (DESIGN §4.3).
+      Wave 03: "Today" is dressed in the "contact sheet" edition (DESIGN §4.3).
 
-      Дефолтная вёрстка на этой волне читалась гостем из волны 01: шапка со сплитом 2/5 — 3/5 и
-      карта-тропа — её язык, а не язык стекла. Редакция меняет вопрос: единица показа — ЗАХОД, а
-      не пункт, и каждый заход приходит своей обложкой во весь кадр.
+      The default layout on this wave read as a guest from wave 01: the header with the 2/5 to 3/5 split and
+      the trail map are its language, not glass's. The edition changes the question: the unit shown is the SESSION, not
+      the item, and each session arrives as its own full-frame cover.
 
-      Плитка теряет плиту целиком (скин волны): материал здесь — сами кадры.
+      The tile loses its slab entirely (the wave's skin): the material here is the frames themselves.
     -->
     <changeSet id="0980-wave-03-today-sheet" author="danchuo">
         <sql><![CDATA[

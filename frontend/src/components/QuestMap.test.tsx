@@ -23,7 +23,7 @@ const ALL_DONE: DisciplineItemView[] = [
 ];
 
 describe("QuestMap", () => {
-  it("рендерит 7 остановок маршрута, детур монстра и итог дня", () => {
+  it("renders the route's 7 stops, the monster detour and the day's total", () => {
     render(<QuestMap items={[]} monsterDrunk={false} />);
 
     // items with target=2 give two stops (occurrence 1 and 2)
@@ -43,7 +43,7 @@ describe("QuestMap", () => {
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
-  it("остановка done по счётчику ≥ occurrence; иначе pending (два состояния, без missed)", () => {
+  it("a stop is done by counter ≥ occurrence; otherwise pending (two states, no missed)", () => {
     // reading is fully closed (both stops), stretching is not → stretching is pending
     render(<QuestMap items={[item("reading", 2, 2), item("stretch", 0, 1)]} monsterDrunk={false} />);
 
@@ -60,13 +60,13 @@ describe("QuestMap", () => {
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
-  it("частичный прогресс пункта закрывает только первую его остановку", () => {
+  it("an item's partial progress closes only its first stop", () => {
     render(<QuestMap items={[item("podcasts", 1, 2)]} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-stop-podcasts-1")).toHaveAttribute("data-done", "true");
     expect(screen.getByTestId("quest-stop-podcasts-2")).toHaveAttribute("data-done", "false");
   });
 
-  it("дроби прогресса (для скинов со счётчиками): из данных пункта, фолбэк — по маршруту", () => {
+  it("progress fractions (for skins with counters): from the item's data, falling back to the route", () => {
     render(<QuestMap items={[item("podcasts", 1, 2)]} monsterDrunk={false} />);
     // both stops of an item show the item's overall progress
     expect(screen.getByTestId("quest-frac-podcasts-1")).toHaveTextContent("1/2");
@@ -76,7 +76,7 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-frac-stretch-1")).toHaveTextContent("0/1");
   });
 
-  it("измеренные минуты вытесняют дробь у своей остановки", () => {
+  it("measured minutes replace the fraction at their stop", () => {
     render(
       <QuestMap items={[item("journal", 1, 1, undefined, 23)]} monsterDrunk={false} />,
     );
@@ -87,7 +87,7 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-frac-stretch-1")).toBeInTheDocument();
   });
 
-  it("минуты показываются и когда порог не взят — они объясняют пустую остановку", () => {
+  it("minutes show even when the threshold is not reached — they explain an empty stop", () => {
     render(
       <QuestMap items={[item("journal", 0, 1, undefined, 6)]} monsterDrunk={false} />,
     );
@@ -95,30 +95,30 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-minutes-journal-1")).toHaveTextContent("6 мин");
   });
 
-  it("без измерения строка остаётся дробью (ручная отметка, старые дни)", () => {
+  it("without a measurement the row stays a fraction (manual mark, old days)", () => {
     render(<QuestMap items={[item("journal", 1, 1)]} monsterDrunk={false} />);
     expect(screen.queryByTestId("quest-minutes-journal-1")).not.toBeInTheDocument();
     expect(screen.getByTestId("quest-frac-journal-1")).toHaveTextContent("1/1");
   });
 
-  it("измеренный ноль — это не «не мерили»: цифра рисуется", () => {
+  it("a measured zero is not \"not measured\": the figure is drawn", () => {
     render(<QuestMap items={[item("journal", 0, 1, undefined, 0)]} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-minutes-journal-1")).toHaveTextContent("0 мин");
   });
 
-  it("все 7 остановок закрыты — маршрут в perfect-подсветке (монстр не обязателен)", () => {
+  it("all 7 stops closed — the route is in perfect highlight (the monster is optional)", () => {
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-map").getAttribute("class")).toContain("quest-map--perfect");
     // The celebration lives in the route's class rather than a number: there is no total any more.
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
-  it("детур монстра отражает «пил/не пил»", () => {
+  it("the monster detour reflects \"drank/did not drink\"", () => {
     render(<QuestMap items={[]} monsterDrunk={true} />);
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute("data-done", "true");
   });
 
-  it("подпись монстра называет вердикт словами, а не одним словом «монстр»", () => {
+  it("the monster caption names the verdict in words, not with the single word \"monster\"", () => {
     const { rerender } = render(<QuestMap items={[]} monsterDrunk={true} />);
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent("пил монстр");
 
@@ -126,7 +126,7 @@ describe("QuestMap", () => {
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent("не пил монстр");
   });
 
-  it("глагол вердикта красится своим токеном: «не пил» зелёным, «пил» тревожным", () => {
+  it("the verdict's verb uses its own token: \"did not drink\" green, \"drank\" alarming", () => {
     const verb = (drunk: boolean) => {
       const { unmount } = render(<QuestMap items={[]} monsterDrunk={drunk} />);
       const style = screen.getByTestId("quest-monster-verb").getAttribute("style") ?? "";
@@ -137,7 +137,7 @@ describe("QuestMap", () => {
     expect(verb(true)).toContain("--danger");
   });
 
-  it("детур не притворяется пунктом дисциплины: у монстра свои состояния clean/drunk", () => {
+  it("the detour does not pretend to be a discipline item: the monster has its own clean/drunk states", () => {
     // A regression anchor on polarity: a drunk monster used to close the detour as "done", so the
     // ring and trail were painted as an achievement when the achievement was a clean day.
     const { rerender } = render(<QuestMap items={[]} monsterDrunk={true} />);
@@ -152,7 +152,7 @@ describe("QuestMap", () => {
     expect(stop.getAttribute("class")).not.toContain("quest-stop--pending");
   });
 
-  it("к монстру не ведёт тропа: он стоит отдельно от маршрута, без стрелки", () => {
+  it("no trail leads to the monster: it stands apart from the route, without an arrow", () => {
     // The detour branch is gone entirely. Any trail to the monster spoke of it as a stage of the
     // day, and there was no way to colour it: "walked" praised drinking, "not walked" scolded a
     // clean day.
@@ -165,12 +165,12 @@ describe("QuestMap", () => {
     expect(document.querySelectorAll(".quest-seg")).toHaveLength(6);
   });
 
-  it("дроби «1/1» у монстра нет: она читалась как закрытый пункт, а вердикт словами точнее", () => {
+  it("the monster has no \"1/1\" fraction: it read as a closed item, and a verdict in words is more precise", () => {
     render(<QuestMap items={[]} monsterDrunk={true} />);
     expect(screen.queryByTestId("quest-frac-monster")).toBeNull();
   });
 
-  it("нет данных за день — монстр серый, как любая незакрытая остановка, и без вердикта", () => {
+  it("no data for the day — the monster is grey like any unclosed stop, and without a verdict", () => {
     render(<QuestMap items={[]} monsterDrunk={null} />);
     // The caption is just the noun, with no verb: no record is not passed off as a clean day.
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent(/^монстр$/);
@@ -182,7 +182,7 @@ describe("QuestMap", () => {
     expect(stop.getAttribute("class")).not.toContain("quest-stop--drunk");
   });
 
-  it("запись за день есть, вкуса нет — это честное «не пил», а не «нет данных»", () => {
+  it("there is a record for the day but no flavour — an honest \"did not drink\", not \"no data\"", () => {
     render(<QuestMap items={[]} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent("не пил монстр");
     expect(screen.getByTestId("quest-stop-monster").getAttribute("class")).toContain(
@@ -190,7 +190,7 @@ describe("QuestMap", () => {
     );
   });
 
-  it("описание карты и без данных не врёт: «нет данных о монстре», а не «не пил»", () => {
+  it("the map description does not lie without data either: \"no monster data\", not \"did not drink\"", () => {
     render(<QuestMap items={[]} monsterDrunk={null} />);
     expect(screen.getByTestId("quest-map")).toHaveAttribute(
       "aria-label",
@@ -198,7 +198,7 @@ describe("QuestMap", () => {
     );
   });
 
-  it("описание карты всегда называет монстра — и чистый день тоже", () => {
+  it("the map description always names the monster — on a clean day too", () => {
     // The map used to say nothing about a clean day, so for a screen reader "not drunk" was
     // indistinguishable from "no data".
     const { rerender } = render(<QuestMap items={[]} monsterDrunk={false} />);
@@ -214,7 +214,7 @@ describe("QuestMap", () => {
     );
   });
 
-  it("огонёк-стрик пункта: показывается от 2, по своей остановке (occurrence)", () => {
+  it("an item's streak flame: shown from 2, per its own stop (occurrence)", () => {
     // podcasts: a run of ≥1 for seven days, ≥2 for three → stop 1 shows 7, stop 2 shows 3
     render(<QuestMap items={[item("podcasts", 2, 2, [7, 3])]} monsterDrunk={false} />);
     expect(screen.getByTestId("quest-streak-podcasts-1")).toHaveTextContent("7");
@@ -226,7 +226,7 @@ describe("QuestMap", () => {
     );
   });
 
-  it("стрик < 2 и без данных о стрике — значок не рисуется (шум на карте)", () => {
+  it("a streak < 2 or no streak data — no badge is drawn (noise on the map)", () => {
     render(
       <QuestMap
         items={[item("stretch", 1, 1, [1]), item("journal", 1, 1)]}
@@ -239,7 +239,7 @@ describe("QuestMap", () => {
     expect(screen.queryByTestId("quest-streak-journal-1")).toBeNull();
   });
 
-  it("огонёк-стрик монстра: «дней чисто» от 2, иначе скрыт", () => {
+  it("the monster streak flame: \"clean days\" from 2, otherwise hidden", () => {
     const { rerender } = render(
       <QuestMap items={[]} monsterDrunk={false} monsterCleanStreak={12} />,
     );
@@ -259,7 +259,7 @@ describe("QuestMap", () => {
   });
 });
 
-describe("QuestMap — карточки прослушанных подкастов", () => {
+describe("QuestMap — listened podcast cards", () => {
   const episode = (
     name: string,
     listened: number,
@@ -282,7 +282,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
   ];
 
-  it("вешает по карточке на остановку и подписывает эпизод, шоу и минуты", () => {
+  it("hangs a card per stop and captions the episode, show and minutes", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 
     expect(screen.getByText("Утро")).toBeInTheDocument();
@@ -299,7 +299,7 @@ describe("QuestMap — карточки прослушанных подкаст�
    * as in the music tile stands in its place, not a blank rectangle. The stop's preview and the
    * card show the refusal IDENTICALLY: it is one cover of one episode.
    */
-  it("обложка эпизода не приехала ⇒ плашка Spotify и в карточке, и в превью у остановки", () => {
+  it("the episode cover did not arrive ⇒ the Spotify plate both in the card and in the preview at the stop", () => {
     vi.useFakeTimers();
     const { container } = render(
       <QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />,
@@ -314,7 +314,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     vi.useRealTimers();
   });
 
-  it("кусок горит зелёным целиком — вместе с единицей", () => {
+  it("the piece glows green entirely — together with the unit", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 
     const card = screen.getAllByTestId("quest-card")[0];
@@ -324,7 +324,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(card.querySelector(".quest-card__progress-unit")).toBeNull();
   });
 
-  it("ведёт ссылками на эпизод и на шоу", () => {
+  it("links to the episode and to the show", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 47)])} monsterDrunk={false} />);
 
     expect(screen.getByText("Утро").closest("a")).toHaveAttribute(
@@ -337,13 +337,13 @@ describe("QuestMap — карточки прослушанных подкаст�
     );
   });
 
-  it("один длинный эпизод закрывает обе остановки, но карточка остаётся одна", () => {
+  it("one long episode closes both stops, but the card stays single", () => {
     render(<QuestMap items={withEpisodes([episode("Длинный", 120)])} monsterDrunk={false} />);
 
     expect(screen.getAllByTestId("quest-card")).toHaveLength(1);
   });
 
-  it("эпизод, взятый двумя заходами, различает карточки СВОИМ куском выпуска", () => {
+  it("an episode taken in two sessions tells its cards apart by ITS OWN piece of the episode", () => {
     // 80 minutes of one episode: 0→45 in the morning, 45→80 in the evening. That is what the second
     // line is for — bare minutes do not say the evening continued rather than restarted.
     render(
@@ -371,7 +371,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(screen.getByTestId("quest-minutes-podcasts-2")).toHaveTextContent("35 мин");
   });
 
-  it("два эпизода дают две карточки", () => {
+  it("two episodes give two cards", () => {
     render(
       <QuestMap items={withEpisodes([episode("Утро", 40), episode("Вечер", 40)])} monsterDrunk={false} />,
     );
@@ -380,7 +380,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(screen.getByText("Вечер")).toBeInTheDocument();
   });
 
-  it("карточки — последний слой карты, поверх монстра и всего остального", () => {
+  it("the cards are the map's top layer, above the monster and everything else", () => {
     render(<QuestMap items={withEpisodes([episode("Утро", 40)])} monsterDrunk />);
 
     // SVG has no z-index: whatever is drawn later is on top. The monster comes after the stops, and
@@ -395,7 +395,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(cards).toBe(nodes.length - 1);
   });
 
-  it("у верхнего ряда карточка падает ПОД остановку, у нижнего — встаёт над ней", () => {
+  it("in the top row the card drops BELOW the stop, in the bottom row it rises above it", () => {
     render(
       <QuestMap items={withEpisodes([episode("Утро", 40), episode("Вечер", 40)])} monsterDrunk={false} />,
     );
@@ -413,7 +413,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(second).toBeGreaterThanOrEqual(0);
   });
 
-  it("под каждой остановкой стоят минуты ЕЁ эпизода, а не сумма за сутки", () => {
+  it("under each stop stand ITS episode's minutes, not the daily sum", () => {
     render(
       <QuestMap
         items={[
@@ -433,7 +433,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(screen.queryByText("62 мин")).toBeNull();
   });
 
-  it("без карточки остановка возвращается к сумме за сутки у первой и к дроби у второй", () => {
+  it("without a card the stop falls back to the daily sum for the first and to a fraction for the second", () => {
     render(
       <QuestMap
         items={[
@@ -452,13 +452,13 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(screen.getByTestId("quest-frac-podcasts-2")).toHaveTextContent("0/2");
   });
 
-  it("без прослушанного карточек нет вовсе", () => {
+  it("with nothing listened there are no cards at all", () => {
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
 
     expect(screen.queryByTestId("quest-card")).toBeNull();
   });
 
-  it("ссылки карточки лежат ВНЕ кнопки-остановки (вложенная интерактивность недоступна)", () => {
+  it("the card's links lie OUTSIDE the stop button (nested interactivity is not accessible)", () => {
     render(
       <QuestMap
         items={withEpisodes([episode("Утро", 47)])}
@@ -471,7 +471,7 @@ describe("QuestMap — карточки прослушанных подкаст�
     expect(link?.closest('[role="button"]')).toBeNull();
   });
 
-  it("кнопка пересказа есть только там, где есть что рассказать, и окно у неё общее с книгой", async () => {
+  it("the retell button exists only where there is something to tell, and it shares its window with the book", async () => {
     render(
       <QuestMap
         items={withEpisodes([
@@ -514,7 +514,7 @@ function tap(el: Element) {
 }
 const isOpen = (card: Element) => card.getAttribute("class")?.includes("quest-card--open") ?? false;
 
-describe("QuestMap — превью обложки у остановки подкаста", () => {
+describe("QuestMap — cover preview at a podcast stop", () => {
   const episode = (name: string): PodcastEpisodeView => ({
     episodeName: name,
     episodeUrl: `https://open.spotify.com/episode/${name}`,
@@ -530,7 +530,7 @@ describe("QuestMap — превью обложки у остановки под�
     { key: "podcasts", label: "подкаст", icon: null, count: 2, target: 2, episodes },
   ];
 
-  it("превью появляется ровно там, где есть что показать в карточке", () => {
+  it("the preview appears exactly where the card has something to show", () => {
     const { rerender } = render(
       <QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />,
     );
@@ -542,7 +542,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(screen.queryByTestId("quest-preview-podcasts-1")).toBeNull();
   });
 
-  it("превью стоит сверху-слева, а его угол заходит ЗА диск остановки", () => {
+  it("the preview sits top-left, and its corner goes BEHIND the stop's disc", () => {
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
 
     const preview = screen.getByTestId("quest-preview-podcasts-1");
@@ -563,7 +563,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(y).toBeGreaterThanOrEqual(0);
   });
 
-  it("превью нарисовано ДО остановки — иначе угол лёг бы поверх диска, а не под ним", () => {
+  it("the preview is drawn BEFORE the stop — otherwise the corner would lie over the disc instead of under it", () => {
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
 
     const preview = screen.getByTestId("quest-preview-podcasts-1");
@@ -573,7 +573,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(kids.indexOf(preview)).toBeLessThan(stop);
   });
 
-  it("карточку раскрывает наведение на превью, а не на саму остановку", () => {
+  it("hovering the preview opens the card, not the stop itself", () => {
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
     const card = screen.getByTestId("quest-card");
 
@@ -585,7 +585,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(isOpen(card)).toBe(true);
   });
 
-  it("указатель, ушедший с остановки совсем, закрывает карточку", () => {
+  it("a pointer that left the stop entirely closes the card", () => {
     vi.useFakeTimers();
     try {
       render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
@@ -607,7 +607,7 @@ describe("QuestMap — превью обложки у остановки под�
     }
   });
 
-  it("на тач карточку показывает и прячет тап по превью", () => {
+  it("on touch a tap on the preview shows and hides the card", () => {
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
     const card = screen.getByTestId("quest-card");
     const preview = screen.getByTestId("quest-preview-podcasts-1");
@@ -618,7 +618,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(isOpen(card)).toBe(false);
   });
 
-  it("тап мимо карточки закрывает её", () => {
+  it("a tap outside the card closes it", () => {
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
     const card = screen.getByTestId("quest-card");
 
@@ -629,7 +629,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(isOpen(card)).toBe(false);
   });
 
-  it("тап внутри карточки её не закрывает — там живые ссылки", () => {
+  it("a tap inside the card does not close it — it has live links", () => {
     render(<QuestMap items={withEpisodes([episode("Утро")])} monsterDrunk={false} />);
     const card = screen.getByTestId("quest-card");
 
@@ -638,7 +638,7 @@ describe("QuestMap — превью обложки у остановки под�
     expect(isOpen(card)).toBe(true);
   });
 
-  it("превью лежит ВНЕ кнопки-остановки: тап по нему не переключает линзу календаря", () => {
+  it("the preview lies OUTSIDE the stop button: a tap on it does not toggle the calendar lens", () => {
     const onLensChange = vi.fn();
     render(
       <QuestMap
@@ -655,15 +655,15 @@ describe("QuestMap — превью обложки у остановки под�
   });
 });
 
-describe("QuestMap — линза календаря", () => {
-  it("без обработчика остановки не интерактивны (карта прежняя)", () => {
+describe("QuestMap — calendar lens", () => {
+  it("without a handler the stops are not interactive (the map as before)", () => {
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} />);
     const stop = screen.getByTestId("quest-stop-stretch-1");
     expect(stop).not.toHaveAttribute("role", "button");
     expect(stop).not.toHaveAttribute("aria-pressed");
   });
 
-  it("клик по остановке включает линзу этой остановки (ключ + occurrence)", async () => {
+  it("a click on a stop turns on that stop's lens (key + occurrence)", async () => {
     const onLensChange = vi.fn();
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} onLensChange={onLensChange} />);
 
@@ -671,7 +671,7 @@ describe("QuestMap — линза календаря", () => {
     expect(onLensChange).toHaveBeenCalledWith({ key: "podcasts", occurrence: 2, label: "подкаст" });
   });
 
-  it("повторный клик по выбранной остановке снимает линзу", async () => {
+  it("a repeated click on the selected stop removes the lens", async () => {
     const onLensChange = vi.fn();
     render(
       <QuestMap
@@ -685,7 +685,7 @@ describe("QuestMap — линза календаря", () => {
     expect(onLensChange).toHaveBeenCalledWith(null);
   });
 
-  it("выбранная остановка приподнята и озвучена; соседняя — нет", () => {
+  it("the selected stop is raised and announced; the neighbour is not", () => {
     render(
       <QuestMap
         items={ALL_DONE}
@@ -705,14 +705,14 @@ describe("QuestMap — линза календаря", () => {
     expect(sibling).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("монстр тоже включает линзу — со своим ключом", async () => {
+  it("the monster turns on the lens too — with its own key", async () => {
     const onLensChange = vi.fn();
     render(<QuestMap items={[]} monsterDrunk={true} onLensChange={onLensChange} />);
     await userEvent.click(screen.getByTestId("quest-stop-monster"));
     expect(onLensChange).toHaveBeenCalledWith({ key: "monster", occurrence: 1, label: "монстр" });
   });
 
-  it("кнопка-детур озвучивает вердикт: aria-label кнопки перекрывает подпись, и без него «пил/не пил» до скринридера не доходит", async () => {
+  it("the detour button announces the verdict: the button's aria-label overrides the caption, and without it \"drank/did not drink\" never reaches the screen reader", async () => {
     render(<QuestMap items={[]} monsterDrunk={true} onLensChange={() => {}} />);
     expect(screen.getByTestId("quest-stop-monster")).toHaveAttribute(
       "aria-label",
@@ -720,7 +720,7 @@ describe("QuestMap — линза календаря", () => {
     );
   });
 
-  it("остановка доступна с клавиатуры (Enter)", async () => {
+  it("the stop is keyboard accessible (Enter)", async () => {
     const onLensChange = vi.fn();
     render(<QuestMap items={ALL_DONE} monsterDrunk={false} onLensChange={onLensChange} />);
     const stop = screen.getByTestId("quest-stop-office-1");
@@ -735,7 +735,7 @@ describe("QuestMap — линза календаря", () => {
  * DIFFERENCES are here: the two stops take different sides, and the card tells about the chunk of
  * the book covered rather than an episode's duration.
  */
-describe("QuestMap · чтение", () => {
+describe("QuestMap · reading", () => {
   const book = (title: string, patch: Partial<ReadingBookView> = {}): ReadingBookView => ({
     title,
     author: "Лавкрафт",
@@ -750,7 +750,7 @@ describe("QuestMap · чтение", () => {
     { key: "reading", label: "чтение", icon: null, count: 2, target: 2, books },
   ];
 
-  it("превью появляется ровно там, где есть что показать в карточке", () => {
+  it("the preview appears exactly where the card has something to show", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     expect(screen.getByTestId("quest-preview-reading-1")).toBeInTheDocument();
@@ -758,7 +758,7 @@ describe("QuestMap · чтение", () => {
     expect(screen.queryByTestId("quest-preview-reading-2")).toBeNull();
   });
 
-  it("у верхней остановки обложка слева, у нижней справа", () => {
+  it("the top stop has its cover on the left, the bottom one on the right", () => {
     render(
       <QuestMap items={withBooks([book("Первая"), book("Вторая")])} monsterDrunk={false} />,
     );
@@ -774,7 +774,7 @@ describe("QuestMap · чтение", () => {
     expect(Number(boxOf(2).getAttribute("x"))).toBeGreaterThan(Number(stopOf(2).getAttribute("cx")));
   });
 
-  it("карточка жмётся под короткое название и не тянет за собой пустоту", () => {
+  it("the card hugs a short title and does not drag emptiness along", () => {
     const widthOf = (title: string) => {
       const { unmount } = render(
         <QuestMap items={withBooks([book(title)])} monsterDrunk={false} />,
@@ -795,7 +795,7 @@ describe("QuestMap · чтение", () => {
     expect(long).toBe(214);
   });
 
-  it("ширину карточки книги оценивает по МОНОШИРИННОЙ доле — им набран весь её текст", () => {
+  it("estimates the book card's width by the MONOSPACE share — all its text is set in it", () => {
     // The width estimate must reckon with the face the line will be SET in: the title and author
     // are now monospaced like the podcast card's, and a monospaced glyph is wider. With the old
     // proportional ratio the estimate came out 11 units short and the title scrolled needlessly.
@@ -807,7 +807,7 @@ describe("QuestMap · чтение", () => {
     expect(Number(fo.getAttribute("width"))).toBe(206);
   });
 
-  it("кнопка пересказа есть только там, где есть что рассказать", async () => {
+  it("the retell button exists only where there is something to tell", async () => {
     render(
       <QuestMap
         items={withBooks([
@@ -828,7 +828,7 @@ describe("QuestMap · чтение", () => {
   });
 
 
-  it("огонёк стрика уходит влево от остановки, чью обложку он бы накрыл", () => {
+  it("the streak flame goes left of the stop whose cover it would cover", () => {
     render(
       <QuestMap
         items={[
@@ -857,7 +857,7 @@ describe("QuestMap · чтение", () => {
     expect(xOf("quest-streak-reading-2")).toBeLessThan(cxOf(2));
   });
 
-  it("карточка рассказывает книгу и пройденный кусок, но не часы", () => {
+  it("the card tells the book and the piece covered, but not the hours", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     expect(screen.getByTestId("quest-book-title-1")).toHaveTextContent("Хребты безумия");
@@ -870,14 +870,14 @@ describe("QuestMap · чтение", () => {
     expect(screen.queryByText(/·/)).toBeNull();
   });
 
-  it("проценты книги зеленеют тем же классом, что минуты выпуска", () => {
+  it("book percentages turn green with the same class as episode minutes", () => {
     render(<QuestMap items={withBooks([book("Хребты безумия")])} monsterDrunk={false} />);
 
     const card = screen.getAllByTestId("quest-card")[0];
     expect(card.querySelector(".quest-card__progress-value")).toHaveTextContent("35% → 42%");
   });
 
-  it("под остановкой стоят минуты своей сессии, а не сумма за сутки", () => {
+  it("under a stop stand its session's minutes, not the daily sum", () => {
     render(
       <QuestMap
         items={[

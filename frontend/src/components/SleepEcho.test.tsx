@@ -57,8 +57,8 @@ async function mount(date: string) {
 const columns = () => screen.getAllByTestId("sleep-echo-col");
 const sorted = () => columns().filter((c) => c.getAttribute("style")?.includes("translateX"));
 
-describe("SleepTile — редакция «эхолот»", () => {
-  it("сводит ночь к кладке брусков и открывается суммой", async () => {
+describe("SleepTile — \"echo sounder\" edition", () => {
+  it("reduces the night to a stack of bars and opens as a sum", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-01"));
     await mount("2026-08-01");
 
@@ -69,7 +69,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.getByRole("button", { pressed: false })).toBeInTheDocument();
   });
 
-  it("переключает режим кликом по ВСЕЙ плитке, а не ссылкой в углу", async () => {
+  it("switches the mode by a click on the WHOLE tile, not a link in the corner", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-02"));
     await mount("2026-08-02");
 
@@ -81,7 +81,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(sorted()).toHaveLength(0);
   });
 
-  it("смена режима — пересортировка тех же минут, а не подмена картинки", async () => {
+  it("switching the mode re-sorts the same minutes instead of replacing the picture", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-03"));
     await mount("2026-08-03");
     const before = columns().length;
@@ -92,7 +92,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(columns()).toHaveLength(before);
   });
 
-  it("подписью работает сама ночь: ни ярлыка «сон», ни отдельной легенды", async () => {
+  it("the night itself is the caption: no \"sleep\" label, no separate legend", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-04"));
     await mount("2026-08-04");
 
@@ -106,7 +106,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.getByTestId("sleep-name-awake")).toHaveTextContent("не спал");
   });
 
-  it("в сумме нет ни долей, ни рамки ночи — они приходят с хронологией", async () => {
+  it("the totals carry neither shares nor the night frame — they come with the timeline", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-05"));
     await mount("2026-08-05");
 
@@ -136,7 +136,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.getByTestId("sleep-name-awake")).toHaveTextContent("не спал");
   });
 
-  it("полоса начинается луной этой ночи, а кончается переключателем", async () => {
+  it("the bar starts with this night's moon and ends with the switcher", async () => {
     getSleepNightMock.mockResolvedValue(night("2024-01-18"));
     await mount("2024-01-18");
 
@@ -166,7 +166,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(head.querySelector(".sleep-moon__limb")).not.toBeNull();
   });
 
-  it("убывающую луну рисует тот же контур в зеркале", async () => {
+  it("the waning moon is drawn by the same outline mirrored", async () => {
     getSleepNightMock.mockResolvedValue(night("2024-02-02"));
     await mount("2024-02-02");
 
@@ -177,7 +177,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(document.querySelector(".sleep-moon__lit")).not.toHaveAttribute("transform");
   });
 
-  it("переключатель показывает оба режима миниатюрами, а не называет их словами", async () => {
+  it("the switcher shows both modes as thumbnails instead of naming them in words", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-10"));
     await mount("2026-08-10");
 
@@ -186,7 +186,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.queryByText("по часам")).not.toBeInTheDocument();
   });
 
-  it("ночь без сохранённых кусков остаётся суммой и жестом не притворяется", async () => {
+  it("a night without saved chunks stays a sum and does not fake a gesture", async () => {
     getSleepNightMock.mockResolvedValue({ date: "2026-08-06", axisStartHour: 18, band: null });
     await mount("2026-08-06");
 
@@ -197,7 +197,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.queryByTestId("sleep-echo-modes")).not.toBeInTheDocument();
   });
 
-  it("показывает точные минуты каждой фазы и скрывает их в хронологии", async () => {
+  it("shows each phase's exact minutes and hides them in the timeline", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-11"));
     await mount("2026-08-11");
 
@@ -222,7 +222,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.getByTestId("sleep-duration-light")).toHaveTextContent("1ч");
   });
 
-  it("две копии плитки в документе не делят градиенты", async () => {
+  it("two copies of the tile in the document do not share gradients", async () => {
     getSleepNightMock.mockResolvedValue(night("2026-08-13"));
     render(
       <>
@@ -246,7 +246,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(new Set(ids).size).toBe(2);
   });
 
-  it("без хронологии подписывает длительность из итогов и пропускает отсутствующие фазы", async () => {
+  it("without a timeline captions the duration from the totals and skips missing phases", async () => {
     getSleepNightMock.mockResolvedValue({ date: "2026-08-12", axisStartHour: 18, band: null });
     render(<SleepTile day={day("2026-08-12", {
       sleepMinutes: 717,
@@ -260,7 +260,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("сбой запроса ночи не маскируется суммой без переключателя", async () => {
+  it("a failed night request is not masked by a sum without a switcher", async () => {
     getSleepNightMock.mockRejectedValue(new Error("offline"));
     render(<SleepTile day={day("2026-08-07")} state="loaded" edition="echo" />);
 
@@ -269,7 +269,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.getByRole("button", { name: "повторить" })).toBeInTheDocument();
   });
 
-  it("день без сна за ночью не ходит вовсе", () => {
+  it("a day without sleep does not go to the night at all", () => {
     render(
       <SleepTile
         day={day("2026-08-08", { sleepMinutes: null, sleepStages: null })}
@@ -282,7 +282,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(getSleepNightMock).not.toHaveBeenCalled();
   });
 
-  it("до ответа сети не рисует ничего — ни мерцалки, ни промера из дневных итогов", async () => {
+  it("draws nothing before the network answers — no shimmer, no sounding from the daily totals", async () => {
     let answer: (n: SleepNightView) => void = () => {};
     getSleepNightMock.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
     const { container } = render(<SleepTile day={day("2026-08-10")} state="loaded" edition="echo" />);
@@ -298,7 +298,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(screen.getByTestId("sleep-echo-durations")).toBeInTheDocument();
   });
 
-  it("режим «по часам» переживает переключение дня на календаре", async () => {
+  it("the \"by hours\" mode survives switching the day on the calendar", async () => {
     getSleepNightMock.mockResolvedValueOnce(night("2026-08-06"));
     const { rerender } = render(<SleepTile day={day("2026-08-06")} state="loaded" edition="echo" />);
     await waitFor(() => expect(columns().length).toBeGreaterThan(0));
@@ -329,7 +329,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(sorted()).toHaveLength(0);
   });
 
-  it("шаг по календарю спрашивает НОВУЮ дату, и длительность едет за ней", async () => {
+  it("a calendar step asks for a NEW date, and the duration follows it", async () => {
     // The tile stays mounted across a day change, so the request is restarted by its KEY. While the
     // fetcher was captured once, the second request asked for the first day again and the duration
     // in the band never moved — on the other waves it comes from the day's own totals (§7.7).
@@ -352,7 +352,7 @@ describe("SleepTile — редакция «эхолот»", () => {
     expect(total()).not.toContain("50");
   });
 
-  it("незнакомая редакция откатывается к дефолтной вёрстке, а не ломает плитку", () => {
+  it("an unknown edition falls back to the default layout instead of breaking the tile", () => {
     render(<SleepTile day={day("2026-08-09")} state="loaded" edition="sonar" />);
 
     expect(screen.queryAllByTestId("sleep-echo-col")).toHaveLength(0);

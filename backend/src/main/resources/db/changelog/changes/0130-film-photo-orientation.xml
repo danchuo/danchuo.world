@@ -6,13 +6,13 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      B9 (PRD §5.12, §9 п.13): LLM-валидация поворота кадров фото-дропов. Плёночные сканы
-      приходят все горизонтальными (EXIF-ориентации нет) — вертикальные/перевёрнутые кадры
-      выправляются vision-LLM (слайс llm) или вручную из админки.
-        - orientation_checked_at — кадр проверен (LLM или вручную); повторный прогон его не трогает.
-        - orientation_applied — итог проверки: none / cw90 / ccw90 / r180 / ambiguous / manual.
-        - rotated_at — байты web+thumb реально перезаписаны поворотом; версия для cache-bust
-          (?v= в URL), т.к. /api/film-media кэшируется как неизменяемый.
+      B9 (PRD §5.12, §9 item 13): LLM validation of photo-drop frame rotation. Film scans
+      all arrive landscape (there is no EXIF orientation): portrait/upside-down frames
+      are straightened by a vision LLM (the llm slice) or by hand in the admin.
+        - orientation_checked_at: the frame was checked (LLM or by hand); a repeated run does not touch it.
+        - orientation_applied: the check's result: none / cw90 / ccw90 / r180 / ambiguous / manual.
+        - rotated_at: the web+thumb bytes were actually rewritten by the rotation; a version for cache-busting
+          (?v= in the URL), since /api/film-media is cached as immutable.
     -->
     <changeSet id="0130-film-photo-orientation" author="danchuo">
         <addColumn tableName="film_photo">

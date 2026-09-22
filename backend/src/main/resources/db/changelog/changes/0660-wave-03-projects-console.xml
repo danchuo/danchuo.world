@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: плитка проектов переезжает с редакции `dossier` на `console` (DESIGN §7.8).
+      Wave 03: the projects tile moves from the `dossier` edition to `console` (DESIGN §7.8).
 
-      Редакция та же по составу строки (иконка · название · зелёный путь · квартал), но
-      теперь это вывод `tree`: строки висят на ветках под приглашением оболочки. Переименование
-      не косметическое — «досье» описывало папку с бумагами, а на борде стоит окно терминала,
-      и скин волны с этой ветки одевает плитку панелью консоли вместо стекла.
+      The row's content is the same (icon · title · green path · quarter), but
+      it is now the output of `tree`: rows hang on branches under the shell prompt. The rename
+      is not cosmetic: "dossier" described a folder of papers, while the board has a terminal window,
+      and from this branch the wave's skin dresses the tile in a console panel instead of glass.
 
-      Дельту раскладки переписываем ЦЕЛИКОМ, а не патчим ключ: `jsonb_set` по глубокому пути
-      молча ничего не сделает, если промежуточного ключа не окажется, — а тут вся ветка
-      `tiles.projects` наша и известна.
+      The layout delta is rewritten WHOLE rather than patching a key: `jsonb_set` on a deep path
+      silently does nothing if an intermediate key is missing, and here the whole branch
+      `tiles.projects` is ours and known.
     -->
     <changeSet id="0660-wave-03-projects-console" author="danchuo">
         <sql><![CDATA[

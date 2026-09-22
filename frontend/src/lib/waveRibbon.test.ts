@@ -20,25 +20,25 @@ function day(over: Partial<DaySummary> = {}): DaySummary {
 }
 
 describe("ribbonDay", () => {
-  it("собирает день через точку: дата, имя дня, метрики", () => {
+  it("assembles the day with dots: date, day name, metrics", () => {
     expect(ribbonDay(day())).toBe(
       "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · git +3",
     );
   });
 
-  it("день без имени просто не несёт его — дырки в ленте не остаётся", () => {
+  it("a day without a name simply does not carry one — no hole is left in the ribbon", () => {
     expect(ribbonDay(day({ title: null }))).toBe(
       "пн 24.08 · сон 7ч 12м · шаги 8 340 · git +3",
     );
   });
 
-  it("null ≠ 0: не собранная метрика выпадает, честный ноль остаётся", () => {
+  it("null ≠ 0: an uncollected metric drops out, an honest zero stays", () => {
     expect(ribbonDay(day({ steps: null, contributions: 0, sleepMinutes: null }))).toBe(
       "пн 24.08 · тихий понедельник · git +0",
     );
   });
 
-  it("дню, которому нечего сказать, в ленте не место — одна голая дата не строка", () => {
+  it("a day with nothing to say has no place in the ribbon — a bare date is not a line", () => {
     expect(
       ribbonDay(
         day({
@@ -57,7 +57,7 @@ describe("ribbonDay", () => {
 const TODAY = "2026-08-26";
 
 describe("buildRibbon", () => {
-  it("сшивает дни тем же разделителем, что и поля внутри дня — лента непрерывна", () => {
+  it("joins days with the same separator as the fields within a day — the ribbon is continuous", () => {
     const ribbon = buildRibbon(
       [
         day(),
@@ -69,7 +69,7 @@ describe("buildRibbon", () => {
     );
   });
 
-  it("пустые дни выпадают, а не оставляют двойные точки", () => {
+  it("empty days drop out instead of leaving double dots", () => {
     const empty = day({
       date: "2026-08-26",
       title: null,
@@ -83,11 +83,11 @@ describe("buildRibbon", () => {
     );
   });
 
-  it("окно без единого прожитого дня — пустая лента, а не строка из разделителей", () => {
+  it("a window without a single lived day is an empty ribbon, not a line of separators", () => {
     expect(buildRibbon([], TODAY)).toBe("");
   });
 
-  it("будущие дни в ленту не попадают — холст про прожитое, а не про календарь", () => {
+  it("future days do not enter the ribbon — the canvas is about days lived, not the calendar", () => {
     const future = day({
       date: "2026-08-27",
       title: null,
@@ -102,7 +102,7 @@ describe("buildRibbon", () => {
     );
   });
 
-  it("сегодняшний день — прожитый: он в ленте остаётся", () => {
+  it("today is a lived day: it stays in the ribbon", () => {
     const today = day({ date: TODAY, title: "сегодня" });
     expect(buildRibbon([today], TODAY)).toContain("ср 26.08 · сегодня");
   });

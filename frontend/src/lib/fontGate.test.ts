@@ -29,14 +29,14 @@ afterEach(() => {
   document.documentElement.removeAttribute("data-fonts");
 });
 
-describe("ворота шрифта", () => {
-  it("закрываются сразу, до всякой загрузки", () => {
+describe("font gate", () => {
+  it("close at once, before any loading", () => {
     withFonts(new Promise(() => {}));
     runGate();
     expect(state()).toBe("pending");
   });
 
-  it("открываются, когда шрифты приехали", async () => {
+  it("open when the fonts have arrived", async () => {
     let settle = () => {};
     withFonts(new Promise<void>((res) => (settle = res)));
     runGate();
@@ -45,7 +45,7 @@ describe("ворота шрифта", () => {
     await vi.waitFor(() => expect(state()).toBe("ready"));
   });
 
-  it("открываются по таймауту, если шрифты не приехали никогда", () => {
+  it("open on a timeout if the fonts never arrive", () => {
     withFonts(new Promise(() => {}));
     runGate();
     expect(state()).toBe("pending");
@@ -54,21 +54,21 @@ describe("ворота шрифта", () => {
     expect(state()).toBe("ready");
   });
 
-  it("открываются, если загрузка шрифтов сорвалась", async () => {
+  it("open if font loading failed", async () => {
     withFonts(Promise.reject(new Error("нет сети")));
     runGate();
 
     await vi.waitFor(() => expect(state()).toBe("ready"));
   });
 
-  it("открываются сразу там, где браузер не знает document.fonts", () => {
+  it("open at once where the browser does not know document.fonts", () => {
     withFonts(undefined);
     runGate();
     expect(state()).toBe("ready");
   });
 });
 
-describe("ворота ждут первой раскладки", () => {
+describe("the gate waits for the first layout", () => {
   /** While the document parses, `document.fonts` is empty — no file has been requested yet. */
   function withReadyState(value: DocumentReadyState) {
     Object.defineProperty(document, "readyState", { value, configurable: true });
@@ -81,7 +81,7 @@ describe("ворота ждут первой раскладки", () => {
     onAfter = null;
   });
 
-  it("не открываются по готовности шрифтов, снятой до разметки", async () => {
+  it("do not open on font readiness taken before the markup", async () => {
     withReadyState("loading");
     withFonts(Promise.resolve());
     runGate();
@@ -92,7 +92,7 @@ describe("ворота ждут первой раскладки", () => {
     expect(state()).toBe("pending");
   });
 
-  it("открываются, когда разметка доехала и шрифты вместе с ней", async () => {
+  it("open when the markup has arrived and the fonts with it", async () => {
     withReadyState("loading");
     withFonts(Promise.resolve());
     runGate();
@@ -101,7 +101,7 @@ describe("ворота ждут первой раскладки", () => {
     await vi.waitFor(() => expect(state()).toBe("ready"));
   });
 
-  it("выжимают раскладку до опроса шрифтов — без неё файлы не запрошены", async () => {
+  it("they force layout before polling fonts — without it the files are not requested", async () => {
     let measured = 0;
     Object.defineProperty(document.body, "offsetHeight", {
       configurable: true,
@@ -118,21 +118,21 @@ describe("ворота ждут первой раскладки", () => {
   });
 });
 
-describe("подписка на ворота", () => {
-  it("зовёт сразу, когда ворота уже открыты", () => {
+describe("gate subscription", () => {
+  it("calls at once when the gate is already open", () => {
     document.documentElement.setAttribute("data-fonts", "ready");
     const run = vi.fn();
     onFontsReady(run);
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("зовёт сразу там, где ворот нет вовсе (JS выключен на первой отрисовке)", () => {
+  it("calls at once where there is no gate at all (JS off on the first paint)", () => {
     const run = vi.fn();
     onFontsReady(run);
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("ждёт, пока ворота закрыты, и зовёт на открытии", async () => {
+  it("waits while the gate is closed and calls on opening", async () => {
     vi.useRealTimers();
     document.documentElement.setAttribute("data-fonts", "pending");
     const run = vi.fn();
@@ -143,7 +143,7 @@ describe("подписка на ворота", () => {
     await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
   });
 
-  it("отписка гасит вызов", async () => {
+  it("unsubscribing cancels the call", async () => {
     vi.useRealTimers();
     document.documentElement.setAttribute("data-fonts", "pending");
     const run = vi.fn();
@@ -155,27 +155,27 @@ describe("подписка на ворота", () => {
   });
 });
 
-describe("ворота данных: доска ждёт не только шрифты", () => {
+describe("data gate: the board waits for more than fonts", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.documentElement.removeAttribute("data-board");
   });
   afterEach(() => vi.useRealTimers());
 
-  it("скрипт закрывает ворота данных сразу, до первой отрисовки", () => {
+  it("the script closes the data gate at once, before the first paint", () => {
     withFonts(new Promise(() => {}));
     runGate();
     expect(document.documentElement.getAttribute("data-board")).toBe("pending");
   });
 
-  it("данные приехали — доска открывается, шрифты тут ни при чём", () => {
+  it("the data arrived — the board opens, fonts have nothing to do with it", () => {
     withFonts(new Promise(() => {}));
     runGate();
     openBoardGate();
     expect(document.documentElement.getAttribute("data-board")).toBe("ready");
   });
 
-  it("сети нет — потолок всё равно открывает доску: плитки ответят за себя сами", () => {
+  it("no network — the ceiling still opens the board: the tiles will answer for themselves", () => {
     withFonts(new Promise(() => {}));
     runGate();
     vi.advanceTimersByTime(BOARD_GATE_TIMEOUT_MS);

@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: доводка борда по трекам. Размеры не тронуты ни у одной плитки, состав тот же.
+      Wave 03: tuning the board by tracks. No tile's size is touched, the set is the same.
 
-      Лента дропов ещё на трек влево (32 → 31), переключатель волн на два трека вправо (1 → 3),
-      календарь на трек влево (23 → 22).
+      The drop ribbon one more track left (32 → 31), the wave switcher two tracks right (1 → 3),
+      the calendar a track left (23 → 22).
 
-      Переключатель, сойдя с левого края, встаёт кол. 3..8 и упирается в статы (9..17) вплотную по
-      колонкам — но расходится с ними по рядам (18..19 против 21..28), так что пустой трек между
-      соседями остаётся. Лента дропов 31..38 расходится с «Сегодня» (13..28) через треки 29..30 и
-      с календарём (22..30) по рядам. Проверено поклеточно.
+      The switcher, off the left edge, stands at col. 3..8 and meets the stats (9..17) flush in
+      columns, but they diverge in rows (18..19 against 21..28), so an empty track between
+      the neighbours remains. The drop ribbon 31..38 clears "Today" (13..28) across tracks 29..30 and
+      the calendar (22..30) in rows. Checked cell by cell.
     -->
     <changeSet id="1030-wave-03-board-nudge" author="danchuo">
         <sql><![CDATA[

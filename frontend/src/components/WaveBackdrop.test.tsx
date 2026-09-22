@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe("WaveBackdrop", () => {
-  it("шов рендерится всегда — волна включает его скином, а не наличием разметки", () => {
+  it("the seam always renders — the wave turns it on by its skin, not by the markup's presence", () => {
     const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-01" />);
     const root = container.querySelector(".wave-backdrop");
     expect(root).not.toBeNull();
@@ -60,19 +60,19 @@ describe("WaveBackdrop", () => {
     expect(root).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("кладёт в ленту прожитые дни окна календаря", () => {
+  it("puts the calendar window's lived days into the ribbon", () => {
     const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
     expect(ribbonOf(container).textContent).toBe(
       "пн 24.08 · тихий понедельник · сон 7ч 12м · шаги 8 340 · git +3",
     );
   });
 
-  it("окно без данных не оставляет на холсте мусора", () => {
+  it("a window without data leaves no garbage on the canvas", () => {
     const { container } = render(<WaveBackdrop summaries={[]} today={TODAY} wave="wave-03" />);
     expect(ribbonOf(container).textContent).toBe("");
   });
 
-  it("закрывает стену целиком, даже когда она в сотни раз выше ленты (зум наружу)", () => {
+  it("covers the whole wall even when it is hundreds of times taller than the ribbon (zoomed out)", () => {
     // 60 000 against a ribbon of fifty characters is a thousand repeats. A linear "one more copy
     // per pass" hit its own ceiling long before the edge and left the canvas's bottom empty.
     restoreWall = mockWall(60_000);
@@ -86,7 +86,7 @@ describe("WaveBackdrop", () => {
    * its own node: `text-align` in CSS governs a whole paragraph, not one line. So the splitting is
    * the seam's obligation and is checked here rather than by eye on the board.
    */
-  it("ломает ленту на строки-узлы, чтобы волна могла выключать их по очереди", () => {
+  it("breaks the ribbon into line nodes so the wave can switch them off in turn", () => {
     restoreWall = mockWall(600);
     const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);
     const lines = ribbonOf(container).querySelectorAll<HTMLElement>(".wave-backdrop-line");
@@ -98,7 +98,7 @@ describe("WaveBackdrop", () => {
     expect(Math.max(...lengths) - Math.min(...lengths)).toBeLessThan(24);
   });
 
-  it("новое окно календаря переписывает ленту, а не дописывает её", () => {
+  it("a new calendar window rewrites the ribbon instead of appending to it", () => {
     const { container, rerender } = render(
       <WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />,
     );
@@ -118,7 +118,7 @@ describe("WaveBackdrop", () => {
    * wave's, so a layout computed before the font does not reach the edge. The recount signal is
    * the font gate (`fontGate.ts`), not `document.fonts.ready`, which answers instantly at first.
    */
-  it("пересобирает ленту, когда открылись ворота шрифта", async () => {
+  it("rebuilds the ribbon when the font gate opens", async () => {
     restoreWall = mockWall(600);
     document.documentElement.setAttribute("data-fonts", "pending");
     const { container } = render(<WaveBackdrop summaries={[day()]} today={TODAY} wave="wave-03" />);

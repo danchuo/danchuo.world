@@ -6,20 +6,20 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: календарь возвращается на борд в редакции «поле» (DESIGN 5.2).
+      Wave 03: the calendar returns to the board in the "field" edition (DESIGN 5.2).
 
-      Плитка была спрятана с самого сида волны — виджеты возвращаются по одному, когда каждый
-      одет под стекло. Здесь запись плитки переписывается ЦЕЛИКОМ, а не точечными jsonb_set по
-      ключам: в дельте у календаря лежал один `hidden`, координат и редакции у него не было
-      вовсе, и терять при подмене нечего.
+      The tile has been hidden since the wave's seed: the widgets return one at a time as each
+      is dressed for glass. Here the tile's record is rewritten WHOLE rather than with precise jsonb_set on
+      keys: the calendar had only `hidden` in the delta, with no coordinates or edition at
+      all, so there is nothing to lose in the replacement.
 
-      Слот — колонки 19..27, строки 13..22: пустая середина борда под лентой дропов
-      (кончается строкой 10) и левее переключателя волн (начинается колонкой 29). Размер
-      взят дефолтный, 9 на 10 — пропорция клетки у календаря уже подобрана под него.
+      The slot is columns 19..27, rows 13..22: the board's empty middle under the drop ribbon
+      (which ends at row 10) and left of the wave switcher (which starts at column 29). The size
+      is the default, 9 by 10: the calendar's cell proportion is already tuned for it.
 
-      Мобильный порядок перечисляется заново: тайл, не названный в нём, уезжает в хвост
-      стека по дефолтному порядку, а календарь тут главная навигация и стоять последним
-      не должен.
+      The mobile order is listed anew: a tile not named in it goes to the tail of the
+      stack in the default order, while the calendar is the main navigation here and must not
+      stand last.
     -->
     <changeSet id="0810-wave-03-calendar-field" author="danchuo">
         <sql><![CDATA[

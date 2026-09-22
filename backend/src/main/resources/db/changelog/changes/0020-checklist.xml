@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс checklist (PRD §5.6, §7). Пункты дисциплины — data-driven (новый = строка,
-      без релиза). target — цель-количество (чтение/подкасты = 2/день). Отметки —
-      checklist_entry, уникальны по (date,item_id) для идемпотентного upsert.
+      The checklist slice (PRD §5.6, §7). Discipline items are data-driven (a new one is a row,
+      no release). target is the count goal (reading/podcasts = 2/day). Marks are
+      checklist_entry, unique by (date,item_id) for an idempotent upsert.
     -->
     <changeSet id="0020-checklist-item-table" author="danchuo">
         <createTable tableName="checklist_item">
@@ -59,7 +59,7 @@
                 referencedTableName="checklist_item" referencedColumnNames="id"/>
     </changeSet>
 
-    <!-- Сид первой итерации пунктов (PRD §5.6). Резолв по key (ноль хардкод-id). -->
+    <!-- First-iteration seed of the items (PRD §5.6). Resolved by key (zero hardcoded ids). -->
     <changeSet id="0020-checklist-item-seed" author="danchuo">
         <insert tableName="checklist_item">
             <column name="key" value="stretch"/>

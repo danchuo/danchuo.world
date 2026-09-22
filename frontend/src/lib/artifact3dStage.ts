@@ -36,11 +36,14 @@ export interface MountOptions {
    * vertical. For a thing whose lighting carries meaning — the Moon's phase. DESIGN §7.7
    */
   light?: { azimuth: number; ambient: number; intensity?: number };
+  /** Multiplier on the studio pair, for a model whose own texture reads brighter than its row. */
+  brightness?: number;
   /**
    * Resting pose in DEGREES, for a thing that reads better off-axis than face-on. `yaw` turns it
-   * to the viewer's right, `pitch` tips its top away. Spin and drag compose on top of it.
+   * to the viewer's right, `pitch` tips its top away. `roll` tilts the body counter-clockwise under
+   * the spin, so a tilted thing still turns about the vertical.
    */
-  pose?: { yaw?: number; pitch?: number };
+  pose?: { yaw?: number; pitch?: number; roll?: number };
   signal?: AbortSignal;
 }
 
@@ -264,7 +267,7 @@ function disposeMaterial(material: import("three").Material) {
 /** Mount a model into an already sized canvas; otherwise the first frame stays empty until resize. */
 export async function mountArtifact(
   canvas: HTMLCanvasElement,
-  { src, rpm = DEFAULT_RPM, padding = DEFAULT_PADDING, light, pose, signal }: MountOptions,
+  { src, rpm = DEFAULT_RPM, padding = DEFAULT_PADDING, light, brightness = 1, pose, signal }: MountOptions,
 ): Promise<ArtifactHandle> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D-контекст канваса недоступен");
@@ -292,8 +295,8 @@ export async function mountArtifact(
 
   const scene = new THREE.Scene();
   // PBR models need lights; unlit models ignore them.
-  scene.add(new THREE.AmbientLight(0xffffff, light?.ambient ?? 2.4));
-  const key = new THREE.DirectionalLight(0xffffff, light?.intensity ?? 2.4);
+  scene.add(new THREE.AmbientLight(0xffffff, (light?.ambient ?? 2.4) * brightness));
+  const key = new THREE.DirectionalLight(0xffffff, (light?.intensity ?? 2.4) * brightness);
   /* Its own sun stands nearly level with the object, so the terminator runs down it and the phase
      is real geometry; the studio key stays high and to the right, where it flatters a silhouette. */
   const aimSun = (azimuth: number) => key.position.set(Math.sin(azimuth) * 4, 0.7, Math.cos(azimuth) * 4);
@@ -315,7 +318,11 @@ export async function mountArtifact(
   /* A clone, not the parse itself: it carries its own pose while geometry, material and texture stay
      the shared ones, so a second view of the same address costs a node tree and nothing on the GPU. */
   const object = gltf.scene.clone();
-  pivot.add(object);
+  // The roll sits between the spin and the model, at the origin: the body leans, the axis does not.
+  const tilt = new THREE.Group();
+  tilt.rotation.z = radians(pose?.roll ?? 0);
+  pivot.add(tilt);
+  tilt.add(object);
 
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.01, 1000);
   const distance = fitDistance(shared.radius, FOV, padding);

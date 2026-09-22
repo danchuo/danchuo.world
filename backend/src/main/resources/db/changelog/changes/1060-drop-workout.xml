@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Тренировки сняты целиком: сущность, репозиторий, приём workouts[] в ingest и поле в DayView
-      (PRD §5.4). Канала нет — шорткат их не шлёт, на борде они не показывались, таблица год
-      простояла пустой. Тот же случай, что и колонка screen_time_minutes в 0730: guardrail §3.1
-      запрещает нести мёртвый код в ожидании источника.
+      Workouts are removed entirely: the entity, the repository, the workouts[] ingest and the DayView field
+      (PRD §5.4). There is no channel: the shortcut does not send them, they were never shown on the board, the table
+      stood empty for a year. The same case as the screen_time_minutes column in 0730: guardrail §3.1
+      forbids carrying dead code while waiting for a source.
 
-      Появится канал — сущность заводится вместе с ним, одной миграцией. Откат воссоздаёт таблицу.
+      When a channel appears, the entity is created together with it, in one migration. The rollback recreates the table.
     -->
     <changeSet id="1060-drop-workout" author="danchuo">
         <dropTable tableName="workout"/>

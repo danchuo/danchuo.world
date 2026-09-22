@@ -1,4 +1,4 @@
-/** Tailwind v4 — единственный PostCSS-плагин. */
+/** Tailwind v4 — the only PostCSS plugin. */
 const config = {
   plugins: {
     "@tailwindcss/postcss": {},

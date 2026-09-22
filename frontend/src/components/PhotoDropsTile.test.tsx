@@ -33,14 +33,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("PhotoDropsTile (компактная лента)", () => {
-  it("нет дропов → пустое состояние «пока нет дропов»", async () => {
+describe("PhotoDropsTile (compact ribbon)", () => {
+  it("no drops → the empty state \"no drops yet\"", async () => {
     getDropsMock.mockResolvedValue([]);
     render(<PhotoDropsTile />);
     expect(await screen.findByText("пока нет дропов")).toBeInTheDocument();
   });
 
-  it("есть дропы → перечисляет все (сама лента и есть архив)", async () => {
+  it("with drops → lists them all (the ribbon itself is the archive)", async () => {
     getDropsMock.mockResolvedValue([
       { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
       { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: "/api/film-media/1/0/thumb" },
@@ -57,7 +57,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
    * over the cards. Scrolling by wheel, trackpad and keyboard stays — `overflow` is intact, only
    * the thumb is gone, through a shared class a wave cannot override with an inline style.
    */
-  it("ползунок прокрутки не рисуется ни в вертикальном списке, ни в горизонтальной полке", async () => {
+  it("no scrollbar is drawn in the vertical list or in the horizontal shelf", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     const { container, rerender } = render(<PhotoDropsTile />);
     await screen.findByText("Июльская плёнка");
@@ -72,7 +72,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(shelf.style.scrollbarWidth).toBe("");
   });
 
-  it("горизонтальная полка (orientation=horizontal) — карточки с названием и месяцем", async () => {
+  it("a horizontal shelf (orientation=horizontal) — cards with a title and a month", async () => {
     getDropsMock.mockResolvedValue([
       { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
       { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: "/api/film-media/1/0/thumb" },
@@ -86,7 +86,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(screen.getByRole("button", { name: "Открыть дроп «Июньская плёнка»" })).toBeInTheDocument();
   });
 
-  it("живой скролл: вертикальное колесо мыши листает полку вбок", async () => {
+  it("live scroll: the vertical mouse wheel pages the shelf sideways", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     const { container } = render(<PhotoDropsTile orientation="horizontal" />);
     await screen.findByText("Июльская плёнка");
@@ -109,7 +109,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
    * The `spines` edition (DESIGN §7.5, §10.2): drops stand in a stack like boxes of film on a
    * shelf. The type is UPRIGHT (no `writing-mode`), with title and month on one line per spine.
    */
-  it("редакция carousel — вертикальная лента кадров, у каждого название и месяц", async () => {
+  it("carousel edition — a vertical ribbon of frames, each with a title and a month", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     const { container } = render(<PhotoDropsTile edition="carousel" />);
     await screen.findByText("Июльская плёнка");
@@ -123,7 +123,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(reel).toHaveClass("scroll-invisible");
   });
 
-  it("редакция carousel — клик по кадру открывает дроп на весь экран", async () => {
+  it("carousel edition — a click on a frame opens the drop full screen", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     getDropMock.mockResolvedValue([]);
     render(<PhotoDropsTile edition="carousel" />);
@@ -138,7 +138,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
    * first frame: a click asks about the frame being looked at (DESIGN §7.5). After that its place
    * is taken by the frame the gallery was closed on (`viewed`).
    */
-  it("редакция carousel — плёнка открывается на обложке дропа, а не с первого кадра", async () => {
+  it("carousel edition — the film opens on the drop's cover, not the first frame", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     getDropMock.mockResolvedValue([
       { imageUrl: "/api/film-media/1/9/web", thumbUrl: "/api/film-media/1/9/thumb", width: 1600, height: 1083, artifacts: [] },
@@ -158,7 +158,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
    * The main frame is declared in the markup, not only by looks: `aria-current` is the only way
    * "this frame is centred right now" reaches anyone who cannot see the ribbon.
    */
-  it("редакция carousel — центральный кадр помечен aria-current", async () => {
+  it("carousel edition — the central frame is marked aria-current", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     const { container } = render(<PhotoDropsTile edition="carousel" />);
     await screen.findByText("Июльская плёнка");
@@ -171,7 +171,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
    * nearly became the widget vanishing: both editions sit at the SAME place in the tree with the
    * same key, React reuses the `<img>`, `src` never changes and a second `load` never comes.
    */
-  it("возврат на карусель с уже загруженными обложками — лента видна без второго load", async () => {
+  it("returning to the carousel with covers already loaded — the ribbon is visible without a second load", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     // Arrive on a wave with the earlier ribbon and wait for the covers.
     const { container, rerender } = render(<PhotoDropsTile orientation="horizontal" />);
@@ -188,7 +188,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
    * An unknown edition name falls back to the default (the same rule as `latestDrop`): the layout
    * registry knows nothing of the set of editions, and a wave may arrive with anything.
    */
-  it("незнакомая редакция → прежний вертикальный список, а не карусель", async () => {
+  it("an unknown edition → the old vertical list, not the carousel", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     const { container } = render(<PhotoDropsTile edition="катушка" />);
     await screen.findByText("Июльская плёнка");
@@ -197,7 +197,7 @@ describe("PhotoDropsTile (компактная лента)", () => {
     expect(container.querySelector("ul.overflow-y-auto")).toBeInTheDocument();
   });
 
-  it("клик по дропу открывает его на весь экран (drag-перехвата больше нет)", async () => {
+  it("a click on a drop opens it full screen (no more drag interception)", async () => {
     // A regression anchor: mouse dragging used to swallow the click and break opening a drop.
     // With no drag, a click on a shelf card must open the modal.
     getDropsMock.mockResolvedValue(TWO_DROPS);

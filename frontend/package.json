@@ -1,8 +1,8 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "1.54.4",
+  "version": "1.55.0",
   "private": true,
-  "description": "danchuo.world вЂ” РїСѓР±Р»РёС‡РЅС‹Р№ С„СЂРѕРЅС‚ + Р°РґРјРёРЅРєР° (B1: С„РѕС‚Рѕ-РґСЂРѕРїС‹; B2: С…РёС‚РјР°РїР° РєР»РёРєРѕРІ вЂ” СЃРµРєС†РёСЏ РІ /admin; B4: РІРёРґР¶РµС‚ РїРѕРµР·РґРѕРє Р’РµР»РѕР±Р°Р№Рє)",
+  "description": "danchuo.world — public frontend + admin (B1: photo drops; B2: click heatmap in /admin; B4: Velobike rides widget)",
   "scripts": {
     "predev": "node scripts/copy-maplibre-worker.mjs && node scripts/patch-next-font-google.mjs",
     "dev": "next dev",

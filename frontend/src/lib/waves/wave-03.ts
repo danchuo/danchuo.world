@@ -1,6 +1,6 @@
 /**
  * Wave 03 "PRIME" — dark glass over the ribbon of lived days: its own palette and a board where
- * most tiles ask for their own edition (sheet, field, echo, shaft, map…). DESIGN §10.2
+ * most tiles ask for their own edition (sheet, field, echo, shaft, carousel…). DESIGN §10.2
  */
 
 import type { Wave } from "./index";
@@ -62,27 +62,26 @@ export const WAVE_03: Wave = {
       identity: { hidden: true },
       latestDrop: { col: 1, row: 1, colSpan: 11, rowSpan: 16, edition: "frame" },
       freshness: { hidden: true },
-      waveSwitcher: { col: 2, row: 19, colSpan: 6, rowSpan: 2 },
+      waveSwitcher: { col: 12, row: 25, colSpan: 6, rowSpan: 2 },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
-      photoDrops: { col: 32, row: 10, colSpan: 8, rowSpan: 9, edition: "carousel" },
-      stats: { col: 10, row: 22, colSpan: 9, rowSpan: 7, hidden: false, edition: "ghosts" },
+      photoDrops: { col: 32, row: 9, colSpan: 8, rowSpan: 10, edition: "carousel" },
+      stats: { col: 2, row: 20, colSpan: 9, rowSpan: 8, hidden: false, edition: "ghosts" },
       sleep: { col: 33, row: 1, colSpan: 8, rowSpan: 7, hidden: false, edition: "echo" },
       today: { col: 14, row: 9, colSpan: 16, rowSpan: 12, hidden: false, edition: "sheet" },
-      calendar: { col: 22, row: 22, colSpan: 9, rowSpan: 7, hidden: false, edition: "field" },
-      projects: { col: 1, row: 23, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
-      ride: { col: 34, row: 21, colSpan: 7, rowSpan: 7, edition: "map" },
+      calendar: { col: 20, row: 22, colSpan: 9, rowSpan: 7, hidden: false, edition: "field" },
+      projects: { col: 34, row: 23, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
+      ride: { hidden: true },
       hero: { hidden: true },
-      /* Four marks in the board's two vertical channels, a pair each. EACH TILE SPANS ITS WHOLE
-         CHANNEL: the mark then centres on the channel, not on a cell inside it. DESIGN §10.2 */
+      // Two marks side by side over the projects, splitting its width with one track between them.
       social: { only: "stack", edition: "peek" },
-      socialInstagram: { col: 19, row: 22, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
-      socialGithub: { col: 19, row: 26, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
-      socialTelegram: { col: 31, row: 22, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
-      socialX: { col: 31, row: 26, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialTelegram: { col: 34, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialInstagram: { col: 38, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialGithub: { hidden: true },
+      socialX: { hidden: true },
       marquee: { col: 25, row: 1, colSpan: 7, rowSpan: 7, hidden: false, edition: "shaft" },
-      // Beside the wave switcher, sharing its row and its height: the board's two controls read
-      // as one pair. Words only here — an envelope next to type is clutter on glass.
-      feedback: { col: 9, row: 18, colSpan: 4, rowSpan: 2, edition: "word" },
+      // Centred between the calendar and the projects, one track clear of each. Words only here —
+      // an envelope next to type is clutter on glass.
+      feedback: { col: 30, row: 25, colSpan: 3, rowSpan: 2, edition: "word" },
     },
     mobileOrder: [
       "today",
@@ -91,7 +90,6 @@ export const WAVE_03: Wave = {
       "music",
       "stats",
       "latestDrop",
-      "ride",
       "photoDrops",
       "social",
       "projects",

@@ -6,13 +6,13 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: блюр стекла 12px → 11px (DESIGN §10.2).
+      Wave 03 "PRIME": glass blur 12px → 11px (DESIGN §10.2).
 
-      Ещё один шаг той же доводки, что и сид 0490: лента за плиткой должна читаться, а не
-      угадываться. Числу больше нечего объяснять, кроме «на глаз владельца на живом борде» —
-      ручка в БД ровно для этого и заведена.
+      One more step of the same tuning as the 0490 seed: the ribbon behind the tile should be read, not
+      guessed. The number has nothing else to explain beyond "by the owner's eye on the live board":
+      the knob in the DB was set up exactly for this.
 
-      Фолбэк в var() внутри wave-03.css обновлён тем же числом.
+      The fallback in var() inside wave-03.css is updated with the same number.
     -->
     <changeSet id="0500-wave-03-glass-blur-11" author="danchuo">
         <sql><![CDATA[

@@ -53,7 +53,7 @@ describe("useBoxSize", () => {
     FakeResizeObserver.live.clear();
   });
 
-  it("меряет узел, появившийся ПОСЛЕ монтирования — плитка отдаёт содержимое не сразу", () => {
+  it("measures a node that appeared AFTER mounting — the tile does not hand over its content at once", () => {
     const { rerender } = render(<Late ready={false} />);
     expect(screen.getByTestId("size")).toHaveTextContent("0x0");
 
@@ -62,7 +62,7 @@ describe("useBoxSize", () => {
     expect(screen.getByTestId("size")).toHaveTextContent("300x120");
   });
 
-  it("узел тот же — наблюдателя не заводит заново", () => {
+  it("the same node — does not set up the observer again", () => {
     const { rerender } = render(<Late ready />);
     const after = FakeResizeObserver.live.size;
 
@@ -72,7 +72,7 @@ describe("useBoxSize", () => {
     expect(FakeResizeObserver.live.size).toBe(after);
   });
 
-  it("узел ушёл — наблюдатель отцеплен", () => {
+  it("the node is gone — the observer is detached", () => {
     const { rerender } = render(<Late ready />);
     expect(FakeResizeObserver.live.size).toBe(1);
 

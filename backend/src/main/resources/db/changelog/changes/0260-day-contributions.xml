@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Вклады GitHub за день (PRD 5.4, реестр I-01) - "активность другого рода" рядом с
-      шагами и сном. Считаем вклады целиком (коммиты + PR + ревью + issue), а не коммиты:
-      при конвенции "одна ветка = один коммит" число коммитов систематически занижает день,
-      в который приземлилась крупная фича.
+      GitHub contributions per day (PRD 5.4, registry I-01): "a different kind of activity" next to
+      steps and sleep. We count contributions in full (commits + PRs + reviews + issues), not commits:
+      with the "one branch = one commit" convention the commit count systematically understates the day
+      a large feature landed.
 
-      Nullable намеренно, и разница здесь работает чаще, чем у остальных статов:
-        null = день не собирали (канал ещё не бегал, день старше окна фрагмента);
-        0    = собрали, вкладов не было - обычный, частый и честный день.
-      Схлопывать одно в другое нельзя: чип на борде молчит в обоих случаях, но линза
-      календаря (I-19) обязана отличать "пусто" от "не мерили".
+      Nullable on purpose, and the difference matters here more often than for other stats:
+        null = the day was not collected (the channel has not run yet, the day is older than the fragment's window);
+        0    = collected, there were no contributions: an ordinary, frequent and honest day.
+      They must not be collapsed into one: the chip on the board is silent in both cases, but the calendar
+      lens (I-19) must tell "empty" from "not measured".
     -->
     <changeSet id="0260-day-contributions" author="danchuo">
         <addColumn tableName="day_record">

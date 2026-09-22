@@ -21,11 +21,11 @@ export interface Wave {
   layout?: WaveLayout;
 }
 
-/** Every released wave, oldest first — the order of the switcher's chips. */
-export const WAVES: readonly Wave[] = [WAVE_01, WAVE_02, WAVE_03];
+/** Every released wave in the switcher's chip order: the display default first. DESIGN §10.2 */
+export const WAVES: readonly Wave[] = [WAVE_03, WAVE_01, WAVE_02];
 
 /** The owner's display default: what a visitor who has picked nothing sees. DESIGN §10.2 */
-export const ACTIVE_WAVE_KEY = "wave-01";
+export const ACTIVE_WAVE_KEY = "wave-03";
 
 export const ACTIVE_WAVE: Wave = WAVES.find((w) => w.key === ACTIVE_WAVE_KEY) ?? WAVES[0];
 

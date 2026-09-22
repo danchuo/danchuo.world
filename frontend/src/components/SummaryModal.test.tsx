@@ -57,7 +57,7 @@ describe("SummaryModal", () => {
     ariaLabel: "Что было в прослушанном куске: How Feelings Make Us Smarter",
   });
 
-  it("предмет и пройденный кусок видны сразу, не дожидаясь текста", () => {
+  it("the item and the piece covered are visible at once, without waiting for the text", () => {
     render(<SummaryModal subject={book()} onClose={() => {}} />);
 
     expect(screen.getByText("Дюна")).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe("SummaryModal", () => {
     expect(screen.getByTestId("summary-progress")).toHaveTextContent("48% → 53%");
   });
 
-  it("пункты приезжают списком, а итог — отдельной строкой", async () => {
+  it("items arrive as a list, and the total as a separate line", async () => {
     render(<SummaryModal subject={book()} onClose={() => {}} />);
 
     expect(await screen.findByText("Пауль уходит в пустыню.")).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("SummaryModal", () => {
     );
   });
 
-  it("выпуск открывается тем же окном и спрашивает свой вид", async () => {
+  it("an episode opens in the same window and asks for its own look", async () => {
     requested.length = 0;
 
     render(<SummaryModal subject={episode()} onClose={() => {}} />);
@@ -88,7 +88,7 @@ describe("SummaryModal", () => {
     expect(await screen.findByText("Пауль уходит в пустыню.")).toBeInTheDocument();
   });
 
-  it("не собравшийся пересказ так и говорит, а не молчит пустотой", async () => {
+  it("a retelling that did not come together says so instead of staying silent", async () => {
     getSummary.mockRejectedValueOnce(new Error("500"));
 
     render(<SummaryModal subject={book()} onClose={() => {}} />);
@@ -96,7 +96,7 @@ describe("SummaryModal", () => {
     expect(await screen.findByText("пересказ не собрался")).toBeInTheDocument();
   });
 
-  it("ответ без пунктов не роняет окно, а читается как «не собрался»", async () => {
+  it("an answer without items does not crash the window but reads as \"did not come together\"", async () => {
     // This is how the native image served a reply whose DTO lacked @RegisterForReflection: a 200
     // with the body `{}`. The old version went into `bullets.map` and took down the WHOLE board
     // with a client exception — Next replaces the page, not just this window.
@@ -109,7 +109,7 @@ describe("SummaryModal", () => {
     expect(screen.getByText("Дюна")).toBeInTheDocument();
   });
 
-  it("пустые и битые пункты отсеиваются, а не рисуются пустыми строками", async () => {
+  it("empty and broken items are filtered out instead of being drawn as empty rows", async () => {
     getSummary.mockResolvedValueOnce({
       bullets: ["  ", "Живой пункт.", null, 42],
       takeaway: "   ",
@@ -200,7 +200,7 @@ describe("SummaryModal", () => {
     expect(container.querySelector(".summary-modal__track")).toBeNull();
   });
 
-  it("закрывается по Esc", async () => {
+  it("closes on Esc", async () => {
     const onClose = vi.fn();
     render(<SummaryModal subject={book()} onClose={onClose} />);
 

@@ -18,6 +18,8 @@ import type {
   SummaryView,
 } from "./types";
 import type { SummaryKind } from "../summarySubject";
+import { withDemoBouldering } from "../bouldering";
+import { mskToday } from "../date";
 
 /** Public Quarkus JSON reads require no token. An empty NEXT_PUBLIC_API_BASE_URL uses same-origin paths. PRD §3. */
 
@@ -33,9 +35,13 @@ export class ApiError extends Error {
   }
 }
 
+/** Baked in at build time; only the local compose stack sets it. See [withDemoBouldering]. */
+const DEMO_BOULDERING = process.env.NEXT_PUBLIC_DEMO_BOULDERING === "1";
+
 /** Get the full day projection. */
-export function getDay(date: string, init?: RequestInit): Promise<DayView> {
-  return getJson<DayView>(`/api/days/${date}`, init);
+export async function getDay(date: string, init?: RequestInit): Promise<DayView> {
+  const day = await getJson<DayView>(`/api/days/${date}`, init);
+  return withDemoBouldering(day, DEMO_BOULDERING, mskToday());
 }
 
 /** Get day summaries for the calendar and charts. */

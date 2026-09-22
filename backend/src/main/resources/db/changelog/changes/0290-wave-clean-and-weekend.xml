@@ -6,31 +6,31 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Две правки вида, обе через токены (DESIGN §2.1): в компонентах цветов не бывает.
+      Two look edits, both through tokens (DESIGN §2.1): components never hold colours.
 
-      1) accent-clean - "монстр не выпит" в сцене выходного (DESIGN §4.2).
-         Там стоял accent, а на волне 01 это #e2604c - почти тот же тон, что danger
-         #d2553f. То есть "пил" и "не пил" различались одним словом, а цвет в обоих
-         случаях говорил "тревога". Нужен зелёный.
-         Почему НЕ accent-code: тот назван по роли "другой канал активности" (гит), и
-         одалживать его сюда значит повторить ошибку, от которой предостерегает его
-         собственный комментарий в 0270. Почему НЕ success: он держит связи тропы
-         дисциплины, и "не пил" звучал бы как ещё один пройденный пункт - а монстр на
-         выходных живёт отдельно от дисциплины, в этом весь смысл сцены.
-         Оттенок волна выбирает сама: 01 - мшистый (рядом с персиком читается как
-         "хорошо"), 02 - её холодный аркадный зелёный.
+      1) accent-clean: "the monster was not drunk" in the weekend scene (DESIGN §4.2).
+         It used accent, and on wave 01 that is #e2604c, almost the same tone as danger
+         #d2553f. So "drank" and "did not drink" differed by one word, while the colour in both
+         cases said "alarm". A green is needed.
+         Why NOT accent-code: it is named by the role "another activity channel" (git), and
+         borrowing it here would repeat the mistake its own comment in 0270
+         warns about. Why NOT success: it holds the links of the discipline
+         trail, and "did not drink" would sound like one more item passed, while the monster at
+         weekends lives apart from discipline; that is the whole point of the scene.
+         The wave picks the shade itself: 01 a mossy one (next to the peach it reads as
+         "good"), 02 its cold arcade green.
 
-      2) cal-weekend / cal-othermonth - выходные в сетке календаря (DESIGN §5).
-         Выходной был СВЕТЛЕЕ будущего дня (bg-surface-muted), поэтому в будущей
-         половине окна колонки сб/вс выглядели светлее будних и не читались вовсе -
-         разница оставалась заметна только в шапке, где ярлыки лежат на фоне плитки.
-         Выходной опущен ниже будущего дня, а соседний месяц - ниже выходного, чтобы
-         лестница светлот осталась однозначной:
-           обычный день > будущий будний > выходной > соседний месяц.
+      2) cal-weekend / cal-othermonth: weekends in the calendar grid (DESIGN §5).
+         A weekend was LIGHTER than a future day (bg-surface-muted), so in the future
+         half of the window the Sat/Sun columns looked lighter than weekdays and did not read at all:
+         the difference stayed visible only in the header, where the labels lie on the tile background.
+         The weekend is lowered below a future day, and the neighbouring month below the weekend, so that
+         the lightness ladder stays unambiguous:
+           an ordinary day > a future weekday > a weekend > the neighbouring month.
 
-      UPDATE поверх применённого 0080-theme-seed (checksum сида трогать нельзя); `||`
-      перезаписывает существующие ключи и добавляет новый. Те же значения лежат
-      CSS-фолбэком в wave-01.css - борд не белеет, если БД недоступна.
+      An UPDATE over the applied 0080-theme-seed (the seed's checksum must not be touched); `||`
+      overwrites the existing keys and adds a new one. The same values sit as
+      a CSS fallback in wave-01.css: the board does not go white if the DB is unavailable.
     -->
     <changeSet id="0290-wave-01-clean-and-weekend" author="danchuo">
         <sql><![CDATA[
@@ -49,10 +49,10 @@ UPDATE theme SET tokens = (tokens - 'accent-clean') || $J${
     </changeSet>
 
     <!--
-      Волна 02 сцену выходного не рендерит (капабилити hasWeekendScene пока только у 01),
-      но токен ей всё равно нужен: без него она унаследовала бы мшистый зелёный волны 01
-      из :root, а он чужой холодной палитре Obscura. Календарь у 02 голубой - там та же
-      правка лестницы, только в её тонах.
+      Wave 02 does not render the weekend scene (the hasWeekendScene capability is only 01's for now),
+      but it still needs the token: without it it would inherit wave 01's mossy green
+      from :root, which is foreign to Obscura's cold palette. 02's calendar is blue: the same
+      ladder edit there, only in its tones.
     -->
     <changeSet id="0290-wave-02-clean-and-weekend" author="danchuo">
         <sql><![CDATA[

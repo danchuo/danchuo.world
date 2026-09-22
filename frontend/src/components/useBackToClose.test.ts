@@ -24,8 +24,8 @@ afterEach(() => {
   window.history.replaceState(null, "");
 });
 
-describe("useBackToClose — системное «Назад» закрывает всплывшее окно, а не уводит с сайта", () => {
-  it("открытое окно кладёт в историю свою запись", () => {
+describe("useBackToClose — the system Back closes the pop-up instead of leaving the site", () => {
+  it("an open window puts its own entry into the history", () => {
     // This entry is the whole point: without it Back on Android leaves the site, because the
     // browser has nothing to close — the modal never entered the history.
     renderHook(() => useBackToClose(true, () => {}));
@@ -33,7 +33,7 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(window.history.state).toMatchObject({ danchuoOverlay: 1 });
   });
 
-  it("«Назад» закрывает окно", () => {
+  it("Back closes the window", () => {
     const onClose = vi.fn();
     renderHook(() => useBackToClose(true, onClose));
 
@@ -42,7 +42,7 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("закрыли крестиком — свою запись из истории снимаем сами", () => {
+  it("closed with the cross — we remove our own history entry ourselves", () => {
     // Otherwise the entry hangs around and the first Back after closing is an empty step: the
     // viewer presses the button and nothing on screen changes.
     const { unmount } = renderHook(() => useBackToClose(true, () => {}));
@@ -52,7 +52,7 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(back).toHaveBeenCalledTimes(1);
   });
 
-  it("закрыли самим «Назад» — второго шага назад не делаем", () => {
+  it("closed with Back itself — no second step back", () => {
     const onClose = vi.fn();
     const { unmount } = renderHook(() => useBackToClose(true, onClose));
 
@@ -62,7 +62,7 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(back).not.toHaveBeenCalled();
   });
 
-  it("слои закрываются по одному: «Назад» гасит верхний, нижний остаётся", () => {
+  it("layers close one at a time: Back closes the top one, the lower stays", () => {
     // A fullscreen frame over a drop gallery is exactly this case (§7.5): the first Back returns
     // to the frame grid, the second closes the gallery itself.
     const closeBottom = vi.fn();
@@ -76,7 +76,7 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(closeBottom).not.toHaveBeenCalled();
   });
 
-  it("закрытие верхнего слоя крестиком не гасит нижний", () => {
+  it("closing the top layer with the cross does not close the one below", () => {
     // The top layer removes its own entry (`history.back`), and the `popstate` that follows must
     // not be read by the lower layer as "Back was pressed".
     const closeBottom = vi.fn();
@@ -89,14 +89,14 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(closeBottom).not.toHaveBeenCalled();
   });
 
-  it("окно не открыто — в историю не лезем вовсе", () => {
+  it("the window is not open — we do not touch the history at all", () => {
     renderHook(() => useBackToClose(false, () => {}));
 
     expect(window.history.state).toBeNull();
     expect(back).not.toHaveBeenCalled();
   });
 
-  it("окно открылось не сразу (вложенный слой) — запись появляется в этот момент", () => {
+  it("the window did not open at once (a nested layer) — the entry appears at that moment", () => {
     const { rerender } = renderHook(({ open }) => useBackToClose(open, () => {}), {
       initialProps: { open: false },
     });
@@ -107,7 +107,7 @@ describe("useBackToClose — системное «Назад» закрывае�
     expect(window.history.state).toMatchObject({ danchuoOverlay: 1 });
   });
 
-  it("чужие поля состояния истории сохраняются — роутер кладёт туда своё", () => {
+  it("other history state fields are kept — the router puts its own there", () => {
     window.history.replaceState({ __NA: true, key: "abc" }, "");
 
     renderHook(() => useBackToClose(true, () => {}));

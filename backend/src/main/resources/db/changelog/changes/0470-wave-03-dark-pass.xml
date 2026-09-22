@@ -6,17 +6,17 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: лестница светлот календаря под ТЁМНЫЙ борд (DESIGN §5.3, §10.2).
+      Wave 03 "PRIME": the calendar's lightness ladder for a DARK board (DESIGN §5.3, §10.2).
 
-      Правило лестницы задано в 0290 и остаётся тем же: чем тише день, тем ближе его клетка
-      к фону страницы. Меняется только направление — на светлом борде «ближе к фону» значит
-      светлее, на тёмном темнее. Первый сид волны это направление сохранил, но шаги взял
-      узкими (три оттенка в пределах шести единиц яркости), и на живом борде выходные не
-      отличались от будних вовсе — снято скриншотом на 1536px.
+      The ladder rule is set in 0290 and stays the same: the quieter the day, the closer its cell
+      to the page background. Only the direction changes: on a light board "closer to the background" means
+      lighter, on a dark one darker. The wave's first seed kept this direction but took narrow
+      steps (three shades within six brightness units), and on the live board weekends did not
+      differ from weekdays at all (captured in a screenshot at 1536px).
 
-      Лестница теперь: обычный день > будущий будний > выходной, шаг около восьми единиц по
-      каналу. Пол лестницы упирается в фон страницы, поэтому потолок поднят: bg-surface стал
-      светлее, и заодно чуть светлее стало всё, что рисуется поверхности внутри стекла.
+      The ladder is now: an ordinary day > a future weekday > a weekend, a step of about eight units per
+      channel. The ladder's floor rests on the page background, so the ceiling is raised: bg-surface became
+      lighter, and along the way everything drawn on a surface inside the glass became slightly lighter.
     -->
     <changeSet id="0470-wave-03-calendar-ladder" author="danchuo">
         <sql><![CDATA[

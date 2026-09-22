@@ -396,21 +396,21 @@ describe("sheetHeadline", () => {
 describe("onMonsterFigure", () => {
   const box = { left: 100, top: 200, width: 104, height: 104 };
 
-  it("ловит фигуру в середине квадрата", () => {
+  it("catches the figure in the middle of the square", () => {
     expect(onMonsterFigure(box, 152, 252)).toBe(true);
   });
 
-  it("не ловит поля квадрата по бокам от банки", () => {
+  it("does not catch the square's margins beside the can", () => {
     expect(onMonsterFigure(box, 105, 252)).toBe(false);
     expect(onMonsterFigure(box, 199, 252)).toBe(false);
   });
 
-  it("не ловит то, что лежит вне квадрата вовсе", () => {
+  it("does not catch what lies outside the square entirely", () => {
     expect(onMonsterFigure(box, 152, 190)).toBe(false);
     expect(onMonsterFigure(box, 152, 320)).toBe(false);
   });
 
-  it("квадрат нулевого размера не отвечает «да» на всё", () => {
+  it("a zero-size square does not answer \"yes\" to everything", () => {
     expect(onMonsterFigure({ left: 0, top: 0, width: 0, height: 0 }, 0, 0)).toBe(false);
   });
 });

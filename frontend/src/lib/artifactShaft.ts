@@ -2,15 +2,15 @@
 
 import type { ArtifactView } from "./api/types";
 
-/** An artifact the shaft can actually stand up: one that brought its own model. */
-export type ShaftArtifact = ArtifactView & { model3dUrl: string };
+/** An artifact the shaft can actually stand up: one that brought its own picture. */
+export type ShaftArtifact = ArtifactView & { imageUrl: string };
 
 /**
- * Only things with their own model belong in the shaft. A flat ribbon can stand in for an item
- * with a picture; a shaft cannot — it would be a row of identical stand-ins. DESIGN §7.2
+ * Only things with a picture belong in the shaft: a placeholder repeated down the line would be
+ * a row of identical stand-ins. DESIGN §7.2
  */
 export function shaftArtifacts(all: ArtifactView[]): ShaftArtifact[] {
-  return all.filter((a): a is ShaftArtifact => !!a.model3dUrl);
+  return all.filter((a): a is ShaftArtifact => !!a.imageUrl);
 }
 
 /** How many objects wait behind the front one; further back they are not mounted at all. */

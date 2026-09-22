@@ -108,13 +108,13 @@ afterEach(() => {
 
 const coords = { startLat: 55.75, startLon: 37.61, finishLat: 55.76, finishLon: 37.63 };
 
-describe("RideMap — кадрирование", () => {
-  it("подгоняет кадр при маунте", async () => {
+describe("RideMap — framing", () => {
+  it("fits the frame on mount", async () => {
     render(<RideMap {...coords} />);
     await vi.waitFor(() => expect(fitBounds).toHaveBeenCalledTimes(1));
   });
 
-  it("подгоняет кадр заново при изменении размера контейнера", async () => {
+  it("refits the frame when the container resizes", async () => {
     render(<RideMap {...coords} />);
     await vi.waitFor(() => expect(fitBounds).toHaveBeenCalledTimes(1));
     fireResize?.();
@@ -129,8 +129,8 @@ describe("RideMap — кадрирование", () => {
  * widget that is entirely a button, here a map that is panned and zoomed. The single prop
  * `interactivePins` separates them, and this test holds the whole set of consequences.
  */
-describe("RideMap — жесты", () => {
-  it("в плитке карта статична: жест уходит на кнопку, а не двигает подложку", async () => {
+describe("RideMap — gestures", () => {
+  it("in the tile the map is static: the gesture goes to the button instead of moving the basemap", async () => {
     render(<RideMap {...coords} />);
     await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
     const o = mapOptions.mock.calls[0][0] as Record<string, unknown>;
@@ -140,7 +140,7 @@ describe("RideMap — жесты", () => {
     expect(addControl).not.toHaveBeenCalled();
   });
 
-  it("подпись поставщика свёрнута в «i» и уходит в новую вкладку", async () => {
+  it("the provider credit is folded into an \"i\" and opens in a new tab", async () => {
     // maplibre serves the attribution expanded over the map as the window opens, and its links
     // would navigate away from the page. The component fixes both behaviours.
     const { container } = render(<RideMap {...coords} interactivePins />);
@@ -158,7 +158,7 @@ describe("RideMap — жесты", () => {
     expect(link.rel).toBe("noreferrer");
   });
 
-  it("подпись, пересобранная стилем заново, снова сворачивается и снова уходит в новую вкладку", async () => {
+  it("a credit rebuilt by the style again folds up and again opens in a new tab", async () => {
     const { container } = render(<RideMap {...coords} interactivePins />);
     const attrib = await vi.waitFor(() => {
       const node = container.querySelector(".maplibregl-ctrl-attrib");
@@ -176,7 +176,7 @@ describe("RideMap — жесты", () => {
     });
   });
 
-  it("в окне карту водят, приближают и подписывают поставщика", async () => {
+  it("in the window the map pans, zooms and credits the provider", async () => {
     render(<RideMap {...coords} interactivePins />);
     await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
     const o = mapOptions.mock.calls[0][0] as Record<string, unknown>;
@@ -186,7 +186,7 @@ describe("RideMap — жесты", () => {
     expect(addControl).toHaveBeenCalled();
   });
 
-  it("карта не кренится и не крутится ни в плитке, ни в окне", async () => {
+  it("the map neither tilts nor rotates, in the tile or in the window", async () => {
     render(<RideMap {...coords} interactivePins />);
     await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
     const o = mapOptions.mock.calls[0][0] as Record<string, unknown>;
@@ -200,8 +200,8 @@ describe("RideMap — жесты", () => {
  * are legible without peering, whatever the wave around the map. A dark style under a dark wave
  * was tried and dropped — it took the attention for itself.
  */
-describe("RideMap — подложка", () => {
-  it("подложка светлая и не зависит от волны", async () => {
+describe("RideMap — basemap", () => {
+  it("the basemap is light and does not depend on the wave", async () => {
     const { rerender } = render(<RideMap {...coords} />);
     await vi.waitFor(() => expect(mapOptions).toHaveBeenCalled());
     expect((mapOptions.mock.calls[0][0] as { style: string }).style).toContain("colorful");
@@ -216,8 +216,8 @@ describe("RideMap — подложка", () => {
  * The "restore framing" button under the zoomer: a map in a window is panned by hand, and getting
  * back to the ride itself should be one gesture. In the tile the map is static and has neither.
  */
-describe("RideMap — возврат кадра", () => {
-  it("в окне контролов два (зумер и возврат), в плитке — ни одного", async () => {
+describe("RideMap — frame return", () => {
+  it("the window has two controls (zoom and return), the tile none", async () => {
     const { unmount } = render(<RideMap {...coords} interactivePins />);
     await vi.waitFor(() => expect(addControl).toHaveBeenCalledTimes(2));
     unmount();
@@ -228,7 +228,7 @@ describe("RideMap — возврат кадра", () => {
     expect(addControl).not.toHaveBeenCalled();
   });
 
-  it("нажатие возвращает карту к кадру поездки — полётом, а не прыжком", async () => {
+  it("a press returns the map to the ride's framing — with a flight, not a jump", async () => {
     render(<RideMap {...coords} interactivePins />);
     await vi.waitFor(() => expect(addControl).toHaveBeenCalledTimes(2));
     const control = addControl.mock.calls[1][0] as { onAdd: () => HTMLElement };
@@ -245,8 +245,8 @@ describe("RideMap — возврат кадра", () => {
  * the style's background and stops, silently and with no console error (docs/pitfalls.md). The
  * address must point into the site's statics, where `scripts/copy-maplibre-worker.mjs` puts it.
  */
-describe("RideMap — воркер", () => {
-  it("карта получает адрес воркера из статики сайта", async () => {
+describe("RideMap — worker", () => {
+  it("the map gets the worker address from the site's statics", async () => {
     render(<RideMap {...coords} />);
     await vi.waitFor(() => expect(setWorkerUrl).toHaveBeenCalled());
     expect(setWorkerUrl.mock.calls[0][0]).toBe("/maplibre/maplibre-gl-worker.mjs");

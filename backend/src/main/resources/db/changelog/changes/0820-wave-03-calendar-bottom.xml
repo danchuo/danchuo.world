@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: календарь уезжает в самый низ борда, переключатель волн поднимается наверх.
+      Wave 03: the calendar moves to the very bottom of the board, the wave switcher goes up top.
 
-      Календарь занимает те же 9 на 10 клеток, но нижним краем встаёт на последнюю строку
-      сетки (19..28). Переключатель садится в левый верх (колонки 5..10, строки 2..4) над
-      лентой дропов, по её же левому краю: правый верх занят соцсетями.
+      The calendar takes the same 9 by 10 cells, but its bottom edge lands on the grid's last row
+      (19..28). The switcher sits in the top left (columns 5..10, rows 2..4) above
+      the drop ribbon, along its left edge: the top right is taken by social.
 
-      Позиции правятся СЛИЯНИЕМ (jsonb ||), а не подменой записи целиком: у обеих плиток в
-      дельте лежат ещё размеры и редакция, и подмена стёрла бы их.
+      The positions are edited by a MERGE (jsonb ||), not by replacing the whole record: both tiles
+      also have sizes and an edition in the delta, and a replacement would erase them.
 
-      Мобильный порядок следует за бордом: переключатель первым, календарь последним.
+      The mobile order follows the board: the switcher first, the calendar last.
     -->
     <changeSet id="0820-wave-03-calendar-bottom" author="danchuo">
         <sql><![CDATA[

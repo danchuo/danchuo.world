@@ -4,13 +4,13 @@
 .agents/
 .idea/
 
-# Crash-дампы Git Bash на Windows — мусор, не трекаем
+# Git Bash crash dumps on Windows — junk, not tracked
 *.stackdump
 
-# Случайный npm/npx-мусор в корне (корневого package.json нет — фронт живёт в frontend/)
+# Stray npm/npx junk in the root (there is no root package.json — the frontend lives in frontend/)
 /node_modules/
 
-# Локальные .env с секретами — НЕ коммитим; трекаются только образцы *.env.example
+# Local .env files with secrets are NOT committed; only the *.env.example samples are tracked
 .env
 .env.*
 !.env.example
@@ -18,8 +18,8 @@ AGENTS.md
 # Velobike API capture (contains session token/PII — never commit)
 *.har
 
-# Черновики владельца в корне репо (превью-скрипты, входные/сгенерированные картинки).
-# Только корень — ассеты фронта в frontend/public/ трекаются как обычно.
+# The owner's drafts in the repo root (preview scripts, input/generated images).
+# Root only — frontend assets in frontend/public/ are tracked as usual.
 /*.py
 /*.png
 /*.jpg
@@ -27,11 +27,11 @@ AGENTS.md
 /*.webp
 /*.html
 
-# Выгрузки волн для сравнения скинов — промежуточный результат, не исходник
+# Wave dumps for comparing skins — an intermediate result, not a source
 .wavedump/
 
-# Кэш выгрузок Overpass для сборщика велографа — сырьё, не результат
+# Cache of Overpass dumps for the bike-graph builder — raw material, not a result
 backend/tools/.osm-cache/
 
-# Воркер MapLibre — копия из node_modules (scripts/copy-maplibre-worker.mjs), не исходник
+# The MapLibre worker — a copy from node_modules (scripts/copy-maplibre-worker.mjs), not a source
 frontend/public/maplibre/

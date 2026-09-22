@@ -20,7 +20,7 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 }
 
 describe("TodayTile", () => {
-  it("рендерит дату, имя дня и карту-тропу дисциплины (статы переехали, монстр — детур карты)", () => {
+  it("renders the date, the day name and the discipline trail map (stats moved, the monster is the map's detour)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
@@ -42,7 +42,7 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("quest-total")).not.toBeInTheDocument();
   });
 
-  it("дата подсказывает номер дня жизни своим тултипом, а не системным", () => {
+  it("the date hints the day-of-life number with its own tooltip, not the system one", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     // 2002-06-06 (day №1) → 2026-06-18.
@@ -54,7 +54,7 @@ describe("TodayTile", () => {
     expect(date.querySelector(".cursor-help")).toBeNull();
   });
 
-  it("до рождения владельца подсказки на дате нет вовсе", () => {
+  it("before the owner's birth there is no hint on the date at all", () => {
     render(
       <TodayTile day={dayFixture({ date: "2002-06-05" })} today="2002-06-05" state="loaded" />,
     );
@@ -62,7 +62,7 @@ describe("TodayTile", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
-  it("пустой день: null → «нет данных», детур монстра не закрыт, пометки «не пил» нет", () => {
+  it("an empty day: null → \"no data\", the monster detour is not closed, no \"did not drink\" mark", () => {
     const empty = dayFixture({
       title: null,
       hasData: false,
@@ -82,7 +82,7 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("monster-none")).not.toBeInTheDocument();
   });
 
-  it("длинное имя дня переносится на вторую строку, а не ужимается в одну", () => {
+  it("a long day name wraps onto a second line instead of shrinking into one", () => {
     const long = "очень длинное имя дня про всё на свете"; // 38 characters
     render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
 
@@ -94,7 +94,7 @@ describe("TodayTile", () => {
     expect(title.style.fontSize).toBe("clamp(max(2.2cqw, 11px), 5.05cqw, min(4cqw, 40px))");
   });
 
-  it("очень длинное имя дня остаётся читаемым: вдвое крупнее прежнего и не ниже пола", () => {
+  it("a very long day name stays readable: twice as large as before and not below the floor", () => {
     // A real day name from production (2026-09-01), 74 characters — the one the owner called too small.
     const long =
       "тройной пресс на работе еще и люстру не починили а она и не ломалась кстати";
@@ -107,7 +107,7 @@ describe("TodayTile", () => {
     );
   });
 
-  it("имя дня длиннее двух строк упирается в пол кегля, а не тает дальше", () => {
+  it("a day name longer than two lines hits the size floor instead of shrinking further", () => {
     const huge = "и".repeat(200);
     render(<TodayTile day={dayFixture({ title: huge })} today="2026-06-18" state="loaded" />);
 
@@ -117,7 +117,7 @@ describe("TodayTile", () => {
     );
   });
 
-  it("короткое имя дня держит общий кегль со строкой даты (пол/потолок не мешают)", () => {
+  it("a short day name keeps the shared size with the date line (floor/ceiling do not interfere)", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
     // a 12-character name: 192/12 = 16cqw > 4cqw, so the size stays 4cqw on one line
     expect(screen.getByTestId("today-title").style.fontSize).toBe(
@@ -125,14 +125,14 @@ describe("TodayTile", () => {
     );
   });
 
-  it("подпись плитки относительна выбранной дате (а не всегда «сегодня»)", () => {
+  it("the tile caption is relative to the selected date (not always \"today\")", () => {
     // The 17th selected while today is the 18th → "yesterday".
     render(<TodayTile day={dayFixture({ date: "2026-06-17" })} today="2026-06-18" state="loaded" />);
     expect(screen.getByText("вчера")).toBeInTheDocument();
     expect(screen.queryByText("сегодня")).not.toBeInTheDocument();
   });
 
-  it("в состоянии loading плитка молчит: ни контента, ни пустой рамки", () => {
+  it("in the loading state the tile stays silent: no content, no empty frame", () => {
     // The tile keeps its cell but shows nothing until it has something to show (DESIGN §7.10).
     const { container } = render(<TodayTile day={null} today="2026-06-18" state="loading" />);
     expect(container.querySelector("[data-quiet]")).not.toBeNull();
@@ -141,7 +141,7 @@ describe("TodayTile", () => {
 
   // --- Weekend: the rest scene instead of the quest map (§5.6) ---------------------------------
 
-  it("выходной с волной-сценой: карта уступает место сцене отдыха, чеклист монстра ✓ (не пил)", () => {
+  it("a weekend with a scene wave: the map gives way to the rest scene, monster checklist ✓ (did not drink)", () => {
     // 2026-06-21 is a Sunday; the monster is not drunk ⇒ a checklist tick, with no streaks.
     render(
       <TodayTile
@@ -157,7 +157,7 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("weekend-monster")).toHaveTextContent("монстр — не пил");
   });
 
-  it("выходной, монстр пил: чеклист монстра словами", () => {
+  it("a weekend when the monster was drunk: the monster checklist in words", () => {
     // dayFixture sets a flavour by default ⇒ the monster was drunk.
     render(
       <TodayTile day={dayFixture({ date: "2026-06-21" })} today="2026-06-21" state="loaded" wave="wave-01" />,
@@ -166,7 +166,7 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("weekend-monster-mark")).toHaveTextContent(/^пил$/);
   });
 
-  it("«пил» и «не пил» красятся РАЗНЫМИ токенами, а не оттенками тревоги", () => {
+  it("\"drank\" and \"did not drink\" use DIFFERENT tokens, not shades of alarm", () => {
     // A regression anchor: "not drunk" used to take --accent, which on wave 01 is nearly the same
     // tone as --danger. The states differed by one word while the colour said "bad" either way.
     const mark = (drunk: boolean) => {
@@ -189,7 +189,7 @@ describe("TodayTile", () => {
     expect(mark(false)).not.toContain("--accent-code");
   });
 
-  it("день без записи: монстр серый и молчит — отсутствие данных не выдаём за чистый день", () => {
+  it("a day without a record: the monster is grey and silent — missing data is not passed off as a clean day", () => {
     // A future day or a hole in the history: nobody marked it, so there is no verdict.
     render(
       <TodayTile
@@ -203,7 +203,7 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("quest-monster-verdict")).toHaveTextContent(/^монстр$/);
   });
 
-  it("запись за день есть, монстр пустой — честное «не пил» (шорткат прислал пустого монстра)", () => {
+  it("there is a record for the day with an empty monster — an honest \"did not drink\" (the shortcut sent an empty monster)", () => {
     render(
       <TodayTile
         day={dayFixture({ date: "2026-06-18", hasData: true, monsterDrunk: false })}
@@ -215,7 +215,7 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("quest-monster-verb")).toHaveTextContent("не пил");
   });
 
-  it("выходной без записи: сцена не утверждает «не пил», а говорит «нет данных»", () => {
+  it("a weekend without a record: the scene does not claim \"did not drink\" but says \"no data\"", () => {
     render(
       <TodayTile
         day={dayFixture({ date: "2026-06-21", hasData: false, monsterDrunk: null })}
@@ -228,7 +228,7 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("weekend-monster-mark")).toHaveTextContent("нет данных");
   });
 
-  it("будний день держит карту-тропу даже на волне со сценой", () => {
+  it("a weekday keeps the trail map even on a wave with a scene", () => {
     render(
       <TodayTile day={dayFixture({ date: "2026-06-18" })} today="2026-06-18" state="loaded" wave="wave-01" />,
     );
@@ -236,7 +236,7 @@ describe("TodayTile", () => {
     expect(screen.queryByTestId("weekend-scene")).not.toBeInTheDocument();
   });
 
-  it("выходной без волны-сцены: сцены нет, остаётся карта (грациозный фолбэк)", () => {
+  it("a weekend without a scene wave: no scene, the map stays (graceful fallback)", () => {
     render(
       <TodayTile day={dayFixture({ date: "2026-06-21" })} today="2026-06-21" state="loaded" wave="wave-02" />,
     );

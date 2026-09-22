@@ -211,16 +211,15 @@ function cellTail(item: DisciplineItemView): string | null {
 
 /**
  * The monster's own card among the frames: the figure carries it, and the caption says the whole
- * verdict in words. A day with no record says NOTHING — a silent monster is not a clean one
- * (PRD §5.6), and inventing a caption for it would be the one lie the card could tell.
+ * verdict in words. An unreported day is the day still open, not a clean one. DESIGN §4.3
  */
 export function sheetMonsterCard(day: DayView): SheetMonsterCard {
   const { verdict, streak } = sheetMonster(day);
   if (verdict === "drunk") return { verdict, caption: "пил", ariaLabel: "Монстр: выпит сегодня" };
-  // An empty line under the figure read as a defect rather than as silence; the card now NAMES the
-  // silence. It still invents no verdict — "no data" is not "did not drink" (PRD §5.6).
+  // Unreported reads as a day that has not gone wrong YET rather than as an absent record: the
+  // tense carries the caveat, and the day can still end either way. DESIGN §4.3
   if (verdict === "unreported")
-    return { verdict, caption: "данных нет", ariaLabel: "Монстр: не отмечен" };
+    return { verdict, caption: "пока не пил", ariaLabel: "Монстр: пока не пил" };
   const caption =
     streak >= STREAK_SHOWN_FROM ? `${streak} ${pluralDays(streak)} не пил` : "не пил";
   return { verdict, caption, ariaLabel: `Монстр: ${caption}` };

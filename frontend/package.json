@@ -1,12 +1,12 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "1.54.1",
+  "version": "1.54.2",
   "private": true,
   "description": "danchuo.world вЂ” РїСѓР±Р»РёС‡РЅС‹Р№ С„СЂРѕРЅС‚ + Р°РґРјРёРЅРєР° (B1: С„РѕС‚Рѕ-РґСЂРѕРїС‹; B2: С…РёС‚РјР°РїР° РєР»РёРєРѕРІ вЂ” СЃРµРєС†РёСЏ РІ /admin; B4: РІРёРґР¶РµС‚ РїРѕРµР·РґРѕРє Р’РµР»РѕР±Р°Р№Рє)",
   "scripts": {
-    "predev": "node scripts/copy-maplibre-worker.mjs",
+    "predev": "node scripts/copy-maplibre-worker.mjs && node scripts/patch-next-font-google.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/copy-maplibre-worker.mjs",
+    "prebuild": "node scripts/copy-maplibre-worker.mjs && node scripts/patch-next-font-google.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

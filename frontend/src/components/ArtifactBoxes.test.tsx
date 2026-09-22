@@ -59,3 +59,23 @@ describe("ArtifactBoxes", () => {
     expect(container.querySelector(".artifact-finds")).toBeNull();
   });
 });
+
+describe("ArtifactBoxes — окно кадра в находке", () => {
+  it("адрес кадра доезжает до области переменными, а не вторым запросом", () => {
+    const { container } = render(
+      <ArtifactBoxes boxes={[solid]} shown={[]} aside shot="/api/film-media/4/26/web" />,
+    );
+
+    const box = container.querySelector(".artifact-box") as HTMLElement;
+    expect(box.style.getPropertyValue("--shot")).toBe('url("/api/film-media/4/26/web")');
+    expect(box.style.getPropertyValue("--shot-size")).not.toBe("");
+    expect(box.style.getPropertyValue("--shot-pos")).not.toBe("");
+  });
+
+  it("без кадра переменных нет — волне нечего проявлять, и она ничего не рисует", () => {
+    const { container } = render(<ArtifactBoxes boxes={[solid]} shown={[]} aside />);
+
+    const box = container.querySelector(".artifact-box") as HTMLElement;
+    expect(box.style.getPropertyValue("--shot")).toBe("");
+  });
+});

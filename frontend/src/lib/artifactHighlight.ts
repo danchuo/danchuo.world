@@ -56,6 +56,47 @@ export function padHighlight(
   return { x0: round5(x0), y0: round5(y0), width: round5(x1 - x0), height: round5(y1 - y0) };
 }
 
+/** CSS `background-size`/`background-position` painting the frame sharply inside one find. */
+export interface ShotWindow {
+  size: string;
+  position: string;
+}
+
+/**
+ * The frame as a background of the find's own box: sized to the whole frame and shifted so the area
+ * under the box lands in it. Lets a wave keep finds sharp over a blurred frame without a mask.
+ */
+export function shotWindow(r: HighlightRect): ShotWindow {
+  return {
+    size: `${pct(100 / r.width)}% ${pct(100 / r.height)}%`,
+    // Percentage positioning offsets by (container - image), hence the division by the remainder.
+    position: `${pct(axisPos(r.x0, r.width))}% ${pct(axisPos(r.y0, r.height))}%`,
+  };
+}
+
+/**
+ * One CSS mask covering the UNION of the finds. A filter laid on each find separately would apply
+ * twice where two of them overlap — an inversion done twice is no inversion. DESIGN §7.5
+ */
+export function unionMask(rects: HighlightRect[]): string {
+  return rects
+    .map(
+      (r) =>
+        `linear-gradient(#000 0 0) ${pct(axisPos(r.x0, r.width))}% ${pct(axisPos(r.y0, r.height))}% / ` +
+        `${pct(r.width * 100)}% ${pct(r.height * 100)}% no-repeat`,
+    )
+    .join(", ");
+}
+
+/** A box spanning the whole axis leaves nothing to shift along it, and the remainder is zero. */
+function axisPos(start: number, size: number): number {
+  return size >= 1 ? 0 : (start / (1 - size)) * 100;
+}
+
+function pct(v: number): number {
+  return Math.round(v * 1e3) / 1e3;
+}
+
 /** Round normalized coordinates to avoid floating-point noise in CSS percentages. */
 function round5(v: number): number {
   return Math.round(v * 1e5) / 1e5;

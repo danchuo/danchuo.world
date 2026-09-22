@@ -1267,29 +1267,25 @@
   backdrop-filter: blur(var(--glass-blur, 11px)) saturate(1.15);
 }
 
-/* Optical corner ticks mark a find without adding a plate or light to the photograph. DESIGN §7.5 */
+/* Two positions, no third. Hand away from the finds: they are shown as a NEGATIVE of the
+   photograph, pulled toward the wave's own colour. No line is drawn — the inversion is the mark,
+   and what it marks is the picture itself. DESIGN §7.5 */
 :root[data-wave="wave-03"] .artifact-box {
   border: none;
   background: none;
   box-shadow: none;
+  z-index: 3;
 }
-:root[data-wave="wave-03"] .artifact-box::before {
-  --find-tick: clamp(6px, 18%, 12px);
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(var(--accent) 0 0) left top / var(--find-tick) 2px no-repeat,
-    linear-gradient(var(--accent) 0 0) left top / 2px var(--find-tick) no-repeat,
-    linear-gradient(var(--accent) 0 0) right top / var(--find-tick) 2px no-repeat,
-    linear-gradient(var(--accent) 0 0) right top / 2px var(--find-tick) no-repeat,
-    linear-gradient(var(--accent) 0 0) left bottom / var(--find-tick) 2px no-repeat,
-    linear-gradient(var(--accent) 0 0) left bottom / 2px var(--find-tick) no-repeat,
-    linear-gradient(var(--accent) 0 0) right bottom / var(--find-tick) 2px no-repeat,
-    linear-gradient(var(--accent) 0 0) right bottom / 2px var(--find-tick) no-repeat;
-  filter:
-    drop-shadow(1px 0 0 var(--bg-page)) drop-shadow(-1px 0 0 var(--bg-page))
-    drop-shadow(0 1px 0 var(--bg-page)) drop-shadow(0 -1px 0 var(--bg-page));
+/* ONE layer for all the finds, masked to their union: laid on each find separately the filter
+   would run twice where two of them overlap, and an inversion done twice is no inversion. */
+:root[data-wave="wave-03"] .artifact-union {
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 220ms ease;
+  -webkit-backdrop-filter: var(--find-negative);
+  backdrop-filter: var(--find-negative);
+  -webkit-mask: var(--find-mask);
+  mask: var(--find-mask);
 }
 
 /* "Today" in the contact-sheet edition: the plate comes off entirely. The frames are the material
@@ -1673,4 +1669,55 @@
    right, and a control back at the left margin sends it all the way home for nothing. */
 :root[data-wave="wave-03"] .feedback-modal__send {
   align-self: flex-end;
+}
+
+/* The develop takes away everything the hand is NOT on: the frame goes soft and dim, the negative
+   goes out, and only the find under the pointer stays sharp — both of them, where two overlap. */
+:root[data-wave="wave-03"] .drop-roll__stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  -webkit-backdrop-filter: blur(3px) brightness(0.84) saturate(0.92);
+  backdrop-filter: blur(3px) brightness(0.84) saturate(0.92);
+}
+
+/* The sharp window is the same shot as a background at frame size, shifted onto the find
+   (`shotWindow`): a hole punched in a mask costs a compositing pass this does not. */
+:root[data-wave="wave-03"] .artifact-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  background-image: var(--shot);
+  background-size: var(--shot-size);
+  background-position: var(--shot-pos);
+  background-repeat: no-repeat;
+}
+
+/* The develop belongs to the find itself: the hand has to be ON its square, not merely on the
+   photograph. `data-shown` is judged by the point (`boxesAt`), since finds overlap and `:hover`
+   reaches only the topmost. Touch sets no such state, and there the negative simply stands. */
+@media (hover: hover) {
+  :root[data-wave="wave-03"] .drop-roll__stage:has(.artifact-box[data-shown]) .artifact-union {
+    opacity: 0;
+  }
+  :root[data-wave="wave-03"] .drop-roll__stage:has(.artifact-box[data-shown])::after {
+    opacity: 1;
+  }
+  /* Only what is under the hand comes back sharp; the other finds are dimmed with the frame. */
+  :root[data-wave="wave-03"] .artifact-box[data-shown]::after {
+    opacity: 1;
+  }
+}
+
+/* Order around the veil: finds and the scene's own controls stand above it, the photograph under. */
+:root[data-wave="wave-03"] .artifact-finds,
+:root[data-wave="wave-03"] .drop-roll__zoom {
+  z-index: 4;
 }

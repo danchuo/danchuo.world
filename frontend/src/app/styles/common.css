@@ -4233,6 +4233,13 @@ button.sleep-echo:focus-visible {
   border: 2px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+/* The union of the finds as ONE layer over the frame, carrying its mask inline. Bare by default:
+   only a wave that treats the finds as a single surface paints anything here. DESIGN §7.5 */
+.artifact-union {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 
 /* The object card beside a box, replacing what used to be a bare name on accent. A name in words does not answer
    "what is that writing on the photo", whereas the familiar cut-out object answers at once — the same picture

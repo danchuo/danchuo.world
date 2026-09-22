@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { padHighlight } from "@/lib/artifactHighlight";
+import type { CSSProperties } from "react";
+import { padHighlight, shotWindow, unionMask } from "@/lib/artifactHighlight";
 import { laysOnSide } from "@/lib/artifactBox";
 import type { ArtifactBoxView } from "@/lib/api/types";
 import { Artifact3D } from "./Artifact3D";
@@ -15,6 +16,7 @@ export function ArtifactBoxes({
   boxes,
   shown,
   aside = false,
+  shot,
 }: {
   boxes: ArtifactBoxView[];
   shown: number[];
@@ -23,13 +25,30 @@ export function ArtifactBoxes({
    * either side of the photograph, and a thing on bare ground needs no plate. DESIGN §7.5
    */
   aside?: boolean;
+  /**
+   * The frame's own address, handed to each box as a background window onto it. A wave keeps the
+   * finds sharp over a softened frame by it; without it nothing is drawn. DESIGN §7.5
+   */
+  shot?: string;
 }) {
+  const rects = boxes.map((b) => padHighlight(b));
   return (
     <>
+      {/* One layer over the whole frame, masked to the union of the finds. A wave dresses it (or
+          leaves it blank); what it must NOT be is a layer per find, since two of them overlap. */}
+      {rects.length > 0 && (
+        <span
+          className="artifact-union"
+          aria-hidden
+          style={{ "--find-mask": unionMask(rects) } as CSSProperties}
+        />
+      )}
+
       {boxes.map((a) => {
         // The box is deliberately wider than the find: it shows an AREA rather than outlining
         // the object's edge.
         const r = padHighlight(a);
+        const win = shot ? shotWindow(r) : null;
         return (
           <span
             key={a.artifactId}
@@ -40,6 +59,13 @@ export function ArtifactBoxes({
               top: `${r.y0 * 100}%`,
               width: `${r.width * 100}%`,
               height: `${r.height * 100}%`,
+              ...(win && shot
+                ? ({
+                    "--shot": `url("${shot}")`,
+                    "--shot-size": win.size,
+                    "--shot-pos": win.position,
+                  } as CSSProperties)
+                : null),
             }}
           >
             {/* The name is ALWAYS in the markup: the hint lives on hover, a screen reader has none,

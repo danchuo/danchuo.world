@@ -5,6 +5,8 @@ import {
   HIGHLIGHT_PAD,
   boxFromDrag,
   boxesAt,
+  shotWindow,
+  unionMask,
   padHighlight,
 } from "./artifactHighlight";
 
@@ -191,5 +193,45 @@ describe("boxesAt — какие рамки под курсором", () => {
     const tiny = named("очки", 0.5, 0.5, 0.51, 0.51);
     expect(boxesAt([tiny], 0.545, 0.5).map((b) => b.name)).toEqual(["очки"]);
     expect(boxesAt([tiny], 0.7, 0.7)).toEqual([]);
+  });
+});
+
+describe("shotWindow", () => {
+  it("кадр фоном во всю ширину находки: четверть кадра просит 400% размера", () => {
+    const w = shotWindow({ x0: 0.25, y0: 0.5, width: 0.25, height: 0.5 });
+
+    expect(w.size).toBe("400% 200%");
+  });
+
+  it("сдвиг считается от ОСТАТКА, иначе участок уезжает мимо находки", () => {
+    // 0.25 / (1 - 0.25) = 1/3 — the percentage that puts the background's left edge on x0.
+    const w = shotWindow({ x0: 0.25, y0: 0.5, width: 0.25, height: 0.5 });
+
+    expect(w.position).toBe("33.333% 100%");
+  });
+
+  it("находка во всю ось двигать по ней нечего — ноль, а не деление на ноль", () => {
+    const w = shotWindow({ x0: 0, y0: 0, width: 1, height: 1 });
+
+    expect(w.position).toBe("0% 0%");
+    expect(w.size).toBe("100% 100%");
+  });
+});
+
+describe("unionMask", () => {
+  it("одна маска на все находки: слой с негативом должен быть ОДИН", () => {
+    const mask = unionMask([
+      { x0: 0.25, y0: 0.5, width: 0.25, height: 0.5 },
+      { x0: 0, y0: 0, width: 0.5, height: 0.5 },
+    ]);
+
+    expect(mask.split(", no-repeat").length - 1).toBe(0);
+    expect(mask.split("no-repeat").length - 1).toBe(2);
+    expect(mask).toContain("33.333% 100% / 25% 50% no-repeat");
+    expect(mask).toContain("0% 0% / 50% 50% no-repeat");
+  });
+
+  it("без находок маска пустая — красить нечего", () => {
+    expect(unionMask([])).toBe("");
   });
 });

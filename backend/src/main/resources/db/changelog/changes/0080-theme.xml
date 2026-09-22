@@ -6,18 +6,18 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс theme (PRD §5.9, §7, §12 M4; DESIGN §10). Токены волны — в JSONB; смена активной
-      волны меняет весь сайт без правок компонентов. Data-driven: новая волна = новая запись.
-      layout (JSONB, nullable) — layout-per-wave (DESIGN §3, §10.1): волна может переопределять
-      дефолтную bento-раскладку фронта (переставить/ресайзить/спрятать/развернуть тайлы, грид,
-      мобильный порядок); null ⇒ фронт берёт дефолт layout.ts. Бэкенд хранит JSON как есть,
-      реестр тайлов и мерж — во фронте.
+      The theme slice (PRD §5.9, §7, §12 M4; DESIGN §10). Wave tokens are in JSONB; switching the active
+      wave changes the whole site without component edits. Data-driven: a new wave is a new row.
+      layout (JSONB, nullable) is layout-per-wave (DESIGN §3, §10.1): a wave may override
+      the frontend's default bento layout (move/resize/hide/turn tiles, the grid,
+      the mobile order); null ⇒ the frontend takes the layout.ts default. The backend stores JSON as is,
+      the tile registry and the merge live in the frontend.
 
-      Консолидировано перед 1.0.0 (прод стартует с чистой цепочки): сюда свёрнуты бывшие
-      0120 (layout-колонка; демо-«Ночь» выброшена — её заменила Obscura), 0140 (AA-контраст
-      text-tertiary волны 01), 0180 (промежуточный зеркальный layout), 0200 (рестайл Obscura +
-      font-display в обе волны) и 0210 (финальный layout с вертикальной лентой артефактов).
-      Сиды ниже = финальное состояние той цепочки, сверено дампом с наполненной базы.
+      Consolidated before 1.0.0 (prod starts from a clean chain): the former
+      0120 (the layout column; the demo "Night" was dropped, Obscura replaced it), 0140 (AA contrast
+      for wave 01's text-tertiary), 0180 (an intermediate mirrored layout), 0200 (Obscura restyle +
+      font-display in both waves) and 0210 (the final layout with a vertical artifact ribbon) are folded in here.
+      The seeds below are the final state of that chain, checked against a dump of a populated database.
     -->
     <changeSet id="0080-theme-table" author="danchuo">
         <createTable tableName="theme">
@@ -44,13 +44,13 @@
     </changeSet>
 
     <!--
-      Сид волны 01 «Студия / Персик» (DESIGN §2.1–2.3). tokens = весь визуальный набор из
-      frontend globals.css (ключи без CSS-префикса; фронт сам добавляет префикс и инжектит
-      в :root). Шрифты сюда НЕ кладём — их подставляет next/font; font-display = mono, чтобы
-      клиентский своп волн корректно сбрасывал дисплей-шрифт при возврате с волны 02.
-      text-tertiary #756a61 — AA-контраст (DESIGN §9). layout не задан ⇒ дефолт фронта.
-      Dollar-quoting ($J$…$J$) — чтобы JSON с двойными кавычками жил в SQL без экранирования
-      (Postgres-специфика, мы только PG).
+      Seed of wave 01 "Studio / Peach" (DESIGN §2.1–2.3). tokens = the whole visual set from
+      the frontend's globals.css (keys without the CSS prefix; the frontend adds the prefix itself and injects
+      into :root). Fonts are NOT put here: next/font supplies them; font-display = mono so that
+      the client-side wave swap correctly resets the display font when coming back from wave 02.
+      text-tertiary #756a61 is AA contrast (DESIGN §9). No layout ⇒ the frontend default.
+      Dollar-quoting ($J$…$J$) lets JSON with double quotes live in SQL without escaping
+      (Postgres-specific, we are PG only).
     -->
     <changeSet id="0080-theme-seed-wave01" author="danchuo">
         <sql><![CDATA[
@@ -95,12 +95,12 @@ INSERT INTO theme (key, name, tokens, active, released_at) VALUES (
     </changeSet>
 
     <!--
-      Сид волны 02 «Obscura» (DESIGN §10.2): 8-бит аркада на «облачной бумаге» — небесно-голубой
-      холст, белые парящие карточки, единственный сигнальный оранжевый, пиксельный дисплей-шрифт
-      (Jersey 10, класс font-jersey из next/font). Полный токен-набор (своп перекрывает весь
-      :root). Layout — «аркадный автомат» с ВЕРТИКАЛЬНОЙ лентой артефактов у левого края
-      (orientation: vertical, DESIGN §10.1); полный набор спанов (не дельта), непересечения
-      проверены. Волна неактивна — включается переключателем.
+      Seed of wave 02 "Obscura" (DESIGN §10.2): an 8-bit arcade on "cloud paper": a sky-blue
+      canvas, white floating cards, a single signal orange, a pixel display font
+      (Jersey 10, the font-jersey class from next/font). The full token set (the swap overrides the whole
+      :root). Layout: an "arcade cabinet" with a VERTICAL artifact ribbon at the left edge
+      (orientation: vertical, DESIGN §10.1); a full set of spans (not a delta), non-overlap
+      checked. The wave is inactive and is turned on by the switcher.
     -->
     <changeSet id="0080-theme-seed-wave02-obscura" author="danchuo">
         <sql><![CDATA[

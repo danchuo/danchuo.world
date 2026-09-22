@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «эхолот» отдаёт ещё один трек слева — колонки 33..40 вместо 32..40 (DESIGN §10.2).
+      Wave 03: the "echo sounder" gives up one more track on the left: columns 33..40 instead of 32..40 (DESIGN §10.2).
 
-      Правый край держит край борда, как у музыкальной плитки над ним, а левый уходит вправо:
-      промер становится уже музыки на два трека, и между ними открывается лента волны. Высота
-      и строки не меняются — сужается только ширина.
+      The right edge holds the board's edge, like the music tile above it, and the left one moves right:
+      the sounding becomes two tracks narrower than music, and the wave's ribbon opens between them. The height
+      and rows do not change: only the width narrows.
     -->
     <changeSet id="0900-wave-03-sleep-narrower" author="danchuo">
         <sql><![CDATA[

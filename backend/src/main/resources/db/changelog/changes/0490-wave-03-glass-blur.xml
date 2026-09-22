@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: блюр стекла 20px → 12px (DESIGN §10.2).
+      Wave 03 "PRIME": glass blur 20px → 12px (DESIGN §10.2).
 
-      Ручка из сида 0460 сработала ровно так, как задумывалась: правка одной записи, без
-      строчки CSS. Причина — не производительность, а читаемость холста: лента прожитых
-      дней набрана 12.5px и живёт на 11.5% прозрачности, и полный проход в 20px растирал
-      её за плиткой в ровное поле — стекло переставало быть стеклом. На 12px нижний проход
-      всё ещё глушит фон под цифрами данных, а смазанный текст за плиткой виден.
+      The knob from the 0460 seed worked exactly as intended: one row edited, without
+      a line of CSS. The reason is not performance but the canvas's readability: the ribbon of lived
+      days is set at 12.5px and lives at 11.5% opacity, and a full 20px pass rubbed it
+      behind the tile into a flat field: the glass stopped being glass. At 12px the lower pass
+      still mutes the background under the data figures, while the smeared text behind the tile is visible.
 
-      Фолбэк в `var()` внутри wave-03.css обновлён тем же числом. (В комментарии XML нельзя
-      писать двойной дефис, поэтому имя токена здесь без него.)
+      The fallback in the `var()` inside wave-03.css is updated with the same number. (An XML comment cannot
+      contain a double hyphen, so the token name here is written without it.)
     -->
     <changeSet id="0490-wave-03-glass-blur" author="danchuo">
         <sql><![CDATA[

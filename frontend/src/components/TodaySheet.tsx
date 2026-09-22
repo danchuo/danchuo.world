@@ -15,6 +15,7 @@ import {
   type SheetSession,
 } from "@/lib/daySheet";
 import { Artifact3D } from "./Artifact3D";
+import { showsBoulder } from "@/lib/bouldering";
 import { MONSTER_LENS_KEY, type DisciplineLens } from "@/lib/disciplineLens";
 import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
@@ -90,6 +91,7 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
           {sessions.map((session) => (
             <Frame key={session.key} session={session} onOpen={setRetold} />
           ))}
+          {showsBoulder(day) && <BoulderCard />}
           <MonsterCard
             card={monster}
             active={lens?.key === MONSTER_LENS_KEY}
@@ -290,6 +292,29 @@ function MonsterCard({
   );
 }
 
+/**
+ * The bouldering shoe: the monster's frame geometry, standing before it on the days it happened.
+ * A fact, not a control — no lens answers to it. DESIGN §4.3
+ */
+function BoulderCard() {
+  return (
+    <figure className="today-sheet__boulder" aria-label="Болдеринг">
+      <span className="today-sheet__shot today-sheet__shot--bare">
+        <Artifact3D
+          src={BOULDER_MODEL_SRC}
+          className="today-sheet__monsterbody"
+          rpm={MONSTER_RPM}
+          pose={BOULDER_POSE}
+          padding={BOULDER_PADDING}
+          brightness={BOULDER_BRIGHTNESS}
+        />
+      </span>
+      <span className="today-sheet__track today-sheet__track--void" aria-hidden />
+      <figcaption className="today-sheet__monstersay">болдеринг</figcaption>
+    </figure>
+  );
+}
+
 /** The sockets and the monster's card are the lens's only source, so its shape is built here. */
 function cellLens(cell: SheetCell): DisciplineLens {
   return { key: cell.key, occurrence: 1, label: cell.short };
@@ -309,6 +334,17 @@ const MONSTER_RPM = 4;
 
 /** Off-axis at rest: face-on the can is a flat rectangle, and a turned one reads as a body. */
 const MONSTER_POSE = { yaw: 10, pitch: -12 };
+
+const BOULDER_MODEL_SRC = "/assets/3d/climbing-shoe.glb";
+
+/** Nose down at an angle, so the long shoe stands upright like the can beside it. */
+const BOULDER_POSE = { yaw: 30, pitch: -12, roll: 70 };
+
+/** The sphere fit makes a long shoe look larger than the can; this evens their heights. */
+const BOULDER_PADDING = 0.62;
+
+/** The shoe's texture is lighter than the can's: dimmed to sit in the same light. */
+const BOULDER_BRIGHTNESS = 0.57;
 
 /** The photographer's vocabulary: its own frames above, kept, still open, a select owed to nobody. */
 const CELL_MARK: Readonly<Record<SheetCellState, string>> = {

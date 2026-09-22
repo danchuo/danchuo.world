@@ -11,13 +11,18 @@ function cells(span: TileSpan): string[] {
   return out;
 }
 
-describe("реестр волн", () => {
-  it("ключи уникальны, активная волна — одна из списка", () => {
+describe("wave registry", () => {
+  it("keys are unique, the active wave is one of the list", () => {
     expect(new Set(WAVES.map((w) => w.key)).size).toBe(WAVES.length);
     expect(WAVES.some((w) => w.key === ACTIVE_WAVE_KEY)).toBe(true);
   });
 
-  it("волна посетителя перекрывает активную, неизвестный ключ тихо игнорируется", () => {
+  it("PRIME comes first in the switcher and a new visitor sees it", () => {
+    expect(WAVES.map((w) => w.key)).toEqual(["wave-03", "wave-01", "wave-02"]);
+    expect(resolveDisplayWave(null).key).toBe("wave-03");
+  });
+
+  it("the visitor's wave overrides the active one, an unknown key is quietly ignored", () => {
     expect(resolveDisplayWave("wave-02").key).toBe("wave-02");
     expect(resolveDisplayWave(null).key).toBe(ACTIVE_WAVE_KEY);
     // A cookie outlives the wave it names — a stale key must not blank the board.
@@ -30,14 +35,14 @@ describe("реестр волн", () => {
  * by hand, cell by cell, in the comment of each migration — and a wave carried tile ids the code
  * had never heard of without anyone noticing.
  */
-describe.each(WAVES.map((w) => [w.key, w] as const))("раскладка волны %s", (_key, wave) => {
+describe.each(WAVES.map((w) => [w.key, w] as const))("wave %s layout", (_key, wave) => {
   const layout = resolveLayout(wave.layout);
   // The bento board only: a tile kept for the stack alone owns no cell here (DESIGN §10.1).
   const visible = (Object.entries(layout.tiles) as [string, TileSpan][]).filter(
     ([, span]) => !span.hidden && span.only !== "stack",
   );
 
-  it("плитки не выходят за пределы грида", () => {
+  it("tiles do not go outside the grid", () => {
     for (const [id, span] of visible) {
       expect(`${id}: ${span.col}..${span.col + span.colSpan - 1}`).toBe(
         `${id}: ${span.col}..${Math.min(span.col + span.colSpan - 1, layout.cols)}`,
@@ -48,7 +53,7 @@ describe.each(WAVES.map((w) => [w.key, w] as const))("раскладка вол�
     }
   });
 
-  it("плитки не накладываются друг на друга", () => {
+  it("tiles do not overlap each other", () => {
     const taken = new Map<string, string>();
     const collisions: string[] = [];
     for (const [id, span] of visible) {
@@ -61,7 +66,7 @@ describe.each(WAVES.map((w) => [w.key, w] as const))("раскладка вол�
     expect(collisions).toEqual([]);
   });
 
-  it("переключатель волн виден — иначе волну не сменить", () => {
+  it("the wave switcher is visible — otherwise the wave cannot be changed", () => {
     expect(layout.tiles.waveSwitcher.hidden).toBe(false);
   });
 });

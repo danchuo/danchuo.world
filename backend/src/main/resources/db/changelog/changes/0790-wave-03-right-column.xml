@@ -6,18 +6,18 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03, правая колонка: соцсети ужимаются до ОДНОЙ строки, музыка подтягивается на
-      освободившееся место, переключатель волн теряет строку сверху.
+      Wave 03, the right column: social shrinks to ONE row, music moves up into
+      the freed space, the wave switcher loses a row at the top.
 
-      Марки соцсетей меряются от ШИРИНЫ своей плитки (токен `social-icon-size`, в cqw), а не от её
-      высоты, поэтому вторая строка знакам ничего не давала — она была воздухом под ними.
-      Сняв её, сохраняем прежний зазор до музыки: соцсети кончались на 3-й строке при музыке с
-      5-й, то есть просвет в одну строку; теперь соцсети кончаются на 2-й, и музыка встаёт на
-      4-ю. Двигать надо ИМЕННО музыку — иначе просвет удвоился бы и колонка развалилась бы на
-      две несвязанные группы.
+      The social marks are sized from their tile's WIDTH (the `social-icon-size` token, in cqw), not from its
+      height, so the second row gave the marks nothing: it was air under them.
+      Removing it, we keep the old gap to music: social ended on row 3 with music from
+      row 5, i.e. a one-row gap; now social ends on row 2, and music starts at
+      row 4. It is music that has to move: otherwise the gap would double and the column would fall apart into
+      two unrelated groups.
 
-      Переключатель ужимается сверху: низ (19-я строка) держит его строй с плиткой велобайка
-      под ним, а лишняя строка была у него над содержимым.
+      The switcher shrinks from the top: its bottom (row 19) keeps it aligned with the Velobike tile
+      under it, and the extra row was above its content.
     -->
     <changeSet id="0790-wave-03-right-column" author="danchuo">
         <sql><![CDATA[

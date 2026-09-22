@@ -10,7 +10,7 @@ import {
 } from "./layout";
 
 describe("resolveLayout", () => {
-  it("без волны (null) → чистый дефолт layout.ts", () => {
+  it("without a wave (null) → the plain layout.ts default", () => {
     const r = resolveLayout(null);
     expect(r.cols).toBe(BENTO_COLS);
     expect(r.rows).toBe(BENTO_ROWS);
@@ -18,7 +18,7 @@ describe("resolveLayout", () => {
     expect(r.mobileOrder).toEqual(MOBILE_ORDER);
   });
 
-  it("волна переопределяет спан одного тайла, остальные — дефолт", () => {
+  it("a wave overrides one tile's span, the rest are default", () => {
     const r = resolveLayout({ tiles: { today: { col: 2, colSpan: 5 } } });
     expect(r.tiles.today.col).toBe(2);
     expect(r.tiles.today.colSpan).toBe(5);
@@ -28,17 +28,17 @@ describe("resolveLayout", () => {
     expect(r.tiles.music).toEqual({ ...TILE_LAYOUT.music, hidden: false });
   });
 
-  it("волна может скрыть тайл", () => {
+  it("a wave may hide a tile", () => {
     const r = resolveLayout({ tiles: { stats: { hidden: true } } });
     expect(r.tiles.stats.hidden).toBe(true);
   });
 
-  it("переключатель волн нельзя спрятать (защита от лока)", () => {
+  it("the wave switcher cannot be hidden (lock-out protection)", () => {
     const r = resolveLayout({ tiles: { waveSwitcher: { hidden: true } } });
     expect(r.tiles.waveSwitcher.hidden).toBe(false);
   });
 
-  it("волна задаёт размер грида и порядок мобильного стека", () => {
+  it("the wave sets the grid size and the mobile stack order", () => {
     const r = resolveLayout({ grid: { cols: 24, rows: 18 }, mobileOrder: ["music", "today"] });
     expect(r.cols).toBe(24);
     expect(r.rows).toBe(18);
@@ -47,20 +47,20 @@ describe("resolveLayout", () => {
     expect(new Set(r.mobileOrder)).toEqual(new Set(MOBILE_ORDER));
   });
 
-  it("волна может развернуть тайл (orientation), дефолт — ориентация не задана", () => {
+  it("a wave may turn a tile (orientation); by default no orientation is set", () => {
     const r = resolveLayout({ tiles: { marquee: { orientation: "vertical" } } });
     expect(r.tiles.marquee.orientation).toBe("vertical");
     // With no override it is undefined and the tile renders its own default.
     expect(r.tiles.social.orientation).toBeUndefined();
   });
 
-  it("волна может выбрать редакцию тайла (edition); дефолт — редакция не задана", () => {
+  it("a wave may choose a tile edition (edition); by default no edition is set", () => {
     const r = resolveLayout({ tiles: { latestDrop: { edition: "frame" } } });
     expect(r.tiles.latestDrop.edition).toBe("frame");
     expect(r.tiles.music.edition).toBeUndefined();
   });
 
-  it("волна может выбрать планету проектов (planet); дефолт — не задана", () => {
+  it("a wave may choose the projects planet (planet); by default it is unset", () => {
     // ⚠️ A regression: every field of the layout contract must be CARRIED OVER explicitly here.
     // The merge assembles a span field by field, and a forgotten key is lost silently — which is
     // what happened to 3D planets, when the field list ran through the backend as well.
@@ -76,15 +76,15 @@ describe("resolveLayout", () => {
  * ceiling (projects). It is the tile's own property, not the wave's, so it is also checked on a
  * span the wave has recut.
  */
-describe("tileBox — как тайл занимает свою ячейку", () => {
-  it("обычный тайл растянут на весь спан", () => {
+describe("tileBox — how a tile occupies its cell", () => {
+  it("an ordinary tile is stretched over the whole span", () => {
     const box = tileBox("today", TILE_LAYOUT.today);
     expect(box.cell.gridArea).toBe(gridArea(TILE_LAYOUT.today));
     expect(box.cell.alignSelf).toBeUndefined();
     expect(box.tile.height).toBe("100%");
   });
 
-  it("проекты меряются содержимым, а спан им только потолок", () => {
+  it("projects are measured by their content, the span is only their ceiling", () => {
     const box = tileBox("projects", TILE_LAYOUT.projects);
     expect(box.cell.gridArea).toBe(gridArea(TILE_LAYOUT.projects));
     // The grid item's stretch is removed and the ceiling stays: the percentage is of the span's cell.
@@ -95,7 +95,7 @@ describe("tileBox — как тайл занимает свою ячейку", (
     expect(box.tile.width).toBe("100%");
   });
 
-  it("потолок берётся из спана ВОЛНЫ, а не из дефолта", () => {
+  it("the ceiling comes from the WAVE's span, not the default", () => {
     const r = resolveLayout({ tiles: { projects: { row: 4, rowSpan: 12 } } });
     const box = tileBox("projects", r.tiles.projects);
     expect(box.cell.gridArea).toBe(gridArea(r.tiles.projects));

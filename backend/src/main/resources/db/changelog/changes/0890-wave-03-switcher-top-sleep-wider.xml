@@ -6,17 +6,17 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: переключатель волн поднимается в шапку левой колонны, «эхолот» занимает
-      освободившуюся строку (DESIGN §10.2).
+      Wave 03: the wave switcher moves up into the left column's header, the "echo sounder" takes
+      the freed row (DESIGN §10.2).
 
-      Переключатель — колонки 5..10, строки 2..4: над плиткой последнего дропа и по её левому
-      краю. Строка 5 остаётся пустым треком, то есть воздух между ними такой же, как у всех
-      соседей на борде.
+      The switcher: columns 5..10, rows 2..4: above the latest drop tile and along its left
+      edge. Row 5 stays an empty track, i.e. the air between them is the same as between all
+      neighbours on the board.
 
-      Промер за счёт этого отпускает строку вниз (11..17 вместо 11..16) и отдаёт трек слева
-      (32..40 вместо 31..40): правый край борда держит его правый край, а левый подравнивается
-      под музыкальную плитку на трек уже. Строк под переключателем больше нет, и упираться
-      теперь не во что.
+      Because of this the sounding gets a row further down (11..17 instead of 11..16) and gives up a track on the left
+      (32..40 instead of 31..40): the board's right edge holds its right edge, and the left one aligns
+      with the music tile one track narrower. There are no more rows under the switcher, and nothing
+      to run into now.
     -->
     <changeSet id="0890-wave-03-switcher-top-sleep-wider" author="danchuo">
         <sql><![CDATA[

@@ -6,36 +6,36 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      «Коробочка» волны 01 (DESIGN §2.4, референс владельца 2026-07): объём плитки — две
-      полностью совпадающие карточки одного ступенчатого силуэта, смещённые по вертикали.
-      Верхняя (линия + поверхность) приподнята на tile-depth, из-под неё снизу выглядывает
-      нижняя ПОДЛОЖКА — тёплый персиковый градиент в том же глиняном контуре. Механика —
-      в wave-01.css (псевдо-слои .pixel-tile = верхняя карточка, элемент .pixel-slab =
-      подложка); здесь — токены, как и остальные параметры края (0160). NB: имена токенов
-      в этом комментарии без префикса двойного дефиса — XML запрещает его внутри
-      комментариев (в CSS это var(tile-depth) с префиксом).
+      Wave 01's "box" (DESIGN §2.4, the owner's reference 2026-07): the tile's volume is two
+      fully coincident cards of one stepped silhouette, offset vertically.
+      The top one (line + surface) is raised by tile-depth, and from under it the lower
+      BACKING peeks out below: a warm peach gradient in the same clay outline. The mechanics are
+      in wave-01.css (the .pixel-tile pseudo-layers are the top card, the .pixel-slab element is the
+      backing); here are the tokens, like the other edge parameters (0160). NB: token names
+      in this comment are written without the double-hyphen prefix: XML forbids it inside
+      comments (in CSS it is var(tile-depth) with the prefix).
 
-      UPDATE поверх применённого 0080-theme-seed-wave01 (checksum сида трогать нельзя);
-      `||` мержит только эти ключи, остальной токен-набор волны 01 не трогается.
-      Вычитание tile-depth-color/tile-depth-light — гигиена для сред, успевших примерить
-      промежуточные итерации этой ветки (на проде ключей нет, `-` там no-op).
+      An UPDATE over the applied 0080-theme-seed-wave01 (the seed's checksum must not be touched);
+      `||` merges only these keys, the rest of wave 01's token set is untouched.
+      Subtracting tile-depth-color/tile-depth-light is hygiene for environments that tried
+      this branch's intermediate iterations (prod has no such keys, `-` is a no-op there).
 
-        tile-depth   НОВЫЙ — вертикальный сдвиг карточек «коробочки» (высота видимой
-                     части подложки).
-        tile-slab-1/2 НОВЫЕ — градиент заливки подложки (тёплый персик); контур подложки —
-                     та же тёмная глина border-tile по всему периметру.
-        tile-inner / tile-inner-color НОВЫЕ — очень тонкая СВЕТЛАЯ внутренняя рамка верхней
-                     карты (слой .pixel-lid) по всему периметру; снизу глиняной рамки у
-                     верхней карты нет (светлая накрывает её до низа) — нижняя кромка
-                     светлая, стык с подложкой уместен без градиентов. Цвет — тёплый крем,
-                     не #ffffff: чистый белый ярче всего борда и холодный рядом с персиком,
-                     линия «звенела» издалека.
-        border-tile  #cc9f8c из 0160 -> #d58b69: контур обеих карточек насыщеннее.
-        tile-line    1.5px из 0160 -> 2px: линия увереннее, под вес «коробочки».
-        surface-fill низ передней грани теплеет (#fff5ee) — крышка не белый лист.
+        tile-depth   NEW: the vertical offset of the "box" cards (the height of the visible
+                     part of the backing).
+        tile-slab-1/2 NEW: the backing's fill gradient (warm peach); the backing's outline is
+                     the same dark clay border-tile around the whole perimeter.
+        tile-inner / tile-inner-color NEW: a very thin LIGHT inner frame of the top
+                     card (the .pixel-lid layer) around the whole perimeter; the top card has
+                     no clay frame at the bottom (the light one covers it to the bottom), so the bottom edge
+                     is light and the joint with the backing works without gradients. The colour is a warm cream,
+                     not #ffffff: pure white is the brightest thing on the board and cold next to the peach,
+                     the line "rang" from afar.
+        border-tile  #cc9f8c from 0160 → #d58b69: both cards' outline is more saturated.
+        tile-line    1.5px from 0160 → 2px: a more confident line, matching the "box"'s weight.
+        surface-fill the bottom of the front face warms up (#fff5ee): the lid is not a white sheet.
 
-      Волна 02 «Obscura» намеренно не трогается: её карты рисуют край сами (border+radius),
-      слои волны 01 у неё погашены (см. врез «Как волна выбирает край» в wave-01.css).
+      Wave 02 "Obscura" is deliberately untouched: its cards draw their edge themselves (border+radius),
+      wave 01's layers are switched off for it (see the note "How a wave chooses its edge" in wave-01.css).
     -->
     <changeSet id="0190-wave-01-depth-tokens" author="danchuo">
         <sql><![CDATA[

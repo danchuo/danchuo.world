@@ -6,35 +6,35 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Кадр музыки на волне 02 перестаёт быть квадратом и становится ПОРТРЕТОМ: квадрат обложки
-      во всю ширину плюс полоса текста под ним (DESIGN §10.2, решение владельца).
+      The music frame on wave 02 stops being a square and becomes a PORTRAIT: the cover's square
+      across the full width plus a text band under it (DESIGN §10.2, the owner's decision).
 
-      Квадратная плитка (0570) исходила из того, что текст лежит ПОВЕРХ обложки — тогда кадр
-      и картинка совпадают. На деле совпадали они лишь приблизительно: 7x9 треков — это
-      259.9x264.7px, и вписанная целиком (`contain`) квадратная обложка оставляла по краям
-      пятипиксельные полосы. Полосы и были тем, чего кадр должен избегать: он показывает
-      картинку, а не картинку в рамке из своего фона.
+      The square tile (0570) assumed the text lies ON TOP of the cover: then the frame
+      and the picture coincide. In fact they coincided only approximately: 7x9 tracks are
+      259.9x264.7px, and the square cover fitted in whole (`contain`) left five-pixel
+      bands at the edges. The bands were exactly what the frame must avoid: it shows
+      a picture, not a picture framed in its own background.
 
-      Новая композиция снимает вопрос по построению: слой обложки — сам квадрат, прибитый к
-      верху кадра во всю его ширину, поэтому «ширина кадра» и «ширина картинки» — одно и то же
-      число при любой геометрии сетки. Кадру нужна высота под квадрат плюс полоса текста:
+      The new composition removes the question by construction: the cover layer is the square itself, pinned to
+      the top of the frame across its whole width, so "the frame's width" and "the picture's width" are the same
+      number for any grid geometry. The frame needs height for the square plus a text band:
 
-        ширина(7)  = 33.7*7 + 4*6    = 259.9
-        высота(10) = 25.86*10 + 4*9  = 294.6   ⇒ под квадратом остаётся 34.7px
+        width(7)   = 33.7*7 + 4*6    = 259.9
+        height(10) = 25.86*10 + 4*9  = 294.6   ⇒ 34.7px remain under the square
 
-      Одиннадцать строк (324.5) отдали бы тексту всю его высоту целиком, но кадр от этого
-      вытягивался заметно выше соседей — владелец посмотрел на оба и выбрал десять. Полоса
-      под квадратом уже двух строк текста, и низ картинки они перекрывают: там для этого и
-      стоит облако (см. wave-02.css) — текст на нём читается, а картинка не обрезается.
+      Eleven rows (324.5) would give the text its whole height, but the frame then
+      stretched noticeably taller than its neighbours: the owner looked at both and chose ten. The band
+      under the square is narrower than two lines of text, and they overlap the picture's bottom: the cloud
+      is there for that (see wave-02.css): the text reads on it, and the picture is not cropped.
 
-      Строка берётся у «Сегодня» (14→13). Доминанта теряет ~26px высоты; карта-тропа этого не
-      замечает (её содержимое центрируется), а прослойка-воздух между плитками сохраняется:
-      «Сегодня» кончается на строке 17, кадр начинается с 19, строка 18 пустая.
+      The row is taken from "Today" (14→13). The dominant tile loses ~26px of height; the trail map does not
+      notice (its content is centred), and the air spacer between tiles stays:
+      "Today" ends on row 17, the frame starts at 19, row 18 is empty.
 
-      Рассмотрено и отклонено: оставить сетку и СУЗИТЬ карточку до 199px, чтобы квадрат с
-      текстом уложились в прежние 264.7. Ширина кадра тогда не зависит от сетки, но обложка
-      теряет четверть стороны — а вся волна построена на том, что картинка видна как можно
-      крупнее.
+      Considered and rejected: keep the grid and NARROW the card to 199px so the square with
+      the text fits the old 264.7. The frame's width then does not depend on the grid, but the cover
+      loses a quarter of its side, and the whole wave is built on the picture being seen as
+      large as possible.
     -->
     <changeSet id="0580-wave-02-music-portrait" author="danchuo">
         <sql><![CDATA[

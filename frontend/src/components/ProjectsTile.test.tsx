@@ -36,7 +36,7 @@ function project(over: Partial<ProjectView> = {}): ProjectView {
 }
 
 describe("ProjectsTile", () => {
-  it("рендерит проект с диапазоном и ссылкой на названии", async () => {
+  it("renders a project with a range and a link on the title", async () => {
     getProjectsMock.mockResolvedValue([project()]);
     render(<ProjectsTile />);
 
@@ -48,7 +48,7 @@ describe("ProjectsTile", () => {
     expect(screen.getByText("Q1 2026 — наст.")).toBeInTheDocument();
   });
 
-  it("волна просит объём — планета с моделью встаёт 3D-артефактом в том же слоте", async () => {
+  it("the wave asks for volume — a planet with a model stands as a 3D artifact in the same slot", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
     ]);
@@ -63,7 +63,7 @@ describe("ProjectsTile", () => {
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("старая волна объёма не просит — остаётся прежний плоский спрайт", async () => {
+  it("an old wave does not ask for volume — the old flat sprite stays", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
     ]);
@@ -74,7 +74,7 @@ describe("ProjectsTile", () => {
     expect(container.querySelector("img")).toHaveClass("project-sprite");
   });
 
-  it("волна просит объём, а модели у проекта нет — тихо остаётся спрайт", async () => {
+  it("the wave asks for volume but the project has no model — the sprite quietly stays", async () => {
     getProjectsMock.mockResolvedValue([
       project({ title: "proxemics", iconUrl: "/assets/projects/proxemics.png", modelUrl: null }),
     ]);
@@ -85,7 +85,7 @@ describe("ProjectsTile", () => {
     expect(container.querySelector("img")).toHaveClass("project-sprite--smooth");
   });
 
-  it("спрайт-планета из /assets/projects/: пиксель-арт (-px) — pixelated и своя доля, гладкий — на ступень крупнее", async () => {
+  it("a sprite planet from /assets/projects/: pixel art (-px) is pixelated with its own share, smooth art is one step larger", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "/assets/projects/danchuo-world-px.png" }),
       project({ title: "proxemics", iconUrl: "/assets/projects/proxemics.png" }),
@@ -107,7 +107,7 @@ describe("ProjectsTile", () => {
     expect(smooth.parentElement).toHaveClass("project-slot");
   });
 
-  it("сторонний фавикон — легаси-подача (мельче спрайта, со скруглением)", async () => {
+  it("a third-party favicon is the legacy look (smaller than a sprite, with rounding)", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "https://example.com/favicon.ico" }),
     ]);
@@ -120,14 +120,14 @@ describe("ProjectsTile", () => {
     expect(img?.parentElement).not.toHaveClass("project-slot");
   });
 
-  it("orientation=horizontal → лента-ряд (модификатор на списке)", async () => {
+  it("orientation=horizontal → a row ribbon (modifier on the list)", async () => {
     getProjectsMock.mockResolvedValue([project(), project({ title: "proxemics" })]);
     const { container } = render(<ProjectsTile orientation="horizontal" />);
     await screen.findByText("proxemics");
     expect(container.querySelector(".projects-list--horizontal")).toBeInTheDocument();
   });
 
-  it("без orientation → вертикальный список (дефолт, как во всех волнах до)", async () => {
+  it("without orientation → a vertical list (the default, as in every wave before)", async () => {
     getProjectsMock.mockResolvedValue([project()]);
     const { container } = render(<ProjectsTile />);
     await screen.findByText("danchuo.world");
@@ -138,8 +138,8 @@ describe("ProjectsTile", () => {
    * The `console` edition (DESIGN §7.8): a `tree` listing instead of a label row. The set of
    * editions is the tile's knowledge, not the layout registry's, so an unknown name is the default.
    */
-  describe("редакция console", () => {
-    it("подпись плитки — приглашение оболочки, а не слово «проекты»", async () => {
+  describe("console edition", () => {
+    it("the tile caption is a shell prompt, not the word \"projects\"", async () => {
       getProjectsMock.mockResolvedValue([project()]);
       render(<ProjectsTile edition="console" />);
       await screen.findByText("danchuo.world");
@@ -151,7 +151,7 @@ describe("ProjectsTile", () => {
      * Two links with different jobs: the shown path leads where it points, while the title and
      * picture lead to the project's home (for proxemics the code is a repo, the project a bot).
      */
-    it("название и картинка ведут в дом проекта, путь — по своему адресу", async () => {
+    it("the title and the picture lead to the project's home, the path to its own address", async () => {
       getProjectsMock.mockResolvedValue([
         project({
           title: "proxemics",
@@ -172,7 +172,7 @@ describe("ProjectsTile", () => {
     });
 
     /** With no separate home, the title and picture lead where the shown path does. */
-    it("без дома название ведёт по показанному пути", async () => {
+    it("without a home the title follows the shown path", async () => {
       getProjectsMock.mockResolvedValue([
         project({ title: "danchuo.world", iconUrl: "/assets/projects/danchuo-world-px.png", url: "https://danchuo.world" }),
       ]);
@@ -187,7 +187,7 @@ describe("ProjectsTile", () => {
      * A site named by its own address: a second line would repeat the title in another voice and
      * colour while saying nothing new, so it simply is not there.
      */
-    it("путь, дословно равный названию, второй строкой не печатается", async () => {
+    it("a path literally equal to the title is not printed as a second line", async () => {
       getProjectsMock.mockResolvedValue([
         project({ title: "danchuo.world", url: "https://danchuo.world" }),
       ]);
@@ -202,7 +202,7 @@ describe("ProjectsTile", () => {
      * no right column at all. The year follows the LAST activity, so an open end lands in the
      * current one.
      */
-    it("год — в левом поле; колонки диапазона в строке нет", async () => {
+    it("the year is in the left margin; there is no range column in the row", async () => {
       vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
       getProjectsMock.mockResolvedValue([
         project({ title: "danchuo.world", endYear: null }),
@@ -220,7 +220,7 @@ describe("ProjectsTile", () => {
     });
 
     /** Each year is its own subtree: the trunk grows from the year, and the elbow closes ITS year. */
-    it("ветки считаются внутри года: угол в каждой группе", async () => {
+    it("branches are counted within a year: a corner in each group", async () => {
       vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
       getProjectsMock.mockResolvedValue([
         project({ title: "a", endYear: null }),
@@ -242,7 +242,7 @@ describe("ProjectsTile", () => {
      * Currency shows by brightness, not by a sign: the state travels as a row attribute and the
      * skin colours it (`ls --color`, not `-F`). A screen reader is told the same in words.
      */
-    it("живой и завершённый проекты различаются состоянием строки", async () => {
+    it("live and finished projects differ by the row's state", async () => {
       vi.setSystemTime(new Date("2031-09-07T10:00:00Z"));
       getProjectsMock.mockResolvedValue([
         project({ title: "a", endYear: null }),
@@ -256,7 +256,7 @@ describe("ProjectsTile", () => {
       expect(screen.getAllByText("завершён")).toHaveLength(1);
     });
 
-    it("проект без ссылок — ни одной гиперссылки в строке", async () => {
+    it("a project without links — not a single hyperlink in the row", async () => {
       getProjectsMock.mockResolvedValue([project({ url: null })]);
       const { container } = render(<ProjectsTile edition="console" />);
       await screen.findByText("danchuo.world");
@@ -270,7 +270,7 @@ describe("ProjectsTile", () => {
      * in the markup — the choice of kind itself is checked in `projectTree.test.ts`, and the lines
      * are drawn in CSS, so only this attribute survives into the markup.
      */
-    it("строки висят на ветках, угол достаётся последней", async () => {
+    it("rows hang on branches, the corner goes to the last one", async () => {
       getProjectsMock.mockResolvedValue([
         project({ title: "danchuo.world" }),
         project({ title: "proxemics" }),
@@ -284,7 +284,7 @@ describe("ProjectsTile", () => {
       expect(branches).toEqual(["head", "tee", "corner"]);
     });
 
-    it("незнакомая редакция → прежний список, без приглашения и путей", async () => {
+    it("an unknown edition → the old list, without the prompt and paths", async () => {
       getProjectsMock.mockResolvedValue([project()]);
       const { container } = render(<ProjectsTile edition="катушка" />);
       await screen.findByText("danchuo.world");
@@ -295,19 +295,19 @@ describe("ProjectsTile", () => {
     });
   });
 
-  it("пустой список → тихое пустое состояние", async () => {
+  it("an empty list → a quiet empty state", async () => {
     getProjectsMock.mockResolvedValue([]);
     render(<ProjectsTile />);
     expect(await screen.findByText("нет проектов")).toBeInTheDocument();
   });
 
-  it("сбой → состояние ошибки", async () => {
+  it("failure → error state", async () => {
     getProjectsMock.mockRejectedValue(new Error("boom"));
     render(<ProjectsTile />);
     await waitFor(() => expect(screen.getByText("не удалось загрузить")).toBeInTheDocument());
   });
 
-  it("сбой при наличии кэш-копии → показывает её, а не пустоту/ошибку", async () => {
+  it("a failure with a cached copy → shows the copy, not emptiness/an error", async () => {
     // A previous successful load (as after a run of F5 with a rate limit on the retry).
     window.localStorage.setItem(
       "dw:cache:v1:projects",

@@ -6,17 +6,17 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «Сегодня» переезжает в ЦЕНТР борда, календарь встаёт под ней.
+      Wave 03: "Today" moves to the board's CENTRE, the calendar stands under it.
 
-      Плитка ужимается ещё на две колонки (18 → 16) и встаёт в 13..28 × 9..19 — это ровно середина
-      сетки 40×28. Размеры остальных плиток НЕ тронуты ни у одной: борд пересобран сдвигами.
+      The tile shrinks by two more columns (18 → 16) and stands at 13..28 × 9..19: exactly the middle
+      of the 40×28 grid. No other tile's size is touched: the board is rebuilt by shifts.
 
-      Композиция стала трёхчастной. Слева колонка 1..11: дроп, под ним проекты, переключатель и
-      соцсети. Справа колонка 31..40: лента дропов, статы, музыка. В середине над «Сегодня» встают
-      сон и велобайк (13..20 и 22..28), под ней — календарь (13..21) и шахта артефактов (23..29).
+      The composition became three-part. On the left the 1..11 column: the drop, under it the projects, the switcher and
+      social. On the right the 31..40 column: the drop ribbon, stats, music. In the middle above "Today" stand
+      sleep and Velobike (13..20 and 22..28), under it the calendar (13..21) and the artifact shaft (23..29).
 
-      Плотность падает с 77.2% до 75.3%: центральная плитка отдала две колонки, и борд задышал.
-      Пустой трек между соседями сохранён везде, проверено раскладкой по клеткам.
+      Density drops from 77.2% to 75.3%: the central tile gave up two columns, and the board breathes.
+      An empty track between neighbours is kept everywhere, checked cell by cell in the layout.
     -->
     <changeSet id="1000-wave-03-today-centre" author="danchuo">
         <sql><![CDATA[

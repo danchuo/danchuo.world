@@ -6,20 +6,20 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: на борде остаётся ОДИН переключатель волн (DESIGN §10.2).
+      Wave 03 "PRIME": ONE wave switcher stays on the board (DESIGN §10.2).
 
-      Это рабочее состояние, а не финальный вид волны: холст с лентой правится на пустом
-      экране, а виджеты возвращаются по одному, когда каждый одет под стекло. Раскладка
-      прежних волн не трогается — прятанье живёт в layout-дельте этой волны.
+      This is a working state, not the wave's final look: the canvas with the ribbon is tuned on an empty
+      screen, and the widgets come back one at a time as each is dressed for glass. The earlier waves'
+      layout is untouched: the hiding lives in this wave's layout delta.
 
-      Переключатель встаёт по центру сетки 40x28 (был прижат к левому краю рядом с плиткой
-      «Сегодня» — без соседей этот угол читался как обрезок). Спрятать сам переключатель
-      нельзя: [UNHIDEABLE] во фронте держит его видимым, иначе посетитель залочил бы себя
-      в волне без выхода.
+      The switcher takes the centre of the 40x28 grid (it was pressed to the left edge next to the "Today"
+      tile: without neighbours that corner read as an offcut). The switcher itself cannot be
+      hidden: [UNHIDEABLE] in the frontend keeps it visible, otherwise a visitor would lock themselves
+      into a wave with no way out.
 
-      Оговорка на будущее: дельта перечисляет тайлы ПОИМЁННО, потому что механизм умеет
-      только это. Тайл, добавленный в код позже, в списке не окажется и приедет на борд
-      видимым — это осознанная плата за forward-compat мержа (§10.1), а не недосмотр.
+      A caveat for the future: the delta lists tiles BY NAME, because that is all the mechanism can
+      do. A tile added to the code later will not be in the list and will arrive on the board
+      visible: a deliberate price for the merge's forward-compat (§10.1), not an oversight.
     -->
     <changeSet id="0480-wave-03-solo-switcher" author="danchuo">
         <sql><![CDATA[

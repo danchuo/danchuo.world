@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ArtifactView } from "@/lib/api/types";
-import { Artifact3D } from "./Artifact3D";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
 
@@ -21,13 +20,13 @@ function formatFirstMentioned(iso: string): string {
 
 interface ArtifactModalProps {
   artifact: ArtifactView;
-  /** Model to show; the shaft hands over its placeholder until artifacts carry their own. */
+  /** The artifact's picture. */
   src: string;
   onClose: () => void;
 }
 
 /**
- * One artifact, alone, turned by hand. There is no panel as an object — the item steps out of the
+ * One artifact, alone, at full size. There is no panel as an object — the item steps out of the
  * board straight into the dark, and a card around it would be the extra window the transition
  * leads away from. The wave owns the material; this file owns only the layout. DESIGN §7.2, §10.2
  */
@@ -66,12 +65,11 @@ export function ArtifactModal({ artifact, src, onClose }: ArtifactModalProps) {
           <Icon name="close" size={18} />
         </button>
 
-        {/* The item is the subject here, so it turns under the hand instead of spinning on hover. */}
-        <Artifact3D
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={src}
-          label={artifact.name}
-          draggable
-          style={{ width: "min(56vh, 520px)", height: "min(56vh, 520px)", maxWidth: "82vw" }}
+          alt={artifact.name}
+          style={{ width: "min(56vh, 520px)", height: "min(56vh, 520px)", maxWidth: "82vw", objectFit: "contain" }}
         />
 
         <div className="flex flex-col items-center gap-2">

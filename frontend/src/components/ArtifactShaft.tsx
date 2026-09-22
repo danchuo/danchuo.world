@@ -8,7 +8,6 @@ import {
   stepShaft,
   type ShaftArtifact,
 } from "@/lib/artifactShaft";
-import { Artifact3D } from "./Artifact3D";
 
 /** How much of a drag counts as one step, as a fraction of the tile's height. */
 const DRAG_NOTCH = 0.3;
@@ -18,7 +17,7 @@ const MOTION_RATE = 0.16;
 const MOTION_EPSILON = 0.002;
 
 interface ArtifactShaftProps {
-  /** Only things with their own model: the caller filters with `shaftArtifacts`. DESIGN §7.2 */
+  /** Only things with a picture: the caller filters with `shaftArtifacts`. DESIGN §7.2 */
   artifacts: ShaftArtifact[];
   /** Opens the artifact's card; the shaft itself knows nothing of the card. */
   onOpen: (index: number) => void;
@@ -37,9 +36,6 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
   const count = artifacts.length;
   const [target, setTarget] = useState(0);
   const [position, setPosition] = useState(0);
-  /* One-way latch: the caption waits for the first object and then stays. A later step brings a
-     different model, but by then the shaft is furnished — a name blinking off would read worse. */
-  const [furnished, setFurnished] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<{ y: number; from: number; id: number; captured: boolean } | null>(null);
   /* Outlives the gesture: `pointerup` clears the drag, and only THEN does the click arrive — with
@@ -163,16 +159,19 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
               cursor: isFront ? "pointer" : undefined,
             }}
           >
-            <Artifact3D
-              src={artifacts[i].model3dUrl}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={artifacts[i].imageUrl}
+              alt=""
+              draggable={false}
               className="h-full w-full"
-              onSettled={() => setFurnished(true)}
+              style={{ objectFit: "contain" }}
             />
           </div>
         );
       })}
 
-      {front && furnished && (
+      {front && (
         <div
           className="artifact-shaft__caption absolute bottom-0 left-0 right-0 flex p-4"
           style={{ zIndex: 1100 }}

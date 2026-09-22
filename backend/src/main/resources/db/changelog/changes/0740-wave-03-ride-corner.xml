@@ -6,14 +6,14 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: велобайк уходит в ПРАВЫЙ НИЖНИЙ угол борда и садится заметно у́же и ниже.
-      Плитка не липнет к самым кромкам холста: справа и снизу остаётся полоса воздуха, как
-      у остальных углов борда. Что где стоит — DESIGN §10.2.
+      Wave 03: Velobike moves to the board's BOTTOM RIGHT corner and becomes noticeably narrower and lower.
+      The tile does not stick to the canvas's very edges: a band of air remains on the right and at the bottom, as
+      at the board's other corners. What stands where: DESIGN §10.2.
 
-      Мобильный стек не трогаем: порядок там про последовательность чтения, а не про углы.
+      The mobile stack is untouched: the order there is about reading sequence, not corners.
 
-      Дельту раскладки переписываем ЦЕЛИКОМ (как на 0660/0680/0700/0710): `jsonb_set` по
-      глубокому пути молча ничего не сделает, если промежуточного ключа не окажется.
+      The layout delta is rewritten WHOLE (as in 0660/0680/0700/0710): `jsonb_set` on
+      a deep path silently does nothing if an intermediate key is missing.
     -->
     <changeSet id="0740-wave-03-ride-corner" author="danchuo">
         <sql><![CDATA[

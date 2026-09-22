@@ -6,10 +6,10 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Монстр — только факт «пил / не пил» (PRD §5.6). Вкусы сняты: единственный носитель
-      факта теперь checklist_entry пункта `monster`, где он и так вёлся (1 = пил, 0 = не пил,
-      строки нет = не отмечали). day_record.monster_flavor_id хранил тот же факт вторым
-      экземпляром — перед сносом переносим из него всё, чего в отметках не хватает.
+      The monster is only the fact "drank / did not drink" (PRD §5.6). Flavours are removed: the only holder
+      of the fact is now the checklist_entry of the `monster` item, where it was kept anyway (1 = drank, 0 = did not,
+      no row = not marked). day_record.monster_flavor_id held the same fact as a second
+      copy: before dropping it we move over everything the marks are missing.
     -->
     <changeSet id="0720-monster-entry-backfill-missing" author="danchuo">
         <sql>
@@ -26,7 +26,7 @@
         </sql>
     </changeSet>
 
-    <!-- Расхождение двух носителей: вкус выбран, а отметка нулевая. Верен вкус — его ставил шорткат. -->
+    <!-- The two holders disagree: a flavour is chosen but the mark is zero. The flavour is right: the shortcut set it. -->
     <changeSet id="0720-monster-entry-backfill-zero" author="danchuo">
         <sql>
             UPDATE checklist_entry e

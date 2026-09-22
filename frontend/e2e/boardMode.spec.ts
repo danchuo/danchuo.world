@@ -54,7 +54,7 @@ const ZOOM_ON_1512 = [
   { zoom: "200%", width: 756, height: 450 },
 ] as const;
 
-test.describe("выбор режима борда", () => {
+test.describe("board mode selection", () => {
   for (const c of ZOOM_ON_1512) {
     test(`мышь, зум ${c.zoom} (${c.width}px) → BENTO`, async ({ browser }) => {
       const mode = await modeFor(browser, { width: c.width, height: c.height }, false);

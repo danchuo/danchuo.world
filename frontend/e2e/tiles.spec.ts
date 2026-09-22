@@ -87,7 +87,7 @@ test("per-tile visual regression", async ({ page }, testInfo) => {
  * production, which wraps onto a second line and keeps its size instead of shrinking to
  * unreadable. Other names never show the wrap.
  */
-test("плитка «Сегодня»: будни (карта-тропа) и выходной (сцена отдыха)", async ({ page }, testInfo) => {
+test("the \"Today\" tile: weekdays (trail map) and weekend (rest scene)", async ({ page }, testInfo) => {
   const isMobile = testInfo.project.name === "mobile";
   const container = page.locator(isMobile ? '[data-testid="stack"]' : '[data-testid="bento"]');
   const tile = container.locator(`section[aria-label="${TODAY_TILE}"]`).first();
@@ -114,7 +114,7 @@ test("плитка «Сегодня»: будни (карта-тропа) и в�
  * a small size do not reach the tile baseline's `maxDiffPixelRatio`, so visual regression would
  * not notice it disappearing.
  */
-test("чип вкладов GitHub доезжает до борда", async ({ page }, testInfo) => {
+test("the GitHub contributions chip reaches the board", async ({ page }, testInfo) => {
   const isMobile = testInfo.project.name === "mobile";
   const container = page.locator(isMobile ? '[data-testid="stack"]' : '[data-testid="bento"]');
   const stats = container.locator('section[aria-label="Статы — активность"]').first();

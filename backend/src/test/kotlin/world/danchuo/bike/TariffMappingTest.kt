@@ -24,7 +24,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `парсит страницу истории покупок`() {
+    fun `parses a purchase history page`() {
         val page = loadPage()
         assertEquals(4, page.content.size)
         assertEquals(42, page.totalElements)
@@ -32,7 +32,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `TARIFF — покупка тарифа, RENTAL — нет`() {
+    fun `TARIFF is a tariff purchase, RENTAL is not`() {
         val page = loadPage()
         val tariff = page.content.first { it.idPurchase == 2715716L }
         val rental = page.content.first { it.idPurchase == 2716277L }
@@ -41,7 +41,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `маппит покупку пакета — цена в копейках, минуты из названия`() {
+    fun `maps a pack purchase — the price in kopecks, the minutes from the title`() {
         val item = loadPage().content.first { it.idPurchase == 2715716L }
         val tariff = BikeTariff()
         TariffMapper.applyTo(tariff, item)
@@ -53,7 +53,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `поминутный тариф — минуты не парсятся (нет пакета)`() {
+    fun `a per-minute tariff — no minutes are parsed (no pack)`() {
         val item = loadPage().content.first { it.idPurchase == 2757350L }
         val tariff = BikeTariff()
         TariffMapper.applyTo(tariff, item)
@@ -82,7 +82,7 @@ class TariffMappingTest {
     private val t0: Instant = Instant.parse("2026-07-10T09:00:00Z")
 
     @Test
-    fun `доступ куплен ради поездки — её и оплачивает`() {
+    fun `access bought for a ride pays for that ride`() {
         // What really happens: the access package is bought seconds before the ride starts.
         val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
         val r = ride(1, t0.plusSeconds(6), 749, "Пакет 60 минут")
@@ -94,7 +94,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `следующие поездки под тем же пакетом доступ не оплачивают — только покрыты им`() {
+    fun `later rides under the same pack do not pay for the access — they are only covered by it`() {
         val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
         val first = ride(1, t0.plusSeconds(6), 0, "Пакет 60 минут")
         val second = ride(2, t0.plusSeconds(4000), 0, "Пакет 60 минут")
@@ -110,7 +110,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `поминутный доступ оплачивает свою поездку — минуты идут сверх него`() {
+    fun `per-minute access pays for its own ride — the minutes go on top of it`() {
         val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
         val r = ride(1, t0.plusSeconds(8), 1498, "Поминутный")
 
@@ -121,7 +121,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `доступ другого тарифа к поездке не липнет`() {
+    fun `another tariff's access does not stick to the ride`() {
         val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
         val r = ride(1, t0.plusSeconds(8), 0, "Пакет 60 минут")
 
@@ -132,7 +132,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `купленный и не откатанный доступ ни к какой поездке не привязывается`() {
+    fun `access bought and not ridden is not attached to any ride`() {
         // Access bought, no ride in the window: the next per-minute ride is three days later.
         val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
         val far = ride(1, t0.plusSeconds(3 * 24 * 3600), 0, "Поминутный")
@@ -143,7 +143,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `поминутный доступ следующие поездки не покрывает — включённых минут в нём нет`() {
+    fun `per-minute access does not cover later rides — it has no included minutes`() {
         val buy = purchase("p1", t0, 4000, "Доступ Поминутный")
         val own = ride(1, t0.plusSeconds(8), 1498, "Поминутный")
         val next = ride(2, t0.plusSeconds(7200), 0, "Поминутный") // it has no purchase of its own
@@ -155,7 +155,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `поездка раньше любой покупки — ни доступа, ни покрытия`() {
+    fun `a ride before any purchase — neither access nor coverage`() {
         val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
         val before = ride(1, t0.minusSeconds(600), 5243, "Пакет 60 минут")
 
@@ -166,7 +166,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `покрытие не тянется из позапрошлой недели`() {
+    fun `coverage does not reach back from the week before last`() {
         val buy = purchase("p1", t0, 39900, "Доступ Пакет 60 минут")
         val owner = ride(1, t0.plusSeconds(6), 0, "Пакет 60 минут")
         val late = ride(2, t0.plusSeconds(14 * 24 * 3600), 0, "Пакет 60 минут")
@@ -177,7 +177,7 @@ class TariffMappingTest {
     }
 
     @Test
-    fun `каждая покупка достаётся своей поездке, а не первой попавшейся`() {
+    fun `each purchase goes to its own ride, not the first one found`() {
         val first = purchase("p1", t0, 4000, "Доступ Поминутный")
         val second = purchase("p2", t0.plusSeconds(7200), 4000, "Доступ Поминутный")
         val r1 = ride(1, t0.plusSeconds(5), 1498, "Поминутный")

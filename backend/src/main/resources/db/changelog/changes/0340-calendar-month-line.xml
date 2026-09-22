@@ -6,33 +6,33 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Месяц в календаре метится ГРАНИЦЕЙ, а не заливкой блока дней (DESIGN §5, PRD 5.3).
-      Заводим cal-month-line, удаляем cal-othermonth и cal-othermonth-weekend - у них
-      больше нет читателя.
+      A month in the calendar is marked by a BOUNDARY, not by filling a block of days (DESIGN §5, PRD 5.3).
+      We add cal-month-line and remove cal-othermonth and cal-othermonth-weekend: they
+      no longer have a reader.
 
-      Почему заливку сняли. Она отвечала на вопрос "свой месяц или чужой", то есть
-      зависела от того, где стоит окно. С появлением листания недель окно поехало, и
-      опора стала пересекать границу месяца раз в 4-5 кликов - в этот момент до 28 клеток
-      из 28 меняли тон РАЗОМ, от шага в одну неделю. Движения на неделю не читалось,
-      читалось перелистывание страниц (замечено владельцем на живом борде: "нет ощущения,
-      что это единое полотно, уходящее назад").
+      Why the fill was removed. It answered the question "own month or other", i.e. it
+      depended on where the window stood. With week paging the window started moving, and
+      the anchor crossed a month boundary every 4-5 clicks: at that moment up to 28 cells
+      out of 28 changed tone AT ONCE, from a one-week step. A one-week movement did not read;
+      it read as flipping pages (noticed by the owner on the live board: "no feeling
+      that this is one canvas going back").
 
-      Почему граница этой беды не имеет: она принадлежит СТЫКУ двух дней и едет вместе с
-      ним. Вид отдельного дня перестал зависеть от положения окна вообще - это и есть
-      "единое полотно".
+      Why the boundary does not have this problem: it belongs to the SEAM between two days and moves together with
+      it. A single day's look stopped depending on the window position at all: that is exactly
+      "one canvas".
 
-      Той же правкой снято приглушение цифры у чужого месяца (text-secondary): это был тот
-      же сигнал и инвертировался бы ровно так же, просто тише. Отдельный токен для
-      выходного чужого месяца (0310) вместе с ним теряет смысл - выходной теперь ровно
-      один во всех месяцах окна.
+      The same edit removed the dimming of the other month's figure (text-secondary): it was the same
+      signal and would invert in exactly the same way, just quieter. The separate token for
+      the other month's weekend (0310) loses its meaning with it: there is now exactly
+      one weekend in all months of the window.
 
-      Оттенок линии: берём кант плитки (border-tile у волны 01) - календарь и край виджета
-      говорят одним языком линии, и это не новый цвет на борде, а уже принятый. Волна 02
-      рисует свой край сама (облачные карты), поэтому ей задан графит её же чернил.
+      The line's shade: we take the tile border (wave 01's border-tile): the calendar and the widget's edge
+      speak one line language, and it is not a new colour on the board but an already accepted one. Wave 02
+      draws its own edge (cloud cards), so it gets the graphite of its own ink.
 
-      NB: surface-othermonth НЕ трогаем - он красит плитку "Сегодня" при выборе дня чужого
-      месяца (§4), считается от сегодня и на листании не меняется (листание не меняет
-      выбранный день).
+      NB: surface-othermonth is NOT touched: it paints the "Today" tile when a day of another
+      month is selected (§4), is counted from today and does not change on paging (paging does not change
+      the selected day).
     -->
     <changeSet id="0340-wave-01-month-line" author="danchuo">
         <sql><![CDATA[

@@ -117,7 +117,7 @@ afterEach(() => {
 });
 
 describe("collapseConsecutiveRecent", () => {
-  it("схлопывает одинаковые треки, идущие подряд (по url)", () => {
+  it("collapses identical consecutive tracks (by url)", () => {
     const list = [
       recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:03:00Z"),
       recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:02:00Z"),
@@ -126,7 +126,7 @@ describe("collapseConsecutiveRecent", () => {
     expect(collapseConsecutiveRecent(list).map((r) => r.track.url)).toEqual(["u:a", "u:b"]);
   });
 
-  it("не трогает одинаковые треки, разделённые другим (через один)", () => {
+  it("does not touch identical tracks separated by another (every other one)", () => {
     const list = [
       recentOf({ title: "A", url: "u:a" }, "2026-06-18T10:03:00Z"),
       recentOf({ title: "B", url: "u:b" }, "2026-06-18T10:02:00Z"),
@@ -135,7 +135,7 @@ describe("collapseConsecutiveRecent", () => {
     expect(collapseConsecutiveRecent(list).map((r) => r.track.url)).toEqual(["u:a", "u:b", "u:a"]);
   });
 
-  it("схлопывает длинные серии, сохраняя первый элемент серии", () => {
+  it("collapses long runs, keeping the run's first element", () => {
     const list = [
       recentOf({ title: "A", url: "u:a" }, "t6"),
       recentOf({ title: "A", url: "u:a" }, "t5"),
@@ -150,7 +150,7 @@ describe("collapseConsecutiveRecent", () => {
     expect(out[0].playedAt).toBe("t6");
   });
 
-  it("различает треки по названию+артистам, когда url отсутствует", () => {
+  it("tells tracks apart by title+artists when the url is missing", () => {
     const list = [
       recentOf({ title: "Same", url: null, artists: [{ name: "X", url: null }] }, "t3"),
       recentOf({ title: "Same", url: null, artists: [{ name: "Y", url: null }] }, "t2"),
@@ -160,13 +160,13 @@ describe("collapseConsecutiveRecent", () => {
     expect(collapseConsecutiveRecent(list).map((r) => r.track.artists[0]?.name)).toEqual(["X", "Y"]);
   });
 
-  it("пустой список остаётся пустым", () => {
+  it("an empty list stays empty", () => {
     expect(collapseConsecutiveRecent([])).toEqual([]);
   });
 });
 
 describe("MusicTile", () => {
-  it("рендерит now-playing: трек, артиста и метку «сейчас играет»", async () => {
+  it("renders now-playing: track, artist and the \"now playing\" label", async () => {
     const now = nowView({ progressMs: 1000 });
     getNowPlayingMock.mockResolvedValue(now);
     getRecentMock.mockResolvedValue([]);
@@ -188,7 +188,7 @@ describe("MusicTile", () => {
     );
   });
 
-  it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
+  it("the card's width is NOT animated — otherwise WebKit smears its shadow into the side gaps", async () => {
     // This hit hardest here: the width moves on EVERY track change. The card carries
     // filter: drop-shadow, WebKit does not clean the area freed by shrinking, and every frame of
     // the animation left a stripe of shadow (docs/pitfalls.md).
@@ -202,7 +202,7 @@ describe("MusicTile", () => {
     expect(card.style.transition).toBe("");
   });
 
-  it("источник (плейлист) показывается ссылкой с названием", async () => {
+  it("the source (playlist) is shown as a link with a title", async () => {
     getNowPlayingMock.mockResolvedValue(
       nowView({
         source: { type: "playlist", url: "https://open.spotify.com/playlist/p", name: "Ночной драйв" },
@@ -219,7 +219,7 @@ describe("MusicTile", () => {
     );
   });
 
-  it("при играющем треке недавние не показываются", async () => {
+  it("recent tracks are not shown while a track is playing", async () => {
     getNowPlayingMock.mockResolvedValue(nowView());
     getRecentMock.mockResolvedValue([
       { track: track({ title: "Ghosts 'n' Stuff" }), playedAt: "2026-06-18T10:00:00Z" },
@@ -231,7 +231,7 @@ describe("MusicTile", () => {
     expect(screen.queryByTestId("recent-track")).not.toBeInTheDocument();
   });
 
-  it("альбом-сингл/одноимённый не показывается (album=null)", async () => {
+  it("a single/self-titled album is not shown (album=null)", async () => {
     getNowPlayingMock.mockResolvedValue(nowView({ track: track({ album: null }) }));
     getRecentMock.mockResolvedValue([]);
 
@@ -241,7 +241,7 @@ describe("MusicTile", () => {
     expect(screen.queryByText("For Lack of a Better Name")).not.toBeInTheDocument();
   });
 
-  it("ничего не играет и нет недавних → тихое пустое состояние", async () => {
+  it("nothing playing and no recent tracks → a quiet empty state", async () => {
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue([]);
 
@@ -251,7 +251,7 @@ describe("MusicTile", () => {
     expect(screen.queryByTestId("now-playing")).not.toBeInTheDocument();
   });
 
-  it("подряд идущие одинаковые недавние треки не дублируются", async () => {
+  it("consecutive identical recent tracks are not duplicated", async () => {
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue([
       { track: track({ title: "Strobe", url: "u:s" }), playedAt: "2026-06-18T10:03:00Z" },
@@ -265,7 +265,7 @@ describe("MusicTile", () => {
     expect(screen.getByText("Ghosts")).toBeInTheDocument();
   });
 
-  it("без now-playing, но с недавними — показывает список недавних", async () => {
+  it("without now-playing but with recent tracks — shows the recent list", async () => {
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     const recent: RecentTrackView[] = [
       { track: track({ title: "Ghosts 'n' Stuff" }), playedAt: "2026-06-18T10:00:00Z" },
@@ -277,7 +277,7 @@ describe("MusicTile", () => {
     expect(await screen.findByTestId("recent-track")).toHaveTextContent("Ghosts 'n' Stuff");
   });
 
-  it("ряд недавнего несёт давность прослушивания и альбом — по ним волна строит очередь", async () => {
+  it("a recent row carries how long ago it was listened to and the album — the wave builds a queue from them", async () => {
     // The label is relative, so "now" is frozen in the test: otherwise it ages with the system clock.
     vi.useFakeTimers();
     vi.setSystemTime(Date.parse("2026-06-18T10:14:00Z"));
@@ -298,7 +298,7 @@ describe("MusicTile", () => {
     expect(row.querySelector(".recent-cover img")).toHaveAttribute("src", "/cover.png");
   });
 
-  it("без метки времени ряд рисуется без колонки давности, а не с пустой", async () => {
+  it("without a timestamp the row is drawn without the age column, not with an empty one", async () => {
     getNowPlayingMock.mockResolvedValue(nowView({ isPlaying: false, progressMs: null, track: null }));
     getRecentMock.mockResolvedValue([{ track: track({ title: "Ghosts" }), playedAt: null }]);
 
@@ -308,7 +308,7 @@ describe("MusicTile", () => {
     expect(row.querySelector(".recent-ago")).toBeNull();
   });
 
-  it("трек, не влезающий по высоте, гасится целиком — обрезанной строки не бывает", async () => {
+  it("a track that does not fit in height is hidden entirely — there is no clipped row", async () => {
     // The old trouble returning: the bottom track was "cut in half" by the widget's edge and half
     // a line of letters read as noise. Geometry is zero in jsdom, so we set it: a 100px list and
     // 30px rows ⇒ three fit (with FIT_MARGIN), the rest must be hidden.
@@ -324,7 +324,7 @@ describe("MusicTile", () => {
     expect(rows[4].style.visibility).toBe("hidden");
   });
 
-  it("список, смонтированный заново (трек доиграл, пока вкладка была в фоне), подгоняется заново", async () => {
+  it("a list mounted anew (a track finished while the tab was in the background) is refitted anew", async () => {
     // The owner's complaint returning: after a long time away the fourth track is visible, clipped
     // by the tile's bottom. The list remounted with the SAME contents, and the fit, keyed on
     // contents, never re-ran — all five rows stayed visible and the edge cut the extras.
@@ -356,7 +356,7 @@ describe("MusicTile", () => {
     }
   });
 
-  it("список, свисающий ниже края плитки, режется по КРАЮ ПЛИТКИ, а не по своему низу", async () => {
+  it("a list hanging below the tile's edge is cut at the TILE's EDGE, not at its own bottom", async () => {
     // Measured on the live board: the tile's column ended at 119.6px while the list (its
     // min-height set for the mobile stack) hung to 150.3 — 30px below the visible edge. The fit
     // measured its own bottom, thought everything fitted, and the tile cut the bottom row.
@@ -372,7 +372,7 @@ describe("MusicTile", () => {
     expect(rows.slice(0, 2).map((r) => r.style.visibility)).toEqual(["", ""]);
   });
 
-  it("строки, подросшие после загрузки шрифта, пересчитываются", async () => {
+  it("rows that grew after the font loaded are recalculated", async () => {
     // Measuring follows the metrics of the font drawn RIGHT NOW: before the web font arrives rows
     // are measured in the fallback and all fit. Once it arrives rows grow, and without a recount
     // the bottom one stays half past the edge.
@@ -400,7 +400,7 @@ describe("MusicTile", () => {
     await waitFor(() => expect(rows[3].style.visibility).toBe("hidden"));
   });
 
-  it("список недавних лежит в обёртке .music-recent — свою высоту ей даёт CSS", async () => {
+  it("the recent list lies in the .music-recent wrapper — CSS gives it its height", async () => {
     // The list is positioned absolute inset-0 so its clientHeight equals the available room rather
     // than the content, which means the wrapper's whole height comes from the parent. In the
     // mobile stack the parent gives none ⇒ tracks are in the DOM but invisible (§8).
@@ -415,7 +415,7 @@ describe("MusicTile", () => {
     expect(row.closest(".music-recent")).not.toBeNull();
   });
 
-  it("уход вкладки в фон не дёргает опрос, возврат — обновляет немедленно", async () => {
+  it("the tab going to the background does not poll, returning refreshes immediately", async () => {
     getNowPlayingMock.mockResolvedValue(nowView());
     getRecentMock.mockResolvedValue([]);
 
@@ -442,7 +442,7 @@ describe("MusicTile", () => {
     }
   });
 
-  it("сбой загрузки → состояние ошибки", async () => {
+  it("load failure → error state", async () => {
     getNowPlayingMock.mockRejectedValue(new Error("boom"));
     getRecentMock.mockRejectedValue(new Error("boom"));
 
@@ -457,7 +457,7 @@ describe("MusicTile", () => {
  * fitting hides rows to suit the card: if the measurement noticed the hiding, the two would chase
  * each other and the card's bottom edge would twitch — which is exactly what wave 02 showed.
  */
-describe("высота списка недавних не зависит от подгонки", () => {
+describe("the recent list's height does not depend on the fitting", () => {
   /** A list of `count` rows `rowHeight` tall, flush from `top`. */
   function makeList(count: number, rowHeight: number, top = 0): HTMLUListElement {
     const list = document.createElement("ul");
@@ -471,7 +471,7 @@ describe("высота списка недавних не зависит от п
     return list;
   }
 
-  it("считает ВСЕ ряды, а не только видимые", () => {
+  it("counts ALL rows, not only the visible ones", () => {
     const list = makeList(5, 20);
     const full = listContentHeight(list);
     expect(full).toBe(100);
@@ -482,7 +482,7 @@ describe("высота списка недавних не зависит от п
     expect(listContentHeight(list)).toBe(full);
   });
 
-  it("пустой список — ноль, а не высота обёртки", () => {
+  it("an empty list is zero, not the wrapper's height", () => {
     expect(listContentHeight(makeList(0, 20))).toBe(0);
   });
 });

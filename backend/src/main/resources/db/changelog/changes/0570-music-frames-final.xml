@@ -6,33 +6,33 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Кадры музыки на волнах 02 и 03 встают в свой окончательный размер (DESIGN §7.5).
+      The music frames on waves 02 and 03 take their final size (DESIGN §7.5).
 
-      ВОЛНА 02 — КВАДРАТ. Обложка квадратная, значит и кадр должен быть квадратным: тогда
-      `contain` заполняет плитку целиком, а размытая заливка по бокам вырождается в кайму
-      в пару пикселей. Считаем по реальной геометрии борда, а не «на глаз»:
+      WAVE 02: A SQUARE. The cover is square, so the frame must be square too: then
+      `contain` fills the tile entirely, and the blurred fill at the sides degenerates into a border
+      of a couple of pixels. We compute from the board's real geometry, not "by eye":
 
-        ширина(n)  = 33.7px * n + 4px * (n-1)      (40 колонок на 1504px, gap 4)
-        высота(m)  = 25.86px * m + 4px * (m-1)     (28 строк на 832px, gap 4)
+        width(n)  = 33.7px * n + 4px * (n-1)      (40 columns on 1504px, gap 4)
+        height(m) = 25.86px * m + 4px * (m-1)     (28 rows on 832px, gap 4)
 
-      Отступы взаимно сокращаются, и условие квадрата сводится к n/m = 0.792. Из целых пар
-      ближе всего 7x9 (263x267, промах 1.6%); соседние 6x8 и 8x10 промахиваются на 5% и 1.2%,
-      но 7 колонок дают ещё и ТОЧНОЕ центрирование под «Сегодня» (13 колонок, центр 21.5 —
-      совпадает только при нечётном спане).
+      The gaps cancel out, and the square condition reduces to n/m = 0.792. Of the integer pairs
+      7x9 is the closest (263x267, a 1.6% miss); the neighbouring 6x8 and 8x10 miss by 5% and 1.2%,
+      but 7 columns also give EXACT centring under "Today" (13 columns, centre 21.5:
+      it matches only with an odd span).
 
-      Девяти строк на прежнем месте не хватало: плитка стоит в нижней полосе, и низ упирается
-      в край сетки. Поэтому «Сегодня» отдаёт одну строку (15→14): освободившаяся строка 19
-      становится прослойкой-воздухом, а кадр встаёт на 20-ю. Доминанта теряет 26 пикселей
-      высоты — на карте-тропе это незаметно, а кадр получает свою пропорцию.
+      Nine rows did not fit in the old place: the tile stands in the bottom band, and its bottom hits
+      the edge of the grid. So "Today" gives up one row (15→14): the freed row 19
+      becomes an air spacer, and the frame starts at row 20. The dominant tile loses 26 pixels
+      of height: unnoticeable on the trail map, and the frame gets its proportion.
 
-      ⚠️ Квадрат точен на экране владельца (1536x864). Высота борда — `calc(100vh - 32px)`,
-      поэтому на экране другой высоты строки меняют шаг и кадр слегка вытягивается. Лечить
-      это нечем без ухода от пропорциональной сетки; заливка по бокам как раз и закрывает
-      эту разницу.
+      ⚠️ The square is exact on the owner's screen (1536x864). The board's height is `calc(100vh - 32px)`,
+      so on a screen of another height the rows change their step and the frame stretches slightly. There is
+      no cure without leaving the proportional grid; the side fill covers exactly
+      this difference.
 
-      ВОЛНА 03 — на строку ниже. Плашка Spotify лишилась строки плейлиста (скин), и высота
-      под неё больше не нужна. Семь строк вместо восьми — «изюминка» владельца: плашка
-      заметно площе всего остального на борде, и это её примета.
+      WAVE 03: one row lower. The Spotify plate lost its playlist row (the skin), and the height
+      for it is no longer needed. Seven rows instead of eight is the owner's "signature touch": the plate is
+      noticeably flatter than everything else on the board, and that is its mark.
     -->
     <changeSet id="0570-music-frames-final" author="danchuo">
         <sql><![CDATA[

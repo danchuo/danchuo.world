@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс feedback (PRD §5.19, §11): записка посетителя автору. Три ответа необязательны по
-      отдельности, но хотя бы один непустой — это правило входа (FeedbackPolicy), а не схемы:
-      в базе все три nullable.
+      The feedback slice (PRD §5.19, §11): a visitor's note to the author. The three answers are optional
+      individually, but at least one must be non-empty: a rule of the entry point (FeedbackPolicy), not of the schema:
+      in the database all three are nullable.
 
-      Приватность как в analytics: сырой IP не хранится, только суточный visitor_day_hash. UA
-      здесь, в отличие от аналитики, лежит строкой — владелец просил видеть браузер и ОС, а
-      записка добровольна и часто подписана.
+      Privacy as in analytics: the raw IP is not stored, only the daily visitor_day_hash. Unlike
+      analytics, the UA is stored here as a string: the owner asked to see the browser and OS, and
+      a note is voluntary and often signed.
 
-      Ширины колонок — та же величина, что потолки в FeedbackLimits: Postgres длинное значение не
-      обрезает, а роняет вставку. Индекс один, под единственное чтение — лента админки по дате.
+      The column widths are the same values as the ceilings in FeedbackLimits: Postgres does not truncate a long value,
+      it fails the insert. One index, for the only read: the admin feed by date.
     -->
     <changeSet id="1070-feedback-note-table" author="danchuo">
         <createTable tableName="feedback_note">

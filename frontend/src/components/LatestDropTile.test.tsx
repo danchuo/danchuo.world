@@ -23,8 +23,8 @@ const landscape = (seq: number): FilmPhotoView => ({
   height: 80,
 });
 
-describe("buildMosaic (justified-раскладка кадров)", () => {
-  it("пять кадров никогда не пакуются в один ряд, даже в широком низком виджете", () => {
+describe("buildMosaic (justified frame layout)", () => {
+  it("five frames are never packed into one row, even in a wide low widget", () => {
     const photos = [0, 1, 2, 3, 4].map(landscape);
     // A wide, low container: without the cap a single row of 5 won on score.
     const mosaic = buildMosaic(photos, 1000, 120);
@@ -34,7 +34,7 @@ describe("buildMosaic (justified-раскладка кадров)", () => {
     expect(mosaic!.flat()).toHaveLength(5);
   });
 
-  it("четыре кадра в один ряд — по-прежнему можно", () => {
+  it("four frames in one row — still allowed", () => {
     const photos = [0, 1, 2, 3].map(landscape);
     const mosaic = buildMosaic(photos, 1000, 120);
     expect(mosaic).not.toBeNull();
@@ -71,7 +71,7 @@ class ImageStub {
   static srcs: string[] = [];
 }
 
-describe("LatestDropTile — редакции (волна выбирает через layout, DESIGN §7.5)", () => {
+describe("LatestDropTile — editions (the wave picks via layout, DESIGN §7.5)", () => {
   beforeEach(() => {
     ImageStub.loads = true;
     ImageStub.srcs = [];
@@ -79,7 +79,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("до ответа сети карточки нет — копия из кэша не мелькает «на секунду до свежего»", async () => {
+  it("no card before the network answers — a cached copy does not flash \"for a second before the fresh one\"", async () => {
     writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
     getDropsMock.mockReturnValue(new Promise(() => {})); // the network stays silent
     const { container } = render(<LatestDropTile />);
@@ -88,7 +88,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(screen.queryByText("Из кэша")).toBeNull();
   });
 
-  it("сеть ответила сбоем (рейтлимит) — появляется копия из кэша, один раз", async () => {
+  it("the network answered with a failure (rate limit) — the cached copy appears, once", async () => {
     writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
     getDropsMock.mockRejectedValue(new Error("rate_limited"));
     const { container } = render(<LatestDropTile />);
@@ -96,7 +96,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(container.querySelector(".pixel-tile")).not.toBeNull();
   });
 
-  it("с копией в кэше кадры мозаики всё равно рисуются: замер идёт после появления карточки", async () => {
+  it("with a cached copy the mosaic frames are drawn anyway: the measurement happens after the card appears", async () => {
     // A second page load: the copy exists, the "loaded" phase arrives before the network answers
     // and the card after it — so the block must be measured on the node itself, not on the phase.
     const rect = vi
@@ -111,7 +111,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     rect.mockRestore();
   });
 
-  it("сеть ответила успехом — на экране свежие кадры, а не копия", async () => {
+  it("the network answered with success — fresh frames on screen, not the copy", async () => {
     writeCache("latest-drop", { latest: { ...DROP, title: "Из кэша" }, photos: [landscape(0)] });
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(1)]);
@@ -120,7 +120,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(screen.queryByText("Из кэша")).toBeNull();
   });
 
-  it("edition=frame: пока снимок не пришёл, карточки нет вовсе — ни полоски стекла", async () => {
+  it("edition=frame: until the photo arrives there is no card at all — not even a strip of glass", async () => {
     ImageStub.loads = false;
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0)]);
@@ -133,7 +133,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
   });
 
 
-  it("edition=frame: один кадр во всю карточку, карточка берёт пропорцию кадра", async () => {
+  it("edition=frame: one frame fills the card, the card takes the frame's proportions", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
 
@@ -156,7 +156,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(container.querySelector(".drop-mosaic")).toBeNull();
   });
 
-  it("edition=frame: стоячий кадр — стоячая карточка", async () => {
+  it("edition=frame: a portrait frame makes a portrait card", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([portrait(0)]);
 
@@ -192,7 +192,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
   const shownSeq = (container: HTMLElement) =>
     (container.querySelector(".drop-frame__img") as HTMLImageElement).src.match(/\/(\d+)\/web/)?.[1] ?? null;
 
-  it("edition=frame: свайп по карточке листает кадры дропа, за краями плёнка стоит", async () => {
+  it("edition=frame: a swipe on the card pages the drop's frames, the film stops at the edges", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
 
@@ -221,7 +221,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
   });
 
-  it("edition=frame: один жест — ровно один кадр, каким бы длинным он ни был", async () => {
+  it("edition=frame: one gesture is exactly one frame, however long it is", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -241,7 +241,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await waitFor(() => expect(shownSeq(container)).toBe("0"));
   });
 
-  it("edition=frame: короткий мах по трекпаду не пролистывает дроп целиком", async () => {
+  it("edition=frame: a short trackpad flick does not page a whole drop", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -259,7 +259,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(shownSeq(container)).toBe("1");
   });
 
-  it("edition=frame: пока пальцы не отпущены, второй ход того же жеста не считается", async () => {
+  it("edition=frame: until the fingers lift, a second stroke of the same gesture does not count", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -278,7 +278,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await waitFor(() => expect(shownSeq(container)).toBe("1"));
   });
 
-  it("edition=frame: следующий мах после тишины листает дальше", async () => {
+  it("edition=frame: the next flick after a pause pages further", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([0, 1, 2, 3, 4, 5].map(landscape));
 
@@ -300,7 +300,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
   });
 
 
-  it("edition=frame: соседние кадры тянутся заранее — свайп не ждёт сеть", async () => {
+  it("edition=frame: neighbouring frames are prefetched — a swipe does not wait for the network", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     const photos = [0, 1, 2, 3, 4].map(landscape);
     getDropMock.mockResolvedValue(photos);
@@ -322,7 +322,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     }
   });
 
-  it("edition=frame: свайп НЕ пересоздаёт узлы кадра — курсор остаётся над теми же", async () => {
+  it("edition=frame: a swipe does NOT recreate the frame nodes — the cursor stays over the same ones", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1), landscape(2)]);
 
@@ -341,7 +341,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(container.querySelector(".drop-frame__view")).toBe(view);
   });
 
-  it("edition=frame: свайп не открывает галерею — это жест, а не клик по кадру", async () => {
+  it("edition=frame: a swipe does not open the gallery — it is a gesture, not a click on the frame", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1)]);
 
@@ -353,7 +353,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(document.querySelector(".drop-modal__panel")).toBeNull();
   });
 
-  it("edition=frame: после свайпа СЛЕДУЮЩЕЕ нажатие открывает галерею, а не пропадает", async () => {
+  it("edition=frame: after a swipe the NEXT press opens the gallery instead of being lost", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0), landscape(1)]);
 
@@ -369,7 +369,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     await waitFor(() => expect(document.querySelector(".drop-modal__panel")).not.toBeNull());
   });
 
-  it("edition=frame: кадр открывает модалку так же, как мозаика", async () => {
+  it("edition=frame: the frame opens the modal just like the mosaic", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0)]);
 
@@ -378,7 +378,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     expect(box).toHaveClass("drop-frame");
   });
 
-  it("edition=sheet: четыре кадра justified-рядами — без обрезки и без поворота, строка данных сверху", async () => {
+  it("edition=sheet: four frames in justified rows — no crop and no rotation, the data line on top", async () => {
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
@@ -405,7 +405,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     rect.mockRestore();
   });
 
-  it("в стеке карточка НЕ жмётся к мозаике: ширина стека и есть ширина карточки", async () => {
+  it("in the stack the card does NOT hug the mosaic: the stack's width is the card's width", async () => {
     // A jumping widget on a phone: in the stack the frame block's height comes from its own width
     // (`aspect-ratio`, §8) while the card sized its width to the laid-out rows, closing a loop.
     // In the stack the card no longer fits its width, which breaks it.
@@ -424,7 +424,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     rect.mockRestore();
   });
 
-  it("edition=sheet: кадров меньше четырёх — лист показывает столько, сколько есть", async () => {
+  it("edition=sheet: fewer than four frames — the sheet shows as many as there are", async () => {
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 400, height: 300, top: 0, left: 0, right: 400, bottom: 300, x: 0, y: 0, toJSON: () => "" } as DOMRect);
@@ -438,7 +438,7 @@ describe("LatestDropTile — редакции (волна выбирает че�
     rect.mockRestore();
   });
 
-  it("незнакомая редакция ⇒ мозаика (дефолт)", async () => {
+  it("an unknown edition ⇒ mosaic (the default)", async () => {
     getDropsMock.mockResolvedValue([DROP]);
     getDropMock.mockResolvedValue([landscape(0)]);
 
@@ -448,15 +448,15 @@ describe("LatestDropTile — редакции (волна выбирает че�
   });
 });
 
-describe("LatestDropTile (крупный последний дроп)", () => {
-  it("нет дропов → пустое состояние, кадры не запрашиваются", async () => {
+describe("LatestDropTile (large latest drop)", () => {
+  it("no drops → the empty state, frames are not requested", async () => {
     getDropsMock.mockResolvedValue([]);
     render(<LatestDropTile />);
     expect(await screen.findByText("пока нет дропов")).toBeInTheDocument();
     expect(getDropMock).not.toHaveBeenCalled();
   });
 
-  it("есть дропы → крупно показывает последний (его название и кадры)", async () => {
+  it("with drops → shows the latest one large (its title and frames)", async () => {
     getDropsMock.mockResolvedValue([
       { id: 2, title: "Июльская плёнка", droppedOn: "2026-07-02", monthLabel: "июль 2026", photoCount: 12, coverPhotoUrl: "/api/film-media/2/0/thumb" },
       { id: 1, title: "Июньская плёнка", droppedOn: "2026-06-10", monthLabel: "июнь 2026", photoCount: 36, coverPhotoUrl: "/api/film-media/1/0/thumb" },
@@ -471,7 +471,7 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     expect(getDropMock).toHaveBeenCalledWith(2, expect.anything());
   });
 
-  it("ширину кадров раздаёт флексбокс, а не пиксели из JS", () => {
+  it("flexbox hands out the frames' width, not pixels from JS", () => {
     // A pixel width in `style.width` relied on the engine adding numbers the way the calculation
     // did. Safari added them differently and the right frame spilled out of the card.
     // `flex-grow` plus `flex-basis: 0` make the row fill the container by definition.
@@ -483,7 +483,7 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     for (const cell of mosaic.flat()) expect(Number.isInteger(cell.w)).toBe(true);
   });
 
-  it("ширина карточки НЕ анимируется — иначе WebKit размазывает её тень по боковым зазорам", async () => {
+  it("the card's width is NOT animated — otherwise WebKit smears its shadow into the side gaps", async () => {
     // The tile carries filter: drop-shadow, hence its own compositing layer, and the shadow
     // extends past the box. WebKit does not clean up the area freed by a shrinking layer, so every
     // frame of a width animation left a stripe of shadow (docs/pitfalls.md).
@@ -507,7 +507,7 @@ describe("LatestDropTile (крупный последний дроп)", () => {
     rect.mockRestore();
   });
 
-  it("блок мозаики зацеплен за .drop-mosaic — свою высоту ему даёт CSS", async () => {
+  it("the mosaic block hooks onto .drop-mosaic — CSS gives it its height", async () => {
     // The block's height is an input of the row calculation (`buildMosaic` returns null at H<=0),
     // and in the mobile stack the parent sets none: without a height of its own the tile stayed
     // frameless forever. The pixels are checked by `app/styles/stackHeights.test.ts`.
@@ -525,8 +525,8 @@ describe("LatestDropTile (крупный последний дроп)", () => {
   });
 });
 
-describe("LatestDropTile — ряд мозаики заполняет контейнер сам", () => {
-  it("у кадров flex-grow и нулевой базис, а жёсткой ширины в пикселях нет", async () => {
+describe("LatestDropTile — the mosaic row fills its container by itself", () => {
+  it("frames have flex-grow and a zero basis, with no fixed pixel width", async () => {
     // A regression lock on the load-bearing decision: the horizontal must not depend on how the
     // engine adds pixels written from JS. Bring back `width: Npx` and Safari clips the right frame.
     const rect = vi

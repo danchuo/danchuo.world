@@ -6,13 +6,13 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс bike (PRD §9 B4): история поездок Велобайка. Внешний источник
-      (pwa.velobike.ru), изолирован в слайсе — ядро не трогаем.
+      The bike slice (PRD §9 B4): Velobike ride history. An external source
+      (pwa.velobike.ru), isolated in the slice: the core is not touched.
 
-      - bike_ride: поездки, идемпотентны по external_id (id аренды Велобайка) ⇒
-        UNIQUE; индекс по ride_date под дневной слой/агрегаты (ось данных MSK, §4).
-      - velobike_token: синглтон-строка с refresh-токеном ШИФРОВАННО at-rest (§8,
-        как spotify_token) для серверного поллинга; access-токен не персистится.
+      - bike_ride: rides, idempotent by external_id (the Velobike rent id) ⇒
+        UNIQUE; an index on ride_date for the daily layer/aggregates (the MSK data axis, §4).
+      - velobike_token: a singleton row with the refresh token ENCRYPTED at rest (§8,
+        like spotify_token) for server polling; the access token is not persisted.
     -->
     <changeSet id="0120-bike-ride-table" author="danchuo">
         <createTable tableName="bike_ride">

@@ -15,7 +15,7 @@ function mockFetchOnce(body: unknown, ok = true, status = 200) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("api client", () => {
-  it("getDay бьёт /api/days/{date} и возвращает проекцию", async () => {
+  it("getDay hits /api/days/{date} and returns the projection", async () => {
     const day: Partial<DayView> = { date: "2026-06-18", hasData: true };
     const spy = mockFetchOnce(day);
 
@@ -26,7 +26,7 @@ describe("api client", () => {
     expect(String(spy.mock.calls[0][0])).toContain("/api/days/2026-06-18");
   });
 
-  it("getDays кодирует from/to в query", async () => {
+  it("getDays encodes from/to into the query", async () => {
     const summaries: DaySummary[] = [];
     const spy = mockFetchOnce(summaries);
 
@@ -37,7 +37,7 @@ describe("api client", () => {
     expect(url).toContain("to=2026-07-03");
   });
 
-  it("не-2xx поднимает ApiError со статусом", async () => {
+  it("a non-2xx raises ApiError with the status", async () => {
     mockFetchOnce({ error: "before_genesis" }, false, 404);
     await expect(getDay("2025-12-31")).rejects.toBeInstanceOf(ApiError);
     await expect(getDay("2025-12-31")).rejects.toMatchObject({ status: 404 });

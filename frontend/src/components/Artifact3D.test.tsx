@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("Artifact3D", () => {
-  it("монтирует сцену в свой канвас", async () => {
+  it("mounts the scene into its own canvas", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { container } = render(<Artifact3D src="/assets/3d/wireframe-globe.glb" />);
@@ -42,7 +42,7 @@ describe("Artifact3D", () => {
     expect(mountMock.mock.calls[0][1]).toMatchObject({ src: "/assets/3d/wireframe-globe.glb" });
   });
 
-  it("буфер канваса меряется по вёрстке, а не по тому, как предмет сейчас масштабирован", async () => {
+  it("the canvas buffer is measured by layout, not by how the item is currently scaled", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     Object.defineProperty(HTMLCanvasElement.prototype, "offsetWidth", { configurable: true, get: () => 120 });
@@ -58,7 +58,7 @@ describe("Artifact3D", () => {
     expect(canvas.height).toBe(90);
   });
 
-  it("в покое стоит, под курсором оживает и по уходу снова замирает", async () => {
+  it("at rest it stands still, comes alive under the cursor and freezes again when it leaves", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { container } = render(<Artifact3D src="/m.glb" />);
@@ -75,7 +75,7 @@ describe("Artifact3D", () => {
     expect(h.setSpinning).toHaveBeenLastCalledWith(false);
   });
 
-  it("предмет, показанный в ответ на внимание к другому месту, крутится сам", async () => {
+  it("an item shown in response to attention elsewhere spins by itself", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     render(<Artifact3D src="/m.glb" spin />);
@@ -83,7 +83,7 @@ describe("Artifact3D", () => {
     await waitFor(() => expect(h.setSpinning).toHaveBeenCalledWith(true));
   });
 
-  it("клавиатурный фокус оживляет предмет наравне с курсором", async () => {
+  it("keyboard focus brings the item alive just like the cursor", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { container } = render(<Artifact3D src="/m.glb" label="глобус" />);
@@ -96,7 +96,7 @@ describe("Artifact3D", () => {
     expect(h.setSpinning).toHaveBeenLastCalledWith(false);
   });
 
-  it("prefers-reduced-motion держит предмет неподвижным под курсором", async () => {
+  it("prefers-reduced-motion keeps the item still under the cursor", async () => {
     setReducedMotion(true);
     const h = handle();
     mountMock.mockResolvedValue(h);
@@ -107,7 +107,7 @@ describe("Artifact3D", () => {
     expect(h.setSpinning).not.toHaveBeenCalledWith(true);
   });
 
-  it("сорвавшаяся сцена не оставляет битого места — слот пустеет", async () => {
+  it("a failed scene leaves no broken spot — the slot empties", async () => {
     mountMock.mockRejectedValue(new Error("нет WebGL"));
     const { container } = render(<Artifact3D src="/m.glb" />);
 
@@ -115,7 +115,7 @@ describe("Artifact3D", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("без подписи предмет декоративен, с подписью — картинка для читалки", async () => {
+  it("without a caption the item is decorative, with a caption it is an image for screen readers", async () => {
     mountMock.mockResolvedValue(handle());
     const { container, rerender } = render(<Artifact3D src="/m.glb" />);
     expect(container.querySelector("canvas")).toHaveAttribute("aria-hidden", "true");
@@ -127,7 +127,7 @@ describe("Artifact3D", () => {
     expect(labelled).not.toHaveAttribute("aria-hidden");
   });
 
-  it("новое положение солнца правит стоящую сцену, а не пересобирает её", async () => {
+  it("a new sun position updates the standing scene instead of rebuilding it", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { rerender } = render(<Artifact3D src="/m.glb" light={{ azimuth: 0.5, ambient: 0.26 }} />);
@@ -141,7 +141,7 @@ describe("Artifact3D", () => {
     expect(h.setLight).toHaveBeenCalledWith(1.7);
   });
 
-  it("в режиме протяжки предмет крутится рукой, а не по наведению", async () => {
+  it("in drag mode the item is turned by hand, not by hover", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { container } = render(<Artifact3D src="/m.glb" draggable />);
@@ -172,7 +172,7 @@ describe("Artifact3D", () => {
     expect(h.turn).not.toHaveBeenCalled();
   });
 
-  it("рука крутит предмет в обе оси: вокруг себя и через голову", async () => {
+  it("the hand turns the item on both axes: around itself and head over heels", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { container } = render(<Artifact3D src="/m.glb" draggable />);
@@ -194,7 +194,7 @@ describe("Artifact3D", () => {
     expect(h.turn.mock.calls[1][1]).toBeLessThan(0);
   });
 
-  it("снимает сцену при размонтировании — контекст не течёт", async () => {
+  it("removes the scene on unmount — the context does not leak", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
     const { unmount } = render(<Artifact3D src="/m.glb" />);

@@ -36,7 +36,7 @@ describe("summarySubject", () => {
     ...patch,
   });
 
-  it("у книги подпись — автор, а кусок меряется процентами", () => {
+  it("a book is captioned with the author, and its piece is measured in percent", () => {
     const subject = bookSubject(book())!;
 
     expect(subject.kind).toBe("reading");
@@ -48,7 +48,7 @@ describe("summarySubject", () => {
     expect(subject.portrait).toBe(true);
   });
 
-  it("у выпуска подпись — шоу, а кусок меряется минутами той же стрелкой, что проценты книги", () => {
+  it("an episode is captioned with the show, and its piece is measured in minutes by the same arrow as a book's percentages", () => {
     const subject = episodeSubject(episode())!;
 
     expect(subject.kind).toBe("podcast");
@@ -61,7 +61,7 @@ describe("summarySubject", () => {
     expect(subject.portrait).toBe(false);
   });
 
-  it("без известных границ окна выпуск откатывается к «сколько слушали»", () => {
+  it("without known window bounds an episode falls back to \"how long it was listened\"", () => {
     // An old sitting has no bounds. That is less than one would like but not silence — the window
     // still opens and shows the retelling.
     const old = episode({ startMinute: null, endMinute: null });
@@ -70,13 +70,13 @@ describe("summarySubject", () => {
     expect(episodeSubject({ ...old, durationMinutes: null })!.progressValue).toBe("35 мин");
   });
 
-  it("заход без ключа открыть нечем", () => {
+  it("an entry without a key has nothing to open with", () => {
     // The retelling hangs off the sitting's id; without it there is nothing to request and no button.
     expect(bookSubject(book({ sessionId: null }))).toBeNull();
     expect(episodeSubject(episode({ sessionId: null }))).toBeNull();
   });
 
-  it("книга без начала показывает достигнутое, а не стрелку из ниоткуда", () => {
+  it("a book without a start shows what was reached, not an arrow out of nowhere", () => {
     // The book arrived already started (§5.16): substituting zero would credit the owner with
     // percentages they did not cover while we watched.
     expect(bookSubject(book({ startPercent: null }))!.progressValue).toBe("53%");

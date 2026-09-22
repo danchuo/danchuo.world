@@ -16,7 +16,7 @@ class InstagramClientsTest {
     private val mapper = ObjectMapper().registerKotlinModule()
 
     @Test
-    fun `короткий токен разбирается, когда permissions пришли массивом`() {
+    fun `a short token is parsed when permissions come as an array`() {
         val json = """{"access_token":"IGAA-short","user_id":17841400000000000,"permissions":["instagram_business_basic"]}"""
 
         val parsed = mapper.readValue(json, InstagramShortTokenResponse::class.java)
@@ -26,7 +26,7 @@ class InstagramClientsTest {
     }
 
     @Test
-    fun `короткий токен разбирается, когда permissions пришли строкой`() {
+    fun `a short token is parsed when permissions come as a string`() {
         val json = """{"access_token":"IGAA-short","permissions":"instagram_business_basic"}"""
 
         val parsed = mapper.readValue(json, InstagramShortTokenResponse::class.java)
@@ -35,7 +35,7 @@ class InstagramClientsTest {
     }
 
     @Test
-    fun `отсутствие permissions не ломает разбор`() {
+    fun `missing permissions do not break parsing`() {
         val parsed = mapper.readValue("""{"access_token":"IGAA-short"}""", InstagramShortTokenResponse::class.java)
 
         assertEquals("IGAA-short", parsed.accessToken)
@@ -43,7 +43,7 @@ class InstagramClientsTest {
     }
 
     @Test
-    fun `незнакомое поле не ломает разбор`() {
+    fun `an unknown field does not break parsing`() {
         val json = """{"access_token":"IGAA-short","permissions":["a"],"something_new":{"nested":[1,2]}}"""
 
         val parsed = mapper.readValue(json, InstagramShortTokenResponse::class.java)
@@ -56,7 +56,7 @@ class InstagramClientsTest {
      * nor `Instant.parse` accepts: the post silently lands on Instant.EPOCH, "20710 d ago" on the board.
      */
     @Test
-    fun `время поста разбирается со смещением без двоеточия`() {
+    fun `the post time is parsed with an offset without a colon`() {
         assertEquals(
             Instant.parse("2026-08-29T17:20:31Z"),
             parseInstagramTimestamp("2026-08-29T17:20:31+0000"),
@@ -64,7 +64,7 @@ class InstagramClientsTest {
     }
 
     @Test
-    fun `время поста разбирается со смещением через двоеточие`() {
+    fun `the post time is parsed with an offset with a colon`() {
         assertEquals(
             Instant.parse("2026-08-29T14:20:31Z"),
             parseInstagramTimestamp("2026-08-29T17:20:31+03:00"),
@@ -72,7 +72,7 @@ class InstagramClientsTest {
     }
 
     @Test
-    fun `время поста разбирается в форме Z`() {
+    fun `the post time is parsed in the Z form`() {
         assertEquals(
             Instant.parse("2026-08-29T17:20:31Z"),
             parseInstagramTimestamp("2026-08-29T17:20:31Z"),
@@ -80,7 +80,7 @@ class InstagramClientsTest {
     }
 
     @Test
-    fun `неразбираемое время не роняет разбор, а отдаёт null`() {
+    fun `an unparseable time does not break parsing but returns null`() {
         assertNull(parseInstagramTimestamp("вчера вечером"))
     }
 }

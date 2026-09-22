@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс monster (PRD §5.6, §7). Вкусы — data-driven: новый вкус = ещё одна
-      строка (сид ниже или INSERT на проде), без релиза. Создаётся раньше day_record
-      (0030): на него ссылается FK day_record.monster_flavor_id.
+      The monster slice (PRD §5.6, §7). Flavours are data-driven: a new flavour is one more
+      row (the seed below or an INSERT in prod), no release. Created before day_record
+      (0030): the FK day_record.monster_flavor_id points at it.
     -->
     <changeSet id="0010-monster-flavor-table" author="danchuo">
         <createTable tableName="monster_flavor">
@@ -35,9 +35,9 @@
     </changeSet>
 
     <!--
-      Сид вкусов (первая итерация). Ключи стабильны (на них шлёт шорткат),
-      image_url — статика фронта (раздаётся в M2+). Без явных id: IDENTITY сам
-      проставит, резолв идёт по key (ноль хардкод-id).
+      Flavour seed (first iteration). Keys are stable (the shortcut sends them),
+      image_url is a frontend static (served from M2+). No explicit ids: IDENTITY assigns
+      them, resolution goes by key (zero hardcoded ids).
     -->
     <changeSet id="0010-monster-flavor-seed" author="danchuo">
         <insert tableName="monster_flavor">

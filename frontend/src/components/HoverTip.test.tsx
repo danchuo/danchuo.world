@@ -21,7 +21,7 @@ describe("HoverTip", () => {
    * Hiding instantly on leaving the anchor made that impossible — there is a gap between anchor
    * and card, and the pointer died exactly on it.
    */
-  it("карточка переживает переезд курсора с якоря на неё", () => {
+  it("the card survives the cursor moving from the anchor onto it", () => {
     const { getByText } = render(
       <HoverTip content={<b>карточка</b>}>
         <span>якорь</span>
@@ -36,7 +36,7 @@ describe("HoverTip", () => {
     expect(isOpen()).toBe(true);
   });
 
-  it("и гаснет, когда курсор ушёл уже с неё", () => {
+  it("and goes out when the cursor has left it too", () => {
     const { getByText } = render(
       <HoverTip content={<b>карточка</b>}>
         <span>якорь</span>
@@ -50,7 +50,7 @@ describe("HoverTip", () => {
     expect(isOpen()).toBe(false);
   });
 
-  it("курсор ушёл в пустоту — карточка гаснет сама, отсрочка не вечная", () => {
+  it("the cursor left into emptiness — the card goes out by itself, the delay is not eternal", () => {
     const { getByText } = render(
       <HoverTip content={<b>карточка</b>}>
         <span>якорь</span>
@@ -63,7 +63,7 @@ describe("HoverTip", () => {
   });
 
   /** A text tooltip catches no events and earns no delay: there is no reason to hover it. */
-  it("текстовая подсказка гаснет сразу", () => {
+  it("a text hint goes out at once", () => {
     const { getByText } = render(
       <HoverTip text="подпись">
         <span>якорь</span>

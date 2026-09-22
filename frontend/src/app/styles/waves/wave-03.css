@@ -657,7 +657,7 @@
   mask: none;
 }
 /* The tile's slab is removed entirely — the same argument as the drops rail, the switcher, the projects
-   console and the ride map: the subject is the material. Four marks already carry their own colour and
+   console: the subject is the material. Four marks already carry their own colour and
    edge. The blur passes are killed BY NAME: an empty background does not switch them off. */
 :root[data-wave="wave-03"] [data-tile-id^="social"] .pixel-tile {
   padding: 0;
@@ -1078,7 +1078,6 @@
 /* §10.1 stands: what is switched off is not "modals in general" but the material of ONE panel on ONE wave.
  * Wave 01 with its box and wave 02 with its cloud card are untouched. */
 :root[data-wave="wave-03"] .drop-modal__panel,
-:root[data-wave="wave-03"] .ride-modal__panel,
 :root[data-wave="wave-03"] .artifact-modal__panel {
   background: none;
   /* The border is transparent rather than removed: its width stays in the layout, so the frame does not jump. */
@@ -1098,9 +1097,9 @@
 }
 /* The panel's own passes are removed — otherwise another layer would lie over the screen glass and the
    panel's rectangle would show again, now as a patch on top of the blur. */
-:root[data-wave="wave-03"] :is(.drop-modal__panel, .ride-modal__panel)::before,
-:root[data-wave="wave-03"] :is(.drop-modal__panel, .ride-modal__panel) .pixel-lid,
-:root[data-wave="wave-03"] :is(.drop-modal__panel, .ride-modal__panel)::after {
+:root[data-wave="wave-03"] .drop-modal__panel::before,
+:root[data-wave="wave-03"] .drop-modal__panel .pixel-lid,
+:root[data-wave="wave-03"] .drop-modal__panel::after {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -1112,74 +1111,13 @@
    and on a frameless gallery its only visible trace was a glowing border under the cursor. The same
    specificity as the gesture, but later in the file. */
 @media (hover: hover) {
-  :root[data-wave="wave-03"] .drop-modal__panel:hover,
-  :root[data-wave="wave-03"] .ride-modal__panel:hover {
+  :root[data-wave="wave-03"] .drop-modal__panel:hover {
     --edge-a: 0;
     border-color: transparent;
   }
 }
 
-/* Velobike: a map instead of a tile (DESIGN §7.6, §10.2). The material is removed for the same reason as on
-   the drops rail: the widget's content is the map, and it runs to the edge. A glass card around it would be a
-   window inside a window — the map has its own surface, its own edge and its own blur in the data band. */
-
-/* The passes are killed BY NAME rather than with an empty background: they live in
-   `::before`/`.pixel-lid`/`::after`, and without `display: none` the blur would stay hanging as a rectangle
-   over the tile's box, blurring the canvas ribbon AROUND the map. */
-
-/* The hook is the edition class (`.ride-card--map`), not the tile id: the material goes precisely because a
-   map has taken the tile. A wave that gives Velobike the `card` edition keeps its glass, untouched by this. */
-:root[data-wave="wave-03"] .pixel-tile.ride-card--map {
-  border: none;
-  background: none;
-  box-shadow: none;
-}
-:root[data-wave="wave-03"] .pixel-tile.ride-card--map::before,
-:root[data-wave="wave-03"] .pixel-tile.ride-card--map .pixel-lid,
-:root[data-wave="wave-03"] .pixel-tile.ride-card--map::after {
-  display: none;
-}
-
-/* Selected-ride mark in the modal's list. Waves 01/02 put a notch on the left — a short heavy stroke at the
-   row's edge; here that would read as a foreign device, since this wave's accent is LIGHT rather than a
-   stroke: a thin line, lit text, the edge of glass. */
-
-/* Hence a one-pixel frame around the whole row (as an inset shadow, which takes no space and does not move the
-   list on selection) and a very quiet fill. The component lights the row's date in the same accent, and
-   together they give exactly the loudness wanted: the row is visible and the list does not shimmer. */
-:root[data-wave="wave-03"] .ride-modal__row.is-selected {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
-}
-
-/* The map zoomer's glyphs arrive as black SVG and are simply invisible on the wave's dark glass. Inversion is
-   cheaper than substituting the picture and introduces no second set of icons. */
-:root[data-wave="wave-03"] .ride-map {
-  --map-ctrl-icon-filter: invert(1);
-}
-
-/* The map's ground stays LIGHT, as on every wave (the shared `MAP_STYLE`, DESIGN §7.6), and no filter touches
-   it. Rejected twice over: a raster grey canvas dimmed with `brightness(0.6)` (the map came out darkened
-   rather than dark), and the vector "eclipse" style, whose gold arterials on black took all the attention. */
-
-/* The data band therefore dresses FOR THE MAP and not for the wave: light matte glass with dark text. A dark
-   band over a light map read as someone else's plate stuck onto the city — on light paper a band belongs
-   light, just as a drop caption lies on its own photo. The ground is the same on every wave. */
-:root[data-wave="wave-03"] .ride-frame {
-  --ride-band-scrim-color: #faf8f4;
-  --ride-band-scrim: 78%;
-  --ride-band-scrim-body: 62%;
-  --ride-band-ink: #161b21;
-  --ride-band-ink-dim: #5a646f;
-}
-/* The band is set EVENLY: kilometres, day and minutes at one size — the band gives one answer ("the last ride:
-   this far, then, this long"), and there is no reason to split it into headline and detail. The build is shared
-   with the drop tile's frame caption (DESIGN §7.5). */
-
-/* The size is now shared ON SCREEN rather than in the declaration: both shares count from THEIR OWN tile's
-   width (§8.1), and the tiles differ, so one declaration gave smaller text on the map than on the photo. The
-   coefficient comes from a measurement at 1536px — a 411px drop tile and a 260px Velobike tile both give 13.6px. */
-:root[data-wave="wave-03"] .ride-frame__caption,
+/* The shaft caption shares the drop caption's on-screen size; the coefficient is measured at 1536px. §7.5 */
 :root[data-wave="wave-03"] .artifact-shaft__caption {
   --fs-band-title: clamp(11px, calc(6.5px + 2.74cqw), 28px);
   --fs-band-meta: var(--fs-band-title);
@@ -1193,7 +1131,7 @@
    REM, indigo on base sleep and plum at the floor. It reads by order and lightness rather than by memorising
    colours — the same argument as the tracks in the night band. The wave's accent stays in place (REM). */
 
-/* The tile KEEPS its glass, unlike the Velobike map: the sounding has no surface of its own, being drawn as a
+/* The tile KEEPS its glass, unlike the drops rail: the sounding has no surface of its own, being drawn as a
    transparent SVG, so the slab under it is its material. The canvas ribbon shows through the top of the glass,
    and the night lies straight on the lived days. */
 :root[data-wave="wave-03"] {
@@ -1240,7 +1178,7 @@
 }
 
 /* Artifacts tile (DESIGN §7.2, shaft edition): no plate at all. The objects and their name stand straight on
-   the canvas, the same trade the drops strip and the Velobike map already take on this wave. */
+   the canvas, the same trade the drops strip already takes on this wave. */
 :root[data-wave="wave-03"] [data-tile-id="marquee"] .pixel-tile {
   background: none;
   box-shadow: none;
@@ -1657,6 +1595,10 @@
 :root[data-wave="wave-03"] .t-feedback__button,
 :root[data-wave="wave-03"] .t-feedback .tile-label {
   color: var(--accent-code);
+}
+/* Two mono spaces ahead of the words: the call steps in from the glass edge. */
+:root[data-wave="wave-03"] .t-feedback__call {
+  text-indent: 2ch;
 }
 
 /* One word of the title carries the wave's code green — the same hue the board's call wears, so

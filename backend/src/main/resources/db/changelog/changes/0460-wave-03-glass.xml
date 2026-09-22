@@ -6,18 +6,18 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Плотность стекла волны 03 «PRIME» (DESIGN §10.2) — четыре токена материала.
+      Wave 03 "PRIME"'s glass density (DESIGN §10.2): four material tokens.
 
-      Зачем в БД, а не только в скине: владелец выбрал стекло на ВСЕХ плитках, против
-      совета Apple держать его в одном навигационном слое. Страховка от этого выбора —
-      не отказ, а ручка: если замер на собранном борде покажет просадку, блюр можно
-      приглушить или снять правкой одной записи, не переписывая скин и не пересобирая фронт.
+      Why in the DB and not only in the skin: the owner chose glass on ALL tiles, against
+      Apple's advice to keep it in one navigation layer. The insurance against this choice is
+      not a refusal but a knob: if a measurement on the assembled board shows a slowdown, the blur can be
+      toned down or removed by editing one row, without rewriting the skin or rebuilding the frontend.
 
-      Те же значения лежат CSS-фолбэком прямо в `var()` внутри wave-03.css — борд не
-      теряет стекло, если бэкенд недоступен.
+      The same values sit as a CSS fallback right in the `var()` inside wave-03.css: the board does not
+      lose its glass if the backend is unavailable.
 
-      UPDATE поверх сида 0450 (checksum сида трогать нельзя); две вертикальные палки
-      перезаписывают существующие ключи и добавляют новые.
+      An UPDATE over the 0450 seed (the seed's checksum must not be touched); the two vertical bars
+      overwrite the existing keys and add new ones.
     -->
     <changeSet id="0460-wave-03-glass-density" author="danchuo">
         <sql><![CDATA[

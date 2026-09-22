@@ -12,27 +12,27 @@ function* unitsOf(c: MosaicCell) {
 }
 
 describe("columnMajorMosaic", () => {
-  it("первый кадр — сверху слева, второй под ним", () => {
+  it("the first frame is top left, the second below it", () => {
     const cells = columnMajorMosaic(land(8), MOSAIC_UNITS);
     expect(cells[0]).toMatchObject({ col: 0, row: 0 });
     expect(cells[1]).toMatchObject({ col: 0, row: 2 });
   });
 
-  it("колонка кончилась — следующий кадр начинает соседнюю сверху", () => {
+  it("a column is full — the next frame starts the neighbouring one from the top", () => {
     // 8 landscape frames over 12 cells of width = 4 cells of height, so two frames per column.
     const cells = columnMajorMosaic(land(8), MOSAIC_UNITS);
     expect(cells[2]).toMatchObject({ col: 3, row: 0 });
     expect(cells[3]).toMatchObject({ col: 3, row: 2 });
   });
 
-  it("оба кадра занимают по шесть клеток — вес у ориентаций равный", () => {
+  it("both frames take six cells each — the orientations weigh the same", () => {
     const cells = columnMajorMosaic([false, true], MOSAIC_UNITS);
     expect(cells[0]).toMatchObject({ w: 3, h: 2 });
     expect(cells[1]).toMatchObject({ w: 2, h: 3 });
   });
 
   /** The main prohibition: frames never overlap, whatever the mix of orientations. */
-  it("кадры не перекрываются и не вылезают за сетку", () => {
+  it("frames do not overlap and do not spill out of the grid", () => {
     for (const units of [MOSAIC_UNITS, 6]) {
       const seen = new Set<string>();
       for (const c of columnMajorMosaic(REAL, units)) {
@@ -49,7 +49,7 @@ describe("columnMajorMosaic", () => {
    * A gap beside a portrait frame is taken by the next frame that fits rather than "the end of the
    * column": without that the gaps added up into an empty column the full height of the mosaic.
    */
-  it("кадр садится в щель, оставленную стоячим соседом", () => {
+  it("a frame settles into the gap left by a portrait neighbour", () => {
     // The portrait frame takes cells 0..1 and the column's thirteenth cell is free, so the next
     // landscape frame takes it, starting from the second cell rather than the third.
     const cells = columnMajorMosaic([true, false, false, false], MOSAIC_UNITS);
@@ -57,21 +57,21 @@ describe("columnMajorMosaic", () => {
     expect(cells.some((c) => c.col === 2)).toBe(true);
   });
 
-  it("на живом дропе пустоты остаётся меньше десятой части", () => {
+  it("on a live drop less than a tenth stays empty", () => {
     const cells = columnMajorMosaic(REAL, MOSAIC_UNITS);
     const height = Math.max(...cells.map((c) => c.row + c.h));
     const filled = cells.reduce((s, c) => s + c.w * c.h, 0);
     expect(filled / (height * MOSAIC_UNITS)).toBeGreaterThan(0.9);
   });
 
-  it("порядок кадров сохраняется — раскладка их не переставляет", () => {
+  it("the frame order is kept — the layout does not reorder them", () => {
     const mixed = [false, true, false, true, false];
     const cells = columnMajorMosaic(mixed, MOSAIC_UNITS);
     expect(cells).toHaveLength(mixed.length);
     mixed.forEach((portrait, i) => expect(cells[i].w).toBe(portrait ? 2 : 3));
   });
 
-  it("пустой дроп — пустая раскладка, без деления на ноль", () => {
+  it("an empty drop — an empty layout, no division by zero", () => {
     expect(columnMajorMosaic([], MOSAIC_UNITS)).toEqual([]);
   });
 });

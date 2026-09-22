@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: время проектов уехало из строки в заголовок раздела (год), правый столбец
-      строки исчез — и плитка ужимается на три трека справа. Правый край с колонки 14
-      на 11; левый край и высота не двигаются.
+      Wave 03: the projects' time moved from the row into the section header (the year), the row's right
+      column disappeared, and the tile shrinks by three tracks on the right. The right edge from column 14
+      to 11; the left edge and the height do not move.
 
-      Дельту раскладки переписываем ЦЕЛИКОМ, как на 0660/0680/0690: `jsonb_set` по глубокому
-      пути молча ничего не сделает, если промежуточного ключа не окажется, — а вся ветка наша.
+      The layout delta is rewritten WHOLE, as in 0660/0680/0690: `jsonb_set` on a deep
+      path silently does nothing if an intermediate key is missing, and the whole branch is ours.
     -->
     <changeSet id="0700-wave-03-projects-narrower" author="danchuo">
         <sql><![CDATA[
@@ -35,19 +35,19 @@ WHERE key = 'wave-03';
     </changeSet>
 
     <!--
-      danchuo.world снова идёт «по настоящее»: открытый конец диапазона.
+      danchuo.world is "to date" again: an open range end.
 
-      Это отменяет решение 0200-project-danchuo-q3 («без по настоящее»), и вот почему оно
-      больше не действует. Тогда открытый конец означал ровно одно — слово «наст.» в правом
-      столбце строки, и владельцу не нравилось именно оно. Столбца больше нет: `end_year`
-      теперь решает две другие вещи — в какую годовую группу попадёт проект (открытый конец =
-      текущий год, то есть верхняя группа) и горит ли название полной яркостью. Сайт, который
-      вы сейчас читаете, живой, и обе эти вещи должны говорить правду.
+      This reverses decision 0200-project-danchuo-q3 ("no to date"), and here is why it
+      no longer holds. Back then an open end meant exactly one thing: the word "now" in the row's right
+      column, and that word was what the owner disliked. The column is gone: `end_year`
+      now decides two other things: which year group the project falls into (an open end =
+      the current year, i.e. the top group) and whether the title glows at full brightness. The site
+      you are reading now is alive, and both of these must tell the truth.
     -->
     <changeSet id="0700-project-danchuo-open-end" author="danchuo">
         <update tableName="project">
-            <!-- `valueComputed`, а не пустой `value`: NULL проговаривается явно, а не
-                 выводится из отсутствия атрибута. -->
+            <!-- `valueComputed`, not an empty `value`: NULL is spelled out explicitly rather than
+               inferred from a missing attribute. -->
             <column name="end_year" valueComputed="NULL"/>
             <column name="end_quarter" valueComputed="NULL"/>
             <where>title = 'danchuo.world'</where>

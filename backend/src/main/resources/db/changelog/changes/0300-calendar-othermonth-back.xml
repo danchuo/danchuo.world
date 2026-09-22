@@ -6,25 +6,25 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Откат затемнения дней соседнего месяца (DESIGN §5). Выходные остаются тёмными -
-      правку 0290 отменяем только наполовину.
+      Rolling back the darkening of the neighbouring month's days (DESIGN §5). Weekends stay dark:
+      we undo the 0290 edit only halfway.
 
-      Что пошло не так. В 0290 соседний месяц опустили следом за выходным, чтобы они не
-      слились по светлоте. Арифметически верно, а на экране - нет: окно календаря это две
-      прошлые недели + текущая + следующая, и в начале месяца соседний месяц занимает
-      БОЛЬШУЮ ЧАСТЬ сетки. Замер на 02.08.2026: 19 ячеек из 28, то есть две трети борда
-      разом потемнели, и календарь стал читаться как сплошное серое поле. К середине
-      месяца доля падает до 5/28, но жить с этим три недели каждый месяц нельзя.
+      What went wrong. In 0290 the neighbouring month was lowered after the weekend so they would not
+      merge in lightness. Arithmetically right, but not on screen: the calendar window is two
+      past weeks + the current + the next, and at the start of a month the neighbouring month takes
+      MOST of the grid. Measured on 02.08.2026: 19 cells out of 28, i.e. two thirds of the board
+      darkened at once, and the calendar read as a solid grey field. By mid-month
+      the share drops to 5/28, but living with this for three weeks every month is not acceptable.
 
-      Почему заливке соседнего месяца НЕ нужно быть самой тёмной: у него есть вторая
-      метка - приглушённая цифра (text-secondary вместо text-primary). Выходной несёт
-      только заливку, поэтому глубину отдаём ему, а соседнему месяцу хватает пары
-      "тихая заливка + тихая цифра".
+      Why the neighbouring month's fill does NOT need to be the darkest: it has a second
+      mark, the dimmed figure (text-secondary instead of text-primary). A weekend carries
+      only the fill, so the depth goes to it, while the neighbouring month gets by with the pair
+      "quiet fill + quiet figure".
 
-      Следствие, принятое сознательно: выходной (#f0e1d8) и соседний месяц (#ece0d7)
-      стали почти равны по светлоте. Рядом они не путаются - соседний месяц опознаётся
-      цифрой; а внутри блока чужого месяца выходные и так не выделяются, потому что
-      приоритет заливки ставит "чужой месяц" выше "выходного" (и это не менялось).
+      A consequence accepted deliberately: the weekend (#f0e1d8) and the neighbouring month (#ece0d7)
+      became almost equal in lightness. Side by side they are not confused: the neighbouring month is recognised
+      by its figure; and within the other month's block weekends are not highlighted anyway, because
+      the fill priority puts "other month" above "weekend" (and that did not change).
     -->
     <changeSet id="0300-wave-01-othermonth-back" author="danchuo">
         <sql><![CDATA[

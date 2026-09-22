@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: переключатель волн убавляется на трек снизу — строки 2..3 вместо 2..4
+      Wave 03: the wave switcher loses a track at the bottom: rows 2..3 instead of 2..4
       (DESIGN §10.2).
 
-      Верх и колонки не трогаем: плитка держит левый край дропа и шапку колонны. Убавляется
-      только низ, поэтому воздуха между переключателем и последним дропом (он начинается со
-      строки 6) становится два трека вместо одного.
+      The top and the columns are untouched: the tile holds the drop's left edge and the column's header. Only
+      the bottom shrinks, so the air between the switcher and the latest drop (which starts at
+      row 6) becomes two tracks instead of one.
     -->
     <changeSet id="0910-wave-03-switcher-shorter" author="danchuo">
         <sql><![CDATA[

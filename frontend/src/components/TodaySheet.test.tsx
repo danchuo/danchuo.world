@@ -203,6 +203,23 @@ describe("TodaySheet", () => {
     expect(kids[1].className).toContain("today-sheet__monster");
   });
 
+  it("puts the bouldering shoe before the monster on a day it happened", () => {
+    const { container } = render(<TodaySheet day={withBook({ bouldered: true })} today="2026-09-19" />);
+
+    const kids = [...container.querySelector(".today-sheet__frames")!.children];
+    expect(kids.map((k) => k.className.split(" ")[0])).toEqual([
+      "today-sheet__frame",
+      "today-sheet__boulder",
+      "today-sheet__monster",
+    ]);
+    expect(screen.getByText("болдеринг")).toBeInTheDocument();
+  });
+
+  it("no shoe without bouldering", () => {
+    const { container } = render(<TodaySheet day={withBook({ bouldered: false })} today="2026-09-19" />);
+    expect(container.querySelector(".today-sheet__boulder")).toBeNull();
+  });
+
   // The row's shape is what the eye learns, so its column count follows the items rather than
   // letting a new one wrap onto a second row. DESIGN §4.3
   it("holds every item in the row, in order, and widens the row to fit them", () => {

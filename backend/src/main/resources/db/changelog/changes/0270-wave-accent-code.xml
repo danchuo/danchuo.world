@@ -6,20 +6,20 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Цвет канала вкладов GitHub (DESIGN §2.1, §7.4) — чип "+N" в плитке статов.
+      The GitHub contributions channel colour (DESIGN §2.1, §7.4): the "+N" chip in the stats tile.
 
-      Токен назван по РОЛИ (accent-code), а не по цвету: зелёный тут смысловой (это цвет
-      гита), но чужой обеим палитрам. Прямой зелёный литерал в компоненте повторил бы
-      ошибку, за которую с борда сняли цвета вкусов монстра - семь чужих цветов, спорящих
-      с волной. Поэтому оттенок выбирает волна, а компонент про цвет ничего не знает.
+      The token is named by ROLE (accent-code), not by colour: the green here carries meaning (it is git's
+      colour) but is foreign to both palettes. A direct green literal in the component would repeat
+      the mistake for which the monster flavour colours were removed from the board: seven foreign colours arguing
+      with the wave. So the wave chooses the shade, and the component knows nothing about colour.
 
-        wave-01  тёплый мшистый: рядом с персиком гитхабовский кислотный звенел бы тревогой.
-        wave-02  холодный аркадный: у Obscura один сигнальный оранжевый на весь борд,
-                 вкладам нужен отдельный голос из той же 8-битной палитры.
+        wave-01  a warm mossy one: next to the peach GitHub's acid green would ring like an alarm.
+        wave-02  a cold arcade one: Obscura has one signal orange for the whole board,
+                 contributions need their own voice from the same 8-bit palette.
 
-      UPDATE поверх применённого 0080-theme-seed (checksum сида трогать нельзя); `||`
-      добавляет один ключ, остальной токен-набор волн не меняется. Те же значения лежат
-      CSS-фолбэком в wave-01.css / wave-02.css - борд не белеет, если БД недоступна.
+      An UPDATE over the applied 0080-theme-seed (the seed's checksum must not be touched); `||`
+      adds one key, the rest of the waves' token sets do not change. The same values sit as
+      a CSS fallback in wave-01.css / wave-02.css: the board does not go white if the DB is unavailable.
     -->
     <changeSet id="0270-wave-01-accent-code" author="danchuo">
         <sql><![CDATA[

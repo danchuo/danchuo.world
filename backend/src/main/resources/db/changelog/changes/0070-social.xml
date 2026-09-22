@@ -6,14 +6,14 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс social (PRD §5.8, §7, §12 M4): соцссылки + артефакты marquee. Data-driven —
-      новая ссылка/артефакт = строка, без релиза. Иконки соцссылок — SVG-спрайты, статика
-      фронта, красятся токеном волны через CSS-маску. Артефакт может быть без картинки
-      (image_url nullable — marquee рисует пиксель-плейсхолдер вместо PNG/GIF).
+      The social slice (PRD §5.8, §7, §12 M4): social links + marquee artifacts. Data-driven:
+      a new link/artifact is a row, no release. Social link icons are SVG sprites, frontend
+      statics, painted with the wave token via a CSS mask. An artifact may have no picture
+      (image_url nullable: the marquee draws a pixel placeholder instead of a PNG/GIF).
 
-      Консолидировано перед 1.0.0 (прод стартует с чистой цепочки): сюда свёрнуты бывшие
-      0110 (nullable image_url + артефакты без картинок) и 0190 (SVG-иконки, GitHub-аккаунт,
-      X/Instagram).
+      Consolidated before 1.0.0 (prod starts from a clean chain): the former
+      0110 (nullable image_url + artifacts without pictures) and 0190 (SVG icons, GitHub account,
+      X/Instagram) are folded in here.
     -->
     <changeSet id="0070-social-link-table" author="danchuo">
         <createTable tableName="social_link">
@@ -55,7 +55,7 @@
         </createTable>
     </changeSet>
 
-    <!-- Сид соцссылок (правится владельцем). -->
+    <!-- Social link seed (edited by the owner). -->
     <changeSet id="0070-social-link-seed" author="danchuo">
         <insert tableName="social_link">
             <column name="platform" value="github"/>
@@ -87,7 +87,7 @@
         </insert>
     </changeSet>
 
-    <!-- Сид артефактов marquee (дата первого упоминания — в поповере; без картинки — плейсхолдер). -->
+    <!-- Marquee artifact seed (the date of first mention is in the popover; no picture means a placeholder). -->
     <changeSet id="0070-artifact-seed" author="danchuo">
         <insert tableName="artifact">
             <column name="name" value="Камера"/>

@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «эхолот» ужимается на трек справа и на трек снизу (DESIGN §10.2).
+      Wave 03: the "echo sounder" shrinks by a track on the right and a track at the bottom (DESIGN §10.2).
 
-      Колонки 19..26, строки 12..18. Правый край при этом СХОДИТ с колонки календаря, на
-      которую был выровнен: колонка справа от промера теперь ступенчатая — сон кончается
-      на треке раньше календаря под ним. Размен сознательный — промер в прежнем габарите
-      забирал у борда больше веса, чем стоит один показатель дня.
+      Columns 19..26, rows 12..18. The right edge thereby LEAVES the calendar's column it
+      was aligned with: the column to the right of the sounding is now stepped: sleep ends
+      one track before the calendar under it. A deliberate trade: the sounding at its old size
+      took more of the board's weight than a single daily figure deserves.
 
-      Пропорция остаётся лежачей (около 8:5), то есть той, на которой промер и размечен:
-      спуск ночи читается слева направо.
+      The proportion stays landscape (about 8:5), i.e. the one the sounding is laid out for:
+      the night's descent reads left to right.
     -->
     <changeSet id="0870-wave-03-sleep-smaller" author="danchuo">
         <sql><![CDATA[

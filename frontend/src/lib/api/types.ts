@@ -114,6 +114,8 @@ export interface DayView {
   monsterDrunk?: boolean | null;
   /** Consecutive Monster-free days through yesterday; missing cached values mean no streak. */
   monsterCleanStreak?: number;
+  /** Whether there was bouldering; null or absent = unknown. Not sent by the backend yet. */
+  bouldered?: boolean | null;
 }
 
 // Spotify DTOs mirror world.danchuo.spotify.SpotifyViews. PRD §5.5.

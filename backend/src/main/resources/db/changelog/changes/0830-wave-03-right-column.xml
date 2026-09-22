@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: правый нижний угол занимает велобайк, над ним встаёт переключатель волн,
-      оба прижаты к правому краю сетки (колонка 40).
+      Wave 03: Velobike takes the bottom right corner, the wave switcher stands above it,
+      both pressed to the grid's right edge (column 40).
 
-      Велобайк — колонки 34..40, строки 22..28; переключатель — колонки 35..40, строки 18..20.
-      Между ними остаётся строка воздуха, чтобы плитки не читались одной колонкой.
+      Velobike: columns 34..40, rows 22..28; the switcher: columns 35..40, rows 18..20.
+      A row of air remains between them so the tiles do not read as one column.
 
-      Календарь теряет строку по вертикали: его сетка показывает три недели вместо четырёх
-      (будущая неделя в неё больше не попадает, DESIGN 5.2), и десятая строка плитке стала
-      не нужна. Нижний край остаётся на последней строке борда, поэтому сдвигается верхний.
+      The calendar loses a row vertically: its grid shows three weeks instead of four
+      (the future week no longer falls into it, DESIGN 5.2), and the tile no longer needs
+      a tenth row. The bottom edge stays on the board's last row, so the top one moves.
     -->
     <changeSet id="0830-wave-03-right-column" author="danchuo">
         <sql><![CDATA[

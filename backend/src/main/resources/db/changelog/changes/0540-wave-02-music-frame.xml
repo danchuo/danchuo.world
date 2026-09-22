@@ -6,17 +6,17 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 02 «Obscura»: плитка музыки сужается на колонку с каждой стороны (DESIGN §7.5).
+      Wave 02 "Obscura": the music tile narrows by a column on each side (DESIGN §7.5).
 
-      13 колонок сетки 40x28 (около 490px на экране владельца) плитка получила, когда была
-      строкой текста с маленькой обложкой сбоку: ширина шла под бегущую строку с длинным
-      названием. Теперь плитка — КАДР, у неё обложка во всю карту, и лишняя ширина работает
-      против неё: кадр растягивается в панораму, а обложка квадратная и кадрируется по бокам.
+      The tile got 13 columns of the 40x28 grid (about 490px on the owner's screen) when it was
+      a line of text with a small cover on the side: the width went to a marquee with a long
+      title. Now the tile is a FRAME, its cover fills the card, and extra width works
+      against it: the frame stretches into a panorama, while the cover is square and gets cropped at the sides.
 
-      11 колонок при той же высоте дают пропорцию ближе к квадрату — обложке остаётся больше
-      себя. Колонка слева и справа уходит в тот же воздух, из которого сделана вся сетка
-      (см. шапку layout.ts), поэтому соседей двигать не пришлось: 16→17 при 13→11 оставляет
-      центр плитки на месте.
+      11 columns at the same height give a proportion closer to a square: the cover keeps more
+      of itself. The column on the left and right goes into the same air the whole grid is made of
+      (see the layout.ts header), so the neighbours did not need moving: 16→17 with 13→11 keeps
+      the tile's centre in place.
     -->
     <changeSet id="0540-wave-02-music-frame" author="danchuo">
         <sql><![CDATA[

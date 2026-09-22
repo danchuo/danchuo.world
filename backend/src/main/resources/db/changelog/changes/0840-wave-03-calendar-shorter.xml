@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: календарь теряет ещё одну строку сверху — колонки 19..27, строки 21..28.
+      Wave 03: the calendar loses one more row at the top: columns 19..27, rows 21..28.
 
-      Сетка «поля» держит три строки при любой высоте плитки (DESIGN 5.2), поэтому лишняя
-      высота уходила не клеткам, а воздуху между ними. Нижний край остаётся на последней
-      строке борда: таблетка «сегодня» садится на него, и двигать её некуда.
+      The "field" grid holds three rows at any tile height (DESIGN 5.2), so the extra
+      height went not to the cells but to the air between them. The bottom edge stays on the board's last
+      row: the "today" pill sits on it, and there is nowhere to move it.
     -->
     <changeSet id="0840-wave-03-calendar-shorter" author="danchuo">
         <sql><![CDATA[

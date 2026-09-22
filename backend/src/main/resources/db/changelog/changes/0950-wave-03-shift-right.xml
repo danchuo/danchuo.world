@@ -6,14 +6,14 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: средняя колонка сдвигается вправо (хэнд-тюн владельца).
+      Wave 03: the middle column shifts right (the owner's hand-tune).
 
-      Статы и календарь едут на два трека (19 → 21), артефакты на один (12 → 13). Размеры не
-      тронуты ни у одной плитки — это чистый сдвиг: слева расширяется канал между «последним
-      дропом» и серединой борда, справа статы и календарь встают ближе к колонке сна и велобайка.
+      Stats and the calendar move by two tracks (19 → 21), artifacts by one (12 → 13). No tile's size
+      is touched: it is a pure shift: on the left the channel between the "latest
+      drop" and the board's middle widens, on the right stats and the calendar move closer to the sleep and Velobike column.
 
-      Столкновений нет: статы 21..29 расходятся со сном (33..40), календарь 21..29 — с велобайком
-      (34..40), артефакты 13..19 упираются в календарь только через пустой трек 20.
+      No collisions: stats 21..29 clear sleep (33..40), the calendar 21..29 clears Velobike
+      (34..40), artifacts 13..19 meet the calendar only across the empty track 20.
     -->
     <changeSet id="0950-wave-03-shift-right" author="danchuo">
         <sql><![CDATA[

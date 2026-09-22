@@ -6,27 +6,27 @@ import { treeBranch } from "./projectTree";
  * trunk starts at the year's level and goes down, with no vertical above it. Hence four kinds.
  */
 describe("treeBranch", () => {
-  it("первая строка года — голова: ствол начинается от года и уходит вниз", () => {
+  it("the first row of a year is the head: the trunk starts at the year and goes down", () => {
     expect(treeBranch(0, 3)).toBe("head");
   });
 
-  it("средние висят на тройнике", () => {
+  it("the means hang on a tee", () => {
     expect(treeBranch(1, 3)).toBe("tee");
   });
 
-  it("последняя закрывает год углом", () => {
+  it("the last one closes the year with a corner", () => {
     expect(treeBranch(2, 3)).toBe("corner");
   });
 
   /** A year's only project: there is no vertical to draw — one straight line from year to row. */
-  it("единственный проект года — без ствола", () => {
+  it("a year's only project has no trunk", () => {
     expect(treeBranch(0, 1)).toBe("only");
   });
 
   // The elbow is computed over the WHOLE group, not the visible window (DESIGN §7.8): while
   // scrolling, the real last row goes under the cut and the visible rows honestly stay tees —
   // which is exactly what "the tree continues past the edge" means.
-  it("за пределами окна прокрутки угол остаётся у настоящего последнего", () => {
+  it("outside the scroll window the corner stays with the real last one", () => {
     expect(treeBranch(2, 5)).toBe("tee");
     expect(treeBranch(4, 5)).toBe("corner");
   });

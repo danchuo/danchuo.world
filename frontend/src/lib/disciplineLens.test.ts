@@ -29,8 +29,8 @@ const READING_1 = { key: "reading", occurrence: 1, label: "чтение" };
 const READING_2 = { key: "reading", occurrence: 2, label: "чтение" };
 const MONSTER = { key: MONSTER_LENS_KEY, occurrence: 1, label: "монстр" };
 
-describe("линза дисциплины", () => {
-  it("остановка закрыта порогом count ≥ occurrence — две остановки пункта отвечают по-разному", () => {
+describe("discipline lens", () => {
+  it("a stop is closed by the threshold count ≥ occurrence — an item's two stops answer differently", () => {
     const once = day({ disciplineCounts: { reading: 1 } });
     expect(lensMatch(once, READING_1)).toBe("yes");
     expect(lensMatch(once, READING_2)).toBe("no");
@@ -40,23 +40,23 @@ describe("линза дисциплины", () => {
     expect(lensMatch(twice, READING_2)).toBe("yes");
   });
 
-  it("пункт в счётчиках нулём (или вовсе отсутствует) — не сделан, но ответ есть", () => {
+  it("an item with zero in the counters (or absent) is not done, but there is an answer", () => {
     expect(lensMatch(day({ disciplineCounts: { reading: 0 } }), READING_1)).toBe("no");
     expect(lensMatch(day({ disciplineCounts: {} }), READING_1)).toBe("no");
   });
 
-  it("день без данных (пустой или будущий) ответа не даёт", () => {
+  it("a day without data (empty or future) gives no answer", () => {
     expect(lensMatch(day({ hasData: false }), READING_1)).toBe("unknown");
     expect(lensMatch(day({ hasData: false }), MONSTER)).toBe("unknown");
   });
 
-  it("старый кэш без поля счётчиков деградирует в «нет ответа», а не в «не сделал»", () => {
+  it("an old cache without the counters field degrades to \"no answer\", not \"not done\"", () => {
     const stale = day();
     delete (stale as Partial<DaySummary>).disciplineCounts;
     expect(lensMatch(stale, READING_1)).toBe("unknown");
   });
 
-  it("линза монстра инвертирована: «да» — это чистый день", () => {
+  it("the monster lens is inverted: \"yes\" is a clean day", () => {
     expect(lensMatch(day({ monsterDrunk: false }), MONSTER)).toBe("yes");
     expect(
       lensMatch(
@@ -66,7 +66,7 @@ describe("линза дисциплины", () => {
     ).toBe("no");
   });
 
-  it("монстра за день не отмечали — ответа нет, а не «не пил»", () => {
+  it("the monster was not marked for the day — no answer, not \"did not drink\"", () => {
     // The day has a record (health ingest creates it) but the interactive shortcut never ran.
     expect(lensMatch(day({ hasData: true, monsterDrunk: null }), MONSTER)).toBe(
       "unknown",
@@ -75,7 +75,7 @@ describe("линза дисциплины", () => {
     expect(lensMatch(day({ hasData: true }), MONSTER)).toBe("unknown");
   });
 
-  it("подпись линзы для ячейки: монстр — тем же вердиктом, что на карте; «нет ответа» молчит", () => {
+  it("the lens caption for a cell: the monster with the same verdict as on the map; \"no answer\" stays silent", () => {
     expect(lensNote("yes", READING_1)).toBe("чтение: сделано");
     expect(lensNote("no", READING_1)).toBe("чтение: не сделано");
     // A clean day gets no mark, but the hover summary still answers — there it is not noise.
@@ -85,14 +85,14 @@ describe("линза дисциплины", () => {
     expect(lensNote("unknown", READING_1)).toBeNull();
   });
 
-  it("имя линзы в ярлыке — подпись остановки, и у монстра тоже", () => {
+  it("the lens name in the label is the stop's caption, the monster's too", () => {
     // Both answers are marked by colour, so the label names the lens's subject rather than its
     // polarity; inverting it was rejected (DESIGN §5.1).
     expect(lensTitle(MONSTER)).toBe("монстр");
     expect(lensTitle(READING_1)).toBe("чтение");
   });
 
-  it("тон отметки: у монстра метится ТОЛЬКО «пил», у прочих — только «да»", () => {
+  it("the mark's tone: for the monster ONLY \"drank\" is marked, for the others only \"yes\"", () => {
     // For an ordinary item "no match" is simply an absence: nothing to mark, the day dims.
     expect(lensTone("yes", READING_1)).toBe("match");
     expect(lensTone("no", READING_1)).toBeNull();
@@ -106,7 +106,7 @@ describe("линза дисциплины", () => {
     expect(lensTone("unknown", MONSTER)).toBeNull();
   });
 
-  it("тоггл сравнивает остановку целиком (ключ + occurrence)", () => {
+  it("the toggle compares the whole stop (key + occurrence)", () => {
     expect(sameLens(READING_1, { ...READING_1 })).toBe(true);
     expect(sameLens(READING_1, READING_2)).toBe(false);
     expect(sameLens(null, null)).toBe(true);
@@ -114,14 +114,14 @@ describe("линза дисциплины", () => {
   });
 });
 
-describe("закрепление линзы", () => {
-  it("повторно названная линза снимается, другая — заменяет", () => {
+describe("pinning the lens", () => {
+  it("a lens named again is removed, another one replaces it", () => {
     expect(pinLens(READING_1, READING_1)).toBeNull();
     expect(pinLens(READING_1, READING_2)).toEqual(READING_2);
     expect(pinLens(null, READING_1)).toEqual(READING_1);
   });
 
-  it("явный null снимает любую закреплённую линзу — это крестик ярлыка", () => {
+  it("an explicit null removes any pinned lens — it is the label's cross", () => {
     expect(pinLens(READING_1, null)).toBeNull();
     expect(pinLens(null, null)).toBeNull();
   });
@@ -132,7 +132,7 @@ describe("закрепление линзы", () => {
  * a weekend is stepped over, an unfilled today does not drop the run — otherwise the light in the
  * calendar and the numeral in the sheet's socket would answer the same question differently.
  */
-describe("живая серия линзы", () => {
+describe("the lens's live streak", () => {
   // Mon 2026-07-13 … Sun 2026-07-19, then Mon 2026-07-20.
   function week(counts: Array<number | null>): DaySummary[] {
     return counts.map((c, i) => {
@@ -143,7 +143,7 @@ describe("живая серия линзы", () => {
     });
   }
 
-  it("серия — подряд идущие сделанные дни, считая назад от сегодня", () => {
+  it("a streak is consecutive done days counting back from today", () => {
     const run = lensRun(week([0, 1, 1, 1, 1, 0, 0, 1]), READING_1, "2026-07-16");
 
     expect(run.length).toBe(3);
@@ -151,7 +151,7 @@ describe("живая серия линзы", () => {
     expect(run.truncated).toBe(false);
   });
 
-  it("выходной перешагивается: серию не рвёт, но и не считается — и светит вполсилы", () => {
+  it("a weekend is stepped over: it does not break the streak, is not counted, and glows at half strength", () => {
     // Sat 18 and Sun 19 are empty, and the run crosses them from Friday to Monday.
     const run = lensRun(week([0, 0, 1, 1, 1, 0, 0, 1]), READING_1, "2026-07-20");
 
@@ -161,7 +161,7 @@ describe("живая серия линзы", () => {
     expect(run.marks.get("2026-07-20")).toBe("on");
   });
 
-  it("незакрытое сегодня серию не роняет, но светом не притворяется", () => {
+  it("an unclosed today does not break the streak but does not fake light either", () => {
     const run = lensRun(week([0, 1, 1, 0, 0, 0, 0, 0]), READING_1, "2026-07-16");
 
     expect(run.length).toBe(2);
@@ -169,28 +169,28 @@ describe("живая серия линзы", () => {
     expect(run.marks.get("2026-07-15")).toBe("on");
   });
 
-  it("день без ответа серию рвёт — молчание не засчитывается за сделанное", () => {
+  it("a day without an answer breaks the streak — silence does not count as done", () => {
     const run = lensRun(week([1, 1, null, 1, 1, 0, 0, 0]), READING_1, "2026-07-17");
 
     expect(run.length).toBe(2);
     expect(run.marks.has("2026-07-15")).toBe(false);
   });
 
-  it("серия, упёршаяся в край окна, честно помечена обрезанной", () => {
+  it("a streak that hits the window's edge is honestly marked as cut", () => {
     const run = lensRun(week([1, 1, 1, 1, 1, 0, 0, 0]), READING_1, "2026-07-17");
 
     expect(run.length).toBe(5);
     expect(run.truncated).toBe(true);
   });
 
-  it("у монстра серии нет вовсе: подсветить чистые дни значило бы залить сетку целиком", () => {
+  it("the monster has no streak at all: highlighting clean days would flood the whole grid", () => {
     const days = week([0, 0, 0, 0, 0, 0, 0, 0]).map((d) => ({ ...d, monsterDrunk: false }));
 
     expect(lensRun(days, MONSTER, "2026-07-20").length).toBe(0);
     expect(lensRun(days, MONSTER, "2026-07-20").marks.size).toBe(0);
   });
 
-  it("оборванная серия не оставляет зажжённым перешагнутый хвост", () => {
+  it("a broken streak does not leave the stepped-over tail lit", () => {
     // Today is an unfilled Monday and Friday was missed too, so there is nothing to light.
     const run = lensRun(week([1, 1, 1, 1, 0, 0, 0, 0]), READING_1, "2026-07-20");
 

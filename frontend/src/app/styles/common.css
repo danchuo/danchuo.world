@@ -4947,7 +4947,8 @@ button.sleep-echo:focus-visible {
 /* The monster takes a FRAME's geometry — same square, same gaps, same caption line — so it stands
    in the row as one more picture. No border and no ground: the figure is the card, and a plate
    would make it a button among pictures. DESIGN §4.3 */
-.today-sheet__monster {
+.today-sheet__monster,
+.today-sheet__boulder {
   flex: 0 0 auto;
   width: var(--sheet-frame);
   padding: 0;
@@ -4960,6 +4961,15 @@ button.sleep-echo:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+/* The shoe is a fact, not a control: the monster's frame without the pointer. */
+.today-sheet__boulder {
+  margin: 0;
+  cursor: default;
+}
+/* The shoe's neon reads louder than the grey can: its colour is muted, its light is the stage's. */
+.today-sheet__boulder .today-sheet__monsterbody {
+  filter: saturate(0.5);
 }
 /* The figure stands where a cover would, on the canvas rather than on the cover's grey ground. */
 .today-sheet__shot--bare { background: none; }

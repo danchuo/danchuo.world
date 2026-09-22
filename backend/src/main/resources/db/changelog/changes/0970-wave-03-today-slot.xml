@@ -6,24 +6,24 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: «Сегодня» возвращается на борд (PRD §9.8, I-65). Плитка приезжает в дефолтной
-      редакции — место под неё расчищено сейчас, вид плитки докручивается отдельно.
+      Wave 03: "Today" returns to the board (PRD §9.8, I-65). The tile arrives in the default
+      edition: its place is cleared now, the tile's look is tuned separately.
 
-      Размеры НЕ тронуты ни у одной плитки: место добыто сдвигом. Правая колонна (соцсети,
-      музыка, сон, переключатель, велобайк) не двигается вовсе — она и так стоит вплотную,
-      строки 2..28, велобайк прибит к нижнему краю. Средняя колонна остаётся на месте, к ней
-      лишь подтягивается лента дропов (19 → 21), вставая в одну колонку со статами и календарём.
+      No tile's size is touched: the room is gained by shifting. The right column (social,
+      music, sleep, switcher, Velobike) does not move at all: it stands tight already,
+      rows 2..28, Velobike pinned to the bottom edge. The middle column stays in place, only
+      the drop ribbon moves up to it (19 → 21), joining one column with stats and the calendar.
 
-      Освобождает место левая половина: «последний дроп» уезжает в самый угол (5,6 → 1,1), а
-      артефакты с проектами собираются в канал между ним и серединой борда (колонки 13..19).
-      Под ними открывается полоса 1..19 × 18..28 — туда и встаёт «Сегодня».
+      The left half frees the room: the "latest drop" moves into the very corner (5,6 → 1,1), and
+      the artifacts and projects gather into the channel between it and the board's middle (columns 13..19).
+      Under them a band 1..19 × 18..28 opens: that is where "Today" stands.
 
-      Плотность борда растёт с 59.6% до 78.2%, и «Сегодня» снова самая крупная плитка волны
-      (19×11 против 11×16 у дропа — на опоре владельца 714×327 против 414×475 пикселей).
+      The board's density grows from 59.6% to 78.2%, and "Today" is again the wave's largest tile
+      (19×11 against the drop's 11×16: 714×327 against 414×475 pixels at the owner's reference).
 
-      Столкновений нет, пустой трек между соседями сохранён везде: дроп кончается строкой 16,
-      проекты — строкой 14, «Сегодня» начинается со строки 18; справа канал упирается в колонку
-      19, средняя колонна начинается с 21.
+      No collisions, an empty track between neighbours is kept everywhere: the drop ends at row 16,
+      the projects at row 14, "Today" starts at row 18; on the right the channel stops at column
+      19, the middle column starts at 21.
     -->
     <changeSet id="0970-wave-03-today-slot" author="danchuo">
         <sql><![CDATA[

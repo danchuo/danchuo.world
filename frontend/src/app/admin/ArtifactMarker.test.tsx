@@ -92,13 +92,13 @@ function drag(frame: HTMLElement, from: [number, number], to: [number, number]) 
   pointer(window, "pointerup", to);
 }
 
-describe("ArtifactMarker — ручная разметка артефактов (§5.12)", () => {
+describe("ArtifactMarker — manual artifact marking (§5.12)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(saveArtifactBox).mockResolvedValue([{ ...PHOTO }]);
   });
 
-  it("выбранный предмет + протяжка = рамка в долях кадра", async () => {
+  it("selected item + drag = a box in frame fractions", async () => {
     const { frame, onSaved } = renderMarker();
     fireEvent.click(screen.getByRole("radio", { name: "Очки" }));
     drag(frame, [0.2, 0.3], [0.6, 0.8]);
@@ -114,7 +114,7 @@ describe("ArtifactMarker — ручная разметка артефактов 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
-  it("крошечная протяжка сохраняется не мельче минимума", async () => {
+  it("a tiny drag is saved no smaller than the minimum", async () => {
     const { frame } = renderMarker();
     fireEvent.click(screen.getByRole("radio", { name: "Очки" }));
     // Sunglasses in a wide shot cannot be traced neatly by mouse, and need not be: a box answers
@@ -127,7 +127,7 @@ describe("ArtifactMarker — ручная разметка артефактов 
     expect(box.y1 - box.y0).toBeCloseTo(HIGHLIGHT_MIN, 4);
   });
 
-  it("без выбранного предмета протяжка ничего не сохраняет", () => {
+  it("without a selected item a drag saves nothing", () => {
     const { frame } = renderMarker();
     drag(frame, [0.2, 0.2], [0.7, 0.7]);
     expect(saveArtifactBox).not.toHaveBeenCalled();
@@ -135,14 +135,14 @@ describe("ArtifactMarker — ручная разметка артефактов 
     expect(screen.getByText(/выбери предмет/)).toBeInTheDocument();
   });
 
-  it("клик по кадру без протяжки рамку не заводит", () => {
+  it("a click on a frame without a drag sets up no box", () => {
     const { frame } = renderMarker();
     fireEvent.click(screen.getByRole("radio", { name: "Очки" }));
     drag(frame, [0.4, 0.4], [0.4, 0.4]);
     expect(saveArtifactBox).not.toHaveBeenCalled();
   });
 
-  it("уже размеченные предметы видны на кадре", () => {
+  it("already marked items are visible on the frame", () => {
     const { container } = renderMarker({
       ...PHOTO,
       artifacts: [
@@ -157,7 +157,7 @@ describe("ArtifactMarker — ручная разметка артефактов 
     expect((boxes[0] as HTMLElement).style.width).toBe("40%");
   });
 
-  it("перерисовка поверх уже размеченного предмета уходит той же парой кадр-предмет", async () => {
+  it("redrawing over an already marked item goes out as the same frame-item pair", async () => {
     const { frame } = renderMarker({
       ...PHOTO,
       artifacts: [
@@ -171,7 +171,7 @@ describe("ArtifactMarker — ручная разметка артефактов 
     expect(vi.mocked(saveArtifactBox).mock.calls[0][3]).toBe(6);
   });
 
-  it("Esc закрывает разметчик", () => {
+  it("Esc closes the marker", () => {
     const { onClose } = renderMarker();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();

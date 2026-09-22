@@ -53,15 +53,15 @@ async function openBand() {
   await userEvent.click(screen.getByRole("button", { name: /по часам/i }));
 }
 
-describe("SleepTile — ночь как она была (I-23)", () => {
-  it("по умолчанию показывает сумму и за полосой не ходит", () => {
+describe("SleepTile — the night as it was (I-23)", () => {
+  it("by default shows the sum and does not fetch the bar", () => {
     render(<SleepTile day={day()} state="loaded" />);
 
     expect(screen.getByText("7ч 40м")).toBeInTheDocument();
     expect(getSleepNightMock).not.toHaveBeenCalled();
   });
 
-  it("по переключателю показывает полосу ночи и запрашивает её один раз", async () => {
+  it("the switcher shows the night bar and requests it once", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
 
@@ -78,7 +78,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.getAllByTestId("night-band-part")).toHaveLength(4);
   });
 
-  it("переключатель не помечен мета-подписью — скин волны прячет их целиком", async () => {
+  it("the switcher carries no meta caption — the wave's skin hides those entirely", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
 
@@ -92,7 +92,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.getByText("23:20–07:20")).not.toHaveClass("tile-label");
   });
 
-  it("во сколько лёг и встал — в шапке, а не отдельной строкой под полосой", async () => {
+  it("bedtime and wake time are in the header, not a separate line under the bar", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
     await openBand();
@@ -101,7 +101,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     await waitFor(() => expect(screen.getByText("23:20–07:20")).toBeInTheDocument());
   });
 
-  it("подписывает дорожки фаз — они же и есть вечная легенда", async () => {
+  it("labels the phase lanes — they are the permanent legend", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
     await openBand();
@@ -116,7 +116,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByTestId("night-legend")).not.toBeInTheDocument();
   });
 
-  it("кладёт фазу на свою дорожку: глубокий сон ниже, чем пробуждение", async () => {
+  it("puts a phase on its own lane: deep sleep lower than waking", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
     await openBand();
@@ -130,7 +130,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(top(0)).toBeLessThan(top(1)); // the base above deep
   });
 
-  it("сравнения со средней ночью не показывает — среднее уже есть в «активности»", async () => {
+  it("no comparison with the average night — the average is already in \"activity\"", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
     await openBand();
@@ -141,7 +141,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(within(band).queryByText(/\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}/)).not.toBeInTheDocument();
   });
 
-  it("ночь без сохранённых кусков показывает ту же пустоту, что и день без сна", async () => {
+  it("a night without saved chunks shows the same emptiness as a day without sleep", async () => {
     getSleepNightMock.mockResolvedValue({ ...night, band: null });
     render(<SleepTile day={day()} state="loaded" />);
     await openBand();
@@ -156,7 +156,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByText(/не записана по минутам/i)).not.toBeInTheDocument();
   });
 
-  it("не повторяет в шапке, какой день выбран — это уже сказано в «Сегодня»", () => {
+  it("does not repeat in the header which day is selected — \"today\" already says so", () => {
     render(<SleepTile day={day({ date: "2026-07-21" })} state="loaded" />);
 
     // The chosen day is shared by the board: its caption lives in the day tile and the calendar,
@@ -164,7 +164,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByText(/сегодня|вчера|позавчера|^в (прошл|следующ)|назад$/i)).not.toBeInTheDocument();
   });
 
-  it("возврат к сумме не требует нового запроса", async () => {
+  it("returning to the sum needs no new request", async () => {
     getSleepNightMock.mockResolvedValue(night);
     render(<SleepTile day={day()} state="loaded" />);
     await openBand();
@@ -177,7 +177,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByTestId("night-band")).not.toBeInTheDocument();
   });
 
-  it("день без сна переключателя не предлагает — разворачивать нечего", () => {
+  it("a day without sleep offers no switcher — there is nothing to unfold", () => {
     render(
       <SleepTile
         day={day({
@@ -193,7 +193,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("пустая ночь в редакции по умолчанию — кровать с подписью, а не луна", () => {
+  it("an empty night in the default edition — a bed with a caption, not the moon", () => {
     // The moon is the `echo` edition's mark: a wave dresses the tile through its edition, and one
     // edition's sign must not turn up in another's (DESIGN §7.7, §10.1).
     render(
@@ -207,7 +207,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByTestId("sleep-moon")).not.toBeInTheDocument();
   });
 
-  it("пустая ночь в редакции «эхолот» — объёмная луна, без кровати и слов", () => {
+  it("an empty night in the \"echo sounder\" edition — a 3D moon, no bed and no words", () => {
     vi.mocked(mountArtifact).mockResolvedValue({
       setSpinning: vi.fn(), turn: vi.fn(), setLight: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
     });
@@ -225,7 +225,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(screen.queryByText("нет данных о сне")).not.toBeInTheDocument();
   });
 
-  it("между пустыми днями поворачивает свет, не пересобирая луну", async () => {
+  it("between empty days it turns the light without rebuilding the moon", async () => {
     const artifact = {
       setSpinning: vi.fn(), turn: vi.fn(), setLight: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
     };
@@ -243,7 +243,7 @@ describe("SleepTile — ночь как она была (I-23)", () => {
     expect(artifact.setLight).toHaveBeenCalled();
   });
 
-  it("сцена не поднялась — на месте луны остаётся фотография, а не дыра", async () => {
+  it("the scene did not come up — the photo stays in the moon's place, not a hole", async () => {
     vi.mocked(mountArtifact).mockRejectedValue(new Error("нет WebGL"));
     render(
       <SleepTile
@@ -257,8 +257,8 @@ describe("SleepTile — ночь как она была (I-23)", () => {
   });
 });
 
-describe("SleepTile — подсказки к фазам сна", () => {
-  it("у каждой подписи фазы своя подсказка волны, а не нативный title", async () => {
+describe("SleepTile — sleep phase hints", () => {
+  it("each phase caption has its own wave hint, not a native title", async () => {
     // "REM/DEEP/CORE" mean nothing to someone who never looked into sleep phases, and the minutes
     // and share beside them answer a different question. The hint is the same HoverTip as the
     // streak flame's and the life-day number's: one hint language across the board (§7.7).

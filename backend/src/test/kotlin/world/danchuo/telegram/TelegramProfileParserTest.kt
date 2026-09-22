@@ -34,7 +34,7 @@ class TelegramProfileParserTest {
     }
 
     @Test
-    fun `собирает визитку из og-разметки страницы`() {
+    fun `builds the card from the page's og markup`() {
         val profile = TelegramProfileParser.parse(page(), fallbackUsername = "danchuo")!!
 
         assertEquals("Данила", profile.name)
@@ -48,21 +48,21 @@ class TelegramProfileParserTest {
      * order of tags on the page would decide whose value arrives.
      */
     @Test
-    fun `берёт og-теги, а не соседние twitter`() {
+    fun `takes the og tags, not the neighbouring twitter ones`() {
         val html = """<meta name="twitter:title" content="чужое"><meta property="og:title" content="Данила">"""
         assertEquals("Данила", TelegramProfileParser.parse(html, "danchuo")?.name)
     }
 
     /** An empty status is a legitimate account state: the card renders, just without that line. */
     @Test
-    fun `аккаунт без статуса остаётся визиткой`() {
+    fun `an account without a status is still a card`() {
         val profile = TelegramProfileParser.parse(page(description = null), "danchuo")!!
         assertNull(profile.bio)
         assertEquals("Данила", profile.name)
     }
 
     @Test
-    fun `служебное описание Telegram не подменяет отсутствующий статус`() {
+    fun `Telegram's boilerplate description does not stand in for a missing status`() {
         val profile = TelegramProfileParser.parse(
             page(description = "You can contact @danchuo right away."),
             "danchuo",
@@ -72,7 +72,7 @@ class TelegramProfileParserTest {
 
     /** There may be no avatar (an empty profile) — the name and handle already fill the card. */
     @Test
-    fun `аккаунт без аватара остаётся визиткой`() {
+    fun `an account without an avatar is still a card`() {
         assertNull(TelegramProfileParser.parse(page(image = null), "danchuo")?.avatarUrl)
     }
 
@@ -81,14 +81,14 @@ class TelegramProfileParserTest {
      * the handle we navigated by is certainly right — the page was served for it.
      */
     @Test
-    fun `ник без собаки, а при поехавшей вёрстке — тот, по которому ходили`() {
+    fun `the nickname without the at sign, and with broken markup the one that was requested`() {
         assertEquals("danchuo", TelegramProfileParser.parse(page(extra = "@danchuo"), "danchuo")?.username)
         assertEquals("danchuo", TelegramProfileParser.parse(page(extra = null), "danchuo")?.username)
     }
 
     /** The name arrives escaped — the card must show the real characters. */
     @Test
-    fun `разэкранирует html-сущности в имени и статусе`() {
+    fun `unescapes html entities in the name and status`() {
         val profile = TelegramProfileParser.parse(
             page(title = "Дан &amp; Ко", description = "&quot;keep&quot; &lt;3"),
             "danchuo",
@@ -102,7 +102,7 @@ class TelegramProfileParserTest {
      * failure: an error page, a redirect, moved markup.
      */
     @Test
-    fun `страница без имени не даёт визитки вовсе`() {
+    fun `a page without a name gives no card at all`() {
         assertNull(TelegramProfileParser.parse("<html><body>Telegram</body></html>", "danchuo"))
         assertNull(TelegramProfileParser.parse(page(title = "   "), "danchuo"))
     }

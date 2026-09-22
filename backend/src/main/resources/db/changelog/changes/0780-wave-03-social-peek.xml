@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 включает редакцию соцсетей, в которой под маркой Instagram всплывает последний
-      пост (PRD §5.17). Решение приезжает РАСКЛАДКОЙ волны, а не проверкой ключа волны в коде:
-      иначе каждая следующая волна требовала бы правки компонента.
+      Wave 03 turns on the social edition in which the latest post pops up under the Instagram mark
+      (PRD §5.17). The decision arrives through the wave's LAYOUT, not through a check of the wave key in code:
+      otherwise every new wave would require a component edit.
 
-      Место плитки правится тем же запросом: редакция — поле того же спана, и разбирать его
-      на два обновления незачем. Что где стоит — DESIGN §10.2.
+      The tile's place is edited by the same query: the edition is a field of the same span, and there is no reason
+      to split it into two updates. What stands where: DESIGN §10.2.
     -->
     <changeSet id="0780-wave-03-social-peek" author="danchuo">
         <sql><![CDATA[

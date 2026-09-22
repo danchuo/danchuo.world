@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: плитка проектов у́же на один трек справа (решение владельца). Правый край
-      уходит с колонки 15 на 14, левый и высота не двигаются.
+      Wave 03: the projects tile is one track narrower on the right (the owner's decision). The right edge
+      moves from column 15 to 14, the left edge and the height do not move.
 
-      Дельту раскладки переписываем ЦЕЛИКОМ, как на 0660/0680: `jsonb_set` по глубокому пути
-      молча ничего не сделает, если промежуточного ключа не окажется, — а вся ветка наша.
+      The layout delta is rewritten WHOLE, as in 0660/0680: `jsonb_set` on a deep path
+      silently does nothing if an intermediate key is missing, and the whole branch is ours.
     -->
     <changeSet id="0690-wave-03-projects-narrower" author="danchuo">
         <sql><![CDATA[

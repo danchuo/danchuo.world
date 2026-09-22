@@ -6,23 +6,23 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: на борд возвращаются проекты — в редакции `dossier` (DESIGN §7.8, §10.2).
+      Wave 03 "PRIME": the projects return to the board, in the `dossier` edition (DESIGN §7.8, §10.2).
 
-      Проект не объясняет себя картинкой так, как это делает кадр плёнки: спрайт-планета
-      красив, но что за ним стоит — из него не следует. Поэтому строка досье говорит трижды:
-      название, под ним ПУТЬ РЕПОЗИТОРИЯ зелёным (токен канала кода), справа квартал.
-      Подписью плитке служит приглашение оболочки `~/projects ❯ ls -l` — оно живёт в
-      содержимом, а не в мета-ярлыке, который эта волна прячет у всех плиток.
+      A project does not explain itself with a picture the way a film frame does: the planet sprite
+      is pretty, but what stands behind it does not follow from it. So the dossier row speaks three times:
+      the title, under it the REPOSITORY PATH in green (the code channel token), the quarter on the right.
+      The tile's caption is the shell prompt `~/projects ❯ ls -l`: it lives in
+      the content, not in the meta label this wave hides on every tile.
 
-      Геометрия. Колонка встаёт ПОД кадром последнего дропа и ровно в его ширину (кол. 5,
-      11 треков): две плитки делят одну колонку и держат левый край борда общим. Высота 6
-      треков (≈175px на 1536) — в окно ложатся три строки досье без прокрутки (замер на живом
-      борде), то есть запас на год вперёд при нынешнем темпе (проект в квартал); четвёртая
-      листается, как лента дропов. Ряд 23 — через пустой трек-прослойку под кадром, который кончается на 22.
+      Geometry. The column stands UNDER the latest drop's frame and exactly its width (col. 5,
+      11 tracks): the two tiles share one column and keep the board's left edge common. The height of 6
+      tracks (≈175px at 1536) fits three dossier rows in the window without scrolling (measured on the live
+      board), i.e. a year's reserve at the current pace (a project per quarter); the fourth
+      scrolls, like the drop ribbon. Row 23: after an empty spacer track under the frame, which ends at 22.
 
-      `orientation` не задаём намеренно: у досье вёрстка вертикальная по природе (в ряду две
-      строки текста), и тайл гасит ориентацию сам. Волны 01 и 02 поля `edition` не имеют и
-      остаются на прежнем свёрнутом списке (дефолт кода).
+      `orientation` is not set on purpose: the dossier's layout is vertical by nature (two lines of text
+      per row), and the tile drops the orientation itself. Waves 01 and 02 have no `edition` field and
+      stay on the old folded list (the code default).
     -->
     <changeSet id="0640-wave-03-projects" author="danchuo">
         <sql><![CDATA[

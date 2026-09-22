@@ -32,18 +32,18 @@ function glide(total: number, delta: number, from = 0): Array<[number, number]> 
   return events;
 }
 
-describe("wheelTravel — доминирующая ось в пикселях (PRD §5.3)", () => {
-  it("вертикаль: вниз — вперёд, вверх — назад", () => {
+describe("wheelTravel — the dominant axis in pixels (PRD §5.3)", () => {
+  it("vertical: down is forward, up is back", () => {
     expect(wheelTravel(0, 100, 0)).toBe(100);
     expect(wheelTravel(0, -100, 0)).toBe(-100);
   });
 
-  it("горизонталь тачпада тоже листает: свайп влево (deltaX > 0) — вперёд", () => {
+  it("the touchpad's horizontal axis pages too: swipe left (deltaX > 0) is forward", () => {
     expect(wheelTravel(60, 5, 0)).toBe(60);
     expect(wheelTravel(-60, 5, 0)).toBe(-60);
   });
 
-  it("строки и страницы (deltaMode 1/2) переводятся в пиксели, а не считаются единицами", () => {
+  it("lines and pages (deltaMode 1/2) are converted to pixels instead of being counted as units", () => {
     // Firefox sends the wheel in lines (3 per click): unconverted, three "pixels" would not even
     // reach one notch and the wheel would page three times more stiffly than in Chrome.
     expect(Math.abs(wheelTravel(0, 3, 1))).toBeGreaterThanOrEqual(WHEEL_NOTCH_PX);
@@ -51,15 +51,15 @@ describe("wheelTravel — доминирующая ось в пикселях (P
   });
 });
 
-describe("wheelStep — щелчок мыши дискретен, жест тачпада аналоговый", () => {
-  it("щелчок колеса мыши — ровно одна неделя, без остатка", () => {
+describe("wheelStep — a mouse click is discrete, a touchpad gesture is analogue", () => {
+  it("one mouse wheel click is exactly one week, with no remainder", () => {
     expect(run([[100, 0]]).steps).toEqual([1]);
     expect(run([[-100, 0]]).steps).toEqual([-1]);
     // A click twice a week's size does not give two: a mouse has no intermediate positions.
     expect(run([[WHEEL_STEP_PX * 2, 0]]).steps).toEqual([1]);
   });
 
-  it("сила жеста слышна: короткое движение не листает, длинное листает дальше", () => {
+  it("the gesture's strength is felt: a short movement does not page, a long one pages further", () => {
     // The threshold is a week's price for small deltas. Below it the window stands still.
     expect(run(glide(-WHEEL_STEP_PX * 0.6, -12)).steps).toEqual([]);
     const long = run(glide(-WHEEL_STEP_PX * 3, -12)).steps;
@@ -67,7 +67,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(long.every((s) => s === -1)).toBe(true);
   });
 
-  it("остаток жеста переносится: две половины подряд дают неделю, как одно движение", () => {
+  it("the gesture's remainder carries over: two halves in a row give a week, like one movement", () => {
     // Otherwise the calendar "lost" the travel at every step and grew stiffer the smaller the deltas.
     const half = glide(-WHEEL_STEP_PX * 0.9, -9);
     const { state } = run(half);
@@ -75,7 +75,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(run(glide(-WHEEL_STEP_PX * 0.9, -9, 16 * half.length), state).steps).toEqual([-1]);
   });
 
-  it("инерционный хвост тачпада докатывает окно, а не глотается", () => {
+  it("the touchpad's inertial tail finishes rolling the window instead of being swallowed", () => {
     // The tail is the gesture continuing, and it used to be swallowed whole: a broad swipe moved
     // the window exactly one week however many pixels followed it.
     const tail: Array<[number, number]> = [];
@@ -83,7 +83,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(run([[-100, 0], ...tail]).steps.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("быстрое вращение колеса не обгоняет наплыв: между шагами держится зазор", () => {
+  it("fast wheel spinning does not outrun the fade-in: a gap holds between steps", () => {
     const { steps } = run([
       [-100, 0],
       [-100, 30],
@@ -93,7 +93,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(steps).toEqual([-1]);
   });
 
-  it("отложенный шаг не пропадает — он уходит первым же событием после зазора", () => {
+  it("a deferred step is not lost — it goes out with the first event after the gap", () => {
     const { steps } = run([
       [-100, 0],
       [-100, 30],
@@ -102,7 +102,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(steps).toEqual([-1, -1]);
   });
 
-  it("очередь отложенного не растёт: жест кончился — окно встало", () => {
+  it("the deferred queue does not grow: the gesture ended — the window stopped", () => {
     // Otherwise fingers lifted off the trackpad left the calendar coasting on the accumulated travel.
     const flick: Array<[number, number]> = [];
     for (let i = 0; i < 12; i++) flick.push([-100, i * 10]);
@@ -110,7 +110,7 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(Math.abs(state.acc)).toBeLessThanOrEqual(WHEEL_STEP_PX);
   });
 
-  it("накопленное сбрасывается после простоя: два ленивых касания с перерывом не складываются", () => {
+  it("the accumulation resets after idling: two lazy touches with a pause do not add up", () => {
     const { steps } = run([
       [-30, 0],
       [-30, WHEEL_IDLE_MS + 1],
@@ -118,12 +118,12 @@ describe("wheelStep — щелчок мыши дискретен, жест та�
     expect(steps).toEqual([]);
   });
 
-  it("смена направления не наследует накопленное чужого знака", () => {
+  it("a direction change does not inherit an accumulation of the other sign", () => {
     const { steps } = run([...glide(-WHEEL_STEP_PX * 0.9, -9), ...glide(WHEEL_STEP_PX * 0.9, 9, 200)]);
     expect(steps).toEqual([]);
   });
 
-  it("нулевое перемещение ничего не меняет", () => {
+  it("zero movement changes nothing", () => {
     const state = initialWheelState();
     expect(wheelStep(state, 0, 10)).toEqual({ state, step: 0 });
   });

@@ -6,20 +6,20 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: ручная доводка борда владельцем. Размеры не тронуты ни у одной плитки, состав тот же.
+      Wave 03: the owner's manual tuning of the board. No tile's size is touched, the set is the same.
 
-      Левая колонка: переключатель волн и проекты поменялись местами — переключатель встал выше
-      (18..19), проекты под ним (21..26). Буквального обмена координат тут быть не могло: плитки
-      разной высоты (6x2 против 7x6), и проекты, встав на ряд 25, вышли бы за нижний край сетки.
-      Поменялся ПОРЯДОК по вертикали, а не числа.
+      The left column: the wave switcher and the projects swapped places: the switcher went higher
+      (18..19), the projects under it (21..26). A literal swap of coordinates was not possible: the tiles
+      have different heights (6x2 against 7x6), and the projects, standing at row 25, would spill past the grid's bottom edge.
+      The vertical ORDER changed, not the numbers.
 
-      Низ середины: календарь и статы поменялись местами (обе 9x8, обмен буквальный), после чего
-      статы прижаты влево к проектам — кол. 13 → 9, через пустой трек 8 от проектов (кол. 1..7).
+      The bottom of the middle: the calendar and stats swapped places (both 9x8, a literal swap), after which
+      stats are pressed left to the projects: col. 13 → 9, across the empty track 8 from the projects (col. 1..7).
 
-      Сдвиги на один трек: лента дропов влево (33 → 32), шахта артефактов вправо (24 → 25),
-      велобайк вправо (33 → 34).
+      One-track shifts: the drop ribbon left (33 → 32), the artifact shaft right (24 → 25),
+      Velobike right (33 → 34).
 
-      Пустой трек между каждой парой соседей сохранён, проверено поклеточно.
+      An empty track between every pair of neighbours is kept, checked cell by cell.
     -->
     <changeSet id="1020-wave-03-board-tune" author="danchuo">
         <sql><![CDATA[

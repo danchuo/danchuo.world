@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: велобайк возвращается на борд — редакцией `map` (карта во всю плитку, данные
-      последней поездки полосой блюра сверху). Слот — под лентой дропов, справа от плитки
-      последнего дропа: колонки 17–25, строки 14–22.
+      Wave 03: Velobike returns to the board in the `map` edition (a map filling the tile, the latest
+      ride's data as a blur band on top). The slot is under the drop ribbon, to the right of the latest
+      drop tile: columns 17–25, rows 14–22.
 
-      В мобильный стек виджет встаёт следом за лентой дропов — тем же порядком, что и в бенто
-      (лента сверху, карта под ней).
+      In the mobile stack the widget follows the drop ribbon: the same order as in bento
+      (the ribbon on top, the map below it).
 
-      Дельту раскладки переписываем ЦЕЛИКОМ (как на 0660/0680/0700): `jsonb_set` по глубокому
-      пути молча ничего не сделает, если промежуточного ключа не окажется.
+      The layout delta is rewritten WHOLE (as in 0660/0680/0700): `jsonb_set` on a deep
+      path silently does nothing if an intermediate key is missing.
     -->
     <changeSet id="0710-wave-03-ride" author="danchuo">
         <sql><![CDATA[

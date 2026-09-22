@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: плашка Spotify сужается на колонку с каждой стороны (DESIGN §7.5).
+      Wave 03 "PRIME": the Spotify plate narrows by a column on each side (DESIGN §7.5).
 
-      Двенадцать колонок плитка получила, пока карточка внутри жалась к содержимому и лишняя
-      ширина шла в запас под длинное название. Плашка запас не использует: она растянута во всю
-      ячейку (`width: 100%` в скине), поэтому каждая лишняя колонка идёт не в текст, а в пустое
-      чёрное поле справа от него.
+      The tile got twelve columns while the card inside hugged its content and the extra
+      width went into a reserve for a long title. The plate does not use the reserve: it is stretched over the whole
+      cell (`width: 100%` in the skin), so each extra column goes not into text but into an empty
+      black field to its right.
 
-      Десять колонок при той же высоте — та же плашка, только собраннее. Центр плитки остаётся
-      на оси переключателя волн: 15→16 при 12→10 двигает обе границы внутрь симметрично.
+      Ten columns at the same height are the same plate, just tighter. The tile's centre stays
+      on the wave switcher's axis: 15→16 with 12→10 moves both edges inward symmetrically.
     -->
     <changeSet id="0550-wave-03-music-frame" author="danchuo">
         <sql><![CDATA[

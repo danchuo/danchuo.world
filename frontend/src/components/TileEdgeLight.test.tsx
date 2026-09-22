@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("TileEdgeLight", () => {
-  it("волна попросила свет — координаты курсора едут в переменные плитки", () => {
+  it("the wave asked for light — cursor coordinates go into the tile's variables", () => {
     waveAsksForLight(true);
     const el = tile("today", { left: 100, top: 50, width: 200, height: 100 });
     render(<TileEdgeLight wave="wave-03" />);
@@ -44,7 +44,7 @@ describe("TileEdgeLight", () => {
     expect(el.style.getPropertyValue("--tile-dy")).toBe("-1.000");
   });
 
-  it("плитка, которая свет не рисует, вектора не получает", () => {
+  it("a tile that draws no light gets no vector", () => {
     // Writing an inherited variable marks the tile's WHOLE subtree for recalculation, on every
     // mouse move. A tile with no plate gains nothing, while WebKit re-rasterises the background
     // pictures inside it and the social marks flickered (docs/pitfalls.md).
@@ -57,7 +57,7 @@ describe("TileEdgeLight", () => {
     expect(el.style.getPropertyValue("--tile-dy")).toBe("");
   });
 
-  it("волна свет не просит — шов молчит и не вешает слушателя", () => {
+  it("the wave asks for no light — the seam is silent and attaches no listener", () => {
     waveAsksForLight(false);
     const el = tile("today", { left: 0, top: 0, width: 100, height: 100 });
     render(<TileEdgeLight wave="wave-01" />);
@@ -66,7 +66,7 @@ describe("TileEdgeLight", () => {
     expect(el.style.getPropertyValue("--tile-dx")).toBe("");
   });
 
-  it("у каждой плитки своя коробка — свет не считается по соседней", () => {
+  it("each tile has its own box — the light is not computed from a neighbour", () => {
     waveAsksForLight(true);
     const left = tile("today", { left: 0, top: 0, width: 100, height: 100 });
     const right = tile("sleep", { left: 500, top: 0, width: 100, height: 100 });
@@ -78,7 +78,7 @@ describe("TileEdgeLight", () => {
     expect(right.style.getPropertyValue("--tile-dx")).toBe("-1.000");
   });
 
-  it("движение мимо плиток ничего не пишет и не падает", () => {
+  it("moving past the tiles writes nothing and does not crash", () => {
     waveAsksForLight(true);
     const el = tile("today", { left: 0, top: 0, width: 100, height: 100 });
     render(<TileEdgeLight wave="wave-03" />);
@@ -88,7 +88,7 @@ describe("TileEdgeLight", () => {
     expect(el.style.getPropertyValue("--tile-dx")).toBe("0.000");
   });
 
-  it("тач-указатель — шва нет вовсе: ховера на нём не бывает", () => {
+  it("a touch pointer — no seam at all: it never hovers", () => {
     waveAsksForLight(true);
     vi.spyOn(window, "matchMedia").mockImplementation(
       (q: string) =>

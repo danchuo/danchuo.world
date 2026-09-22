@@ -22,8 +22,8 @@ const day = (over: Partial<DaySummary>): DaySummary => ({
 
 const history = (over: Partial<DaySummary>[]) => over.map((o) => day(o));
 
-describe("StatsTile — чип вкладов GitHub", () => {
-  it("показывает вклады выбранного дня", () => {
+describe("StatsTile — GitHub contributions chip", () => {
+  it("shows the selected day's contributions", () => {
     render(
       <StatsTile
         history={history([{ date: "2026-07-28", contributions: 15 }])}
@@ -35,7 +35,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
     expect(screen.getByText("+15")).toBeTruthy();
   });
 
-  it("на измеренном нуле молчит", () => {
+  it("stays silent on a measured zero", () => {
     render(
       <StatsTile
         history={history([{ date: "2026-07-30", contributions: 0 }])}
@@ -47,7 +47,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
     expect(screen.queryByTestId("stats-contributions")).toBeNull();
   });
 
-  it("молчит и когда день не собирали", () => {
+  it("stays silent also when the day was not collected", () => {
     render(
       <StatsTile
         history={history([{ date: "2026-07-30", contributions: null }])}
@@ -59,7 +59,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
     expect(screen.queryByTestId("stats-contributions")).toBeNull();
   });
 
-  it("берёт цифру выбранного дня, а не последнего в истории", () => {
+  it("takes the selected day's figure, not the last one in history", () => {
     render(
       <StatsTile
         history={history([
@@ -79,7 +79,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
    * with every wave's palette, which is exactly why the monster flavour colours were dropped. The
    * "zero hardcoded colours" rule stays intact.
    */
-  it("красится токеном волны, а не литералом", () => {
+  it("painted with a wave token, not a literal", () => {
     render(
       <StatsTile
         history={history([{ date: "2026-07-28", contributions: 3 }])}
@@ -92,7 +92,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
   });
 
   /** A tile with no steps and no sleep is empty even with contributions: they do not fill it. */
-  it("не оживляет пустую плитку", () => {
+  it("does not animate an empty tile", () => {
     render(
       <StatsTile
         history={history([{ date: "2026-07-28", steps: null, sleepMinutes: null, contributions: 3 }])}
@@ -106,7 +106,7 @@ describe("StatsTile — чип вкладов GitHub", () => {
   });
 });
 
-describe("StatsTile — выходные на оси графика", () => {
+describe("StatsTile — weekends on the chart axis", () => {
   /**
    * The chart's axis is a scatter of dates with no visible weekly rhythm, so weekend dips read as
    * random (§7.4). They are marked BY A LABEL ON THE AXIS rather than a field fill: the fill was
@@ -135,7 +135,7 @@ describe("StatsTile — выходные на оси графика", () => {
     globalThis.ResizeObserver = realRO;
   });
 
-  it("подписывает субботу и воскресенье, и только их", () => {
+  it("labels Saturday and Sunday, and only them", () => {
     // 2026-08-01 is a Saturday and the 2nd a Sunday; the 3rd is a Monday, 31.07 a Friday.
     render(
       <StatsTile
@@ -150,7 +150,7 @@ describe("StatsTile — выходные на оси графика", () => {
     expect(screen.queryByTestId("stats-weekday-2026-08-03")).toBeNull();
   });
 
-  it("подпись выходного занимает слот даты, а не встаёт рядом с ней", () => {
+  it("the weekend caption takes the date's slot instead of standing beside it", () => {
     // The owner's main requirement: labels must not overlap. There is one slot on the axis, so a
     // weekend's date is not drawn at all — nothing can overlap by construction.
     render(
@@ -164,7 +164,7 @@ describe("StatsTile — выходные на оси графика", () => {
     expect(screen.queryByTestId("stats-tick-2026-08-02")).toBeNull();
   });
 
-  it("заливки поля у выходных больше нет", () => {
+  it("weekends no longer have a field fill", () => {
     // A regression anchor: the field fill was rejected (DESIGN §7.4).
     render(
       <StatsTile

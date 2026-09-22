@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 class SleepNormalizationTest {
 
     @Test
-    fun `ноль минут сна схлопывается в null вместе с фазами`() {
+    fun `zero minutes of sleep collapses to null together with the phases`() {
         val out = SleepNormalization.normalize(
             SleepInput(minutes = 0, rem = 0, deep = 0, light = 0, awake = 0),
         )
@@ -18,7 +18,7 @@ class SleepNormalizationTest {
     }
 
     @Test
-    fun `ноль минут сна гасит и пришедшие ненулевые фазы (сессии не было)`() {
+    fun `zero minutes of sleep also clears non-zero phases that arrived (there was no session)`() {
         val out = SleepNormalization.normalize(
             SleepInput(minutes = 0, rem = 12, deep = 0, light = 0, awake = 8),
         )
@@ -26,13 +26,13 @@ class SleepNormalizationTest {
     }
 
     @Test
-    fun `реальная ночь не трогается`() {
+    fun `a real night is not touched`() {
         val night = SleepInput(minutes = 437, rem = 92, deep = 61, light = 264, awake = 20)
         assertEquals(night, SleepNormalization.normalize(night))
     }
 
     @Test
-    fun `отсутствующий сон (null) остаётся null, фазы не выдумываются`() {
+    fun `missing sleep (null) stays null, no phases are invented`() {
         val out = SleepNormalization.normalize(
             SleepInput(minutes = null, rem = null, deep = null, light = null, awake = null),
         )
@@ -40,7 +40,7 @@ class SleepNormalizationTest {
     }
 
     @Test
-    fun `ненулевая длительность с нулём в отдельной фазе — фаза остаётся реальным нулём`() {
+    fun `a non-zero duration with zero in one phase — the phase stays a real zero`() {
         // Sleep happened (>0), so a 0 in one phase is that phase's real zero, not missing data.
         val night = SleepInput(minutes = 300, rem = 0, deep = 40, light = 260, awake = 0)
         assertEquals(night, SleepNormalization.normalize(night))

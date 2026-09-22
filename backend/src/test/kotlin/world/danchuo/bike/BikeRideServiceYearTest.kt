@@ -79,7 +79,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `отдаёт только поездки текущего года, новые сверху`() {
+    fun `returns only this year's rides, newest first`() {
         val service = serviceAt(
             today = "2026-07-01",
             rides = listOf(
@@ -96,7 +96,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `в этом году поездок нет — показываем одну последнюю из прошлого сезона`() {
+    fun `no rides this year — show the single latest one from last season`() {
         val service = serviceAt(
             today = "2026-01-15", // winter, the season has not started
             rides = listOf(
@@ -113,13 +113,13 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `поездок нет вовсе — пустая лента`() {
+    fun `no rides at all — an empty ribbon`() {
         val service = serviceAt(today = "2026-07-01", rides = emptyList())
         assertEquals(0, service.publicList().size)
     }
 
     @Test
-    fun `точка рисуется по станции (по адресу), сырой GPS — фолбэк без станции`() {
+    fun `the point is drawn by the station (by address), raw GPS is the fallback without a station`() {
         val ride = ride(1, "2026-07-05").apply {
             startAddress = "метро Кунцевская"
             startLat = 55.95; startLon = 37.42 // a GPS fix thrown to the airport — must be overridden
@@ -140,7 +140,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `проекция несёт доступ, купленный ради поездки, и её полную стоимость`() {
+    fun `the projection carries the access bought for the ride and its full cost`() {
         // The case from the board: "an hour for 399 ₽" plus 2 minutes over (7.49 ₽) — 7 ₽ is NOT the whole price.
         val service = serviceAt(
             today = "2026-07-10",
@@ -157,7 +157,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `поездка под ранее купленным пакетом покрыта им, но денег за него не берёт`() {
+    fun `a ride under a previously bought pack is covered by it but does not take its money`() {
         val service = serviceAt(
             today = "2026-07-10",
             rides = listOf(
@@ -177,7 +177,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `поездка без покупок в истории — как была, без доступа и покрытия`() {
+    fun `a ride without purchases in the history — as it was, without access or coverage`() {
         val service = serviceAt(
             today = "2026-07-10",
             rides = listOf(ride(1, "2026-07-06", cost = 5243, tariff = "Поминутный")),
@@ -191,7 +191,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `сводка месяца — только текущий календарный месяц (MSK), поездки и минуты`() {
+    fun `the month summary — only the current calendar month (MSK), rides and minutes`() {
         val service = serviceAt(
             today = "2026-07-16",
             rides = listOf(
@@ -209,7 +209,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `деньги месяца не задваиваются — четыре бесплатные поездки под пакетом дают цену пакета один раз`() {
+    fun `the month's money is not doubled — four free rides under a pack give the pack price once`() {
         val service = serviceAt(
             today = "2026-07-16",
             rides = listOf(
@@ -234,7 +234,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `два пакета подряд в этом месяце учтены оба (деньги реальны, а не по атрибуции поездок)`() {
+    fun `two packs in a row this month are both counted (the money is real, not by ride attribution)`() {
         val service = serviceAt(
             today = "2026-07-16",
             rides = listOf(ride(1, "2026-07-05", cost = 0), ride(2, "2026-07-06", cost = 0)),
@@ -249,7 +249,7 @@ class BikeRideServiceYearTest {
     }
 
     @Test
-    fun `нет поездок в этом месяце — сводка пустая (rides == 0)`() {
+    fun `no rides this month — an empty summary (rides == 0)`() {
         val service = serviceAt(
             today = "2026-07-16",
             rides = listOf(ride(1, "2026-06-10")),

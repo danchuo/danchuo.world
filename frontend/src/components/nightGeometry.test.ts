@@ -22,7 +22,7 @@ const band: SleepBandView = {
 };
 
 describe("nightBandGeometry", () => {
-  it("растягивает ночь по оси в долях, а не в пикселях", () => {
+  it("stretches the night along the axis in fractions, not pixels", () => {
     const g = nightBandGeometry(band)!;
 
     // The axis snaps to whole hours around the night: 23:00 (300) → 08:00 (840)
@@ -37,7 +37,7 @@ describe("nightBandGeometry", () => {
     );
   });
 
-  it("держит фазы в том же порядке и не теряет пробуждение", () => {
+  it("keeps the phases in the same order and does not lose waking", () => {
     const g = nightBandGeometry(band)!;
     expect(g.parts.map((p) => p.stage)).toEqual([
       "light",
@@ -47,7 +47,7 @@ describe("nightBandGeometry", () => {
     ]);
   });
 
-  it("оставляет провал в семплах дыркой, а не растягивает соседа", () => {
+  it("leaves a dropout in the samples as a hole instead of stretching the neighbour", () => {
     const withHole: SleepBandView = {
       ...band,
       parts: [
@@ -60,7 +60,7 @@ describe("nightBandGeometry", () => {
     expect(first.left + first.width).toBeLessThan(second.left);
   });
 
-  it("раскладывает фазы по дорожкам сверху вниз, от бодрствования к глубокому сну", () => {
+  it("lays phases onto lanes top to bottom, from waking to deep sleep", () => {
     const g = nightBandGeometry(band)!;
     const lane = Object.fromEntries(g.parts.map((p) => [p.stage, p.lane]));
 
@@ -71,7 +71,7 @@ describe("nightBandGeometry", () => {
     expect(lane.deep).toBe(3);
   });
 
-  it("подписывает шкалу часами по кругу суток", () => {
+  it("labels the scale with hours around the clock", () => {
     const g = nightBandGeometry(band)!;
     expect(g.ticks.map((t) => t.label)).toEqual([
       "23:00",
@@ -83,14 +83,14 @@ describe("nightBandGeometry", () => {
     expect(g.ticks[0].left).toBe(0);
   });
 
-  it("без ночи геометрии нет вовсе", () => {
+  it("without a night there is no geometry at all", () => {
     expect(nightBandGeometry(null)).toBeNull();
     expect(nightBandGeometry({ ...band, parts: [] })).toBeNull();
   });
 });
 
 describe("clockLabel", () => {
-  it("переводит минуту оси в часы суток", () => {
+  it("converts an axis minute into the hour of the day", () => {
     expect(clockLabel(0)).toBe("18:00");
     expect(clockLabel(360)).toBe("00:00");
     expect(clockLabel(780)).toBe("07:00");

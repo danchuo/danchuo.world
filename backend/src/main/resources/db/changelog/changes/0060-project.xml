@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс projects (PRD §5.7, §7, §12 M4). Data-driven: новый проект = строка
-      (сид ниже или INSERT/admin на проде), без релиза. Диапазон — числами (год+квартал);
-      человекочитаемую форму собирает фронт.
+      The projects slice (PRD §5.7, §7, §12 M4). Data-driven: a new project is a row
+      (the seed below or an INSERT/admin in prod), no release. The range is numeric (year+quarter);
+      the frontend assembles the human-readable form.
     -->
     <changeSet id="0060-project-table" author="danchuo">
         <createTable tableName="project">
@@ -34,8 +34,8 @@
     </changeSet>
 
     <!--
-      Сид проектов (первая итерация, правится владельцем). Иконки — статика фронта
-      (/assets/projects/*). end_year/quarter null = «по настоящее».
+      Project seed (first iteration, edited by the owner). Icons are frontend statics
+      (/assets/projects/*). end_year/quarter null = "to date".
     -->
     <changeSet id="0060-project-seed" author="danchuo">
         <insert tableName="project">

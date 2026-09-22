@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 одевает проекты ОБЪЁМНЫМИ планетами (DESIGN §10.2, §12.5): у кого есть модель —
-      3D-артефакт, у остальных остаётся плоский спрайт. Прочие волны ключа не несут и планету
-      носят плоскую — тёплому пиксель-арту волны 01 циановый каркас чужероден.
+      Wave 03 dresses projects in 3D planets (DESIGN §10.2, §12.5): those with a model get
+      a 3D artifact, the rest keep the flat sprite. Other waves carry no key and wear the planet
+      flat: a cyan wireframe is foreign to wave 01's warm pixel art.
 
-      Дельту раскладки переписываем ЦЕЛИКОМ, как и на 0660: `jsonb_set` по глубокому пути молча
-      ничего не сделает, если промежуточного ключа не окажется, — а вся ветка `tiles.projects` наша.
+      The layout delta is rewritten WHOLE, as in 0660: `jsonb_set` on a deep path silently
+      does nothing if an intermediate key is missing, and the whole `tiles.projects` branch is ours.
     -->
     <changeSet id="0680-wave-03-projects-planet" author="danchuo">
         <sql><![CDATA[

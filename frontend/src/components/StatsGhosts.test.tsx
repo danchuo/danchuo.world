@@ -67,8 +67,8 @@ function mountMeasured() {
   return view;
 }
 
-describe("StatsTile — редакция «призраки»", () => {
-  it("рисует все метрики, а переключатель называет каждую", () => {
+describe("StatsTile — \"ghosts\" edition", () => {
+  it("draws all metrics, and the switcher names each one", () => {
     mount();
     const rail = screen.getByRole("group", { name: "метрика" });
     const segs = rail.querySelectorAll("button");
@@ -78,12 +78,12 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByRole("button", { name: "метрика: git" })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("цифра в полосе — значение ВЫБРАННОГО дня, а не последнего", () => {
+  it("the figure in the bar is the SELECTED day's value, not the last one's", () => {
     mount({ selected: "2026-09-15" });
     expect(screen.getByText("11 000")).toBeInTheDocument();
   });
 
-  it("клик по рельсу меняет освещённую метрику вместе с цифрой", async () => {
+  it("a click on the rail changes the lit metric together with the figure", async () => {
     mount();
     expect(screen.getByText("12 345")).toBeInTheDocument();
 
@@ -93,20 +93,20 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByRole("button", { name: "метрика: сон" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("клик по рельсу НЕ выбирает день: у плитки и у переключателя разные ответы", async () => {
+  it("a click on the rail does NOT select a day: the tile and the switcher answer differently", async () => {
     const onSelectDay = vi.fn();
     mount({ onSelectDay });
     await userEvent.click(screen.getByRole("button", { name: "метрика: git" }));
     expect(onSelectDay).not.toHaveBeenCalled();
   });
 
-  it("сон без записи — прочерк, потому что пропуск не ноль", async () => {
+  it("sleep without a record — a dash, because a gap is not zero", async () => {
     mount({ selected: "2026-09-16" });
     await userEvent.click(screen.getByRole("button", { name: "метрика: сон" }));
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("нулевой git рисуется как +0: линию спрашивают «сколько», а не «было ли»", async () => {
+  it("zero git is drawn as +0: the line is asked \"how many\", not \"was there any\"", async () => {
     // The chip beside the wave-01 charts is silent on a zero because it answers "was there
     // anything at all"; a trace is asked "how much, day by day", and an empty day is an answer.
     mount({ selected: "2026-09-15" });
@@ -114,7 +114,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByText("+0")).toBeInTheDocument();
   });
 
-  it("стрелки вверх и вниз ходят по метрикам по кругу", async () => {
+  it("up and down arrows cycle through the metrics", async () => {
     mount();
     const plot = screen.getByRole("group", { name: /^График/ });
     plot.focus();
@@ -124,7 +124,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByRole("button", { name: "метрика: git" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("стрелки влево и вправо адресуют ДЕНЬ и отдают его борду", async () => {
+  it("left and right arrows address a DAY and hand it to the board", async () => {
     const onSelectDay = vi.fn();
     mount({ onSelectDay });
     screen.getByRole("group", { name: /^График/ }).focus();
@@ -132,7 +132,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(onSelectDay).toHaveBeenCalledWith("2026-09-16");
   });
 
-  it("история короче окна — метка окна занимает всю полосу, а не уезжает за левый край", () => {
+  it("a history shorter than the window — the window mark takes the whole bar instead of sliding off the left edge", () => {
     // The honest arithmetic gave `left: -250%` on four days: there is nowhere to scrub to, so the
     // window IS the whole history.
     const { container } = mount();
@@ -141,7 +141,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(at.style.width).toBe("100%");
   });
 
-  it("молчащий канал плитку не открывает: освещается первая метрика С ДАННЫМИ", () => {
+  it("a silent channel does not open the tile: the first metric WITH DATA is lit", () => {
     // Steps lag behind the phone's shortcut and can be empty for weeks. Opening on an empty
     // channel made the widget look broken — measured on the live stack, where the last two weeks
     // had no steps at all (the older half of the range did, which is why the window is what counts).
@@ -152,7 +152,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByText("7ч 53м")).toBeInTheDocument();
   });
 
-  it("метрика выбирается по ОКНУ, а не по всей выборке", () => {
+  it("the metric is chosen by the WINDOW, not by the whole sample", () => {
     // Measured on the live stack: steps filled the older half of the 30 days and were empty in the
     // last two weeks, so a whole-range check still opened on steps and still showed a dash.
     const older = Array.from({ length: 20 }, (_, i) =>
@@ -165,7 +165,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByRole("button", { name: "метрика: сон" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("выбор читателя данные не перебивают — он главнее", async () => {
+  it("data does not override the reader's choice — it takes precedence", async () => {
     const noSteps = history.map((d) => ({ ...d, steps: null }));
     render(<StatsTile history={noSteps} selected="2026-09-17" state="loaded" edition="ghosts" />);
     await userEvent.click(screen.getByRole("button", { name: "метрика: шаги" }));
@@ -173,7 +173,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("тап пальцем не оставляет на графике перекрестие чужого дня", () => {
+  it("a finger tap does not leave another day's crosshair on the chart", () => {
     // A touch emits an emulated `mousemove` and then NEVER a `mouseleave`: the crosshair stuck on
     // a day nobody chose, and beside the rail that read as the tap having moved the day.
     const { container } = mountMeasured();
@@ -187,7 +187,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(container.querySelector(".stats-ghosts__tip")).toBeNull();
   });
 
-  it("самый СТАРЫЙ день окна мышью не берётся — он утекает за левый край", async () => {
+  it("the OLDEST day of the window cannot be grabbed with the mouse — it slips past the left edge", async () => {
     // The oldest day bleeds off the left edge, where a hit would be a guess. The newest one has
     // the right-hand gap and is picked like any other; the calendar reaches the oldest anyway.
     const onSelectDay = vi.fn();
@@ -197,7 +197,7 @@ describe("StatsTile — редакция «призраки»", () => {
     expect(onSelectDay).not.toHaveBeenCalled();
   });
 
-  it("незнакомая редакция откатывается к дефолтным полосам, а не ломает плитку", () => {
+  it("an unknown edition falls back to the default bars instead of breaking the tile", () => {
     render(<StatsTile history={history} selected="2026-09-17" state="loaded" edition="sonar" />);
     expect(screen.queryByTestId("stats-ghosts")).not.toBeInTheDocument();
     expect(screen.getByText("активность")).toBeInTheDocument();

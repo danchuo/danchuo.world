@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe("AnalyticsBeacon", () => {
-  it("шлёт load-бикон на монтировании с путём, visitId и измерениями визита", async () => {
+  it("sends a load beacon on mount with the path, visitId and visit measurements", async () => {
     window.history.replaceState({}, "", "/?utm_source=telegram&utm_medium=post&utm_campaign=tg-1");
     render(<AnalyticsBeacon />);
 
@@ -56,14 +56,14 @@ describe("AnalyticsBeacon", () => {
     expect(payload.viewportH).toBe(window.innerHeight);
   });
 
-  it("не трекает админку", async () => {
+  it("does not track the admin", async () => {
     window.history.replaceState({}, "", "/admin");
     render(<AnalyticsBeacon />);
     await new Promise((r) => setTimeout(r, 0));
     expect(postBeaconMock).not.toHaveBeenCalled();
   });
 
-  it("добивает время на КАЖДОМ уходе, и фон в него не попадает", async () => {
+  it("settles the time on EVERY exit, and the background does not get into it", async () => {
     render(<AnalyticsBeacon />);
     await waitFor(() => expect(postBeaconMock).toHaveBeenCalledTimes(1));
 
@@ -82,7 +82,7 @@ describe("AnalyticsBeacon", () => {
     expect(postBeaconMock.mock.calls[2][0].dwellMs).toBe(2000);
   });
 
-  it("шлёт только НОВЫЕ клики на каждом уходе", async () => {
+  it("sends only NEW clicks on each exit", async () => {
     const { container } = render(
       <div>
         <div data-tile-id="today">
@@ -111,7 +111,7 @@ describe("AnalyticsBeacon", () => {
     expect(second[0].offsetXPct).toBeCloseTo(0.5);
   });
 
-  it("клик по тайлу приходит долями ВНУТРИ тайла", async () => {
+  it("a click on a tile arrives as fractions INSIDE the tile", async () => {
     const { container } = render(
       <div>
         <div data-tile-id="music" />
@@ -131,7 +131,7 @@ describe("AnalyticsBeacon", () => {
     expect(click.offsetYPct).toBeCloseTo(0.25);
   });
 
-  it("клик мимо плиток уезжает долями от ВЬЮПОРТА", async () => {
+  it("a click off the tiles goes out as fractions of the VIEWPORT", async () => {
     render(<AnalyticsBeacon />);
     await waitFor(() => expect(postBeaconMock).toHaveBeenCalledTimes(1));
 

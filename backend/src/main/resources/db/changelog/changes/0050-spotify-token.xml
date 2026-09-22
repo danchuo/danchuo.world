@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс spotify (PRD §M3): синглтон-строка с OAuth-кредами. refresh-токен хранится
-      ШИФРОВАННО (AES-GCM, §8) — в БД лежит Base64(IV‖ciphertext), не открытый текст.
-      Один аккаунт-владелец ⇒ одна строка с фиксированным id=1 (upsert при ре-авторизации).
+      The spotify slice (PRD §M3): a singleton row with OAuth credentials. The refresh token is stored
+      ENCRYPTED (AES-GCM, §8): the DB holds Base64(IV‖ciphertext), not plain text.
+      One owner account ⇒ one row with a fixed id=1 (upsert on re-authorisation).
     -->
     <changeSet id="0050-spotify-token-table" author="danchuo">
         <createTable tableName="spotify_token">

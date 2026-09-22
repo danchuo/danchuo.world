@@ -23,7 +23,7 @@ function ruleBody(selector: string): string {
  * Hence the contract: every such block carries its OWN height in CSS (`aspect-ratio` or
  * `min-height`), which works exactly where the parent is silent and yields to flex when it is not.
  */
-describe("собственная высота блоков в мобильном стеке (DESIGN §8)", () => {
+describe("blocks' own height in the mobile stack (DESIGN §8)", () => {
   const intrinsic = /aspect-ratio|min-height/;
 
   it.each([
@@ -35,18 +35,18 @@ describe("собственная высота блоков в мобильном
     [".ride-frame", "карта во всю плитку (редакция `map`) — та же беда Leaflet, только на весь виджет"],
     [".sleep-echo", "промер ночи во всю плитку — рисунок absolute, своего контента по высоте нет"],
     [".stats-ghosts", "график «призраки» во всю плитку — SVG absolute, высоту брать не с чего"],
-  ])("%s несёт собственную высоту (%s)", (selector) => {
+  ])("%s carries its own height (%s)", (selector) => {
     expect(ruleBody(selector)).toMatch(intrinsic);
   });
 
   /* The other half of the music card's height contract (DESIGN §7.1): a recents row keeps its OWN
      height. Let it shrink and the row's height starts depending on the card — which is measured
      from the rows — closing the loop that made the bottom edge twitch. */
-  it("ряд недавних не сжимается под карточку", () => {
+  it("the recent row does not shrink to fit the card", () => {
     expect(ruleBody(".recent-row")).toMatch(/flex-shrink:\s*0/);
   });
 
-  it("min-height подпорка ограничена стеком — в бенто она бы не уступила flex-раскладке", () => {
+  it("the min-height prop is limited to the stack — in bento it would not yield to the flex layout", () => {
     // `aspect-ratio` only acts on an undefined size and is therefore harmless in bento.
     // `min-height` yields to nobody: it beat `min-h-0` on the element itself, the list stopped
     // shrinking and hung past the tile's edge. So it must live under `.board-stack`.
@@ -60,7 +60,7 @@ describe("собственная высота блоков в мобильном
  * is left — a cover laid out as an absolute square, a map painted in absolute layers. In bento the
  * tile gives them height, in the stack nobody does, and the widget collapses to a strip.
  */
-describe("собственная высота блоков волны в мобильном стеке (DESIGN §8, §10.2)", () => {
+describe("the wave's blocks' own height in the mobile stack (DESIGN §8, §10.2)", () => {
   /** The rule (selectors plus body) whose selector mentions `.board-stack`. Comments do not count. */
   function stackRule(wave: string): string {
     const waveCss = readFileSync(resolve(process.cwd(), `src/app/styles/waves/${wave}.css`), "utf8");
@@ -69,19 +69,19 @@ describe("собственная высота блоков волны в моб�
     return match![0];
   }
 
-  it("волна 02: карточка музыки с обложкой — квадрат (обложка лежит абсолютным слоем)", () => {
+  it("wave 02: the music card with a cover is square (the cover lies in an absolute layer)", () => {
     const rule = stackRule("wave-02");
     expect(rule).toContain('[data-music-art="ok"]');
     expect(rule).toMatch(/aspect-ratio:\s*1/);
   });
 
-  it("волна 03: карта волны в переключателе несёт свою высоту (вся карта — абсолютные слои)", () => {
+  it("wave 03: the wave's card in the switcher carries its own height (the whole card is absolute layers)", () => {
     const rule = stackRule("wave-03");
     expect(rule).toContain(".wave-chip");
     expect(rule).toMatch(/aspect-ratio|min-height/);
   });
 
-  it("волна 03: Spotify в стеке растёт по обложке и шкале, а не по замеру бенто", () => {
+  it("wave 03: Spotify in the stack grows by the cover and the scale, not by the bento measurement", () => {
     const waveCss = readFileSync(resolve(process.cwd(), "src/app/styles/waves/wave-03.css"), "utf8");
     const rule = waveCss.match(/\.board-stack \[data-music-mode="playing"\][^{}]*\{[^}]*\}/)?.[0];
     expect(rule).toContain(".music-card");

@@ -6,26 +6,26 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 02 «Obscura»: последний дроп — КОНТАКТНЫЙ ЛИСТ (`edition: "sheet"`, DESIGN §7.5,
-      §10.2), и плитка под него квадратнее (решение владельца: «снизу ещё ряд точно, остальное
-      по компоновке — сам»).
+      Wave 02 "Obscura": the latest drop is a CONTACT SHEET (`edition: "sheet"`, DESIGN §7.5,
+      §10.2), and the tile under it is squarer (the owner's decision: "one more row at the bottom for sure, the rest
+      of the composition is up to you").
 
-      Лист — четыре случайных кадра justified-рядами (два по два) под строкой данных, без
-      обрезки и без поворота. Сколько строк сетки ему нужно, считается от ширины колонки:
-      10 колонок = 376px на опоре 1536, внутри плитки 344; два лежачих кадра 3:2 в ряд — ряд
-      112px, два ряда с зазором — 228, плюс шапка ~22 и поля 32 — 282. Одиннадцать строк
-      (308px) — первое целое, в которое лист влезает: десять дают 280. 10×11 при этом заметно
-      квадратнее прежних 10×9 (1.22 против 1.49). Первый заход — сетка 3×3 клеток 3:2 с
-      поворотом стоячих кадров — снят владельцем после живого прогона: нагружено, а
-      переворачивать снимки не хочется.
+      The sheet is four random frames in justified rows (two by two) under a data line, without
+      cropping or rotation. How many grid rows it needs is computed from the column width:
+      10 columns = 376px at the 1536 reference, 344 inside the tile; two landscape 3:2 frames in a row give a row of
+      112px, two rows with a gap 228, plus a header ~22 and margins 32 gives 282. Eleven rows
+      (308px) is the first integer the sheet fits in: ten give 280. 10×11 is noticeably
+      squarer than the old 10×9 (1.22 against 1.49). The first attempt, a 3×3 grid of 3:2 cells with
+      portrait frames rotated, was dropped by the owner after a live run: busy, and
+      flipping photos is undesirable.
 
-      Две строки берутся у соседей по левой колонке, по одной у каждого: календарь 10→9
-      (280→252px; клетка дня ~44px — тач-таргет), статы 7→6 (196→168px). Забрать обе у одного
-      значило бы либо сжать календарь до 8 строк (клетки мельче тач-таргета), либо статы до 5
-      (график в 108px внутренней высоты). Остальные колонны не тронуты: правая и центральная
-      живут своими осями.
+      Two rows are taken from the left column's neighbours, one from each: calendar 10→9
+      (280→252px; a day cell ~44px, a touch target), stats 7→6 (196→168px). Taking both from one
+      would mean either squeezing the calendar to 8 rows (cells below a touch target) or the stats to 5
+      (a chart with 108px of inner height). The other columns are untouched: the right and central ones
+      live on their own axes.
 
-      Столбец после сида: дроп 1–11 · календарь 13–21 · статы 23–28 (прослойки 12 и 22).
+      The column after the seed: drop 1–11 · calendar 13–21 · stats 23–28 (spacers 12 and 22).
     -->
     <changeSet id="0600-wave-02-drop-sheet" author="danchuo">
         <sql><![CDATA[

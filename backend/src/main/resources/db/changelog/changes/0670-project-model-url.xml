@@ -6,14 +6,14 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      У проекта появляется ВТОРАЯ планета — объёмная (DESIGN §12.5).
+      A project gets a SECOND planet, a 3D one (DESIGN §12.5).
 
-      Отдельная колонка, а не подмена `icon_url`: плоский спрайт остаётся у проекта навсегда,
-      потому что носить объём вправе не всякая волна. Волна 01 «Студия / Персик» показывает
-      тёплый пиксель-арт, и циановый каркас там чужероден; какую планету надеть, решает волна
-      своей раскладкой (`tiles.projects.planet`), а запись проекта просто держит обе.
+      A separate column rather than replacing `icon_url`: the flat sprite stays with the project forever,
+      because not every wave is entitled to wear volume. Wave 01 "Studio / Peach" shows
+      warm pixel art, and a cyan wireframe is foreign there; which planet to wear is decided by the wave
+      in its layout (`tiles.projects.planet`), and the project row simply keeps both.
 
-      `model_url` пуст ⇒ у проекта объёмной версии нет, и волна, просящая объём, покажет спрайт.
+      `model_url` empty ⇒ the project has no 3D version, and a wave asking for volume shows the sprite.
     -->
     <changeSet id="0670-project-model-url" author="danchuo">
         <addColumn tableName="project">

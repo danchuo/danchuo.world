@@ -62,8 +62,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("RideTile — входы в модалку поездок", () => {
-  it("клик по мини-карте открывает модалку", async () => {
+describe("RideTile — entries into the rides modal", () => {
+  it("a click on the mini-map opens the modal", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10 }), base({ id: 11, rideDate: "2026-07-10" })]);
     render(<RideTile />);
 
@@ -74,7 +74,7 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
   });
 
-  it("клик снимает кадр карты плитки и отдаёт его модалке — полёту не ждать тайлов окна", async () => {
+  it("the click captures the tile map's frame and hands it to the modal — the flight does not wait for the window's tiles", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,SHOT");
     getRidesMock.mockResolvedValue([base({ id: 10 })]);
     render(<RideTile edition="map" />);
@@ -83,7 +83,7 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(screen.getByTestId("rides-modal").dataset.preview).toBe("data:image/png;base64,SHOT");
   });
 
-  it("холст не отдал кадр (tainted) — модалка открывается без снимка", async () => {
+  it("the canvas did not give up the frame (tainted) — the modal opens without a snapshot", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockImplementation(() => {
       throw new DOMException("tainted", "SecurityError");
     });
@@ -94,7 +94,7 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(screen.getByTestId("rides-modal").dataset.preview).toBe("");
   });
 
-  it("бокс мини-карты зацеплен за .ride-map-box — свою высоту ему даёт CSS", async () => {
+  it("the mini-map box hooks onto .ride-map-box — CSS gives it its height", async () => {
     // The map draws into a `height: 100%` container, which takes its percentage from the button's
     // box. In bento that height comes from the tile, in the mobile stack there is none ⇒ the map
     // initialises into zero height. The pixels are checked by `app/styles/stackHeights.test.ts`.
@@ -105,7 +105,7 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(mapButton).toHaveClass("ride-map-box");
   });
 
-  it("кнопка «предыдущие» тоже открывает модалку", async () => {
+  it("the \"previous\" button opens the modal too", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10 }), base({ id: 11, rideDate: "2026-07-10" })]);
     render(<RideTile />);
 
@@ -114,7 +114,7 @@ describe("RideTile — входы в модалку поездок", () => {
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
   });
 
-  it("на тайле — дистанция и время, без калорий (ккал живут только в модалке)", async () => {
+  it("the tile shows distance and time, no calories (kcal live only in the modal)", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10, distanceMeters: 6900, durationSeconds: 2640, calories: 168 })]);
     render(<RideTile />);
 
@@ -124,8 +124,8 @@ describe("RideTile — входы в модалку поездок", () => {
   });
 });
 
-describe("RideTile — редакция `map` (карта во всю плитку)", () => {
-  it("вся плитка — один вход в модалку: карта, полоса данных и НИ одной второй кнопки", async () => {
+describe("RideTile — `map` edition (map filling the tile)", () => {
+  it("the whole tile is one entry into the modal: map, data band and NOT a single second button", async () => {
     getRidesMock.mockResolvedValue([
       base({ id: 10, distanceMeters: 6900, durationSeconds: 2640 }),
       base({ id: 11, rideDate: "2026-07-10" }),
@@ -143,7 +143,7 @@ describe("RideTile — редакция `map` (карта во всю плитк
     expect(screen.getByTestId("rides-modal")).toBeInTheDocument();
   });
 
-  it("на полосе — километраж голосом заголовка, всё прочее одной строкой при нём", async () => {
+  it("the band has the kilometres in the heading's voice, everything else as one line beside it", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10, distanceMeters: 6900, durationSeconds: 2640 })]);
     render(<RideTile edition="map" />);
 
@@ -155,7 +155,7 @@ describe("RideTile — редакция `map` (карта во всю плитк
     expect(meta.textContent).not.toContain("последняя");
   });
 
-  it("редакция едет в модалку — плитка и её окно не расходятся вёрсткой", async () => {
+  it("the edition travels into the modal — the tile and its window do not diverge in layout", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10 })]);
     render(<RideTile edition="map" />);
 
@@ -163,7 +163,7 @@ describe("RideTile — редакция `map` (карта во всю плитк
     expect(screen.getByTestId("rides-modal")).toHaveAttribute("data-edition", "map");
   });
 
-  it("незнакомая редакция трактуется как `card` (реестр раскладки о наборе редакций не знает)", async () => {
+  it("an unknown edition is treated as `card` (the layout registry does not know the set of editions)", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10 }), base({ id: 11, rideDate: "2026-07-10" })]);
     render(<RideTile edition="кто-то-опечатался" />);
 
@@ -176,8 +176,8 @@ describe("RideTile — редакция `map` (карта во всю плитк
  * The map tile appears TOGETHER with its map, on a reload and on a wave change alike: a data strip
  * on progressive blur hanging over an empty space reads as a failure, not as loading.
  */
-describe("RideTile — редакция `map` ждёт карту", () => {
-  it("смена волны снова гасит плитку: описание не выходит на экран раньше города", async () => {
+describe("RideTile — `map` edition waits for the map", () => {
+  it("a wave switch blanks the tile again: the description does not reach the screen before the city", async () => {
     getRidesMock.mockResolvedValue([base({ id: 10 })]);
     const { container, rerender } = render(<RideTile edition="map" wave="wave-03" />);
 

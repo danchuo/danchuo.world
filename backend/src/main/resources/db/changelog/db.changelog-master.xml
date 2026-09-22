@@ -6,11 +6,11 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Конвейер миграций danchuo.world (M0 — пустой шов).
+      The danchuo.world migration pipeline (M0 — an empty seam).
 
       Каждый feature-слайс кладёт свои чейнджлоги в db/changelog/changes/
-      и они подхватываются includeAll ниже (по имени файла, лексикографически).
-      Схема — зона ответственности Liquibase, а не hbm2ddl
+      and they are picked up by includeAll below (by file name, lexicographically).
+      The schema is Liquibase's responsibility, not hbm2ddl's
       (quarkus.hibernate-orm.database.generation=none).
     -->
     <includeAll path="changes/" relativeToChangelogFile="true" errorIfMissingOrEmpty="false"/>

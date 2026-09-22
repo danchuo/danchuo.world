@@ -6,16 +6,16 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Разрезы аналитики (PRD §5.11): без UTM нагнанный трафик сливается в одну кучу «прямые
-      заходы», а без вьюпорта нечем ответить на вопрос DESIGN «виден ли борд без скролла».
-      Волна визита — разрез, которого нет ни у кого: одну и ту же публику можно сравнить
-      по редакциям борда.
+      Analytics breakdowns (PRD §5.11): without UTM, driven traffic merges into one heap of "direct
+      visits", and without the viewport there is nothing to answer DESIGN's question "is the board visible without scrolling".
+      The visit's wave is a breakdown nobody else has: the same audience can be compared
+      across the board's editions.
 
-      Ширины колонок равны потолкам в AnalyticsLimits: Postgres длинное значение не обрезает,
-      а роняет вставку — а сюда пишет кто угодно.
+      The column widths equal the ceilings in AnalyticsLimits: Postgres does not truncate a long value,
+      it fails the insert, and anyone can write here.
 
-      referrer_host выводится на записи рядом с сырым referrer: группировать источники по
-      полному URL значит получить строку на ссылку вместо строки на источник.
+      referrer_host is derived on write next to the raw referrer: grouping sources by
+      the full URL gives a row per link instead of a row per source.
     -->
     <changeSet id="1080-analytics-event-dimensions" author="danchuo">
         <addColumn tableName="analytics_event">
@@ -31,12 +31,12 @@
     </changeSet>
 
     <!--
-      Один визит — одна строка. Раньше добивка со временем, не нашедшая строку загрузки,
-      вставляла вторую, и заходы считали одного человека дважды. Схема закрывает это сама:
-      уникальность по visit_id.
+      One visit is one row. A time top-up that did not find the load row used to
+      insert a second one, and visits counted one person twice. The schema closes this itself:
+      uniqueness by visit_id.
 
-      Перед индексом чистим то, что уже накопила гонка: время переезжает на выжившую строку
-      (максимум, а не последнее значение), дубликаты уходят.
+      Before the index we clean up what the race already accumulated: the time moves to the surviving row
+      (the maximum, not the last value), the duplicates go.
     -->
     <changeSet id="1080-analytics-visit-id-unique" author="danchuo">
         <sql>
@@ -65,8 +65,8 @@
     </changeSet>
 
     <!--
-      Вовлечённость спрашивает «был ли у визита хоть один клик» подзапросом по visit_id —
-      без индекса это seq scan по всей таблице кликов на каждый день периода.
+      Engagement asks "did the visit have at least one click" with a subquery by visit_id:
+      without an index that is a seq scan over the whole clicks table for every day of the period.
     -->
     <changeSet id="1080-interaction-visit-id-index" author="danchuo">
         <createIndex tableName="interaction_event" indexName="idx_interaction_visit_id">

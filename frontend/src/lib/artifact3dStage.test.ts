@@ -119,8 +119,8 @@ async function stage() {
   return import("./artifact3dStage");
 }
 
-describe("mountArtifact: одна модель на всех", () => {
-  it("два предмета одного адреса разбирают файл один раз", async () => {
+describe("mountArtifact: one model for everyone", () => {
+  it("two items at one address parse the file once", async () => {
     loadAsync.mockImplementation(async () => fakeModel().gltf);
     const { mountArtifact } = await stage();
 
@@ -130,7 +130,7 @@ describe("mountArtifact: одна модель на всех", () => {
     expect(loadAsync).toHaveBeenCalledTimes(1);
   });
 
-  it("разные адреса делят только код, но не разбор", async () => {
+  it("different addresses share only the code, not the parse", async () => {
     loadAsync.mockImplementation(async () => fakeModel().gltf);
     const { mountArtifact } = await stage();
 
@@ -140,7 +140,7 @@ describe("mountArtifact: одна модель на всех", () => {
     expect(loadAsync).toHaveBeenCalledTimes(2);
   });
 
-  it("пока модель носит хоть кто-то, с видеопамяти её не снимают", async () => {
+  it("while anyone still wears the model it is not removed from video memory", async () => {
     const model = fakeModel();
     loadAsync.mockResolvedValue(model.gltf);
     const { mountArtifact } = await stage();
@@ -161,7 +161,7 @@ describe("mountArtifact: одна модель на всех", () => {
     expect(model.material.dispose).toHaveBeenCalledTimes(1);
   });
 
-  it("адрес, оставшийся без носителей, при следующем показе читают заново", async () => {
+  it("an address left without holders is read again on the next show", async () => {
     loadAsync.mockImplementation(async () => fakeModel().gltf);
     const { mountArtifact } = await stage();
 
@@ -171,7 +171,7 @@ describe("mountArtifact: одна модель на всех", () => {
     expect(loadAsync).toHaveBeenCalledTimes(2);
   });
 
-  it("сорвавшийся файл не запоминается ответом — следующий предмет пробует снова", async () => {
+  it("a failed file is not memoised as the answer — the next item tries again", async () => {
     loadAsync.mockRejectedValueOnce(new Error("нет файла"));
     loadAsync.mockImplementation(async () => fakeModel().gltf);
     const { mountArtifact } = await stage();

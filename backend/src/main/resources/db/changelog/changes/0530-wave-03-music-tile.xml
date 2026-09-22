@@ -6,33 +6,33 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03 «PRIME»: на борд возвращается первый виджет — музыка (DESIGN §10.2).
+      Wave 03 "PRIME": the first widget returns to the board: music (DESIGN §10.2).
 
-      Порядок возвращения задан ещё сидом 0480: холст правится на пустом экране, виджеты
-      приезжают по одному. Музыка идёт первой не по алфавиту — это единственная плитка,
-      которая меняется сама собой, без клика и без выбора дня: играющий трек обновляется
-      поллингом. За стеклом, которое размывает ленту холста под собой, живой виджет
-      показывает материал волны честнее статичного.
+      The order of return was already set by the 0480 seed: the canvas is tuned on an empty screen, the widgets
+      arrive one at a time. Music goes first not alphabetically: it is the only tile
+      that changes by itself, without a click and without choosing a day: the playing track is updated
+      by polling. Behind glass that blurs the canvas ribbon under it, a live widget
+      shows the wave's material more honestly than a static one.
 
-      Композиция. Переключатель перестаёт быть центром: он не содержимое, а орган
-      управления, и делить с виджетом оптический центр ему нечем. Пара выстраивается в
-      столбик по одной оси: музыка сверху, под ней через прослойку — ряд карт волн.
-      Столбик поднят на строку выше геометрического центра — оптический центр экрана
-      лежит выше середины.
+      Composition. The switcher stops being the centre: it is not content but a
+      control, and it has nothing to share the optical centre with a widget. The pair lines up in
+      a column on one axis: music on top, below it after a spacer the row of wave cards.
+      The column is raised one row above the geometric centre: the screen's optical centre
+      lies above the middle.
 
-      Ширина переключателя 5 -> 6 колонок, и это не про размер карт, а про ОСЬ. Плитка
-      шириной в нечётное число колонок на чётной сетке 40 центроваться не умеет: пятёрка
-      садилась на 19.5-ю колонку, музыка (12 колонок) — ровно на 20-ю, и на экране 1536
-      два стеклянных прямоугольника расходились центрами на 19px. Заметно: столбик из двух
-      плиток читается по общей оси, и промах в полколонки видно раньше, чем сами размеры.
-      Шестёрка встаёт на 20-ю колонку точно.
+      The switcher's width 5 → 6 columns, and this is not about the card size but about the AXIS. A tile
+      an odd number of columns wide cannot centre on the even 40 grid: the five
+      sat on column 19.5, music (12 columns) exactly on column 20, and on a 1536 screen
+      the two glass rectangles' centres diverged by 19px. Noticeable: a column of two
+      tiles reads along a shared axis, and a half-column miss is seen before the sizes themselves.
+      The six lands on column 20 exactly.
 
-      Музыке дан кадр шире и выше её дефолта (12x7 против 8x5): карточка внутри жмётся
-      к содержимому и центрируется сама (см. `MusicTile`), поэтому широкий кадр не растягивает
-      стекло — он лишь даёт списку недавних вертикаль, а длинному названию трека ширину,
-      на которой бегущая строка не нужна.
+      Music gets a frame wider and taller than its default (12x7 against 8x5): the card inside hugs
+      its content and centres itself (see `MusicTile`), so the wide frame does not stretch
+      the glass: it only gives the recent list a vertical and the long track title a width
+      at which no marquee is needed.
 
-      Пер-тайл эталоны Playwright этой волны по-прежнему не касаются (канон — волна 01).
+      This wave's per-tile Playwright baselines are still untouched (the canon is wave 01).
     -->
     <changeSet id="0530-wave-03-music-tile" author="danchuo">
         <sql><![CDATA[

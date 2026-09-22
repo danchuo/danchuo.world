@@ -1,4 +1,4 @@
-# Сборочные/локальные артефакты — не тащим в build-контекст (пересоберём в образе).
+# Build/local artifacts — kept out of the build context (rebuilt in the image).
 build/
 .gradle/
 # Local dev photo-drop frames (danchuo.film.storage-dir default) — never part of the image.

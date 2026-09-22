@@ -28,8 +28,8 @@ interface ArtifactMarqueeProps {
    */
   orientation?: TileOrientation;
   /**
-   * The tile's edition, set by the wave. `shaft` stands the artifacts in a receding line as 3D
-   * objects; the default is the flat ribbon. DESIGN §7.2, §10.1
+   * The tile's edition, set by the wave. `shaft` stands the artifacts' pictures in a receding
+   * line; the default is the flat ribbon. DESIGN §7.2, §10.1
    */
   edition?: string;
 }
@@ -107,7 +107,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
     "artifacts",
   );
   const all = data ?? [];
-  // The shaft shows only things that brought a model; the flat ribbon shows everything.
+  // The shaft shows only things that brought a picture; the flat ribbon shows everything.
   const shaftItems: ShaftArtifact[] = shaft ? shaftArtifacts(all) : [];
   const artifacts: ArtifactView[] = shaft ? shaftItems : all;
   const isEmpty = phase === "loaded" && artifacts.length === 0;
@@ -164,13 +164,13 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
   // so the ribbon continues from wherever it was left.
   const marquee = useMarqueeDrag({ track, container: box, span, vertical, seconds });
   const activeArtifact = active !== null ? artifacts[active] : null;
-  /* The same index in the shaft's own list: it carries the model, so the card takes it from here
+  /* The same index in the shaft's own list: it carries the picture, so the card takes it from here
      rather than re-deriving a thing's address from a list that may not hold it. */
   const activeShaftItem = active !== null ? shaftItems[active] : null;
   // Content is duplicated only while the ribbon travels; otherwise one copy, with no doubling.
   const items = scrolling ? [...artifacts, ...artifacts] : artifacts;
 
-  /* No thing has a model yet ⇒ there is no tile, rather than an empty one. Wave 03 strips the
+  /* No thing has a picture yet ⇒ there is no tile, rather than an empty one. Wave 03 strips the
      plate, so an empty state's words would hang on the bare canvas. DESIGN §7.2 */
   if (shaft && isEmpty) return null;
 
@@ -260,12 +260,12 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
         </div>
       )}
 
-      {/* The shaft opens its own card: one object, alone, turned by hand (§7.2). The flat ribbon's
-          menu below shows a picture, which is the right answer for a wave whose artifacts are flat. */}
+      {/* The shaft opens its own card: one object, alone, on the dark (§7.2). The flat ribbon keeps
+          its small menu below. */}
       {activeShaftItem && (
         <ArtifactModal
           artifact={activeShaftItem}
-          src={activeShaftItem.model3dUrl}
+          src={activeShaftItem.imageUrl}
           onClose={() => setActive(null)}
         />
       )}

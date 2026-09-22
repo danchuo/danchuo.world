@@ -6,9 +6,9 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Слайс health (PRD §5.4, §7): тренировки, N на день по date (плоская связь,
-      без FK-отношения на day_record — слайсы расцеплены; ось общая — дата в MSK).
-      Идемпотентность ingest держится заменой набора за дату → индекс по date.
+      The health slice (PRD §5.4, §7): workouts, N per day by date (a flat link,
+      no FK relation to day_record: the slices are decoupled; the shared axis is the MSK date).
+      Ingest idempotency is kept by replacing the set for a date → an index on date.
     -->
     <changeSet id="0040-workout-table" author="danchuo">
         <createTable tableName="workout">

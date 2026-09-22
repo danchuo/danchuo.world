@@ -6,15 +6,15 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Последний пост Instagram (PRD §5.17). Две синглтон-строки: токен владельца и сам пост —
-      аккаунт один, и на борде показывается ровно один пост.
+      The latest Instagram post (PRD §5.17). Two singleton rows: the owner's token and the post itself:
+      there is one account, and exactly one post is shown on the board.
 
-      Токен лежит ШИФРОВАННО (AES-GCM, PRD §8), как refresh Spotify, и время выдачи хранится
-      отдельной колонкой: продление выдаёт новый шестидесятидневный срок, и считать его можно
-      только от выдачи.
+      The token is stored ENCRYPTED (AES-GCM, PRD §8), like the Spotify refresh token, and the issue time is stored
+      in a separate column: a renewal issues a new sixty-day term, and it can only be counted
+      from the issue.
 
-      Картинки поста и аватара в БД не лежат вовсе — только на диске: ссылки Instagram
-      подписаны и живут часами, поэтому байты снимаются себе (InstagramImageStorage).
+      The post and avatar pictures are not in the DB at all, only on disk: Instagram links
+      are signed and live for hours, so the bytes are taken for ourselves (InstagramImageStorage).
     -->
     <changeSet id="0770-instagram-token" author="danchuo">
         <createTable tableName="instagram_token">
@@ -51,7 +51,7 @@
             <column name="media_type" type="VARCHAR(32)">
                 <constraints nullable="false"/>
             </column>
-            <!-- Счётчики обнуляемы: владелец вправе спрятать их у поста, и тогда API их не шлёт. -->
+            <!-- The counters are nullable: the owner may hide them on a post, and then the API does not send them. -->
             <column name="like_count" type="INTEGER"/>
             <column name="comments_count" type="INTEGER"/>
             <column name="posted_at" type="TIMESTAMP WITH TIME ZONE">

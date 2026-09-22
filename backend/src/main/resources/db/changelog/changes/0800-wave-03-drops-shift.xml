@@ -6,12 +6,12 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-      Волна 03: лента дропов встаёт на строку выше и на две колонки правее.
+      Wave 03: the drop ribbon moves one row up and two columns right.
 
-      Двигаются ТОЛЬКО координаты, размер прежний (8 на 9). Отсюда и точечные jsonb_set по
-      ключам `col` и `row`, а не подмена всей записи плитки: у неё есть редакция `carousel`,
-      и запись целиком пришлось бы переписывать с ней вместе, рискуя потерять её при
-      следующей правке соседнего числа.
+      Only the coordinates move, the size is the same (8 by 9). Hence the precise jsonb_set on
+      the `col` and `row` keys rather than replacing the tile's whole record: it has the `carousel` edition,
+      and the whole record would have to be rewritten together with it, risking losing it on
+      the next edit of a neighbouring number.
     -->
     <changeSet id="0800-wave-03-drops-shift" author="danchuo">
         <sql><![CDATA[

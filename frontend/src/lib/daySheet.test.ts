@@ -358,15 +358,15 @@ describe("sheetMonsterCard", () => {
     expect(sheetMonsterCard(day({ monsterDrunk: false, monsterCleanStreak: 1 })).caption).toBe("не пил");
   });
 
-  it("says the drunk day plainly, and names the silence on a day with no record", () => {
+  it("says the drunk day plainly, and holds the day open when there is no record", () => {
     expect(sheetMonsterCard(day({ monsterDrunk: true })).caption).toBe("пил");
     const mute = sheetMonsterCard(day());
-    expect(mute.caption).toBe("данных нет");
+    expect(mute.caption).toBe("пока не пил");
     expect(mute.verdict).toBe("unreported");
   });
 
   it("names the verdict for a screen reader too", () => {
-    expect(sheetMonsterCard(day()).ariaLabel).toBe("Монстр: не отмечен");
+    expect(sheetMonsterCard(day()).ariaLabel).toBe("Монстр: пока не пил");
     expect(sheetMonsterCard(day({ monsterDrunk: true })).ariaLabel).toBe("Монстр: выпит сегодня");
   });
 });

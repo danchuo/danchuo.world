@@ -366,11 +366,11 @@ describe("TodaySheet", () => {
   // says "no data", because a silent monster is not a clean one (PRD §5.6).
   it("gives the monster a card of its own, naming the silence on a day with no record", () => {
     const { container, unmount } = render(<TodaySheet day={day()} today="2026-09-19" />);
-    expect(screen.getByRole("button", { name: "Монстр: не отмечен" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Монстр: пока не пил" })).toBeInTheDocument();
     // The line under the figure NAMES the silence instead of standing empty.
-    expect(screen.getByText("данных нет")).toBeInTheDocument();
+    expect(screen.getByText("пока не пил")).toBeInTheDocument();
     expect(container.querySelector(".today-sheet__monster.is-unreported")).not.toBeNull();
-    expect(container.querySelector(".today-sheet__monstersay")!.textContent).toBe("данных нет");
+    expect(container.querySelector(".today-sheet__monstersay")!.textContent).toBe("пока не пил");
     expect(container.querySelector(".today-sheet__cell.is-unreported")).toBeNull();
     unmount();
 

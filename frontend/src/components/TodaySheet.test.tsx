@@ -506,4 +506,21 @@ describe("TodaySheet", () => {
     expect(lone.style.getPropertyValue("--sheet-photo")).toBe("0");
     expect(lone.style.getPropertyValue("--sheet-gaps")).toBe("0");
   });
+
+  // Hovering the photo tries its lens on: the calendar lights every day that has one. DESIGN §5.1
+  it("offers the photo's lens on hover, and ignores a finger", () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    const onLensPreview = vi.fn();
+    render(<TodaySheet day={day({ photo })} today="2026-09-18" onLensPreview={onLensPreview} />);
+    const card = screen.getByRole("button", { name: "Фото дня" });
+
+    fireEvent.pointerOver(card, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenLastCalledWith({ key: "photo:day", occurrence: 1, label: "фото дня" });
+    fireEvent.pointerOut(card, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenLastCalledWith(null);
+
+    onLensPreview.mockClear();
+    fireEvent.pointerOver(card, { pointerType: "touch" });
+    expect(onLensPreview).not.toHaveBeenCalled();
+  });
 });

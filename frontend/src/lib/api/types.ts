@@ -459,6 +459,8 @@ export interface DaySummary {
   monsterDrunk?: boolean | null;
   /** Activity keys of the day; absent from an older backend, which a lens must read as unknown. */
   activities?: string[];
+  /** Whether the day has a photo; absent from an older backend, read as unknown by the lens. */
+  hasPhoto?: boolean;
 }
 
 /** Admin artifact form: /api/ingest/artifacts. PRD §5.8. */

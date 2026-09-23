@@ -7,6 +7,9 @@ import { isWeekend } from "@/lib/weekend";
 /** Monster uses inverted matching polarity; see lensMatch. */
 export const MONSTER_LENS_KEY = "monster";
 
+/** The day's photo as a lens: its days lit in the plain tone, with no run to accent. DESIGN §5.1 */
+export const PHOTO_LENS: DisciplineLens = { key: "photo:day", occurrence: 1, label: "фото дня" };
+
 /** An activity's lens key is namespaced: `gym` is both an activity and a possible checklist item. */
 const ACTIVITY_LENS_PREFIX = "activity:";
 
@@ -61,6 +64,11 @@ export function lensMatch(day: DaySummary, lens: DisciplineLens): LensMatch {
     return drunk ? "no" : "yes";
   }
 
+  if (lens.key === PHOTO_LENS.key) {
+    if (day.hasPhoto == null) return "unknown";
+    return day.hasPhoto ? "yes" : "no";
+  }
+
   const activity = lensActivity(lens);
   if (activity != null) {
     // An older backend sends no list at all, which is not the same as an empty one.
@@ -84,6 +92,7 @@ export function lensNote(match: LensMatch, lens: DisciplineLens): string | null 
   // Use the shared monster verdict wording.
   if (lens.key === MONSTER_LENS_KEY) return monsterVerdict(match === "no").phrase;
   if (lensActivity(lens) != null) return `${lens.label}: ${match === "yes" ? "было" : "не было"}`;
+  if (lens.key === PHOTO_LENS.key) return `${lens.label}: ${match === "yes" ? "есть" : "нет"}`;
   return `${lens.label}: ${match === "yes" ? "сделано" : "не сделано"}`;
 }
 
@@ -122,7 +131,7 @@ export function lensRun(days: DaySummary[], lens: DisciplineLens, today: string)
   // Clean days are the overwhelming majority (§5.1), and lighting them would flood the grid with
   // the very tone the monster's lens exists to pick out of it.
   // An activity is a fact of the day, not a discipline: it has no run to keep.
-  if (lens.key === MONSTER_LENS_KEY || lensActivity(lens) != null) {
+  if (lens.key === MONSTER_LENS_KEY || lens.key === PHOTO_LENS.key || lensActivity(lens) != null) {
     return { marks: new Map(), length: 0, truncated: false };
   }
 

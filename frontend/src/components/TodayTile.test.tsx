@@ -243,4 +243,16 @@ describe("TodayTile", () => {
     expect(screen.getByTestId("quest-map")).toBeInTheDocument();
     expect(screen.queryByTestId("weekend-scene")).not.toBeInTheDocument();
   });
+
+  // Another month's day shifts the tile's GROUND (DESIGN §4); the sheet has no ground to shift, and
+  // painting one drew a dark slab over the wave's canvas. DESIGN §4.3
+  it("shifts the ground for another month's day, but not on the sheet, which has none", () => {
+    const other = dayFixture({ date: "2026-05-20" });
+    const { unmount } = render(<TodayTile day={other} today="2026-06-18" state="loaded" />);
+    expect(screen.getByRole("region", { name: "Сегодня" }).style.background).toContain("surface-othermonth");
+    unmount();
+
+    render(<TodayTile day={other} today="2026-06-18" state="loaded" edition="sheet" />);
+    expect(screen.getByRole("region", { name: "Сегодня" }).style.background).toBe("");
+  });
 });

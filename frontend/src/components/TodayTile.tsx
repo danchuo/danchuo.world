@@ -90,9 +90,9 @@ export function TodayTile({
   const sheet = edition === "sheet";
   // The tile's caption is relative to the selected date: it says "today" only when today is selected.
   const label = day ? relativeDayRu(day.date, today) : "сегодня";
-  // A day of the neighbouring month is selected → the tile's ground shifts slightly (DESIGN §4), as
-  // the cell does in the calendar.
-  const otherMonth = day != null && day.date.slice(0, 7) !== today.slice(0, 7);
+  // A day of the neighbouring month shifts the tile's ground (DESIGN §4), as the calendar cell does.
+  // The sheet has no ground to shift: painting one drew a slab over the canvas. DESIGN §4.3
+  const otherMonth = !sheet && day != null && day.date.slice(0, 7) !== today.slice(0, 7);
   // The day-of-life number is a hint on the date: the date stays a date, the count rises on hover.
   const lifeDay = day ? lifeDayLabel(day.date) : null;
   // The monster has three states (PRD §5.6): `null` means the day was never marked and there is no

@@ -174,6 +174,7 @@ class DayAggregator(
                     disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
                     monsterDrunk = monsterDrunk,
                     activities = record?.activities.orEmpty(),
+                    hasPhoto = record?.photoUpdatedAt != null,
                 )
             }
             .toList()

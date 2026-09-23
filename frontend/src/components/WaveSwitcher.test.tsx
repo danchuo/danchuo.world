@@ -181,6 +181,15 @@ describe("WaveSwitcher", () => {
     );
   });
 
+  // A column stands on the ground: the first wave, the display default, is its FOOT, and the rest
+  // stack upwards in registry order. DESIGN §2.6
+  it("stacks a vertical column from the bottom up", async () => {
+    setWaves([wave()]);
+    render(withWave(<WaveSwitcher orientation="vertical" />));
+    const row = (await screen.findByLabelText("Волна: Волна 01")).parentElement!;
+    expect(row.className).toContain("flex-col-reverse");
+  });
+
   // Zoom shrinks the CSS viewport while the §8.1 damper shrinks a chip half as fast, so at 110%
   // two chips stop fitting. Wrapping is not the answer: a horizontal row must stay a row and the
   // chips squeeze.

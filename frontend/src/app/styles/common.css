@@ -4530,7 +4530,7 @@ button.sleep-echo:focus-visible {
 
 /* ── "Today", the contact-sheet edition (DESIGN §4.3) ─────────────────────────────────────────
    Sittings are equal square frames with their covers filling them; the discipline ledger runs as
-   named plates along the foot. Structure only — how much plate is left is the wave's word. */
+   one line of edge code along the foot. Structure only — the light is the wave's word. */
 .today-sheet {
   container-type: inline-size;
   display: flex;
@@ -4550,7 +4550,7 @@ button.sleep-echo:focus-visible {
    standing up there competed with it whatever its size. */
 .today-sheet__stamp {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.07em;
   color: var(--text-secondary);
@@ -4590,7 +4590,7 @@ button.sleep-echo:focus-visible {
   min-height: 0;
   display: flex;
   justify-content: flex-start;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 12px;
   min-width: 0;
   overflow-x: auto;
@@ -4599,8 +4599,8 @@ button.sleep-echo:focus-visible {
   padding: 12px;
 }
 .today-sheet__frames::-webkit-scrollbar { display: none; }
-/* On a weekday the frames sit ON the ledge, so any spare height gathers under the name instead of
-   between the pictures and the ledge. With no ledge on a weekend they stand centred. DESIGN §4.3 */
+/* A few frames grow to the whole height; a row bound by its width hangs under the name, and the
+   spare height gathers over the edge code. On a weekend they stand centred. DESIGN §4.3 */
 .today-sheet.is-rest .today-sheet__frames {
   align-items: center;
   justify-content: safe center;
@@ -4689,30 +4689,52 @@ button.sleep-echo:focus-visible {
 }
 .today-sheet__frame.is-openable:hover .today-sheet__name { color: var(--text-primary); }
 
-/* The FIXED row: one column per item, always the same count in the same order, so the row keeps
-   its shape from day to day and an item is found by place. Equal columns, never wrapping. */
+/* The ledge as the film's EDGE CODE: words in one line along the foot, fixed order, no plates.
+   It wraps only where the tile is narrower than the line (the stack), never in bento. §4.3 */
 .today-sheet__sockets {
-  display: grid;
-  grid-template-columns: repeat(var(--sheet-sockets, 6), minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  min-width: 0;
+  /* Fitted to the room the stamp leaves: `--code-em` is the line's width in ems (edgeCodeEms). */
+  font-size: clamp(9px, min(2.32cqw, (100cqw - var(--stamp-w) - 16px) / var(--code-em, 40)), 15px);
+}
+/* The stack is narrower than any line: there the words wrap whole instead of shrinking. */
+.board-stack .today-sheet__sockets {
+  flex-wrap: wrap;
+  font-size: clamp(11px, 2.32cqw, 15px);
 }
 .today-sheet__cell {
-  min-width: 0;
-  padding: 9px 4px 8px;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 6px 0.55em;
   border: none;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-muted, rgba(128, 128, 128, 0.08));
+  background: none;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: inherit;
+  line-height: 1.2;
+  white-space: nowrap;
 }
-/* The grease pencil's mark, one glyph per state, and the WHOLE of what the socket says about it:
+.today-sheet__cell:first-child { padding-left: 0; }
+.today-sheet__cell + .today-sheet__cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 0.9em;
+  margin-top: -0.45em;
+  border-left: 1px solid var(--border-tile, var(--border));
+}
+@media (pointer: coarse) {
+  .today-sheet__cell { min-height: 44px; align-items: center; }
+}
+/* The grease pencil's mark, one glyph per state, and the WHOLE of what the word says about it:
    obligation is in the verb, so nothing else has to repeat it. */
 .today-sheet__mark {
   font-family: var(--font-mono);
-  font-size: 16px;
   line-height: 1;
   color: var(--text-tertiary);
 }
@@ -4841,33 +4863,31 @@ button.sleep-echo:focus-visible {
   outline-offset: 4px;
   border-radius: var(--radius-md);
 }
-/* Today's part of the target and the run still alive: a run standing beside an UNMADE mark reads
-   "not yet, and the streak holds", which the plate this replaces could not say. It holds its line
-   even when empty, so the names below stay on one baseline across the row. */
+/* Today's part of the target and the live run, raised after the name: beside an UNMADE mark it
+   reads "not yet, and the streak holds". */
 .today-sheet__tail {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  line-height: 1.2;
-  min-height: 11px;
+  margin-left: -0.2em;
+  font-size: 0.72em;
+  line-height: 1;
   color: var(--text-tertiary);
   white-space: nowrap;
 }
 .today-sheet__cellname {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
   color: var(--text-tertiary);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
+/* The stamp keeps the far end; on a line too narrow for both it drops under the code. */
 .today-sheet__foot {
+  /* The stamp's width from its length: 14px mono at 0.6em plus 0.07em tracking, as set below. */
+  --stamp-w: calc(var(--stamp-n, 0) * 14px * 0.67);
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 12px;
 }
+.today-sheet__foot .today-sheet__stamp { margin-left: auto; }
+.board-stack .today-sheet__foot { flex-wrap: wrap; }
 
 /* The subject's name in the window's header: one size for a book and an episode alike. */
 .summary-modal__name {
@@ -4913,41 +4933,30 @@ button.sleep-echo:focus-visible {
   line-height: 1.45;
 }
 
-/* A socket that has something to show is EXPOSED: ground and mark take the accent. An optional one
-   that happened is lit the same way — owed to nobody, so it is never a miss; an item whose sittings
-   are frames above is lit too, because the covers already said it happened. */
-.today-sheet__cell.is-done,
-.today-sheet__cell.is-extra,
-.today-sheet__cell.is-framed {
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-}
+/* A word with something to show is EXPOSED: the mark takes the accent and the name full voice.
+   A framed item's name stays quieter — its covers above already said it. */
 .today-sheet__cell.is-done .today-sheet__mark,
 .today-sheet__cell.is-extra .today-sheet__mark,
 .today-sheet__cell.is-framed .today-sheet__mark { color: var(--accent); }
 .today-sheet__cell.is-done .today-sheet__cellname,
-.today-sheet__cell.is-extra .today-sheet__cellname,
+.today-sheet__cell.is-extra .today-sheet__cellname { color: var(--text-primary); }
 .today-sheet__cell.is-framed .today-sheet__cellname { color: var(--text-secondary); }
 .today-sheet__cell.is-done .today-sheet__tail,
 .today-sheet__cell.is-extra .today-sheet__tail,
-.today-sheet__cell.is-framed .today-sheet__tail {
-  color: color-mix(in srgb, var(--accent) 80%, transparent);
-}
+.today-sheet__cell.is-framed .today-sheet__tail,
+.today-sheet__cell.is-pending .today-sheet__tail { color: var(--accent); }
 
-/* An unmarked item is not a refused one: an unexposed hatch says "no answer", not "no". */
-.today-sheet__cell.is-unreported {
-  background: repeating-linear-gradient(
-    135deg,
-    transparent 0 5px,
-    var(--bg-surface-muted, rgba(128, 128, 128, 0.1)) 5px 6px
-  );
-}
-
-/* The lens is on: the socket says so by light, the wave's own device. */
+/* The lens is on: the word says so by light, the wave's own device. */
 .today-sheet__cell.is-active .today-sheet__cellname { color: var(--accent); }
 
-/* A socket is a CONTROL — it sets the calendar lens — so it has to answer the pointer. */
+/* A word is a CONTROL — it sets the calendar lens — so it has to answer the pointer. */
 @media (hover: hover) {
-  .today-sheet__cell:hover .today-sheet__cellname { color: var(--text-primary); }
+  .today-sheet__cell:hover .today-sheet__cellname { color: var(--accent); }
+}
+
+/* The hovered or focused word's own frames: a ring on the cover, drawn inside it. */
+.today-sheet__frame.is-lit .today-sheet__shot {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .today-sheet__cell:focus-visible,

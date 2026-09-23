@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DayView, DisciplineItemView, PodcastEpisodeView, ReadingBookView } from "./api/types";
 import {
   sheetCells,
+  edgeCodeEms,
   sheetHeadline,
   sheetMonster,
   onMonsterFigure,
@@ -53,6 +54,20 @@ const book = (over: Partial<ReadingBookView> = {}): ReadingBookView => ({
 });
 
 describe("sheetSessions", () => {
+  // The ledge word points up at its own frames and lights them, so a frame names its item.
+  it("names the discipline item each sitting came from", () => {
+    const frames = sheetSessions(
+      day({
+        discipline: [
+          item({ key: "podcasts", episodes: [episode()] }),
+          item({ key: "reading", books: [book()] }),
+        ],
+      }),
+    );
+
+    expect(frames.map((f) => f.item)).toEqual(["podcasts", "reading"]);
+  });
+
   it("orders visits by when they happened, interleaving podcast and book", () => {
     const sessions = sheetSessions(
       day({
@@ -273,6 +288,27 @@ describe("sheetCells", () => {
     expect(cells.map((c) => c.state)).toEqual(["done", "pending", "extra", "unreported"]);
   });
 
+  // A framed item's covers already said it happened: its mark is the count against the goal, and
+  // the tail keeps only the run.
+  it("gives a framed item its count as the mark and leaves the run in the tail", () => {
+    const [partly, whole] = sheetCells(
+      day({
+        discipline: [
+          item({ key: "reading", target: 2, count: 1, books: [book()], occurrenceStreaks: [6] }),
+          item({ key: "podcasts", target: 1, count: 1, episodes: [episode()] }),
+        ],
+      }),
+    );
+
+    expect([partly.fraction, partly.tail]).toEqual(["1/2", "6д"]);
+    expect([whole.fraction, whole.tail]).toEqual(["1/1", null]);
+  });
+
+  it("gives an unframed item no count mark", () => {
+    const [cell] = sheetCells(day({ discipline: [item({ key: "office", count: 1 })] }));
+    expect(cell.fraction).toBeNull();
+  });
+
   // The monster is a BODY, not a count: it has its own card among the frames, so it must not
   // also take a socket and be said twice.
   it("leaves the monster out of the row entirely", () => {
@@ -412,5 +448,34 @@ describe("onMonsterFigure", () => {
 
   it("a zero-size square does not answer \"yes\" to everything", () => {
     expect(onMonsterFigure({ left: 0, top: 0, width: 0, height: 0 }, 0, 0)).toBe(false);
+  });
+});
+
+/* The edge code's width in ems, so CSS can fit its size to ONE line beside the stamp. DESIGN §4.3 */
+describe("edgeCodeEms", () => {
+  const cell = (short: string, tail: string | null = null) =>
+    ({ key: short, label: short, short, state: "done", tail, streak: 0, fraction: null }) as const;
+
+  it("counts mark, gap and name, with no left padding on the first word", () => {
+    expect(edgeCodeEms([cell("офис")])).toBeCloseTo(0.55 + 0.75 + 0.4 + 4 * 0.6, 5);
+  });
+
+  it("pads every later word on both sides", () => {
+    expect(edgeCodeEms([cell("офис"), cell("офис")]) - edgeCodeEms([cell("офис")])).toBeCloseTo(
+      0.55 * 2 + 0.75 + 0.4 + 4 * 0.6,
+      5,
+    );
+  });
+
+  it("costs a framed word's count in its own digits instead of a mark", () => {
+    const framed = { ...cell("офис"), state: "framed", fraction: "1/2" } as const;
+    expect(edgeCodeEms([framed]) - edgeCodeEms([cell("офис")])).toBeCloseTo(3 * 0.6 - 0.75, 5);
+  });
+
+  it("counts a raised tail at its own smaller size", () => {
+    expect(edgeCodeEms([cell("офис", "3д")]) - edgeCodeEms([cell("офис")])).toBeCloseTo(
+      0.2 + 2 * 0.72 * 0.6,
+      5,
+    );
   });
 });

@@ -18,6 +18,7 @@ import type { TileOrientation } from "@/lib/layout";
 import { PhotoDropModal } from "./PhotoDropModal";
 import { TileShell } from "./TileShell";
 import { useRollMotion } from "./useRollMotion";
+import { useSidewaysWheel } from "./useSidewaysWheel";
 import { useTileData } from "./useTileData";
 
 interface PhotoDropsTileProps {
@@ -68,7 +69,8 @@ export function PhotoDropsTile({
   // `orientation: horizontal` must not end up with a rail inside a column.
   const carousel = edition === "carousel";
   const horizontal = !carousel && orientation === "horizontal";
-  const shelfRef = useRef<HTMLUListElement>(null);
+  // The shelf has no scrollbar: the wheel moves it sideways. DESIGN §7.5
+  const shelfRef = useSidewaysWheel<HTMLUListElement>();
   const reelRef = useRef<HTMLUListElement>(null);
   /**
    * Carousel movement, the same seam as the reel's. Native smooth scrolling bogged down on fast
@@ -237,28 +239,6 @@ export function PhotoDropsTile({
       }
     };
   }, [carousel, motion, phase, drops.length]);
-
-  // Live scrolling of a horizontal shelf with no visible scrollbar: a vertical wheel pages it
-  // sideways. Mouse dragging is deliberately absent — it swallowed the click and broke opening a
-  // drop. At the edges the wheel is handed back to the page rather than trapped. DESIGN §7.5
-  useEffect(() => {
-    const el = shelfRef.current;
-    if (!el || !horizontal) return;
-
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // a native horizontal scroll (trackpad)
-      const max = el.scrollWidth - el.clientWidth;
-      if (max <= 0) return;
-      const atStart = el.scrollLeft <= 0;
-      const atEnd = el.scrollLeft >= max - 1;
-      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return; // at the edge → the page scrolls
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [horizontal, phase, drops.length]);
 
   /**
    * Opens a drop from the carousel, first winding an off-centre frame to the middle: the develop

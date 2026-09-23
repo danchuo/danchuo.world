@@ -4,6 +4,7 @@ import { useState, type CSSProperties, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { DayView } from "@/lib/api/types";
 import {
+  edgeCodeEms,
   onMonsterFigure,
   sheetCells,
   sheetHeadline,
@@ -25,6 +26,7 @@ import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
 import type { SummarySubject } from "@/lib/summarySubject";
 import { SummaryModal } from "./SummaryModal";
+import { useSidewaysWheel } from "./useSidewaysWheel";
 import { isWeekend } from "@/lib/weekend";
 
 /* The plate's own geometry only — the frame's real side comes from `--sheet-frame` in CSS, which
@@ -48,6 +50,9 @@ interface TodaySheetProps {
 export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: TodaySheetProps) {
   const [retold, setRetold] = useState<SummarySubject | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
+  // The item whose ledge word is under the pointer or focus: its own frames light up above.
+  const [lit, setLit] = useState<string | null>(null);
+  const framesRef = useSidewaysWheel<HTMLDivElement>();
   const headline = sheetHeadline(day, today);
   const sessions = sheetSessions(day);
   const cells = sheetCells(day);
@@ -103,9 +108,9 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
 
         {/* Sittings, activities, the photo and the monster closing the row, all on one baseline.
             The row's make-up fits the frame's side to the tile in CSS. DESIGN §4.3 */}
-        <div className="today-sheet__frames" style={row}>
+        <div className="today-sheet__frames" style={row} ref={framesRef}>
           {sessions.map((session) => (
-            <Frame key={session.key} session={session} onOpen={setRetold} />
+            <Frame key={session.key} session={session} lit={lit === session.item} onOpen={setRetold} />
           ))}
           {activities.map((activity) => (
             <ActivityCard
@@ -131,29 +136,31 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
           />
         </div>
 
-        {/* The row's column count is DATA: a new discipline item widens the row rather than
-            wrapping onto a second one, which would break the shape the eye has learnt. */}
-        {!rest && (
-          <div
-            className="today-sheet__sockets"
-            style={{ "--sheet-sockets": cells.length } as CSSProperties}
-            {...leave}
-          >
-            {cells.map((cell) => (
-              <Cell
-                key={cell.key}
-                cell={cell}
-                active={lens?.key === cell.key}
-                onPick={() => pick(cellLens(cell))}
-                hover={hover(cellLens(cell))}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* The date closes the foot at its far end: the whole top belongs to the day's name,
-            which the stamp is not allowed to compete with. DESIGN §4.3 */}
-        <div className="today-sheet__foot">
+        {/* The ledge is the film's EDGE CODE: one line of the foot, ahead of the stamp, in the
+            same order every day, so an item is found by place. DESIGN §4.3 */}
+        <div
+          className="today-sheet__foot"
+          style={
+            {
+              "--code-em": Number(edgeCodeEms(cells).toFixed(3)),
+              "--stamp-n": headline.stamp.length,
+            } as CSSProperties
+          }
+        >
+          {!rest && (
+            <div className="today-sheet__sockets" {...leave}>
+              {cells.map((cell) => (
+                <Cell
+                  key={cell.key}
+                  cell={cell}
+                  active={lens?.key === cell.key}
+                  onPick={() => pick(cellLens(cell))}
+                  hover={hover(cellLens(cell))}
+                  onLight={(on) => setLit(on ? cell.key : null)}
+                />
+              ))}
+            </div>
+          )}
           <span className="today-sheet__stamp">{headline.stamp}</span>
         </div>
       </div>
@@ -170,7 +177,16 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
  * frames, and a row that stretched to fill would make one podcast look like a whole day's work.
  * Openable only when the retelling exists; otherwise it is a picture, not a button.
  */
-function Frame({ session, onOpen }: { session: SheetSession; onOpen: (s: SummarySubject) => void }) {
+function Frame({
+  session,
+  lit,
+  onOpen,
+}: {
+  session: SheetSession;
+  /** Its item's ledge word is hovered or focused. */
+  lit: boolean;
+  onOpen: (s: SummarySubject) => void;
+}) {
   const inner = (
     <>
       <span className="today-sheet__shot">
@@ -211,7 +227,7 @@ function Frame({ session, onOpen }: { session: SheetSession; onOpen: (s: Summary
   // No retelling to open, but the sitting still has a home: the frame leads to the episode at
   // Spotify. Without either it is a picture, not a control.
   if (!subject) {
-    const className = `today-sheet__frame today-sheet__frame--${session.kind}`;
+    const className = `today-sheet__frame today-sheet__frame--${session.kind}${lit ? " is-lit" : ""}`;
     if (!session.href) return <div className={className}>{inner}</div>;
     return (
       <a
@@ -228,7 +244,7 @@ function Frame({ session, onOpen }: { session: SheetSession; onOpen: (s: Summary
   return (
     <button
       type="button"
-      className={`today-sheet__frame today-sheet__frame--${session.kind} is-openable`}
+      className={`today-sheet__frame today-sheet__frame--${session.kind} is-openable${lit ? " is-lit" : ""}`}
       // The track is decoration to a screen reader, so the covered chunk is spoken here instead.
       aria-label={session.chunk ? `${subject.ariaLabel}, ${session.chunk}` : subject.ariaLabel}
       onClick={() => onOpen(subject)}
@@ -239,20 +255,22 @@ function Frame({ session, onOpen }: { session: SheetSession; onOpen: (s: Summary
 }
 
 /**
- * A SOCKET of the fixed row: the mark is the state, the name beneath it the identity. The socket
- * never moves and never disappears, so the row's shape is the same every day and an item is found
- * by place rather than by reading. DESIGN §4.3
+ * One word of the edge code: mark, name, and the numeral raised after it. The word never moves and
+ * never disappears, so the line's shape is the same every day. DESIGN §4.3
  */
 function Cell({
   cell,
   active,
   onPick,
   hover,
+  onLight,
 }: {
   cell: SheetCell;
   active: boolean;
   onPick: () => void;
   hover: HoverProps;
+  /** Light the item's own frames; any pointer or focus, since it only draws. */
+  onLight: (on: boolean) => void;
 }) {
   return (
     <button
@@ -262,12 +280,19 @@ function Cell({
       aria-label={cellAria(cell)}
       onClick={onPick}
       {...hover}
+      onPointerEnter={(e) => {
+        hover.onPointerEnter(e);
+        onLight(true);
+      }}
+      onPointerLeave={() => onLight(false)}
+      onFocus={() => onLight(true)}
+      onBlur={() => onLight(false)}
     >
       <span className="today-sheet__mark" aria-hidden>
-        {CELL_MARK[cell.state]}
+        {cell.fraction ?? CELL_MARK[cell.state]}
       </span>
-      <span className="today-sheet__tail">{cell.tail ?? ""}</span>
       <span className="today-sheet__cellname">{cell.short}</span>
+      {cell.tail && <sup className="today-sheet__tail">{cell.tail}</sup>}
     </button>
   );
 }
@@ -411,7 +436,7 @@ function PhotoCard({
     >
       <span className="today-sheet__shot">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.thumbUrl} alt="" className="today-sheet__cover" loading="lazy" />
+        <img src={photo.webUrl} alt="" className="today-sheet__cover" loading="lazy" />
       </span>
     </button>
   );

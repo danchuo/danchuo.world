@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { DayView, DisciplineItemView, PodcastEpisodeView } from "@/lib/api/types";
@@ -254,6 +254,16 @@ describe("TodaySheet", () => {
     expect(container.querySelector(".today-sheet__photo")).toBeNull();
   });
 
+  // The 400px thumb goes soft at ~270 CSS px on a 1.25+ screen; the card draws the web size, the
+  // same file the window opens, which is then already cached.
+  it("draws the day's photo from the web size, not the thumb", () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    render(<TodaySheet day={day({ photo })} today="2026-09-18" />);
+
+    const img = screen.getByRole("button", { name: "Фото дня" }).querySelector("img")!;
+    expect(img.getAttribute("src")).toBe("/p/web");
+  });
+
   it("the photo opens at full size and closes again", async () => {
     const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
     render(<TodaySheet day={day({ photo })} today="2026-09-18" />);
@@ -287,7 +297,7 @@ describe("TodaySheet", () => {
 
   // The row's shape is what the eye learns, so its column count follows the items rather than
   // letting a new one wrap onto a second row. DESIGN §4.3
-  it("holds every item in the row, in order, and widens the row to fit them", () => {
+  it("holds every item in the row, in order", () => {
     const { container } = render(
       <TodaySheet
         day={day({
@@ -303,7 +313,6 @@ describe("TodaySheet", () => {
 
     const names = [...container.querySelectorAll(".today-sheet__cellname")].map((n) => n.textContent);
     expect(names).toEqual(["растяжка", "Сквош", "офис"]);
-    expect((container.querySelector(".today-sheet__sockets") as HTMLElement).style.getPropertyValue("--sheet-sockets")).toBe("3");
     expect(screen.getByRole("button", { name: "Сквош: не отмечен" })).toBeInTheDocument();
   });
 
@@ -484,6 +493,57 @@ describe("TodaySheet", () => {
     );
     expect(container.querySelector(".today-sheet__sockets")).not.toBeNull();
     expect(container.querySelector(".today-sheet.is-rest")).toBeNull();
+  });
+
+  // A row too long for the tile has no scrollbar: the vertical wheel moves it sideways, and at an
+  // end hands the wheel back to the page. DESIGN §4.3
+  it("moves an overflowing frame row sideways with the mouse wheel", async () => {
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
+    await act(async () => {});
+    const row = container.querySelector(".today-sheet__frames") as HTMLElement;
+    Object.defineProperty(row, "scrollWidth", { configurable: true, value: 500 });
+    Object.defineProperty(row, "clientWidth", { configurable: true, value: 100 });
+
+    fireEvent.wheel(row, { deltaY: 40, deltaX: 0 });
+    expect(row.scrollLeft).toBe(40);
+
+    row.scrollLeft = 0;
+    fireEvent.wheel(row, { deltaY: -40, deltaX: 0 });
+    expect(row.scrollLeft).toBe(0);
+  });
+
+  // The ledge is the film's EDGE CODE: one line in the foot, ahead of the date stamp. DESIGN §4.3
+  it("runs the ledge along the foot, ahead of the date stamp", () => {
+    const { container } = render(
+      <TodaySheet day={day({ discipline: [item({ key: "stretch" })] })} today="2026-09-18" />,
+    );
+
+    const foot = container.querySelector(".today-sheet__foot")!;
+    expect(foot.querySelector(".today-sheet__sockets")).not.toBeNull();
+    expect(foot.lastElementChild!.classList.contains("today-sheet__stamp")).toBe(true);
+  });
+
+  // A framed item's covers already say it happened: its mark is the count against the goal.
+  it("marks a framed item with its count instead of an arrow", () => {
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
+
+    expect(container.querySelector(".today-sheet__cell.is-framed .today-sheet__mark")!.textContent).toBe("1/2");
+  });
+
+  it("lights an item's own frames while its ledge word is hovered or focused", () => {
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
+    const word = screen.getByRole("button", { name: /Чтение/ });
+    const lit = () => container.querySelectorAll(".today-sheet__frame.is-lit").length;
+
+    fireEvent.pointerOver(word, { pointerType: "mouse" });
+    expect(lit()).toBe(1);
+    fireEvent.pointerOut(word, { pointerType: "mouse" });
+    expect(lit()).toBe(0);
+
+    fireEvent.focus(word);
+    expect(lit()).toBe(1);
+    fireEvent.blur(word);
+    expect(lit()).toBe(0);
   });
 
   // The frame's side is fitted to the row in CSS, which needs the row's make-up as data: how many

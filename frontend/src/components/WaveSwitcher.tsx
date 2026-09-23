@@ -13,7 +13,8 @@ interface WaveSwitcherProps {
   className?: string;
   /**
    * Direction of the chip row, set by the wave through layout (`tiles.waveSwitcher.orientation`), as
-   * with `projects`, `photoDrops` and `marquee`. The default is a horizontal row.
+   * with `projects`, `photoDrops` and `marquee`. The default is a horizontal row; a column stands
+   * on the first wave, stacking the rest upwards.
    */
   orientation?: TileOrientation;
   /**
@@ -87,7 +88,7 @@ export function WaveSwitcher({
         // shrinks the viewport, and wrapping silently stood the row up as a column.
         <div
           className={`wave-chip-row tile-frame flex h-full flex-nowrap content-center items-center gap-1.5 ${
-            vertical ? "flex-col" : "flex-row"
+            vertical ? "flex-col-reverse" : "flex-row"
           }`}
         >
           {WAVES.map((t) => {

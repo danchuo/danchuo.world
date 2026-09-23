@@ -24,6 +24,8 @@ import {
 export interface SheetSession {
   key: string;
   kind: SummaryKind;
+  /** The discipline item the sitting counts towards: its ledge word lights this frame. */
+  item: string;
   title: string;
   byline: string | null;
   coverUrl: string | null;
@@ -65,6 +67,8 @@ export interface SheetCell {
   /** The socket's numeral: today's part of the target, the live run, or both. */
   tail: string | null;
   streak: number;
+  /** A framed item's count against its goal (`1/2`), standing in for the mark; `null` otherwise. */
+  fraction: string | null;
 }
 
 /** The monster's three states (PRD §5.6); an unreported day is not a clean one. */
@@ -102,6 +106,7 @@ export function sheetSessions(day: DayView): SheetSession[] {
       frames.push({
         key: `podcast:${item.key}:${episode.sessionId ?? `x${i}`}`,
         kind: "podcast",
+        item: item.key,
         title: episode.episodeName,
         byline: episode.showName,
         coverUrl: episode.imageUrl,
@@ -118,6 +123,7 @@ export function sheetSessions(day: DayView): SheetSession[] {
       frames.push({
         key: `reading:${item.key}:${book.sessionId ?? `x${i}`}`,
         kind: "reading",
+        item: item.key,
         title: book.title,
         byline: book.author,
         coverUrl: book.coverUrl,
@@ -177,15 +183,41 @@ export function sheetShortLabel(key: string, label: string): string {
 export function sheetCells(day: DayView): SheetCell[] {
   return day.discipline
     .filter((item) => item.key !== MONSTER_LENS_KEY)
-    .map((item) => ({
-      key: item.key,
-      label: item.label,
-      short: sheetShortLabel(item.key, item.label),
-      state: cellState(item),
-      tail: cellTail(item),
-      // The headline streak is the FIRST occurrence: "how many days running at all", not "twice".
-      streak: item.occurrenceStreaks?.[0] ?? 0,
-    }));
+    .map((item) => {
+      const state = cellState(item);
+      const framed = state === "framed";
+      return {
+        key: item.key,
+        label: item.label,
+        short: sheetShortLabel(item.key, item.label),
+        state,
+        tail: cellTail(item, framed),
+        // The headline streak is the FIRST occurrence: "how many days running at all", not "twice".
+        streak: item.occurrenceStreaks?.[0] ?? 0,
+        fraction: framed ? (item.target > 0 ? `${item.count}/${item.target}` : `${item.count}`) : null,
+      };
+    });
+}
+
+/* The edge code's metrics in ems, mirroring `.today-sheet__cell` in common.css. A mark is costed
+   above the mono 0.6: arrows and ticks may fall back to a wider face. */
+const CODE_CHAR = 0.6;
+const CODE_MARK = 0.75;
+const CODE_GAP = 0.4;
+const CODE_PAD = 0.55;
+const CODE_TAIL_SHIFT = 0.2;
+const CODE_TAIL_SCALE = 0.72;
+
+/** The edge code's width in ems: CSS divides the room beside the stamp by it. DESIGN §4.3 */
+export function edgeCodeEms(cells: readonly SheetCell[]): number {
+  return cells.reduce((sum, cell, i) => {
+    const pads = (i > 0 ? CODE_PAD : 0) + CODE_PAD;
+    const tail = cell.tail
+      ? CODE_GAP - CODE_TAIL_SHIFT + cell.tail.length * CODE_CHAR * CODE_TAIL_SCALE
+      : 0;
+    const mark = cell.fraction ? cell.fraction.length * CODE_CHAR : CODE_MARK;
+    return sum + pads + mark + CODE_GAP + cell.short.length * CODE_CHAR + tail;
+  }, 0);
 }
 
 /**
@@ -198,10 +230,10 @@ function cellState(item: DisciplineItemView): SheetCellState {
   return item.count >= item.target ? "done" : "pending";
 }
 
-/** Today's part of the target and the run that is still alive, in that order of news. */
-function cellTail(item: DisciplineItemView): string | null {
+/** Today's part of the target and the live run; a framed item's part is its mark instead. */
+function cellTail(item: DisciplineItemView, framed: boolean): string | null {
   const parts: string[] = [];
-  if (item.target > 1 && item.count > 0 && item.count < item.target) {
+  if (!framed && item.target > 1 && item.count > 0 && item.count < item.target) {
     parts.push(`${item.count}/${item.target}`);
   }
   const streak = item.occurrenceStreaks?.[0] ?? 0;

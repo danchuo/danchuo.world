@@ -2,9 +2,9 @@ import { test, expect } from "@playwright/test";
 import { FIXED_TIME, stubApi } from "./fixtures";
 
 /**
- * Per-tile visual regression (PRD §12). Each tile is shot by its `aria-label` rather than the
- * whole board, so diffs stay local. One pass per project with soft asserts: a single diverged
- * tile does not hide the others.
+ * Per-tile visual regression (PRD §12) of the DEFAULT wave (DESIGN §10.2): no wave cookie is set,
+ * so the lists below follow that wave's board. Each tile is shot by its `aria-label`; soft asserts
+ * keep one diverged tile from hiding the others.
  */
 
 interface Tile {
@@ -12,43 +12,37 @@ interface Tile {
   slug: string;
 }
 
-/**
- * The "Today" tile is shot by a SEPARATE test below: the fixtures' frozen now is a Sunday, so the
- * shared pass would only ever baseline the weekend scene and leave the quest map — the board's
- * dominant and liveliest element — without any visual regression at all.
- */
+/** The "Today" tile is shot by a SEPARATE test below, on chosen days rather than the frozen now. */
 const TODAY_TILE = "Сегодня";
 
-/** Desktop: the full bento (see TILE_LAYOUT in layout.ts). */
+/** Desktop: the default wave's bento (`resolveLayout`); the two social marks share one label. */
 const DESKTOP: Tile[] = [
-  { label: "Статы — активность", slug: "stats" },
-  { label: "Сон", slug: "sleep" },
-  { label: "Календарь", slug: "calendar" },
-  { label: "Музыка", slug: "music" },
-  { label: "Последняя поездка на Велобайке", slug: "ride" },
-  { label: "Проекты", slug: "projects" },
-  { label: "Соцсети", slug: "social" },
-  { label: "Артефакты", slug: "marquee" },
-  { label: "Фото-дропы", slug: "photoDrops" },
   { label: "Последний фото-дроп", slug: "latestDrop" },
-  { label: "Свежесть данных", slug: "freshness" },
+  { label: "Музыка", slug: "music" },
+  { label: "Артефакты", slug: "marquee" },
+  { label: "Сон", slug: "sleep" },
+  { label: "Фото-дропы", slug: "photoDrops" },
+  { label: "Статы — активность", slug: "stats" },
+  { label: "Календарь", slug: "calendar" },
+  { label: "Соцсети", slug: "social" },
+  { label: "Проекты", slug: "projects" },
+  { label: "Написать автору", slug: "feedback" },
   { label: "Переключатель волн", slug: "waveSwitcher" },
 ];
 
-/** Mobile: the MOBILE_ORDER stack (the calendar is the same week grid as in bento). */
+/** Mobile: the default wave's stack order, then the default tail. */
 const MOBILE: Tile[] = [
   { label: "Календарь", slug: "calendar" },
-  { label: "Статы — активность", slug: "stats" },
   { label: "Сон", slug: "sleep" },
   { label: "Музыка", slug: "music" },
-  { label: "Последняя поездка на Велобайке", slug: "ride" },
+  { label: "Статы — активность", slug: "stats" },
   { label: "Последний фото-дроп", slug: "latestDrop" },
   { label: "Фото-дропы", slug: "photoDrops" },
-  { label: "Проекты", slug: "projects" },
   { label: "Соцсети", slug: "social" },
+  { label: "Проекты", slug: "projects" },
   { label: "Артефакты", slug: "marquee" },
   { label: "Переключатель волн", slug: "waveSwitcher" },
-  { label: "Свежесть данных", slug: "freshness" },
+  { label: "Написать автору", slug: "feedback" },
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -77,47 +71,34 @@ test("per-tile visual regression", async ({ page }, testInfo) => {
 });
 
 /**
- * The "Today" tile has two bodies (§4.1/§4.2) and they are fundamentally different pictures:
- * a weekday quest map with stops, streaks and the monster's verdict, and the weekend rest scene.
- * A weekday is reached by clicking the calendar — the board IS navigation across days.
+ * "Today" on a plain weekday and on a day with a 75-character name from production: the name is
+ * set to fit one line, so its size is data and only a long name shows the floor (DESIGN §4.3).
+ * A day is reached by clicking the calendar — the board IS navigation across days.
  */
-
-/**
- * `todayLongTitle.png` is a third baseline: a weekday with a 75-character day name from
- * production, which wraps onto a second line and keeps its size instead of shrinking to
- * unreadable. Other names never show the wrap.
- */
-test("the \"Today\" tile: weekdays (trail map) and weekend (rest scene)", async ({ page }, testInfo) => {
+test("the \"Today\" tile: a weekday and a long day name", async ({ page }, testInfo) => {
   const isMobile = testInfo.project.name === "mobile";
   const container = page.locator(isMobile ? '[data-testid="stack"]' : '[data-testid="bento"]');
   const tile = container.locator(`section[aria-label="${TODAY_TILE}"]`).first();
 
-  // 2026-06-18 is a Thursday: the quest map. Wait for the map itself rather than a timeout — the
-  // click repaints the tile's body, and a snapshot before that catches the weekend scene.
+  // Wait for the day's own stamp rather than a timeout: the click repaints the tile's body.
   await container.locator('[data-testid="day-2026-06-18"]').first().click();
-  await expect(tile.locator('[data-testid="quest-map"]')).toBeVisible();
+  await expect(tile.locator(".today-sheet__stamp")).toContainText("18");
   await expect.soft(tile).toHaveScreenshot("today.png");
 
-  await container.locator('[data-testid="day-2026-06-21"]').first().click();
-  await expect(tile.locator('[data-testid="weekend-scene"]')).toBeVisible();
-  await expect.soft(tile).toHaveScreenshot("todayWeekend.png");
-
-  // 2026-06-17 is a Wednesday with a long day name: a two-line header, the quest map below.
   await container.locator('[data-testid="day-2026-06-17"]').first().click();
-  await expect(tile.locator('[data-testid="quest-map"]')).toBeVisible();
-  await expect(tile.getByTestId("today-title")).toContainText("тройной пресс");
+  await expect(tile.locator(".today-sheet__voice")).toContainText("тройной пресс");
   await expect.soft(tile).toHaveScreenshot("todayLongTitle.png");
 });
 
 /**
- * The GitHub contributions chip (PRD §5.15) is checked through the DOM, not pixels: two digits at
- * a small size do not reach the tile baseline's `maxDiffPixelRatio`, so visual regression would
- * not notice it disappearing.
+ * GitHub contributions (PRD §5.15) are checked through the DOM, not pixels: two digits at a small
+ * size do not reach the tile baseline's `maxDiffPixelRatio`.
  */
-test("the GitHub contributions chip reaches the board", async ({ page }, testInfo) => {
+test("GitHub contributions reach the stats tile", async ({ page }, testInfo) => {
   const isMobile = testInfo.project.name === "mobile";
   const container = page.locator(isMobile ? '[data-testid="stack"]' : '[data-testid="bento"]');
   const stats = container.locator('section[aria-label="Статы — активность"]').first();
 
-  await expect(stats.getByTestId("stats-contributions")).toHaveText("+7");
+  await stats.getByRole("button", { name: "метрика: git" }).click();
+  await expect(stats.locator(".stats-ghosts__figure")).toHaveText("+7");
 });

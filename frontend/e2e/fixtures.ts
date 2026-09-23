@@ -144,6 +144,14 @@ const RIDES = [
   { id: 2, rideDate: "2026-06-18", startTime: "2026-06-18T09:00:00Z", finishTime: "2026-06-18T09:30:00Z", distanceMeters: 5000, durationSeconds: 1800, calories: 120, vehicleType: "OMNI_24", tariffName: "Пакет 60 минут", startLat: null, startLon: null, finishLat: null, finishLon: null, startAddress: null, finishAddress: null },
   { id: 1, rideDate: "2026-06-10", startTime: "2026-06-10T10:00:00Z", finishTime: "2026-06-10T10:20:00Z", distanceMeters: 3000, durationSeconds: 1200, calories: 60, vehicleType: "OMNI_24", tariffName: "Поминутный", startLat: null, startLon: null, finishLat: null, finishLon: null, startAddress: null, finishAddress: null },
 ];
+/** A night for the sleep echo (DESIGN §7.7): minutes from the 18:00 axis start. */
+const NIGHT_PARTS = [
+  { stage: "awake", fromMinute: 300, toMinute: 323 },
+  { stage: "light", fromMinute: 323, toMinute: 440 },
+  { stage: "deep", fromMinute: 440, toMinute: 520 },
+  { stage: "rem", fromMinute: 520, toMinute: 620 },
+  { stage: "light", fromMinute: 620, toMinute: 748 },
+];
 const RIDE_STATS = { totalRides: 2, totalDistanceMeters: 8000, totalDurationSeconds: 3000, totalCalories: 180, longestRideMeters: 5000, firstRideDate: "2026-06-10", lastRideDate: "2026-06-18" };
 
 /** Replaces every client `/api/*` call with deterministic fixtures. */
@@ -172,7 +180,12 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === "/api/freshness") return json(FRESHNESS);
     if (path === "/api/rides") return json(RIDES);
     if (path === "/api/rides/stats") return json(RIDE_STATS);
-    if (path === "/api/theme/active" || path === "/api/themes") return route.continue(); // the theme comes from the real DB (deterministic)
+    if (path.startsWith("/api/sleep/night/")) {
+      const date = path.slice("/api/sleep/night/".length);
+      return json({ date, axisStartHour: 18, band: { onsetMinute: 300, wakeMinute: 748, asleepMinutes: 425, asleepFromMinute: 323, parts: NIGHT_PARTS } });
+    }
+    // Social previews are absent: a 204 is null to the client, an empty object would be a preview.
+    if (path === "/api/instagram/latest" || path === "/api/telegram/profile") return route.fulfill({ status: 204 });
     return json({});
   });
 }

@@ -74,6 +74,11 @@ body {
   /* Every object stands in an absolute layer; square, as the objects themselves are. */
   aspect-ratio: 1;
 }
+/* A square shaft has no width to spare: the front object (80% of the height) centred at the bento
+   36% starts past the left edge, so the stack centres it further right. DESIGN §7.2 */
+.board-stack .artifact-shaft {
+  --shaft-x: 45%;
+}
 .board-stack .music-recent {
   /* Height is a line count: five tracks (RECENT_WHEN_IDLE) at 1.4em plus 2px gaps, plus 12px
      slack. useFitOverflow hides a row whose bottom comes within FIT_MARGIN of the edge, and a
@@ -91,194 +96,6 @@ body {
   aspect-ratio: 2 / 1;
 }
 
-/* Ride tile, `map` edition: no padding — the map IS the content (same as `.drop-card--frame`).
-   Material (edge, ground, glass) belongs to the wave skin, padding to the edition. DESIGN §7.6 */
-.ride-card--map {
-  padding: 0;
-  /* The map tile appears WITH the first city tiles (`onReady` in RideTile); before that its
-     scaffold stood on empty ground. Hidden by opacity, not unmounted: the map has to be in the
-     markup to start loading at all. */
-  opacity: 0;
-  transition: opacity 260ms ease-out;
-}
-.ride-card--map.is-ready {
-  opacity: 1;
-}
-.ride-frame {
-  /* Band numbers are declared HERE, not on the band: the blur masks are computed from them and
-     the blur layers sit outside the band. `solid` = dense zone from the top edge,
-     `feather` = the fade below it. */
-  --ride-band-solid: 26px;
-  --ride-band-feather: 30px;
-  /* The scrim is a PARAMETER in full — colour, density, text colour. The map ground is light on
-     every wave (`MAP_STYLE` in RideMap) and the band lies ON the map, so it dresses for the map,
-     not for the wave around it. A wave with inverse contrast overrides these four. DESIGN §10.2 */
-  --ride-band-scrim-color: var(--bg-page);
-  --ride-band-scrim: 30%;
-  --ride-band-scrim-body: 22%;
-  /* Size container for the `t-ride-*` clamps (DESIGN §8.1): without it they read `cqw` from the
-     viewport and the numbers come out screen-sized on a small tile. */
-  container-type: inline-size;
-  position: relative;
-  display: block;
-  width: 100%;
-  /* Own height where the parent is silent (DESIGN §8): in bento the tile supplies it, in the
-     stack `100%` collapses to `auto` and the ratio takes over. Without it Leaflet initialises
-     into a zero-height container — present in the DOM, invisible on screen. */
-  height: 100%;
-  aspect-ratio: 3 / 2;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-}
-.ride-frame__map {
-  position: absolute;
-  inset: 0;
-  display: block;
-}
-/* Data band on TOP, unlike the drop tile's: `fitBounds` centres the route between the two pins
-   and a bottom band would land on the finish pin. Its height comes from `--ride-band-*`, not
-   from content, because the blur masks are computed from that same pair. */
-.ride-frame__band {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  display: block;
-  z-index: 2;
-  padding: 10px 14px calc(var(--ride-band-feather) * 0.5);
-  pointer-events: none;
-}
-/* Scrim under the text in the wave's page colour, so the text reads in its own colour on any
-   wave. Pseudo-element UNDER the band content but ABOVE the blur layers. */
-.ride-frame__band::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  /* The scrim is QUIET: the blur carries the band, this only rescues contrast over an accidental
-     bright patch. Density holds through BOTH lines and drops only below them — same
-     `--ride-band-solid` cutoff as the masks, so text and ground end in one place. */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--ride-band-scrim-color) var(--ride-band-scrim), transparent) 0,
-    color-mix(in srgb, var(--ride-band-scrim-color) var(--ride-band-scrim-body), transparent)
-      var(--ride-band-solid),
-    transparent 100%
-  );
-}
-/* ⚠️ The blur layer is as tall as the MAP, not the band: Chromium clamps backdrop-filter
-   sampling to the element box, and a band-tall layer smeared edge pixels into a grey line
-   (docs/pitfalls.md). Two passes — one mask gives a crease the eye catches as a line. */
-.ride-frame__blur {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-.ride-frame__blur--soft {
-  -webkit-backdrop-filter: blur(7px);
-  backdrop-filter: blur(7px);
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 0,
-    #000 calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.45),
-    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 1.15)
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    #000 0,
-    #000 calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.45),
-    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 1.15)
-  );
-}
-.ride-frame__blur--deep {
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.6)) saturate(1.05);
-  backdrop-filter: blur(calc(var(--glass-blur, 12px) * 1.6)) saturate(1.05);
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 0,
-    #000 var(--ride-band-solid),
-    rgb(0 0 0 / 0.5) calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.3),
-    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.6)
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    #000 0,
-    #000 var(--ride-band-solid),
-    rgb(0 0 0 / 0.5) calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.3),
-    transparent calc(var(--ride-band-solid) + var(--ride-band-feather) * 0.6)
-  );
-}
-/* Band type is shared with the drop tile's frame caption (`--fs-band-*`): both sit on blur over
-   someone else's picture, on the same board. One line here, kilometres in the headline voice with
-   mono detail beside them — the band is too shallow for a second line. */
-.ride-frame__caption {
-  display: flex;
-  align-items: baseline;
-  gap: 0.55em;
-  min-width: 0;
-}
-/* Kilometres never wrap and never shrink: number and unit are one word. The META part yields the
-   space instead — a truncated "on Monday" still reads, truncated kilometres do not. */
-.ride-frame__km {
-  font-size: var(--fs-band-title);
-  color: var(--ride-band-ink, var(--text-primary));
-  line-height: 1.2;
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-.ride-frame__meta {
-  font-family: var(--font-mono);
-  font-size: var(--fs-band-meta);
-  color: var(--ride-band-ink-dim, var(--text-tertiary));
-  /* `min-width: 0` is what makes the ellipsis below work at all: a flex item's automatic minimum
-     is its content, so the line would stretch the band instead of truncating. */
-  flex: 1 1 auto;
-  min-width: 0;
-  /* One line is a layout promise: the band's height is held by `--ride-band-*`, not by content,
-     so a second line has nowhere to go. Overflow truncates instead. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Spread headline: the selected ride's data instead of the word "rides" — kilometres as headline,
-   mono detail beside them, same build as the tile band. Wrapping is ALLOWED here (the panel has no
-   fixed height): money sits at the line end and would truncate first. */
-.ride-modal__headline {
-  column-gap: 0.6em;
-  row-gap: 2px;
-}
-.ride-modal__headline-km {
-  font-size: var(--fs-modal-title);
-  color: var(--text-primary);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-.ride-modal__headline-meta {
-  font-family: var(--font-mono);
-  font-size: var(--fs-modal-meta);
-  color: var(--text-tertiary);
-  min-width: 0;
-}
-
-/* Rides modal, `map` spread: map left, list right, summary below, 5:2 in the map's favour — it is
-   the subject, the list its table of contents. Row type size is UNCHANGED: the column was won by
-   line structure, not by shrinking text. DESIGN §7.6 */
-.ride-modal__body {
-  gap: 12px;
-}
-.ride-modal__map {
-  position: relative;
-  flex: 5 1 0;
-  min-width: 0;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
 /* The tile map's snapshot, flown until the window's map has tiles, then dissolved into it. §7.6 */
 .ride-modal__shot {
   position: absolute;
@@ -303,72 +120,6 @@ body {
   filter: blur(14px) saturate(0.9);
   transform: scale(1.08);
 }
-/* Map column: the map stretches, the throw row below keeps its height. The proportion moved from
-   the map to the column — splitting the width is the column's job now. */
-.ride-modal__mapcol {
-  flex: 5 1 0;
-  min-width: 0;
-  gap: 0;
-}
-.ride-modal__mapcol .ride-modal__map {
-  flex: 1 1 0;
-  min-height: 0;
-}
-.ride-modal__body .ride-modal__list {
-  flex: 2 1 0;
-  min-width: 0;
-}
-/* In the spread the summary sits UNDER both columns, so its margin flips: at the bottom it would
-   stick to the panel edge. */
-.ride-modal__body + .ride-modal__summary {
-  margin-top: 12px;
-  margin-bottom: 0;
-}
-/* The spread takes full height: the map has no height of its own (the column gives it), so
-   without this the panel would collapse to the list's height. */
-.ride-modal__panel:has(.ride-modal__body) {
-  height: 85vh;
-}
-/* Scroll affordance: the bottom row DISSOLVES under the column edge — a cut mid-word is the
-   invitation to scroll, and it stands in for the removed scrollbar. Goes out at the end of the
-   list (`is-at-end`, computed in RidesModal): fading the LAST row promises content that is not there. */
-.ride-modal__list--fade {
-  --ride-list-fade: 40px;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 calc(100% - var(--ride-list-fade)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--ride-list-fade)), transparent 100%);
-}
-.ride-modal__list--fade.is-at-end {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
-/* Stations on their own lines, arrow as a caption by the second. Each line truncates, so row
-   height is the same for every ride whatever the addresses. */
-.ride-modal__stations {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-modal-meta);
-  color: var(--text-secondary);
-  line-height: 1.45;
-}
-.ride-modal__station {
-  display: block;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* The arrow is quieter than the stations: it is service text, the names are data. */
-.ride-modal__arrow {
-  color: var(--text-tertiary);
-}
-
 /* Selection is marked by a CLASS, not inline: a wave may redraw it (base — a notch on the left,
    wave-03 — a thin frame) and could not beat inline without `!important`. The notch is an INSET
    SHADOW: a border takes space and would have to stay transparent on every row. */
@@ -379,11 +130,6 @@ body {
   background: none;
   padding: 6px 8px;
 }
-/* Left group of the row top: day name and its kilometres are about one ride and read together.
-   The date is not in the group — it holds the right edge. */
-.ride-modal__when {
-  column-gap: 0.6em;
-}
 /* Day name — the row's voice. It truncates because it is the longest part, so it is the one that
    has to yield space to its neighbours. */
 .ride-modal__day {
@@ -393,24 +139,12 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Kilometres beside the day name: "how far" is the first question asked of someone else's row,
-   and it must be answerable before the row is selected (DESIGN §7.6). */
-.ride-modal__row-km {
-  font-family: var(--font-mono);
-  font-size: var(--fs-modal-meta);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
 /* Date is a service mark: mono, quietest colour. Smaller again in the spread — in a narrow column
    it would compete with the day name. */
 .ride-modal__date {
   font-family: var(--font-mono);
   font-size: var(--fs-modal-meta);
   color: var(--text-tertiary);
-}
-.ride-modal__body .ride-modal__date {
-  font-size: var(--fs-modal-small);
 }
 .ride-modal__row.is-selected {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -2734,7 +2468,7 @@ body {
 
 /* Sleep tile, `echo` edition (DESIGN §7.7): the night fills the tile with no padding and no label — the
    night itself is the subject, as the photo is in the frame edition. All text lies ON the night in a
-   bottom band of progressive blur, the same device as `.drop-frame__band` and `.ride-frame__band`. */
+   bottom band of progressive blur, the same device as `.drop-frame__band`. */
 
 /* The whole tile is the mode switch (see `.sleep-echo` below); it has no second gesture. Column geometry
    does NOT change between modes — the summary is a `transform` on the same columns (`sleepEcho.ts`), so
@@ -2777,7 +2511,7 @@ body {
   position: relative;
   display: block;
   width: 100%;
-  /* Own height where the parent is silent (DESIGN §8), as in `.ride-frame`: in bento the tile supplies
+  /* Own height where the parent is silent (DESIGN §8), as in `.quest-map`: in bento the tile supplies
      it, in the mobile stack `100%` collapses to `auto` and the sounding sets the ratio itself. */
   height: 100%;
   aspect-ratio: 8 / 5;

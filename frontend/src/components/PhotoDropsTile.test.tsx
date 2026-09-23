@@ -188,7 +188,7 @@ describe("PhotoDropsTile (compact ribbon)", () => {
    * An unknown edition name falls back to the default (the same rule as `latestDrop`): the layout
    * registry knows nothing of the set of editions, and a wave may arrive with anything.
    */
-  it("an unknown edition → the old vertical list, not the carousel", async () => {
+  it("an unknown edition → the vertical list, not the carousel", async () => {
     getDropsMock.mockResolvedValue(TWO_DROPS);
     const { container } = render(<PhotoDropsTile edition="катушка" />);
     await screen.findByText("Июльская плёнка");

@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 interface HoverTipProps {
@@ -54,6 +63,9 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
   const anchorRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
+  // A card opened by a TAP: touch has no hover, so it stays until a tap outside. DESIGN §7.9
+  const [pinned, setPinned] = useState(false);
+  const lastPointer = useRef<string | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   // The portal exists only on the client: there is no `document` on the server, and a hydration
   // mismatch costs more than a tooltip appearing one frame later.
@@ -85,6 +97,7 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
   const hide = useCallback(() => {
     stopLeaving();
     setOpen(false);
+    setPinned(false);
   }, [stopLeaving]);
   const show = useCallback(() => {
     stopLeaving();
@@ -110,18 +123,45 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
     if (closeOpenCard === hide) closeOpenCard = null;
   }, [hide]);
 
-  // The screen has scrolled or changed, so the hint hides rather than hanging detached from its anchor.
+  // A pinned card closes on a tap anywhere but itself and its mark; the mark's own tap toggles it.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !pinned) return;
+    const onDown = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && (anchorRef.current?.contains(target) || tipRef.current?.contains(target))) return;
+      hide();
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [open, pinned, hide]);
+
+  // The screen has scrolled or changed, so the hint hides rather than hanging detached from its anchor.
+  // A pinned card waits for its tap outside instead: scrolling inside it must not close it.
+  useEffect(() => {
+    if (!open || pinned) return;
     window.addEventListener("scroll", hide, true);
     window.addEventListener("resize", hide);
     return () => {
       window.removeEventListener("scroll", hide, true);
       window.removeEventListener("resize", hide);
     };
-  }, [open, hide]);
+  }, [open, pinned, hide]);
 
   if (!text && !content) return <>{children}</>;
+
+  /** Touch drives a card by taps alone; the enter, leave and focus around a tap are ignored. */
+  const byTouch = (e?: PointerEvent) => !!content && (e ? e.pointerType === "touch" : lastPointer.current === "touch");
+  const onTap = (e: MouseEvent) => {
+    if (!byTouch()) return;
+    // The mark sits in a link: the first tap shows the card instead of leaving the site.
+    e.preventDefault();
+    if (open) {
+      hide();
+    } else {
+      show();
+      setPinned(true);
+    }
+  };
 
   const tip = content ? (
     <span
@@ -129,8 +169,8 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
       className="hover-tip hover-tip--card"
       aria-hidden="true"
       data-open={open ? "true" : undefined}
-      onPointerEnter={show}
-      onPointerLeave={hide}
+      onPointerEnter={(e) => byTouch(e) || show()}
+      onPointerLeave={(e) => byTouch(e) || hide()}
       style={pos ? { top: pos.top, left: pos.left } : undefined}
     >
       {content}
@@ -154,10 +194,17 @@ export function HoverTip({ text, content, phrase = false, fill = false, children
         ref={anchorRef}
         className={`hover-tip-anchor${fill ? " hover-tip-anchor--fill" : ""}`}
         aria-describedby={content ? undefined : id}
-        onPointerEnter={show}
-        onPointerLeave={content ? hideSoon : hide}
-        onFocus={show}
-        onBlur={hide}
+        onPointerDown={(e) => {
+          lastPointer.current = e.pointerType;
+        }}
+        onPointerEnter={(e) => {
+          lastPointer.current = e.pointerType;
+          if (!byTouch(e)) show();
+        }}
+        onPointerLeave={(e) => byTouch(e) || (content ? hideSoon() : hide())}
+        onFocus={() => byTouch() || show()}
+        onBlur={() => pinned || hide()}
+        onClick={onTap}
       >
         {children}
       </span>

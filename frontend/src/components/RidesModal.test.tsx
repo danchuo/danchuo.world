@@ -188,38 +188,15 @@ describe("RidesModal — current month summary", () => {
   });
 });
 
-describe("RidesModal — `map` edition (spread)", () => {
+describe("RidesModal — the develop transition from the tile", () => {
   const rides = [
     base({ id: 1, rideDate: "2026-07-12", startLat: 55.7 }),
     base({ id: 2, rideDate: "2026-07-11", startLat: 55.8 }),
   ];
 
-  it("the map and the list stand side by side in the spread, the summary as a line below them", async () => {
-    getRideMonthSummary.mockResolvedValueOnce({
-      month: "2026-07",
-      rides: 4,
-      durationSeconds: 3660,
-      spentKopecks: 39900,
-    });
-    const { container } = render(
-      <RidesModal rides={rides} today="2026-07-13" edition="map" onClose={() => {}} />,
-    );
-
-    const body = container.querySelector(".ride-modal__body");
-    expect(body).not.toBeNull();
-    // Both halves of the spread live INSIDE it — otherwise the map would be a strip above the list.
-    expect(body!.querySelector('[data-testid="ride-map"]')).not.toBeNull();
-    expect(body!.querySelector(".ride-modal__list")).not.toBeNull();
-
-    // The summary is the spread's sibling, not its part: the row spans the window's full width.
-    const strip = await screen.findByLabelText("Сводка за текущий месяц");
-    expect(body!.contains(strip)).toBe(false);
-    expect(strip.previousElementSibling).toBe(body);
-  });
-
   it("the map is the \"hero\" and the \"face\" of the development: it is what grows out of the board tile", () => {
     const { container } = render(
-      <RidesModal rides={rides} today="2026-07-13" edition="map" onClose={() => {}} />,
+      <RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />,
     );
 
     const hero = container.querySelector("[data-morph-hero]");
@@ -231,7 +208,7 @@ describe("RidesModal — `map` edition (spread)", () => {
 
   it("a snapshot of the tile's map flies as the hero until the live map is ready, and leaves when another ride is picked", () => {
     const { container } = render(
-      <RidesModal rides={rides} today="2026-07-13" edition="map" preview="data:image/png;base64,AAAA" onClose={() => {}} />,
+      <RidesModal rides={rides} today="2026-07-13" preview="data:image/png;base64,AAAA" onClose={() => {}} />,
     );
 
     const hero = container.querySelector("[data-morph-hero]")!;
@@ -242,76 +219,15 @@ describe("RidesModal — `map` edition (spread)", () => {
     fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("button")[1]);
     expect(hero.querySelector("img.ride-modal__preview")).toBeNull();
   });
-
-  it("without the edition — the old column: map on top, no spread", () => {
-    const { container } = render(<RidesModal rides={rides} today="2026-07-13" onClose={() => {}} />);
-
-    expect(container.querySelector(".ride-modal__body")).toBeNull();
-    expect(screen.getByTestId("ride-map")).toBeInTheDocument();
-  });
 });
 
-/**
- * The spread separates two answers: "how much" in the header over the map, "when and from where
- * to where" in the list rows. While the figures stood in both, the list read as a table of
- * equally loud rows. The column layout has no data header, and the figures stay in the row.
- */
-describe("RidesModal — the selected ride's data in the spread header", () => {
+describe("RidesModal — list rows", () => {
   const withCost = [
     base({ id: 1, rideDate: "2026-07-12", distanceMeters: 6900, durationSeconds: 2640, calories: 168 }),
     base({ id: 2, rideDate: "2026-07-11", distanceMeters: 4200, durationSeconds: 1260, calories: 96 }),
   ];
 
-  it("the header shows the selected ride's kilometres, time, calories and money, not the word \"rides\"", () => {
-    const { container } = render(
-      <RidesModal rides={withCost} today="2026-07-13" edition="map" onClose={() => {}} />,
-    );
-
-    const head = container.querySelector(".ride-modal__head")!;
-    expect(within(head as HTMLElement).getByText("6.9 км")).toBeInTheDocument();
-    expect(within(head as HTMLElement).getByText(/44 мин · 168 ккал · 52 ₽/)).toBeInTheDocument();
-    expect(screen.queryByText("поездки")).toBeNull();
-  });
-
-  it("picked another ride — the header recalculated", () => {
-    const { container } = render(
-      <RidesModal rides={withCost} today="2026-07-13" edition="map" onClose={() => {}} />,
-    );
-
-    fireEvent.click(within(screen.getAllByRole("option")[1]).getByRole("button"));
-    const head = container.querySelector(".ride-modal__head")!;
-    expect(within(head as HTMLElement).getByText("4.2 км")).toBeInTheDocument();
-  });
-
-  it("the spread row has the day, its kilometres, the date and the stations; no other figures", () => {
-    render(
-      <RidesModal
-        rides={[
-          base({
-            id: 1,
-            rideDate: "2026-07-12",
-            distanceMeters: 6900,
-            startAddress: "ул. Свежая, 1",
-            finishAddress: "пл. Финиш, 2",
-          }),
-        ]}
-        today="2026-07-13"
-        edition="map"
-        onClose={() => {}}
-      />,
-    );
-
-    const row = screen.getByRole("option");
-    expect(within(row).getByText("2026-07-12")).toBeInTheDocument();
-    expect(within(row).getByText(/ул. Свежая, 1/)).toBeInTheDocument();
-    // The kilometres stand by the day's name: before a row is picked you can see how far it went.
-    expect(within(row).getByText("6.9 км")).toBeInTheDocument();
-    // The other figures still live only in the header by the map, or the list flickers.
-    expect(within(row).queryByText(/ккал/)).toBeNull();
-    expect(within(row).queryByText(/мин/)).toBeNull();
-  });
-
-  it("in the column layout the figures stay in the row and the header is the word \"rides\"", () => {
+  it("the figures stay in the row and the header is the word \"rides\"", () => {
     render(<RidesModal rides={withCost} today="2026-07-13" onClose={() => {}} />);
 
     expect(screen.getByText("поездки")).toBeInTheDocument();

@@ -2,13 +2,6 @@ import { test, expect } from "@playwright/test";
 import { FIXED_TIME, stubApi } from "./fixtures";
 
 const stages = { awake: 23, rem: 100, light: 245, deep: 80 };
-const parts = [
-  { stage: "awake", fromMinute: 300, toMinute: 323 },
-  { stage: "light", fromMinute: 323, toMinute: 440 },
-  { stage: "deep", fromMinute: 440, toMinute: 520 },
-  { stage: "rem", fromMinute: 520, toMinute: 620 },
-  { stage: "light", fromMinute: 620, toMinute: 748 },
-];
 
 test.beforeEach(async ({ page, context, baseURL }) => {
   page.on("pageerror", (error) => console.error(error.message));
@@ -18,22 +11,12 @@ test.beforeEach(async ({ page, context, baseURL }) => {
   await context.addCookies([{ name: "danchuo_wave", value: "wave-03", url: baseURL! }]);
   await page.clock.setFixedTime(FIXED_TIME);
   await stubApi(page);
-  // Wave 03 renders social previews; an absent preview is null, not an empty object.
-  await page.route("**/api/instagram/latest", (route) => route.fulfill({ status: 204 }));
-  await page.route("**/api/telegram/profile", (route) => route.fulfill({ status: 204 }));
   await page.route("**/api/days/*", async (route) => {
     const date = new URL(route.request().url()).pathname.split("/").pop();
     await route.fulfill({ json: {
       date, title: null, hasData: true,
       health: { steps: 8000, sleepMinutes: 425, sleepStages: stages },
       workouts: [], discipline: [], monsterDrunk: null, monsterCleanStreak: 0,
-    } });
-  });
-  await page.route("**/api/sleep/night/*", async (route) => {
-    const date = new URL(route.request().url()).pathname.split("/").pop();
-    await route.fulfill({ json: {
-      date, axisStartHour: 18,
-      band: { onsetMinute: 300, wakeMinute: 748, asleepMinutes: 425, asleepFromMinute: 323, parts },
     } });
   });
   await page.goto("/");

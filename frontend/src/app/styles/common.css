@@ -4687,7 +4687,8 @@ button.sleep-echo:focus-visible {
    in the row as one more picture. No border and no ground: the figure is the card, and a plate
    would make it a button among pictures. DESIGN §4.3 */
 .today-sheet__monster,
-.today-sheet__boulder {
+.today-sheet__activity,
+.today-sheet__photo {
   flex: 0 0 auto;
   width: var(--sheet-frame);
   padding: 0;
@@ -4701,14 +4702,60 @@ button.sleep-echo:focus-visible {
   flex-direction: column;
   gap: 6px;
 }
-/* The shoe is a fact, not a control: the monster's frame without the pointer. */
-.today-sheet__boulder {
+/* An activity is a fact, not a control: the monster's frame without the pointer. */
+.today-sheet__activity {
   margin: 0;
   cursor: default;
 }
 /* The shoe's neon reads louder than the grey can: its colour is muted, its light is the stage's. */
-.today-sheet__boulder .today-sheet__monsterbody {
+.today-sheet__activity.is-boulder .today-sheet__monsterbody {
   filter: saturate(0.5);
+}
+/* A pictogram stands about as tall as the can beside it, in the accent. */
+.today-sheet__activity .today-sheet__shot {
+  display: grid;
+  place-items: center;
+}
+.today-sheet__glyph {
+  width: 62%;
+  height: 62%;
+  color: var(--accent);
+}
+/* The photo has no caption, so its slot is a neighbour's frame PLUS its caption zone (two 6px gaps,
+   the 2px track, the 11px·1.3 name line). Proportions are fractions of that slot, seated at its foot. */
+.today-sheet__photo {
+  --sheet-slot: calc(var(--sheet-frame) + 14px + 11px * 1.3);
+  width: calc(var(--sheet-slot) * var(--photo-w, 1));
+  justify-content: flex-end;
+}
+.today-sheet__photo .today-sheet__shot {
+  width: 100%;
+  height: calc(var(--sheet-slot) * var(--photo-h, 1));
+}
+.today-sheet__photo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
+}
+
+/* The day's photo at full size: as large as the viewport allows, never cropped. */
+.day-photo-modal img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 90vw;
+  max-height: 86vh;
+  border-radius: var(--radius-md);
+}
+.day-photo-modal__close {
+  position: absolute;
+  top: -36px;
+  right: 0;
+  display: inline-flex;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 /* The figure stands where a cover would, on the canvas rather than on the cover's grey ground. */
 .today-sheet__shot--bare { background: none; }

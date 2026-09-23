@@ -6,11 +6,19 @@ import io.restassured.RestAssured.given
 import io.restassured.http.ContentType
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.hamcrest.Matchers.contains
+import org.hamcrest.Matchers.empty
 import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 import world.danchuo.days.DayRecordRepository
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Base64
+import javax.imageio.ImageIO
 
 /**
  * ingest/daily (PRD §5.6): the day's name, item progress, the monster mark. Dates are relative
@@ -150,5 +158,92 @@ class DailyIngestResourceTest {
             .body("""{"date":"${today.minusDays(31)}","items":{"stretch":1}}""")
             .post("/api/ingest/daily")
             .then().statusCode(200)
+    }
+
+    // -- Activities and the day photo (PRD §5.6) --
+
+    private fun ingest(body: String) =
+        given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
+            .post("/api/ingest/daily")
+
+    private fun jpegBase64(width: Int, height: Int): String {
+        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val out = ByteArrayOutputStream()
+        ImageIO.write(image, "jpg", out)
+        return Base64.getEncoder().encodeToString(out.toByteArray())
+    }
+
+    @Test
+    fun `activities are stored in catalogue order and the monster rides the same list`() {
+        val date = today.minusDays(6)
+        ingest("""{"date":"$date","activities":["Зал","monster","Болдеринг"]}""").then().statusCode(200)
+
+        given().get("/api/days/$date").then().statusCode(200)
+            .body("activities", contains("bouldering", "gym"))
+            .body("monsterDrunk", equalTo(true))
+    }
+
+    @Test
+    fun `a newline-joined string counts as a list - that is what a text field makes of it`() {
+        val date = today.minusDays(7)
+        ingest("""{"date":"$date","activities":"сквош\nотжимания"}""").then().statusCode(200)
+
+        given().get("/api/days/$date").then().statusCode(200)
+            .body("activities", contains("squash", "pushups"))
+            .body("monsterDrunk", equalTo(false))
+    }
+
+    @Test
+    fun `the list is a snapshot - a repeat without activities clears them`() {
+        val date = today.minusDays(8)
+        ingest("""{"date":"$date","activities":["турники","брусья"]}""").then().statusCode(200)
+        ingest("""{"date":"$date"}""").then().statusCode(200)
+
+        given().get("/api/days/$date").then().statusCode(200)
+            .body("activities", empty<String>())
+    }
+
+    @Test
+    fun `unknown activity is 422 and writes nothing`() {
+        val date = today.minusDays(9)
+        ingest("""{"date":"$date","title":"не дойдёт","activities":["керлинг"]}""")
+            .then().statusCode(422)
+            .body("kind", equalTo("activity"))
+
+        QuarkusTransaction.requiringNew().call {
+            assertNull(dayRecordRepository.findByDate(date)?.title)
+        }
+    }
+
+    @Test
+    fun `the day photo is stored, served in two sizes and kept when a repeat sends none`() {
+        val date = today.minusDays(10)
+        ingest("""{"date":"$date","photo":"${jpegBase64(3000, 2000)}"}""").then().statusCode(200)
+        ingest("""{"date":"$date","title":"без фото"}""").then().statusCode(200)
+
+        val thumbUrl = given().get("/api/days/$date").then().statusCode(200)
+            .body("photo.width", equalTo(2560))
+            .body("photo.height", equalTo(1707))
+            .extract().path<String>("photo.thumbUrl")
+
+        given().get(thumbUrl).then().statusCode(200).contentType("image/jpeg")
+        given().get("/api/days/$date/photo/web").then().statusCode(200).contentType("image/jpeg")
+    }
+
+    @Test
+    fun `a photo that does not decode is 400 bad_photo`() {
+        val date = today.minusDays(11)
+        ingest("""{"date":"$date","photo":"bm90IGFuIGltYWdl"}""")
+            .then().statusCode(400)
+            .body("error", equalTo("bad_photo"))
+    }
+
+    @Test
+    fun `a day without a photo answers 404 for it and null in the view`() {
+        val date = today.minusDays(12)
+        ingest("""{"date":"$date"}""").then().statusCode(200)
+
+        given().get("/api/days/$date").then().body("photo", nullValue())
+        given().get("/api/days/$date/photo/thumb").then().statusCode(404)
     }
 }

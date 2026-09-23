@@ -1273,7 +1273,8 @@
 @media (hover: hover) {
   /* Openable answers in LIGHT on the PICTURE alone: no stroke outside, no movement, and the name
      stays put. Every frame answers identically now, the edge ones included. */
-  :root[data-wave="wave-03"] .today-sheet__frame.is-openable:hover .today-sheet__shot::after {
+  :root[data-wave="wave-03"] .today-sheet__frame.is-openable:hover .today-sheet__shot::after,
+  :root[data-wave="wave-03"] .today-sheet__photo:hover .today-sheet__shot::after {
     opacity: 1;
   }
 }

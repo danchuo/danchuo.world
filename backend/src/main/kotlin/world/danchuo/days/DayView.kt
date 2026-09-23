@@ -32,6 +32,18 @@ data class DayView(
      * once its record is picked (see [StreakCalculator]). PRD §5.6
      */
     val monsterCleanStreak: Int,
+    /** The day's activity keys (`checklist.Activity`) in catalogue order; empty when none. */
+    val activities: List<String>,
+    val photo: DayPhotoView?,
+)
+
+/** The day's photo: URLs versioned by its arrival, the size is the web variant's. PRD §5.6 */
+@RegisterForReflection
+data class DayPhotoView(
+    val thumbUrl: String,
+    val webUrl: String,
+    val width: Int,
+    val height: Int,
 )
 
 /** Apple Health stats of the day (§5.4). All nullable — null is not 0. */

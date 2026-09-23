@@ -93,8 +93,6 @@ services:
         # robots.txt, sitemap.xml and opengraph-image are prerendered statically at build time, so
         # SITE_URL has to be a build-arg or the prod default would be baked into them.
         SITE_URL: http://localhost:3000
-        # Demo: today shows the bouldering shoe until the backend sends the field. Local only.
-        NEXT_PUBLIC_DEMO_BOULDERING: "1"
     environment:
       # SSR inject of the active wave's tokens: the Next server fetches /api/theme/active by the
       # backend's internal docker name, while browser /api/* calls go through the rewrites above.

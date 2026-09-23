@@ -5,9 +5,11 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
+import jakarta.ws.rs.core.CacheControl
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import world.danchuo.core.config.MskTime
+import world.danchuo.film.PhotoVariant
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
@@ -22,6 +24,7 @@ import java.time.temporal.ChronoUnit
 class DaysResource(
     private val aggregator: DayAggregator,
     private val mskTime: MskTime,
+    private val dayPhotos: DayPhotoService,
 ) {
 
     @GET
@@ -36,6 +39,22 @@ class DaysResource(
         }
         // MSK today enters the projection (the streak's "through yesterday" rule) and the cache key.
         return Response.ok(aggregator.viewOf(date, mskTime.today())).build()
+    }
+
+    /** The day's photo; the view's URL carries `?v=`, so a stored variant is cached for good. */
+    @GET
+    @Path("/{date}/photo/{variant}")
+    @Produces("image/jpeg")
+    fun photo(@PathParam("date") raw: String, @PathParam("variant") rawVariant: String): Response {
+        val date = parseDate(raw) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        val variant = PhotoVariant.entries.firstOrNull { it.name.equals(rawVariant, ignoreCase = true) }
+            ?: return Response.status(Response.Status.NOT_FOUND).build()
+        val bytes = dayPhotos.read(date, variant) ?: return Response.status(Response.Status.NOT_FOUND).build()
+        val cache = CacheControl().apply {
+            maxAge = 60 * 60 * 24 * 30
+            isPrivate = false
+        }
+        return Response.ok(bytes, "image/jpeg").cacheControl(cache).build()
     }
 
     @GET

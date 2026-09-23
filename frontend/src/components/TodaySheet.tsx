@@ -15,7 +15,11 @@ import {
   type SheetSession,
 } from "@/lib/daySheet";
 import { Artifact3D } from "./Artifact3D";
-import { showsBoulder } from "@/lib/bouldering";
+import { dayActivities, type ActivityCard as Activity } from "@/lib/activities";
+import type { DayPhotoView } from "@/lib/api/types";
+import { photoFrame } from "@/lib/dayPhoto";
+import { ActivityGlyph } from "./ActivityGlyph";
+import { DayPhotoModal } from "./DayPhotoModal";
 import { MONSTER_LENS_KEY, type DisciplineLens } from "@/lib/disciplineLens";
 import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
@@ -42,6 +46,7 @@ interface TodaySheetProps {
  */
 export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: TodaySheetProps) {
   const [retold, setRetold] = useState<SummarySubject | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const headline = sheetHeadline(day, today);
   const sessions = sheetSessions(day);
   const cells = sheetCells(day);
@@ -85,13 +90,16 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
           {voice}
         </p>
 
-        {/* The monster stands IN the frame row, last: it is the one discipline item that is a BODY
-            rather than a count, so it takes a frame's square instead of a socket. DESIGN §4.3 */}
+        {/* Sittings, the day's activities, its photo, and the monster closing the row: every one
+            a frame's square, so the row keeps one baseline. DESIGN §4.3 */}
         <div className="today-sheet__frames">
           {sessions.map((session) => (
             <Frame key={session.key} session={session} onOpen={setRetold} />
           ))}
-          {showsBoulder(day) && <BoulderCard />}
+          {dayActivities(day).map((activity) => (
+            <ActivityCard key={activity.key} activity={activity} />
+          ))}
+          {day.photo && <PhotoCard photo={day.photo} onOpen={() => setPhotoOpen(true)} />}
           <MonsterCard
             card={monster}
             active={lens?.key === MONSTER_LENS_KEY}
@@ -127,6 +135,7 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
 
       {retold && typeof document !== "undefined" &&
         createPortal(<SummaryModal subject={retold} onClose={() => setRetold(null)} />, document.body)}
+      {photoOpen && day.photo && <DayPhotoModal photo={day.photo} onClose={() => setPhotoOpen(false)} />}
     </div>
   );
 }
@@ -293,25 +302,59 @@ function MonsterCard({
 }
 
 /**
- * The bouldering shoe: the monster's frame geometry, standing before it on the days it happened.
- * A fact, not a control — no lens answers to it. DESIGN §4.3
+ * An activity of the day in the monster's frame geometry: a fact, not a control — no lens answers
+ * to it. Bouldering stands as the 3D shoe, the rest as line pictograms. DESIGN §4.3
  */
-function BoulderCard() {
+function ActivityCard({ activity }: { activity: Activity }) {
+  const boulder = activity.key === "bouldering";
   return (
-    <figure className="today-sheet__boulder" aria-label="Болдеринг">
+    <figure className={`today-sheet__activity${boulder ? " is-boulder" : ""}`} aria-label={activity.label}>
       <span className="today-sheet__shot today-sheet__shot--bare">
-        <Artifact3D
-          src={BOULDER_MODEL_SRC}
-          className="today-sheet__monsterbody"
-          rpm={MONSTER_RPM}
-          pose={BOULDER_POSE}
-          padding={BOULDER_PADDING}
-          brightness={BOULDER_BRIGHTNESS}
-        />
+        {boulder ? (
+          <Artifact3D
+            src={BOULDER_MODEL_SRC}
+            className="today-sheet__monsterbody"
+            rpm={MONSTER_RPM}
+            pose={BOULDER_POSE}
+            padding={BOULDER_PADDING}
+            brightness={BOULDER_BRIGHTNESS}
+          />
+        ) : (
+          <ActivityGlyph activity={activity.key} className="today-sheet__glyph" />
+        )}
       </span>
       <span className="today-sheet__track today-sheet__track--void" aria-hidden />
-      <figcaption className="today-sheet__monstersay">болдеринг</figcaption>
+      <figcaption className="today-sheet__monstersay">{activity.label}</figcaption>
     </figure>
+  );
+}
+
+/**
+ * The day's photo in its own proportions ([photoFrame]), with no caption: it takes the neighbours'
+ * caption line too. Focus is dropped on open, or Esc would leave a ring around it. DESIGN §4.3
+ */
+function PhotoCard({ photo, onOpen }: { photo: DayPhotoView; onOpen: () => void }) {
+  const frame = photoFrame(photo.width, photo.height);
+  const size = {
+    "--photo-w": frame.width.toFixed(3),
+    "--photo-h": frame.height.toFixed(3),
+  } as CSSProperties;
+  return (
+    <button
+      type="button"
+      className="today-sheet__photo"
+      aria-label="Фото дня"
+      onClick={(e) => {
+        e.currentTarget.blur();
+        onOpen();
+      }}
+      style={size}
+    >
+      <span className="today-sheet__shot">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo.thumbUrl} alt="" className="today-sheet__cover" loading="lazy" />
+      </span>
+    </button>
   );
 }
 

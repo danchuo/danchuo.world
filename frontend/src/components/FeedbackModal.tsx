@@ -118,7 +118,7 @@ export function FeedbackModal({ waveKey, selectedDay, onClose }: FeedbackModalPr
         ) : (
           <>
             <h2 className="feedback-modal__title">
-              жажду советов пожеланий{" "}
+              жажду советов, пожеланий,{" "}
               <span className="feedback-modal__word">интеллектуальных</span> вкладов
             </h2>
             <p className="feedback-modal__lead">можно ответить на один вопрос или на все</p>

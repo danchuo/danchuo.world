@@ -81,6 +81,20 @@ describe("FaviconSpinner", () => {
     expect(new Set(fetchFrame.mock.calls.map(([url]) => url)).size).toBe(48);
   });
 
+  /* Next streams its metadata `<link rel=icon href=/icon?…>` in AFTER the spinner has started. Left
+     pointing at the network, Chrome refetched it on every frame swap: ten requests a second per tab. */
+  it("an icon link that arrives later turns with the rest instead of pointing at the network", async () => {
+    stubFrames();
+    render(<FaviconSpinner />);
+    await waitFor(() => expect(link()?.href).toContain("earth-spin-00.png"));
+    const late = document.createElement("link");
+    late.rel = "icon";
+    late.href = "/icon?2e6ec86e4cf92e55";
+    document.head.appendChild(late);
+
+    await waitFor(() => expect(late.href).toContain("blob:"), { timeout: 3000 });
+  });
+
   it("creates <link rel=icon> if head had none", async () => {
     document.head.innerHTML = "";
     stubFrames();

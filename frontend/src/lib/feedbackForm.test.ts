@@ -15,6 +15,14 @@ describe("note form", () => {
     expect(canSubmit({ ...EMPTY_ANSWERS, wouldChange: "календарь" })).toBe(true);
   });
 
+  /* Invisible characters survive `trim()`, and a note of nothing but them reads blank in the admin. */
+  it("an answer of invisible characters only is still empty", () => {
+    for (const blank of ["​", "﻿ ⁠", " ‍", "⠀", "ㅤ"]) {
+      expect(canSubmit({ ...EMPTY_ANSWERS, likedMost: blank })).toBe(false);
+    }
+    expect(canSubmit({ ...EMPTY_ANSWERS, likedMost: "​ок" })).toBe(true);
+  });
+
   it("each question has its own key and the keys are unique", () => {
     const keys = FEEDBACK_QUESTIONS.map((q) => q.key);
     expect(new Set(keys).size).toBe(keys.length);

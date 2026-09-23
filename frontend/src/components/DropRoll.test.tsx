@@ -18,6 +18,10 @@ const photos: FilmPhotoView[] = [
   },
 ];
 
+/** Finds wait for the full frame, so tests about them load it first. */
+const loadFrame = (container: HTMLElement) =>
+  fireEvent.load(container.querySelector(".drop-roll__photo") as HTMLImageElement);
+
 describe("DropRoll", () => {
   it("opens on the frame clicked in the tile, not from the start of the drop", () => {
     render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
@@ -33,7 +37,8 @@ describe("DropRoll", () => {
   });
 
   it("shows the current frame's finds and their count", () => {
-    render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    const { container } = render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    loadFrame(container);
 
     expect(screen.getByText("находок: 1")).toBeInTheDocument();
     expect(screen.getByText("футболка")).toBeInTheDocument();
@@ -42,6 +47,7 @@ describe("DropRoll", () => {
   /* A phone has no hover: a tap is the finger's "hand on the find", and a tap beside it lets go. */
   it("a touch tap on a find takes it into focus, a tap past every find releases it", () => {
     const { container } = render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    loadFrame(container);
     const stage = container.querySelector(".drop-roll__stage") as HTMLElement;
     stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
     const tap = (x: number, y: number) => {
@@ -58,6 +64,7 @@ describe("DropRoll", () => {
 
   it("the compatibility mouseleave a browser sends after a tap does not drop the focus", () => {
     const { container } = render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    loadFrame(container);
     const stage = container.querySelector(".drop-roll__stage") as HTMLElement;
     stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
     fireEvent.pointerDown(stage, { pointerId: 1, pointerType: "touch", clientX: 30, clientY: 45 });
@@ -92,6 +99,54 @@ describe("DropRoll", () => {
     await userEvent.click(screen.getByRole("button", { name: "открыть кадр 2 во весь экран" }));
 
     expect(onZoom).toHaveBeenCalledWith(1, expect.anything());
+  });
+});
+
+describe("DropRoll — the full frame and its stand-in", () => {
+  /* A half-downloaded JPEG paints top-down over the thumbnail, and the seam reads as a bad shot. */
+  it("the full frame stays unshown until it has loaded whole, the thumbnail stands in meanwhile", () => {
+    const { container } = render(<DropRoll photos={photos} onZoom={() => {}} />);
+    const full = container.querySelector(".drop-roll__photo") as HTMLImageElement;
+
+    expect(full).not.toHaveAttribute("data-ready");
+    expect(container.querySelector(".drop-roll__thumb")).toBeInTheDocument();
+
+    fireEvent.load(full);
+
+    expect(container.querySelector(".drop-roll__photo")).toHaveAttribute("data-ready");
+    expect(container.querySelector(".drop-roll__thumb")).not.toBeInTheDocument();
+  });
+
+  /* An old drop has no dimensions: the stage hugs the picture, and with the frame unshown it was 0×0. */
+  it("a frame without dimensions takes the stage's proportion from its thumbnail", () => {
+    const bare: FilmPhotoView[] = [{ imageUrl: "/w", thumbUrl: "/t", width: null, height: null, artifacts: [] }];
+    const { container } = render(<DropRoll photos={bare} onZoom={() => {}} />);
+    const thumb = container.querySelector(".drop-roll__thumb") as HTMLImageElement;
+    Object.defineProperty(thumb, "naturalWidth", { value: 400 });
+    Object.defineProperty(thumb, "naturalHeight", { value: 600 });
+
+    fireEvent.load(thumb);
+
+    expect((container.querySelector(".drop-roll__stage") as HTMLElement).style.aspectRatio).toBe("400 / 600");
+  });
+
+  it("the finds wait for the full frame: over the blurred stand-in they would read as patches", () => {
+    const { container } = render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    expect(container.querySelector(".artifact-box")).toBeNull();
+
+    fireEvent.load(container.querySelector(".drop-roll__photo") as HTMLImageElement);
+
+    expect(container.querySelector(".artifact-box")).not.toBeNull();
+  });
+
+  it("a frame already complete from the cache is shown without waiting for a load event", () => {
+    const complete = vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
+    const width = vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(1600);
+    const { container } = render(<DropRoll photos={photos} onZoom={() => {}} />);
+    complete.mockRestore();
+    width.mockRestore();
+
+    expect(container.querySelector(".drop-roll__photo")).toHaveAttribute("data-ready");
   });
 });
 

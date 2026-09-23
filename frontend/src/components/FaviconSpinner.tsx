@@ -58,8 +58,9 @@ export function FaviconSpinner() {
     let cancelled = false;
     let timer = 0;
 
-    const links = iconLinks();
-    const show = (href: string) => links.forEach((link) => (link.href = href));
+    // Links are looked up per frame: Next streams its own `/icon` link in later, and one left on
+    // the network is refetched by Chrome on every swap. DESIGN §10.3
+    const show = (href: string) => iconLinks().forEach((link) => (link.href = href));
 
     /* The turn starts only once every frame is in memory: an href pointing at a file still on
        its way leaves the tab blank, and at ten frames a second that reads as a flickering icon. */

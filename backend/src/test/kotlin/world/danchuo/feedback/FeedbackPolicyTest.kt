@@ -39,6 +39,15 @@ class FeedbackPolicyTest {
     }
 
     @Test
+    fun `an answer of invisible characters only is empty too`() {
+        // They survive trim() and would store a note that reads blank in the admin.
+        for (blank in listOf("​", "﻿ ⁠", " ‍", "⠀", "ㅤ")) {
+            assertEquals("empty", rejected(FeedbackRequest(path = "/", likedMost = blank)).error)
+        }
+        assertEquals("​ок", accepted(FeedbackRequest(path = "/", likedMost = "​ок")).likedMost)
+    }
+
+    @Test
     fun `an over-long answer is rejected, never truncated`() {
         val req = FeedbackRequest(path = "/", likedMost = "я".repeat(FeedbackLimits.ANSWER + 1))
         val out = rejected(req)

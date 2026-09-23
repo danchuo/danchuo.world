@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AdminApiError, getAnalyticsSummary } from "@/lib/api/admin";
-import { formatCount, formatDuration, periodWindow, PERIODS } from "@/lib/analyticsFormat";
+import {
+  formatCount,
+  formatDuration,
+  formatVital,
+  periodWindow,
+  PERIODS,
+  vitalGrade,
+  type VitalGrade,
+  type VitalKey,
+} from "@/lib/analyticsFormat";
 import { mskToday } from "@/lib/date";
 import type { AnalyticsSummaryView } from "@/lib/api/types";
 import { activeTabBtnStyle, mono, tabBtnStyle } from "./adminUi";
@@ -88,6 +97,28 @@ export function StatsSection({ token }: { token: string }) {
         />
       </dl>
 
+      <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <h3 style={{ ...mono, color: "var(--text-tertiary)" }}>
+          <span title={VITALS_HINT} style={hintedStyle}>
+            скорость у посетителей · p75
+          </span>
+        </h3>
+        <dl style={kpiRowStyle}>
+          {VITALS.map(({ key, label }) => {
+            const vital = data?.vitals?.[key];
+            const p75 = vital?.p75 ?? null;
+            return (
+              <Kpi
+                key={key}
+                label={`${label} · ${formatCount(vital?.samples ?? 0)}`}
+                value={formatVital(key, p75)}
+                color={GRADE_COLOR[vitalGrade(key, p75) ?? "none"]}
+              />
+            );
+          })}
+        </dl>
+      </section>
+
       <DailyChart days={data?.days ?? []} />
 
       <div style={gridStyle}>
@@ -125,7 +156,7 @@ export function StatsSection({ token }: { token: string }) {
 }
 
 /** One KPI. The number wears the primary ink; only the bar charts carry the accent. */
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({ label, value, hint, color }: { label: string; value: string; hint?: string; color?: string }) {
   return (
     <div style={kpiStyle}>
       <dt style={{ ...mono, color: "var(--text-tertiary)" }}>
@@ -137,12 +168,31 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
           label
         )}
       </dt>
-      <dd style={{ fontSize: 24, fontWeight: 600, color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
+      <dd style={{ fontSize: 24, fontWeight: 600, color: color ?? "var(--text-primary)", fontFamily: "var(--font-mono)" }}>
         {value}
       </dd>
     </div>
   );
 }
+
+const VITALS: { key: VitalKey; label: string }[] = [
+  { key: "lcpMs", label: "LCP" },
+  { key: "inpMs", label: "INP" },
+  { key: "cls", label: "CLS" },
+  { key: "fcpMs", label: "FCP" },
+  { key: "ttfbMs", label: "TTFB" },
+];
+
+/** Waves without status tokens fall back to plain ink rather than to a hardcoded colour. */
+const GRADE_COLOR: Record<VitalGrade | "none", string | undefined> = {
+  good: "var(--success, var(--text-primary))",
+  "needs-improvement": "var(--accent)",
+  poor: "var(--danger, var(--accent))",
+  none: undefined,
+};
+
+const VITALS_HINT =
+  "Web Vitals, измеренные в браузерах настоящих посетителей (боты не считаются). Число — 75-й перцентиль: у трёх из четырёх визитов было не хуже. Рядом с названием — сколько визитов прислали метрику. LCP — когда отрисовался главный контент (хорошо ≤ 2.5 с); INP — задержка отклика на клик (≤ 200 мс); CLS — сдвиги вёрстки (≤ 0.1); FCP — первый отрисованный контент (≤ 1.8 с); TTFB — ответ сервера (≤ 0.8 с). Зелёный — хорошо, акцент — терпимо, красный — плохо.";
 
 const kpiRowStyle: CSSProperties = {
   display: "grid",

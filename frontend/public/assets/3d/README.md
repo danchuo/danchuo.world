@@ -22,7 +22,7 @@
 
 | файл | источник | автор | лицензия |
 |---|---|---|---|
-| `wireframe-globe.glb` | [Wireframe 3D Globe](https://sketchfab.com/3d-models/wireframe-3d-globe-20adb20e73ee4b68bc1207e1675b8891) (Sketchfab) | Ep Digital Design | **CC Attribution** — требует указания авторства |
+| `low-poly-earth.glb` | передана владельцем (экспорт Sketchfab «Low Poly Planet Earth») | уточнить | **уточнить** — у моделей Sketchfab обычно CC-BY, тогда нужна атрибуция |
 | `spiral-vortex.glb` | передана владельцем (сгенерирована trimesh) | — | происхождение уточнить, если модель поедет дальше плитки проектов |
 | `the-moon.glb` | [The Moon](https://sketchfab.com/3d-models/the-moon-9916fcec59f04b07b3e8d7f077dc3ded) (Sketchfab) | SebastianSosnowski | **CC-BY-4.0** — требует указания авторства |
 | `white-monster.glb` | передана владельцем (3D-скан банки) | — | происхождение уточнить: модель стоит на борде крупно, в шахте артефактов (DESIGN §7.2) |

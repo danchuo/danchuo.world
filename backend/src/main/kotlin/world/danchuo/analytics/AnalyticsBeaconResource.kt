@@ -33,6 +33,11 @@ class AnalyticsBeaconResource(
         val waveKey: String? = null,
         val viewportW: Int? = null,
         val viewportH: Int? = null,
+        val lcpMs: Int? = null,
+        val inpMs: Int? = null,
+        val clsMilli: Int? = null,
+        val fcpMs: Int? = null,
+        val ttfbMs: Int? = null,
     )
 
     @POST
@@ -65,6 +70,7 @@ class AnalyticsBeaconResource(
             waveKey = fit(req.waveKey, AnalyticsLimits.WAVE_KEY),
             viewportW = req.viewportW,
             viewportH = req.viewportH,
+            vitals = WebVitalsSample(req.lcpMs, req.inpMs, req.clsMilli, req.fcpMs, req.ttfbMs),
             ip = clientIp(headers, request),
             userAgent = headers.getHeaderString(HttpHeaders.USER_AGENT),
             acceptLanguage = headers.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),

@@ -304,6 +304,37 @@ class DaysResourceTest {
             .body("error", equalTo("invalid_range"))
     }
 
+    @Test
+    fun `an unchanged range answers 304 to its ETag, a changed one 200 with a new tag`() {
+        val from = today.minusDays(14)
+        val to = today.minusDays(13)
+        seedDay("$to", "до", 5000, "mango-loco")
+        val url = "/api/days?from=$from&to=$to"
+
+        val first = given().get(url).then().statusCode(200)
+            // Always revalidated, never served blind: a day may be rewritten by ingest at any time.
+            .header("Cache-Control", equalTo("no-cache"))
+            .extract().header("ETag")
+        assert(first != null && first.startsWith("W/")) { "a weak tag survives the edge's compression: $first" }
+
+        given().header("If-None-Match", first).get(url).then().statusCode(304)
+
+        seedDay("$to", "после", 5000, "mango-loco")
+        val second = given().header("If-None-Match", first).get(url).then().statusCode(200)
+            .body("find { it.date == '$to' }.title", equalTo("после"))
+            .extract().header("ETag")
+        assert(second != first) { "new content must carry a new tag" }
+    }
+
+    @Test
+    fun `the day view is revalidated by its ETag too`() {
+        val date = today.minusDays(30)
+        seedDay("$date", "день", 6000, "mango-loco")
+
+        val tag = given().get("/api/days/$date").then().statusCode(200).extract().header("ETag")
+        given().header("If-None-Match", tag).get("/api/days/$date").then().statusCode(304)
+    }
+
     private companion object {
         /** How far back the class seeds (the furthest seed is "today − 29"). */
         const val SEEDED_WINDOW_DAYS = 40L

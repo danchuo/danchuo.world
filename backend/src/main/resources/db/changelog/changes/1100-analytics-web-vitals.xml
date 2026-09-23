@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Core Web Vitals of a visit, measured in the visitor's browser and carried by the beacon's
+      follow-ups (PRD §5.11). Milliseconds, except CLS, kept in thousandths to stay an integer.
+    -->
+    <changeSet id="1100-analytics-web-vitals" author="danchuo">
+        <addColumn tableName="analytics_event">
+            <column name="lcp_ms" type="INT"/>
+            <column name="inp_ms" type="INT"/>
+            <column name="cls_milli" type="INT"/>
+            <column name="fcp_ms" type="INT"/>
+            <column name="ttfb_ms" type="INT"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="analytics_event" columnName="ttfb_ms"/>
+            <dropColumn tableName="analytics_event" columnName="fcp_ms"/>
+            <dropColumn tableName="analytics_event" columnName="cls_milli"/>
+            <dropColumn tableName="analytics_event" columnName="inp_ms"/>
+            <dropColumn tableName="analytics_event" columnName="lcp_ms"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

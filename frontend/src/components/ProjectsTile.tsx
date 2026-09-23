@@ -31,7 +31,7 @@ interface ProjectsTileProps {
   /**
    * How the wave dresses the planets (DESIGN §12.5): `model` gives a 3D artifact to projects that have
    * one, while unset or unknown gives everyone a flat sprite. A key of the wave rather than the
-   * project: a record holds both planets at once, so warm wave 01 is not handed a cyan wireframe.
+   * project: a record holds both planets at once, so warm wave 01 is not handed a 3D planet.
    */
   planet?: string;
 }

@@ -33,15 +33,23 @@ export class ApiError extends Error {
   }
 }
 
+/** The day's path — also what SSR preloads, so the two must never be built apart. */
+export function dayPath(date: string): string {
+  return `/api/days/${date}`;
+}
+
+export function daysPath(from: string, to: string): string {
+  return `/api/days?${new URLSearchParams({ from, to }).toString()}`;
+}
+
 /** Get the full day projection. */
 export function getDay(date: string, init?: RequestInit): Promise<DayView> {
-  return getJson<DayView>(`/api/days/${date}`, init);
+  return getJson<DayView>(dayPath(date), init);
 }
 
 /** Get day summaries for the calendar and charts. */
 export function getDays(from: string, to: string, init?: RequestInit): Promise<DaySummary[]> {
-  const qs = new URLSearchParams({ from, to }).toString();
-  return getJson<DaySummary[]>(`/api/days?${qs}`, init);
+  return getJson<DaySummary[]>(daysPath(from, to), init);
 }
 
 /** Load the night strip and 30-day baseline only when requested by the sleep tile. */
@@ -138,7 +146,16 @@ export function postBeacon(payload: BeaconPayload): void {
   send(`${BASE}/api/analytics/beacon`, payload);
 }
 
-export interface BeaconPayload {
+/** Web Vitals as the browser last reported them: ms, and CLS × 1000 as an integer. PRD §5.11 */
+export interface WebVitalsPayload {
+  lcpMs?: number;
+  inpMs?: number;
+  clsMilli?: number;
+  fcpMs?: number;
+  ttfbMs?: number;
+}
+
+export interface BeaconPayload extends WebVitalsPayload {
   visitId: string;
   path: string;
   /** Foreground time, not wall time: a backgrounded tab stops accruing. PRD §5.11 */
@@ -243,8 +260,13 @@ export async function postFeedback(payload: FeedbackPayload): Promise<void> {
   throw new FeedbackError(code, field);
 }
 
+/** Where a path is fetched from; a preload names the same URL or it is wasted. */
+export function apiUrl(path: string): string {
+  return `${BASE}${path}`;
+}
+
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${BASE}${path}`;
+  const url = apiUrl(path);
   const res = await fetch(url, { ...init, headers: { Accept: "application/json", ...init?.headers } });
   if (!res.ok) throw new ApiError(res.status, url);
   return (await res.json()) as T;

@@ -102,6 +102,9 @@ services:
       SITE_URL: http://localhost:3000
     ports:
       - "3000:3000"
+    volumes:
+      # Encoded AVIF photos survive a rebuild, as they do a deploy (docker-compose.prod.yml).
+      - imgcache:/app/.next/cache/images
     depends_on:
       - backend
 
@@ -109,3 +112,4 @@ volumes:
   pgdata:
   filmdata:
   anxdata:
+  imgcache:

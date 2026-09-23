@@ -17,6 +17,7 @@ import {
 } from "@/lib/daySheet";
 import { Artifact3D } from "./Artifact3D";
 import { dayActivities, type ActivityCard as Activity } from "@/lib/activities";
+import { photoUrl } from "@/lib/api/media";
 import type { DayPhotoView } from "@/lib/api/types";
 import { photoFrame } from "@/lib/dayPhoto";
 import { ActivityGlyph } from "./ActivityGlyph";
@@ -436,7 +437,7 @@ function PhotoCard({
     >
       <span className="today-sheet__shot">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.webUrl} alt="" className="today-sheet__cover" loading="lazy" />
+        <img src={photoUrl(photo.webUrl)} alt="" className="today-sheet__cover" loading="lazy" />
       </span>
     </button>
   );

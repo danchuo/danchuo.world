@@ -64,8 +64,9 @@ export const WAVE_03: Wave = {
       identity: { hidden: true },
       latestDrop: { col: 1, row: 1, colSpan: 11, rowSpan: 16, edition: "frame" },
       freshness: { hidden: true },
-      // A column one track clear of the calendar, top-aligned with it and one row shorter.
-      waveSwitcher: { col: 16, row: 22, colSpan: 3, rowSpan: 6, orientation: "vertical" },
+      // Between the calendar and the projects, one track clear of each; top-aligned with the
+      // calendar and one row shorter.
+      waveSwitcher: { col: 30, row: 22, colSpan: 3, rowSpan: 6, orientation: "vertical" },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
       photoDrops: { col: 32, row: 9, colSpan: 8, rowSpan: 10, edition: "carousel" },
       stats: { col: 2, row: 20, colSpan: 9, rowSpan: 8, hidden: false, edition: "ghosts" },
@@ -83,9 +84,9 @@ export const WAVE_03: Wave = {
       socialGithub: { hidden: true },
       socialX: { hidden: true },
       marquee: { col: 25, row: 1, colSpan: 7, rowSpan: 7, hidden: false, edition: "shaft" },
-      // Centred between the calendar and the projects, one track clear of each. Words only here —
-      // an envelope next to type is clutter on glass.
-      feedback: { col: 30, row: 25, colSpan: 3, rowSpan: 2, edition: "word" },
+      // Left of the calendar, level with its middle. Words only here — an envelope next to type
+      // is clutter on glass.
+      feedback: { col: 14, row: 24, colSpan: 4, rowSpan: 3, edition: "word" },
     },
     mobileOrder: [
       "today",

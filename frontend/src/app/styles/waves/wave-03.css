@@ -1598,19 +1598,16 @@
 :root[data-wave="wave-03"] .t-feedback .tile-label {
   color: var(--accent-code);
 }
-/* Two mono spaces ahead of the words: the call steps in from the glass edge. */
-:root[data-wave="wave-03"] .t-feedback__call {
-  text-indent: 2ch;
-}
-/* In the stack the tile spans the screen, so the call takes its middle and the band hugs the line. */
-:root[data-wave="wave-03"] .board-stack .t-feedback__button {
-  padding-block: 0.625rem;
-}
-:root[data-wave="wave-03"] .board-stack .t-feedback__body {
+/* The call takes the middle of the glass, both ways, and its lines centre on each other. */
+:root[data-wave="wave-03"] .t-feedback__body {
   justify-content: center;
 }
-:root[data-wave="wave-03"] .board-stack .t-feedback__call {
-  text-indent: 0;
+:root[data-wave="wave-03"] .t-feedback__call {
+  text-align: center;
+}
+/* In the stack the tile spans the screen, so the band hugs the line. */
+:root[data-wave="wave-03"] .board-stack .t-feedback__button {
+  padding-block: 0.625rem;
 }
 
 /* One word of the title carries the wave's code green — the same hue the board's call wears, so

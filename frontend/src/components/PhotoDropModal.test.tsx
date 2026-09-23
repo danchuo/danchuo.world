@@ -1,3 +1,4 @@
+import { photoUrl } from "@/lib/api/media";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PhotoDropModal } from "./PhotoDropModal";
@@ -28,8 +29,8 @@ describe("PhotoDropModal — blur-up loading", () => {
     const full = container.querySelector<HTMLImageElement>(".blur-up-full")!;
 
     // The thumb shows at once (blurred); the full frame is not loaded yet and stays hidden.
-    expect(thumb).toHaveAttribute("src", "/api/film-media/1/0/thumb");
-    expect(full).toHaveAttribute("src", "/api/film-media/1/0/web");
+    expect(thumb).toHaveAttribute("src", photoUrl("/api/film-media/1/0/thumb"));
+    expect(full).toHaveAttribute("src", photoUrl("/api/film-media/1/0/web"));
     expect(full).toHaveAttribute("loading", "lazy");
     expect(full.dataset.loaded).toBe("false");
 
@@ -91,10 +92,7 @@ describe("PhotoDropModal — full-screen frame", () => {
     const lightbox = screen.getByRole("dialog", { name: "кадр 1 из 2" });
     expect(lightbox).toBeInTheDocument();
     // We show the frame that was clicked, at full size (web, not thumb).
-    expect(container.querySelector(".lightbox-photo")).toHaveAttribute(
-      "src",
-      "/api/film-media/1/0/web",
-    );
+    expect(container.querySelector(".lightbox-photo")).toHaveAttribute("src", photoUrl("/api/film-media/1/0/web"));
   });
 
   it("Esc closes only the frame — the drop gallery stays", async () => {

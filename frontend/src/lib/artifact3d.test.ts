@@ -3,8 +3,8 @@ import { createFrameClock, fitDistance, is3dArtifact, nextSpin, rewindSpin, wrap
 
 describe("is3dArtifact", () => {
   it("recognises glTF by extension, including case and a query tail", () => {
-    expect(is3dArtifact("/assets/3d/wireframe-globe.glb")).toBe(true);
-    expect(is3dArtifact("/assets/3d/wireframe-globe.GLB?v=2")).toBe(true);
+    expect(is3dArtifact("/assets/3d/low-poly-earth.glb")).toBe(true);
+    expect(is3dArtifact("/assets/3d/low-poly-earth.GLB?v=2")).toBe(true);
     expect(is3dArtifact("/assets/3d/scene.gltf")).toBe(true);
   });
 

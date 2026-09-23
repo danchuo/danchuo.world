@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { getDrops } from "@/lib/api/client";
-import { mediaUrl } from "@/lib/api/media";
+import { photoUrl } from "@/lib/api/media";
 import {
   CAROUSEL_MOTION_RATE,
   CAROUSEL_OPEN_RATE,
@@ -12,7 +12,8 @@ import {
   slotLook,
   startSlotIndex,
 } from "@/lib/dropCarousel";
-import { ROLL_SETTLE_PX, nearestFrameIndex, stripPadding, wheelStep } from "@/lib/dropRoll";
+import { ROLL_SETTLE_PX, nearestFrameIndex, stripPadding } from "@/lib/dropRoll";
+import { initialWheelState, wheelStep, wheelTravel } from "@/lib/wheelPaging";
 import type { FilmDropView, FilmPhotoView } from "@/lib/api/types";
 import type { TileOrientation } from "@/lib/layout";
 import { PhotoDropModal } from "./PhotoDropModal";
@@ -172,10 +173,9 @@ export function PhotoDropsTile({
       });
     };
 
-    // The ribbon handles the wheel ITSELF rather than leaving it to the browser: one click is
-    // exactly one drop, always. Browser scrolling fought the snap. The NEXT frame is counted from
-    // the requested one, not from what sits in the centre now, or a chain of clicks marks time.
-    let acc = 0;
+    // The calendar's wheel arithmetic: a click is one drop, a trackpad pays travel per drop and
+    // steps no faster than a glide, so its inertia cannot fire a volley. DESIGN §7.5
+    let wheel = initialWheelState();
     const onWheel = (e: WheelEvent) => {
       const max = el.scrollHeight - el.clientHeight;
       if (max <= 0) return;
@@ -185,10 +185,10 @@ export function PhotoDropsTile({
       const atStart = ordered === null ? el.scrollTop <= 0 : ordered <= 0;
       const atEnd = ordered === null ? el.scrollTop >= max - 1 : ordered >= last;
       if ((!down && atStart) || (down && atEnd)) return;
-      const step = wheelStep(e.deltaX, e.deltaY, e.deltaMode, acc);
-      acc = step.acc;
+      const step = wheelStep(wheel, wheelTravel(e.deltaX, e.deltaY, e.deltaMode), Date.now());
+      wheel = step.state;
       e.preventDefault();
-      if (step.dir === 0) return;
+      if (step.step === 0) return;
       const box = el.getBoundingClientRect();
       const from = ordered ?? nearestFrameIndex(
         Array.from(el.children).map((node) => {
@@ -197,7 +197,7 @@ export function PhotoDropsTile({
         }),
         box.top + box.height / 2,
       );
-      motion.to(Math.min(last, Math.max(0, from + step.dir)));
+      motion.to(Math.min(last, Math.max(0, from + step.step)));
     };
 
         // A hand outranks the frame the wheel asked for: while the rail travels by itself, a finger
@@ -312,7 +312,7 @@ export function PhotoDropsTile({
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={mediaUrl(cover)}
+                      src={photoUrl(cover)}
                       alt=""
                       className="drop-carousel__cover"
                       ref={markCoverReady}
@@ -355,7 +355,7 @@ export function PhotoDropsTile({
                   {d.coverPhotoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={mediaUrl(d.coverPhotoUrl)}
+                      src={photoUrl(d.coverPhotoUrl)}
                       alt=""
                       className="min-h-0 w-full flex-1"
                       style={{ objectFit: "cover", borderRadius: "var(--radius-sm)" }}
@@ -403,7 +403,7 @@ export function PhotoDropsTile({
                   {d.coverPhotoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={mediaUrl(d.coverPhotoUrl)}
+                      src={photoUrl(d.coverPhotoUrl)}
                       alt=""
                       width={32}
                       height={32}

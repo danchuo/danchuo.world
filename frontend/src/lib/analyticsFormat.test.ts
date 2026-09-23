@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { breakdownLabel, formatCount, formatDuration, periodWindow, PERIODS } from "./analyticsFormat";
+import { breakdownLabel, formatCount, formatDuration, formatVital, periodWindow, PERIODS, vitalGrade } from "./analyticsFormat";
 
 describe("formatDuration", () => {
   it("reads as time on the page, not as a number of milliseconds", () => {
@@ -45,5 +45,23 @@ describe("periodWindow", () => {
 
   it("each switcher period has a length", () => {
     expect(PERIODS.map((p) => p.days)).toEqual([7, 30, 90, 365]);
+  });
+});
+
+describe("Web Vitals", () => {
+  it("reads milliseconds as seconds past one, CLS as the bare score", () => {
+    expect(formatVital("lcpMs", 2345.4)).toBe("2.35 с");
+    expect(formatVital("inpMs", 96)).toBe("96 мс");
+    expect(formatVital("cls", 0.0431)).toBe("0.04");
+    expect(formatVital("ttfbMs", null)).toBe("—");
+  });
+
+  it("grades by Google's thresholds, the boundary itself still good", () => {
+    expect(vitalGrade("lcpMs", 2500)).toBe("good");
+    expect(vitalGrade("lcpMs", 2501)).toBe("needs-improvement");
+    expect(vitalGrade("inpMs", 501)).toBe("poor");
+    expect(vitalGrade("cls", 0.1)).toBe("good");
+    expect(vitalGrade("cls", 0.3)).toBe("poor");
+    expect(vitalGrade("fcpMs", null)).toBeNull();
   });
 });

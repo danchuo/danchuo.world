@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { postBeacon, postInteractions, type ClickPayload } from "@/lib/api/client";
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
+import { postBeacon, postInteractions, type ClickPayload, type WebVitalsPayload } from "@/lib/api/client";
 
 /** Clicks kept per flush — mirrors the server's `max-batch`; CLICK_CEILING bounds the visit. */
 const MAX_CLICKS_PER_FLUSH = 50;
@@ -31,6 +32,16 @@ export function AnalyticsBeacon() {
     let foregroundMs = 0;
     let maxScrollPct = 0;
     let scrollQueued = false;
+
+    // Subscribed BEFORE our own visibilitychange listener: the library settles CLS and INP on that
+    // same event, and firing first puts the final value into this flush. PRD §5.11
+    const vitals: WebVitalsPayload = {};
+    const all = { reportAllChanges: true };
+    onLCP((m) => (vitals.lcpMs = Math.round(m.value)), all);
+    onINP((m) => (vitals.inpMs = Math.round(m.value)), all);
+    onCLS((m) => (vitals.clsMilli = Math.round(m.value * 1000)), all);
+    onFCP((m) => (vitals.fcpMs = Math.round(m.value)), all);
+    onTTFB((m) => (vitals.ttfbMs = Math.round(m.value)), all);
 
     postBeacon({
       visitId,
@@ -86,7 +97,7 @@ export function AnalyticsBeacon() {
       foregroundMs += at - visibleSince;
       visibleSince = at;
 
-      postBeacon({ visitId, path, dwellMs: Math.round(foregroundMs), scrollPct: maxScrollPct });
+      postBeacon({ visitId, path, dwellMs: Math.round(foregroundMs), scrollPct: maxScrollPct, ...vitals });
 
       const pending = clicks.slice(sentClicks, sentClicks + MAX_CLICKS_PER_FLUSH);
       if (pending.length > 0) {

@@ -7,6 +7,17 @@ import { isWeekend } from "@/lib/weekend";
 /** Monster uses inverted matching polarity; see lensMatch. */
 export const MONSTER_LENS_KEY = "monster";
 
+/** An activity's lens key is namespaced: `gym` is both an activity and a possible checklist item. */
+const ACTIVITY_LENS_PREFIX = "activity:";
+
+export function activityLens(activity: string, label: string): DisciplineLens {
+  return { key: ACTIVITY_LENS_PREFIX + activity, occurrence: 1, label };
+}
+
+function lensActivity(lens: DisciplineLens): string | null {
+  return lens.key.startsWith(ACTIVITY_LENS_PREFIX) ? lens.key.slice(ACTIVITY_LENS_PREFIX.length) : null;
+}
+
 export interface DisciplineLens {
   /** Checklist key; MONSTER_LENS_KEY identifies monster consumption. */
   key: string;
@@ -50,6 +61,13 @@ export function lensMatch(day: DaySummary, lens: DisciplineLens): LensMatch {
     return drunk ? "no" : "yes";
   }
 
+  const activity = lensActivity(lens);
+  if (activity != null) {
+    // An older backend sends no list at all, which is not the same as an empty one.
+    if (!day.activities) return "unknown";
+    return day.activities.includes(activity) ? "yes" : "no";
+  }
+
   // Old cached responses lack counts; unknown avoids falsely reporting an entire empty streak.
   if (!day.disciplineCounts) return "unknown";
   return (day.disciplineCounts[lens.key] ?? 0) >= lens.occurrence ? "yes" : "no";
@@ -65,17 +83,19 @@ export function lensNote(match: LensMatch, lens: DisciplineLens): string | null 
   if (match === "unknown") return null;
   // Use the shared monster verdict wording.
   if (lens.key === MONSTER_LENS_KEY) return monsterVerdict(match === "no").phrase;
+  if (lensActivity(lens) != null) return `${lens.label}: ${match === "yes" ? "было" : "не было"}`;
   return `${lens.label}: ${match === "yes" ? "сделано" : "не сделано"}`;
 }
 
-/** Cell marking tone; monster marks only drinking, while clean days stay undimmed. DESIGN §5.1. */
-export type LensTone = "match" | "drunk";
+/** Cell marking tone; monster marks only drinking, an activity its own days in green. DESIGN §5.1. */
+export type LensTone = "match" | "drunk" | "activity";
 
 export function lensTone(match: LensMatch, lens: DisciplineLens): LensTone | null {
   // Unknown days receive no marking, including monster.
   if (match === "unknown") return null;
   if (lens.key === MONSTER_LENS_KEY) return match === "no" ? "drunk" : null;
-  return match === "yes" ? "match" : null;
+  if (match !== "yes") return null;
+  return lensActivity(lens) != null ? "activity" : "match";
 }
 
 /** A run of one day is not a run: below this a streak is noise, wherever it would be shown. */
@@ -101,7 +121,10 @@ export interface LensRun {
 export function lensRun(days: DaySummary[], lens: DisciplineLens, today: string): LensRun {
   // Clean days are the overwhelming majority (§5.1), and lighting them would flood the grid with
   // the very tone the monster's lens exists to pick out of it.
-  if (lens.key === MONSTER_LENS_KEY) return { marks: new Map(), length: 0, truncated: false };
+  // An activity is a fact of the day, not a discipline: it has no run to keep.
+  if (lens.key === MONSTER_LENS_KEY || lensActivity(lens) != null) {
+    return { marks: new Map(), length: 0, truncated: false };
+  }
 
   let i = days.length - 1;
   while (i >= 0 && days[i].date > today) i--;

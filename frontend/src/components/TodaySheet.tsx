@@ -20,7 +20,7 @@ import type { DayPhotoView } from "@/lib/api/types";
 import { photoFrame } from "@/lib/dayPhoto";
 import { ActivityGlyph } from "./ActivityGlyph";
 import { DayPhotoModal } from "./DayPhotoModal";
-import { MONSTER_LENS_KEY, type DisciplineLens } from "@/lib/disciplineLens";
+import { activityLens, MONSTER_LENS_KEY, type DisciplineLens } from "@/lib/disciplineLens";
 import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
 import type { SummarySubject } from "@/lib/summarySubject";
@@ -97,7 +97,13 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
             <Frame key={session.key} session={session} onOpen={setRetold} />
           ))}
           {dayActivities(day).map((activity) => (
-            <ActivityCard key={activity.key} activity={activity} />
+            <ActivityCard
+              key={activity.key}
+              activity={activity}
+              active={lens?.key === activityLens(activity.key, activity.label).key}
+              onPick={() => pick(activityLens(activity.key, activity.label))}
+              onTry={(on) => onLensPreview?.(on ? activityLens(activity.key, activity.label) : null)}
+            />
           ))}
           {day.photo && <PhotoCard photo={day.photo} onOpen={() => setPhotoOpen(true)} />}
           <MonsterCard
@@ -302,13 +308,34 @@ function MonsterCard({
 }
 
 /**
- * An activity of the day in the monster's frame geometry: a fact, not a control — no lens answers
- * to it. Bouldering stands as the 3D shoe, the rest as line pictograms. DESIGN §4.3
+ * An activity of the day in the monster's frame geometry, and its lens: the calendar lights the
+ * days it happened, with no streak. Bouldering is the 3D shoe, the rest line pictograms. DESIGN §4.3
  */
-function ActivityCard({ activity }: { activity: Activity }) {
+function ActivityCard({
+  activity,
+  active,
+  onPick,
+  onTry,
+}: {
+  activity: Activity;
+  active: boolean;
+  onPick: () => void;
+  onTry: (on: boolean) => void;
+}) {
   const boulder = activity.key === "bouldering";
+  const mouse = (on: boolean) => (e: PointerEvent<HTMLElement>) => {
+    if (e.pointerType === "mouse") onTry(on);
+  };
   return (
-    <figure className={`today-sheet__activity${boulder ? " is-boulder" : ""}`} aria-label={activity.label}>
+    <button
+      type="button"
+      className={`today-sheet__activity${boulder ? " is-boulder" : ""}${active ? " is-active" : ""}`}
+      aria-label={activity.label}
+      aria-pressed={active}
+      onClick={onPick}
+      onPointerEnter={mouse(true)}
+      onPointerLeave={mouse(false)}
+    >
       <span className="today-sheet__shot today-sheet__shot--bare">
         {boulder ? (
           <Artifact3D
@@ -324,8 +351,8 @@ function ActivityCard({ activity }: { activity: Activity }) {
         )}
       </span>
       <span className="today-sheet__track today-sheet__track--void" aria-hidden />
-      <figcaption className="today-sheet__monstersay">{activity.label}</figcaption>
-    </figure>
+      <span className="today-sheet__monstersay">{activity.label}</span>
+    </button>
   );
 }
 

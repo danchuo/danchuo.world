@@ -35,4 +35,6 @@ data class DaySummary(
      * clean alongside an honestly clean one.
      */
     val monsterDrunk: Boolean?,
+    /** The day's activity keys in catalogue order, for the calendar's activity lens; empty when none. */
+    val activities: List<String>,
 )

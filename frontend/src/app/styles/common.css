@@ -538,6 +538,8 @@ body {
    the trail map. The green mark for clean days was dropped — clean days are the overwhelming
    majority, the grid filled with green, and the few days the lens is for were lost in it. */
 .cal-lens-digit--drunk::before { border-color: var(--danger); }
+/* An activity lens marks the days it happened in green: a fact of the day, not the accent's run. */
+.cal-lens-digit--activity::before { border-color: var(--success); }
 
 /* Calendar "field" edition (DESIGN §5.2): the cell loses border and ground, leaving a square of
    light whose brightness is the day's weight (`lib/dayWeight.ts`). "When" moves to HUE and "how
@@ -843,7 +845,8 @@ body {
 /* On a filled chip the light IS the ground, so the digit takes the page's own darkness — the board
    text colour on solid accent is the one place this field can go unreadable. */
 .cal-grid--field[data-lens] .t-cal-day[data-lens-run="on"] .cal-lens-digit,
-.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"] .cal-lens-digit {
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"] .cal-lens-digit,
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="activity"] .cal-lens-digit {
   color: var(--cal-lens-digit-lit, var(--bg-page));
   font-weight: 500;
 }
@@ -883,6 +886,15 @@ body {
   background: color-mix(in srgb, var(--danger) calc(var(--cal-lens-floor, 0.16) * 100%), transparent);
 }
 .cal-grid--field[data-lens] .t-cal-day[data-lens-tone="drunk"]::before {
+  opacity: var(--cal-lens-drunk, 0.72);
+}
+/* The activity lens is the monster's mirror: its days filled in green, no run behind them. */
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="activity"] {
+  --cal-field-ink: var(--success);
+  --cal-field-edge: var(--success);
+  background: color-mix(in srgb, var(--success) calc(var(--cal-lens-floor, 0.16) * 100%), transparent);
+}
+.cal-grid--field[data-lens] .t-cal-day[data-lens-tone="activity"]::before {
   opacity: var(--cal-lens-drunk, 0.72);
 }
 /* The run's length in words, beside the lens's name in the tile's label. */
@@ -4702,10 +4714,15 @@ button.sleep-echo:focus-visible {
   flex-direction: column;
   gap: 6px;
 }
-/* An activity is a fact, not a control: the monster's frame without the pointer. */
-.today-sheet__activity {
-  margin: 0;
-  cursor: default;
+/* An activity's name is always in the calendar lens's green (DESIGN §5.1); the lens adds the glow. */
+.today-sheet__activity .today-sheet__monstersay { color: var(--success); }
+.today-sheet__activity.is-active .today-sheet__monstersay {
+  text-shadow: 0 0 12px currentColor;
+}
+.today-sheet__activity:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-md);
 }
 /* The shoe's neon reads louder than the grey can: its colour is muted, its light is the stage's. */
 .today-sheet__activity.is-boulder .today-sheet__monsterbody {

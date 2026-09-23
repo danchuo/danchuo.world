@@ -167,11 +167,34 @@ function tick(now: number) {
 function release(view: View) {
   views.delete(view);
   dropModel(view.src);
-  // Release the WebGL context when its last view is removed.
-  if (views.size === 0 && renderer) {
-    if (rafId) cancelAnimationFrame(rafId);
+  if (views.size === 0 && rafId) {
+    cancelAnimationFrame(rafId);
     rafId = 0;
     clock.reset();
+  }
+  armIdleSweep();
+}
+
+/**
+ * How long a model nobody wears and a renderer with no views outlive their last holder. A wave swap
+ * unmounts the shaft and a swap back remounts it: without the grace it re-parses every scan and
+ * recompiles every shader on a fresh context.
+ */
+export const IDLE_RELEASE_MS = 60_000;
+
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armIdleSweep() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(sweepIdle, IDLE_RELEASE_MS);
+}
+
+function sweepIdle() {
+  idleTimer = null;
+  for (const [src, shared] of models) {
+    if (shared.users === 0) freeModel(src, shared);
+  }
+  if (views.size === 0 && renderer) {
     renderer.dispose();
     renderer.forceContextLoss();
     renderer = null;
@@ -180,12 +203,12 @@ function release(view: View) {
 }
 
 /** Use the wave accent only when the glTF declares no materials. DESIGN §12.5. */
-function dressMateriallessModel(THREE: Three, gltf: GLTF) {
+function dressMateriallessModel(THREE: Three, gltf: GLTF): string | null {
   // Inspect source JSON: parsed default materials cannot distinguish omission from an explicit white material.
   const declared = (gltf.parser.json as { materials?: unknown[] }).materials;
-  if (declared && declared.length > 0) return;
+  if (declared && declared.length > 0) return null;
 
-  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  const accent = currentAccent();
   const color = new THREE.Color(accent || "#ffffff");
   // Unlit fill flattens the silhouette; slight emission keeps shadows visible on dark waves.
   const material = new THREE.MeshStandardMaterial({
@@ -199,6 +222,11 @@ function dressMateriallessModel(THREE: Three, gltf: GLTF) {
     const mesh = obj as import("three").Mesh;
     if (mesh.isMesh) mesh.material = material;
   });
+  return accent;
+}
+
+function currentAccent(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
 }
 
 /**
@@ -206,21 +234,30 @@ function dressMateriallessModel(THREE: Three, gltf: GLTF) {
  * decoded and uploaded the same scan once per slot — the card's first turns paid for it. DESIGN §12.5
  */
 interface SharedModel {
-  ready: Promise<{ gltf: GLTF; radius: number }>;
-  /** Views wearing it now; the last one out frees the geometry and the texture. */
+  ready: Promise<{ gltf: GLTF; radius: number; dressedWith: string | null }>;
+  /** Views wearing it now; once it is zero the idle sweep frees the geometry and the texture. */
   users: number;
+  /** The accent a materialless model was painted in, known once parsed; `null` = its own materials. */
+  dressedWith?: string | null;
 }
 
 const models = new Map<string, SharedModel>();
 
 function takeModel(THREE: Three, GLTFLoader: GLTFLoaderCtor, src: string) {
   let shared = models.get(src);
+  // An idle parse painted in another wave's accent is repainted by parsing again, not reused.
+  if (shared && shared.users === 0 && shared.dressedWith && shared.dressedWith !== currentAccent()) {
+    freeModel(src, shared);
+    shared = undefined;
+  }
   if (!shared) {
     const ready = new GLTFLoader().loadAsync(src).then((gltf) => prepare(THREE, gltf));
-    shared = { ready, users: 0 };
+    const entry: SharedModel = { ready, users: 0 };
+    ready.then((model) => (entry.dressedWith = model.dressedWith), () => {});
+    shared = entry;
     models.set(src, shared);
     // A failed load is not remembered as the answer: the next view tries the address again.
-    ready.catch(() => models.delete(src));
+    ready.catch(() => models.get(src) === entry && models.delete(src));
   }
   shared.users += 1;
   return shared.ready;
@@ -230,18 +267,21 @@ function dropModel(src: string) {
   const shared = models.get(src);
   if (!shared) return;
   shared.users -= 1;
-  if (shared.users > 0) return;
-  models.delete(src);
+  if (shared.users === 0) armIdleSweep();
+}
+
+function freeModel(src: string, shared: SharedModel) {
+  if (models.get(src) === shared) models.delete(src);
   shared.ready.then(({ gltf }) => disposeModel(gltf), () => {});
 }
 
 /** Dress and centre once, for everyone: a clone inherits both, and both are the same for all views. */
 function prepare(THREE: Three, gltf: GLTF) {
-  dressMateriallessModel(THREE, gltf);
+  const dressedWith = dressMateriallessModel(THREE, gltf);
   // Placement by the bounding sphere, so model scale cannot change the apparent slot size.
   const sphere = new THREE.Box3().setFromObject(gltf.scene).getBoundingSphere(new THREE.Sphere());
   gltf.scene.position.sub(sphere.center);
-  return { gltf, radius: sphere.radius };
+  return { gltf, radius: sphere.radius, dressedWith };
 }
 
 function disposeModel(gltf: GLTF) {
@@ -277,7 +317,7 @@ export async function mountArtifact(
   const { THREE, GLTFLoader } = await loadThree();
   if (signal?.aborted) throw new Error("монтаж артефакта отменён");
 
-  let shared: { gltf: GLTF; radius: number };
+  let shared: { gltf: GLTF; radius: number; dressedWith: string | null };
   try {
     shared = await takeModel(THREE, GLTFLoader, src);
   } catch (error) {

@@ -1,6 +1,8 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FaviconSpinner } from "./FaviconSpinner";
+
+// A fresh module per test: the spinner remembers warmed frames for the page's lifetime.
+let FaviconSpinner: typeof import("./FaviconSpinner").FaviconSpinner;
 
 /** An image does not load itself in jsdom — we fire onload right after src is assigned. */
 function stubImage() {
@@ -20,7 +22,9 @@ function link() {
   return document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules();
+  ({ FaviconSpinner } = await import("./FaviconSpinner"));
   document.head.innerHTML = '<link rel="icon" href="/icon.png" />';
   document.documentElement.removeAttribute("data-wave");
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));

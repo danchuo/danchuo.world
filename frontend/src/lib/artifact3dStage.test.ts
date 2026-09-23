@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadAsync = vi.fn();
+const renderers = vi.hoisted(() => ({ made: 0 }));
 
 vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => ({
   GLTFLoader: class {
@@ -66,6 +67,9 @@ vi.mock("three", () => {
     Color: class {},
     MeshStandardMaterial: class {},
     WebGLRenderer: class {
+      constructor() {
+        renderers.made += 1;
+      }
       domElement = { width: 8, height: 8 };
       setClearAlpha = vi.fn();
       setSize = vi.fn();
@@ -109,6 +113,7 @@ function fakeModel() {
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
+  renderers.made = 0;
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
 });
@@ -143,29 +148,47 @@ describe("mountArtifact: one model for everyone", () => {
   it("while anyone still wears the model it is not removed from video memory", async () => {
     const model = fakeModel();
     loadAsync.mockResolvedValue(model.gltf);
-    const { mountArtifact } = await stage();
+    const { mountArtifact, IDLE_RELEASE_MS } = await stage();
 
     const first = await mountArtifact(fakeCanvas(), { src: "/m.glb" });
     const second = await mountArtifact(fakeCanvas(), { src: "/m.glb" });
 
+    vi.useFakeTimers();
     first.dispose();
-    await flush();
+    await vi.advanceTimersByTimeAsync(IDLE_RELEASE_MS * 2);
     expect(model.geometry.dispose).not.toHaveBeenCalled();
 
     second.dispose();
-    // Freeing waits on the parse: a view may be dropped while the file is still travelling.
-    await flush();
+    // The last holder out does not free at once: a wave swap brings the same model straight back.
+    await vi.advanceTimersByTimeAsync(IDLE_RELEASE_MS - 1);
+    expect(model.geometry.dispose).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
     expect(model.geometry.dispose).toHaveBeenCalledTimes(1);
     // A material does not free its maps, and a texture left behind is the heaviest thing on the card.
     expect(model.texture.dispose).toHaveBeenCalledTimes(1);
     expect(model.material.dispose).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 
-  it("an address left without holders is read again on the next show", async () => {
+  it("a remount within the idle window reuses the parse and the renderer", async () => {
     loadAsync.mockImplementation(async () => fakeModel().gltf);
     const { mountArtifact } = await stage();
 
     (await mountArtifact(fakeCanvas(), { src: "/m.glb" })).dispose();
+    await mountArtifact(fakeCanvas(), { src: "/m.glb" });
+
+    expect(loadAsync).toHaveBeenCalledTimes(1);
+    expect(renderers.made).toBe(1);
+  });
+
+  it("an address left without holders past the idle window is read again", async () => {
+    loadAsync.mockImplementation(async () => fakeModel().gltf);
+    const { mountArtifact, IDLE_RELEASE_MS } = await stage();
+
+    vi.useFakeTimers();
+    (await mountArtifact(fakeCanvas(), { src: "/m.glb" })).dispose();
+    await vi.advanceTimersByTimeAsync(IDLE_RELEASE_MS);
+    vi.useRealTimers();
     await mountArtifact(fakeCanvas(), { src: "/m.glb" });
 
     expect(loadAsync).toHaveBeenCalledTimes(2);

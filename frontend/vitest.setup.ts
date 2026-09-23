@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { forgetTileAnswers } from "./src/components/useTileData";
 
 // jsdom fetches no pictures at all, so `decode()` settles NEVER rather than either way, and a tile
 // that waits for its bitmap (`useImageReady`) would hang on a promise no browser leaves pending.
@@ -19,13 +20,14 @@ if (typeof window.PointerEvent === "undefined") {
   window.PointerEvent = JsdomPointerEvent as unknown as typeof PointerEvent;
 }
 
-// Размонтируем дерево между тестами — изоляция DOM. Чистим localStorage, чтобы кэш тайлов
-// (stale-while-revalidate) одного теста не подменял пустое/ошибочное состояние в другом.
+// Unmount between tests and drop both tile caches, so one test's answer never stands in for
+// another test's empty or error state.
 afterEach(() => {
   cleanup();
+  forgetTileAnswers();
   try {
     window.localStorage.clear();
   } catch {
-    /* без jsdom-localStorage — ничего чистить */
+    /* no jsdom localStorage, nothing to clear */
   }
 });

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocialLinkView } from "@/lib/api/types";
 import { SocialTile } from "./SocialTile";
+import { forgetTileAnswers } from "./useTileData";
 
 vi.mock("@/lib/api/client", () => ({
   getSocialLinks: vi.fn(),
@@ -34,6 +35,8 @@ function link(platform: string): SocialLinkView {
 
 async function grid(platforms: string[]): Promise<HTMLElement> {
   getSocialLinksMock.mockResolvedValue(platforms.map(link));
+  // Each call is a different server answer, so the previous render's fresh one must not serve it.
+  forgetTileAnswers();
   // A fresh container per render: one test builds the grid several times, and a document-wide
   // search would find the previous grid's links.
   const { container } = render(<SocialTile />);

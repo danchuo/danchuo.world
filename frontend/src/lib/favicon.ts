@@ -1,3 +1,5 @@
+import { ACTIVE_WAVE_KEY } from "./waves";
+
 /**
  * The tab icon: a spinning Earth, per wave. A tab cannot be animated by an image — only Firefox
  * plays an animated GIF there — so a turn is a SEQUENCE OF FILES, one per frame, and the spinner
@@ -59,4 +61,9 @@ export function faviconFrameSrc(sprite: FaviconSprite, frame: number): string {
 export function faviconFrameAt(elapsedMs: number, sprite: FaviconSprite): number {
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
   return Math.floor(elapsedMs / sprite.frameMs) % sprite.frames;
+}
+
+/** The static icon crawlers and link previews see: they run no JS, so the spinner never reaches them. */
+export function defaultFaviconFrame(): string {
+  return faviconFrameSrc(resolveFavicon(ACTIVE_WAVE_KEY), 0);
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FAVICON_SPRITES, faviconFrameAt, faviconLoopMs, resolveFavicon } from "./favicon";
+import { FAVICON_SPRITES, defaultFaviconFrame, faviconFrameAt, faviconLoopMs, resolveFavicon } from "./favicon";
+import { ACTIVE_WAVE_KEY } from "./waves";
 
 describe("resolveFavicon", () => {
   it("returns the spinning earth by default — there are no waves without their own icon", () => {
@@ -50,5 +51,12 @@ describe("faviconFrameAt", () => {
 
   it("loop length is frames per step", () => {
     expect(faviconLoopMs(spec)).toBe(400);
+  });
+});
+
+describe("defaultFaviconFrame", () => {
+  it("is the ACTIVE wave's first frame, so crawlers and previews see the display default", () => {
+    expect(defaultFaviconFrame()).toBe(`/assets/favicon/frames/earth-prime-00.png`);
+    expect(ACTIVE_WAVE_KEY).toBe("wave-03");
   });
 });

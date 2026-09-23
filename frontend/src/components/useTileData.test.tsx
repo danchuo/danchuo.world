@@ -1,10 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeCache } from "@/lib/api/cache";
-import { useTileData } from "./useTileData";
+import { forgetTileAnswers, useTileData } from "./useTileData";
 
 describe("useTileData — stale-while-revalidate and the \"network answered\" flag (DESIGN §7)", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    forgetTileAnswers();
+  });
   afterEach(() => localStorage.clear());
 
   it("without a copy: loading → loaded, settled only after the network answers", async () => {
@@ -63,5 +66,66 @@ describe("useTileData — stale-while-revalidate and the \"network answered\" fl
     rerender({ date: "2026-09-11" });
     await waitFor(() => expect(result.current.data).toBe("2026-09-11"));
     expect(asked).toEqual(["2026-09-10", "2026-09-11"]);
+  });
+
+  it("two tiles on one key share ONE request: a wave that scatters a tile makes no duplicates", async () => {
+    let calls = 0;
+    let resolve!: (v: string) => void;
+    const fetcher = () => {
+      calls += 1;
+      return new Promise<string>((r) => (resolve = r));
+    };
+    const a = renderHook(() => useTileData(fetcher, "shared"));
+    const b = renderHook(() => useTileData(fetcher, "shared"));
+    expect(calls).toBe(1);
+
+    await act(async () => resolve("one"));
+    await waitFor(() => expect(b.result.current.data).toBe("one"));
+    expect(a.result.current.data).toBe("one");
+  });
+
+  it("a remount within the freshness window paints the answer at once and does not ask again", async () => {
+    let calls = 0;
+    const fetcher = () => {
+      calls += 1;
+      return Promise.resolve("answer");
+    };
+    const first = renderHook(() => useTileData(fetcher, "remount"));
+    await waitFor(() => expect(first.result.current.data).toBe("answer"));
+    first.unmount();
+
+    const second = renderHook(() => useTileData(fetcher, "remount"));
+    expect(second.result.current.phase).toBe("loaded");
+    expect(second.result.current.data).toBe("answer");
+    expect(second.result.current.settled).toBe(true);
+    expect(calls).toBe(1);
+  });
+
+  it("an unmount does not cancel a shared request: the next mount takes its answer", async () => {
+    let calls = 0;
+    let resolve!: (v: string) => void;
+    const fetcher = () => {
+      calls += 1;
+      return new Promise<string>((r) => (resolve = r));
+    };
+    renderHook(() => useTileData(fetcher, "handover")).unmount();
+    const next = renderHook(() => useTileData(fetcher, "handover"));
+
+    await act(async () => resolve("kept"));
+    await waitFor(() => expect(next.result.current.data).toBe("kept"));
+    expect(calls).toBe(1);
+  });
+
+  it("retry always goes to the network, past a fresh answer", async () => {
+    let calls = 0;
+    const fetcher = () => {
+      calls += 1;
+      return Promise.resolve(`#${calls}`);
+    };
+    const { result } = renderHook(() => useTileData(fetcher, "retry"));
+    await waitFor(() => expect(result.current.data).toBe("#1"));
+
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.data).toBe("#2"));
   });
 });

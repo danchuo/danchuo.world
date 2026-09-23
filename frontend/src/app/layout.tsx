@@ -13,19 +13,20 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin", "cyrillic"], weight: ["400", "500"], variable: "--font-inter" });
 // Load a real 600 weight: synthetic bold changes the width of monospace digits.
 const jetbrains = JetBrains_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "600"], variable: "--font-jetbrains" });
-// Jersey 10 is enabled by wave-02's display token. DESIGN §10.2.
-const jersey = Jersey_10({ subsets: ["latin"], weight: ["400"], variable: "--font-jersey" });
-// Wave-02 switches to Manrope and IBM Plex Mono via its skin tokens. DESIGN §10.2.
+// Wave-02-only faces skip the preload every visitor would pay for; its font gate fetches them. DESIGN §8.3
+const jersey = Jersey_10({ subsets: ["latin"], weight: ["400"], variable: "--font-jersey", preload: false });
+// Manrope stays preloaded: wave 03 sets its music status row in it too. DESIGN §10.2
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700"], variable: "--font-manrope" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"], variable: "--font-plex-mono" });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"], variable: "--font-plex-mono", preload: false });
 
 // Absolute metadata URLs are required by social previews; override SITE_URL for local or preview builds.
 const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
 
-// Social previews show only the domain and OG image; omit description and author metadata.
+// Without a description a search engine cuts its snippet from tile labels. PRD §12
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "danchuo.world",
+  description: "public real-time bento board of my life",
   applicationName: "danchuo.world",
   alternates: { canonical: "/" },
   openGraph: {
@@ -60,7 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         {children}
         {/* Spins the Earth in the tab icon for the active wave (DESIGN §10.3). It renders nothing;
-            the static planet `app/icon.png` remains if JS or canvas are unavailable. */}
+            the static planet `app/icon.ts` remains if JS or canvas are unavailable. */}
         <FaviconSpinner />
         <AnalyticsBeacon />
       </body>

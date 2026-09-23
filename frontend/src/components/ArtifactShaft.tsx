@@ -36,6 +36,8 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
   const count = artifacts.length;
   const [target, setTarget] = useState(0);
   const [position, setPosition] = useState(0);
+  // The loop's own copy: whether to stop must be known now, not whenever React runs an updater.
+  const positionRef = useRef(0);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const drag = useRef<{ y: number; from: number; id: number; captured: boolean } | null>(null);
   /* Outlives the gesture: `pointerup` clears the drag, and only THEN does the click arrive — with
@@ -44,21 +46,20 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
 
   // Ease towards the target; the shaft carries weight, so a step is travelled rather than jumped.
   useEffect(() => {
+    const moveTo = (next: number) => {
+      positionRef.current = next;
+      setPosition(next);
+    };
     if (prefersReducedMotion()) {
-      setPosition(target);
+      moveTo(target);
       return;
     }
     let raf = 0;
     const tick = () => {
-      let done = false;
-      setPosition((cur) => {
-        const next = cur + (target - cur) * MOTION_RATE;
-        if (Math.abs(target - next) < MOTION_EPSILON) {
-          done = true;
-          return target;
-        }
-        return next;
-      });
+      const cur = positionRef.current;
+      const next = cur + (target - cur) * MOTION_RATE;
+      const done = Math.abs(target - next) < MOTION_EPSILON;
+      moveTo(done ? target : next);
       if (!done) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

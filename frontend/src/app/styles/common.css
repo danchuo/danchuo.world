@@ -4605,8 +4605,10 @@ button.sleep-echo:focus-visible {
   align-items: center;
   justify-content: safe center;
 }
-/* In the stack the tile has no height to hand down, and a size container would fold to zero. */
+/* In the stack the tile has no height to hand down, and a size container would fold to zero.
+   ⚠️ `flex: none`: with a zero flex basis the column sizes the row, not the aspect ratio. */
 .board-stack .today-sheet__frames {
+  flex: none;
   aspect-ratio: 5 / 2;
 }
 

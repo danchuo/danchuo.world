@@ -14,7 +14,7 @@ import {
 } from "react";
 import { getDrop } from "@/lib/api/client";
 import { boxesAt } from "@/lib/artifactHighlight";
-import { mediaUrl } from "@/lib/api/media";
+import { photoUrl } from "@/lib/api/media";
 import {
   MOSAIC_NARROW_PX,
   MOSAIC_UNITS,
@@ -300,7 +300,7 @@ const PhotoLightbox = forwardRef<
         onClick={(e) => e.stopPropagation()}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="lightbox-photo" src={mediaUrl(photo.imageUrl)} alt="" />
+        <img className="lightbox-photo" src={photoUrl(photo.imageUrl)} alt="" />
         {/* The touch flow (DESIGN §7.5): there is no hover on a phone and a tap is taken by opening
             fullscreen, so the fullscreen frame explains the findings itself. With a mouse the
             fullscreen carries no findings: hovering in the gallery already shows them. */}
@@ -403,7 +403,7 @@ function BlurUpPhoto({
             the full frame is developing (never faded, or the tile's background flashes through). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={mediaUrl(photo.thumbUrl)}
+          src={photoUrl(photo.thumbUrl)}
           alt=""
           aria-hidden
           className="blur-up-thumb"
@@ -417,7 +417,7 @@ function BlurUpPhoto({
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={mediaUrl(photo.imageUrl)}
+          src={photoUrl(photo.imageUrl)}
           alt=""
           loading="lazy"
           decoding="async"

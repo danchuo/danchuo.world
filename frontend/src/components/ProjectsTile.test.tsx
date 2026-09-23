@@ -50,7 +50,7 @@ describe("ProjectsTile", () => {
 
   it("the wave asks for volume — a planet with a model stands as a 3D artifact in the same slot", async () => {
     getProjectsMock.mockResolvedValue([
-      project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
+      project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/low-poly-earth.glb" }),
     ]);
     const { container } = render(<ProjectsTile planet="model" />);
     await screen.findByText("danchuo.world");
@@ -65,7 +65,7 @@ describe("ProjectsTile", () => {
 
   it("a wave without `planet: model` keeps the flat sprite", async () => {
     getProjectsMock.mockResolvedValue([
-      project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
+      project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/low-poly-earth.glb" }),
     ]);
     const { container } = render(<ProjectsTile />);
     await screen.findByText("danchuo.world");

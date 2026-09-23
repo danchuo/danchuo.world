@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { photoUrl } from "@/lib/api/media";
 import type { DayPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
@@ -33,7 +34,7 @@ export function DayPhotoModal({ photo, onClose }: { photo: DayPhotoView; onClose
         onClick={(e) => e.stopPropagation()}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.webUrl} alt="Фото дня" width={photo.width} height={photo.height} />
+        <img src={photoUrl(photo.webUrl)} alt="Фото дня" width={photo.width} height={photo.height} />
         <button type="button" onClick={onClose} aria-label="Закрыть" className="day-photo-modal__close tap-target">
           <Icon name="close" size={18} />
         </button>

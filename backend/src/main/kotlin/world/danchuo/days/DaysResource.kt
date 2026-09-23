@@ -6,8 +6,11 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.CacheControl
+import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.Request
 import jakarta.ws.rs.core.Response
+import world.danchuo.core.cache.JsonRevalidation
 import world.danchuo.core.config.MskTime
 import world.danchuo.film.PhotoVariant
 import java.time.LocalDate
@@ -25,11 +28,12 @@ class DaysResource(
     private val aggregator: DayAggregator,
     private val mskTime: MskTime,
     private val dayPhotos: DayPhotoService,
+    private val revalidation: JsonRevalidation,
 ) {
 
     @GET
     @Path("/{date}")
-    fun day(@PathParam("date") raw: String): Response {
+    fun day(@PathParam("date") raw: String, @Context request: Request): Response {
         val date = parseDate(raw) ?: return badDate("date", raw)
         // Before genesis there is no day on the data axis (§4) — that is a 404, not an empty day.
         if (date.isBefore(mskTime.genesis)) {
@@ -38,7 +42,7 @@ class DaysResource(
                 .build()
         }
         // MSK today enters the projection (the streak's "through yesterday" rule) and the cache key.
-        return Response.ok(aggregator.viewOf(date, mskTime.today())).build()
+        return revalidation.respond(request, aggregator.viewOf(date, mskTime.today()))
     }
 
     /** The day's photo; the view's URL carries `?v=`, so a stored variant is cached for good. */
@@ -61,6 +65,7 @@ class DaysResource(
     fun range(
         @QueryParam("from") rawFrom: String?,
         @QueryParam("to") rawTo: String?,
+        @Context request: Request,
     ): Response {
         if (rawFrom == null) return missing("from")
         if (rawTo == null) return missing("to")
@@ -77,7 +82,7 @@ class DaysResource(
         // Clamp to genesis: nothing exists before it, and this makes no holes in the grid (§4).
         val start = maxOf(from, mskTime.genesis)
         val summaries = if (start.isAfter(to)) emptyList() else aggregator.summaries(start, to)
-        return Response.ok(summaries).build()
+        return revalidation.respond(request, summaries)
     }
 
     private fun parseDate(raw: String): LocalDate? =

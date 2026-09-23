@@ -435,6 +435,21 @@ export interface AnalyticsTotalsView {
   clicks: number;
 }
 
+/** One vital over the period: p75 over the visits that reported it; `null` with no samples. */
+export interface VitalP75View {
+  p75: number | null;
+  samples: number;
+}
+
+/** Field Web Vitals of the period; CLS is the bare score, the rest milliseconds. PRD §5.11 */
+export interface WebVitalsView {
+  lcpMs: VitalP75View;
+  inpMs: VitalP75View;
+  cls: VitalP75View;
+  fcpMs: VitalP75View;
+  ttfbMs: VitalP75View;
+}
+
 /** Private visit dashboard over a date range: GET /api/ingest/analytics/summary. PRD §5.11 */
 export interface AnalyticsSummaryView {
   from: string;
@@ -442,6 +457,7 @@ export interface AnalyticsSummaryView {
   totals: AnalyticsTotalsView;
   days: AnalyticsDayView[];
   breakdowns: Record<string, BreakdownRowView[]>;
+  vitals: WebVitalsView;
 }
 
 /** Lightweight calendar and sparkline projection: GET /api/days?from=&to=. */

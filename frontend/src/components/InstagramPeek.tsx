@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { mediaUrl } from "@/lib/api/media";
+import { mediaUrl, photoUrl } from "@/lib/api/media";
 import { formatAgo } from "@/lib/format";
 import { instagramCommentsUrl, instagramProfileUrl } from "@/lib/instagram";
 import { pluralRu } from "@/lib/rideFormat";
@@ -48,7 +48,7 @@ export function InstagramPeek({ post }: { post: InstagramPostView }) {
         <span className="ig-peek__handle">{post.username}</span>
       </a>
 
-      {post.imageUrl && <img className="ig-peek__shot" src={mediaUrl(post.imageUrl)} alt="" />}
+      {post.imageUrl && <img className="ig-peek__shot" src={photoUrl(post.imageUrl)} alt="" />}
 
       <div className="ig-peek__actions">
         <a className="ig-peek__act" href={post.permalink} target="_blank" rel="noreferrer" tabIndex={-1} aria-label="Нравится">

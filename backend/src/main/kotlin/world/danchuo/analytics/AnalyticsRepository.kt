@@ -52,6 +52,11 @@ class AnalyticsRepository : PanacheRepository<AnalyticsEvent> {
             .setParameter("viewportH", event.viewportH)
             .setParameter("scrollPct", event.scrollPct)
             .setParameter("dwellMs", event.dwellMs)
+            .setParameter("lcpMs", event.lcpMs)
+            .setParameter("inpMs", event.inpMs)
+            .setParameter("clsMilli", event.clsMilli)
+            .setParameter("fcpMs", event.fcpMs)
+            .setParameter("ttfbMs", event.ttfbMs)
             .setParameter("isBot", event.isBot)
             .setParameter("visitId", event.visitId)
             .executeUpdate()
@@ -110,6 +115,18 @@ class AnalyticsRepository : PanacheRepository<AnalyticsEvent> {
                 )
             }
 
+    /** p75 and sample count per vital; CLS leaves its thousandths behind here. */
+    fun vitals(from: Instant, to: Instant): WebVitals =
+        (getEntityManager().createNativeQuery(VITALS)
+            .setParameter("from", from)
+            .setParameter("to", to)
+            .singleResult as Array<*>)
+            .let { row ->
+                fun vital(i: Int, scale: Double = 1.0) =
+                    VitalP75((row[i * 2] as Number?)?.toDouble()?.div(scale), int(row[i * 2 + 1]))
+                WebVitals(vital(0), vital(1), vital(2, scale = 1000.0), vital(3), vital(4))
+            }
+
     fun deleteOlderThan(cutoff: Instant): Long = delete("occurredAt < ?1", cutoff)
 
     private fun int(value: Any?): Int = (value as Number?)?.toInt() ?: 0
@@ -134,7 +151,7 @@ class AnalyticsRepository : PanacheRepository<AnalyticsEvent> {
             INSERT INTO analytics_event
                 (occurred_at, path, visitor_day_hash, device_type, referrer, referrer_host,
                  utm_source, utm_medium, utm_campaign, wave_key, viewport_w, viewport_h,
-                 scroll_pct, dwell_ms, is_bot, visit_id)
+                 scroll_pct, dwell_ms, lcp_ms, inp_ms, cls_milli, fcp_ms, ttfb_ms, is_bot, visit_id)
             VALUES
                 (:occurredAt, :path, :hash, :device,
                  CAST(:referrer AS varchar), CAST(:referrerHost AS varchar),
@@ -142,6 +159,8 @@ class AnalyticsRepository : PanacheRepository<AnalyticsEvent> {
                  CAST(:utmCampaign AS varchar), CAST(:waveKey AS varchar),
                  CAST(:viewportW AS integer), CAST(:viewportH AS integer),
                  CAST(:scrollPct AS integer), CAST(:dwellMs AS integer),
+                 CAST(:lcpMs AS integer), CAST(:inpMs AS integer), CAST(:clsMilli AS integer),
+                 CAST(:fcpMs AS integer), CAST(:ttfbMs AS integer),
                  :isBot, CAST(:visitId AS varchar))
             ON CONFLICT (visit_id) WHERE visit_id IS NOT NULL DO UPDATE SET
                 dwell_ms = CASE
@@ -157,7 +176,23 @@ class AnalyticsRepository : PanacheRepository<AnalyticsEvent> {
                 utm_campaign = COALESCE(analytics_event.utm_campaign, EXCLUDED.utm_campaign),
                 wave_key = COALESCE(analytics_event.wave_key, EXCLUDED.wave_key),
                 viewport_w = COALESCE(analytics_event.viewport_w, EXCLUDED.viewport_w),
-                viewport_h = COALESCE(analytics_event.viewport_h, EXCLUDED.viewport_h)
+                viewport_h = COALESCE(analytics_event.viewport_h, EXCLUDED.viewport_h),
+                lcp_ms = COALESCE(EXCLUDED.lcp_ms, analytics_event.lcp_ms),
+                inp_ms = COALESCE(EXCLUDED.inp_ms, analytics_event.inp_ms),
+                cls_milli = COALESCE(EXCLUDED.cls_milli, analytics_event.cls_milli),
+                fcp_ms = COALESCE(EXCLUDED.fcp_ms, analytics_event.fcp_ms),
+                ttfb_ms = COALESCE(EXCLUDED.ttfb_ms, analytics_event.ttfb_ms)
+        """
+
+        /** Vitals take the browser's LATEST report above (they only settle), not the first. */
+        private const val VITALS = """
+            SELECT percentile_cont(0.75) WITHIN GROUP (ORDER BY a.lcp_ms), COUNT(a.lcp_ms),
+                   percentile_cont(0.75) WITHIN GROUP (ORDER BY a.inp_ms), COUNT(a.inp_ms),
+                   percentile_cont(0.75) WITHIN GROUP (ORDER BY a.cls_milli), COUNT(a.cls_milli),
+                   percentile_cont(0.75) WITHIN GROUP (ORDER BY a.fcp_ms), COUNT(a.fcp_ms),
+                   percentile_cont(0.75) WITHIN GROUP (ORDER BY a.ttfb_ms), COUNT(a.ttfb_ms)
+            FROM analytics_event a
+            WHERE $WINDOW
         """
 
         private const val DAILY = """

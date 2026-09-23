@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- danchuo.world's 3D planet is a low-poly Earth; the wireframe globe file is gone (DESIGN §12.5). -->
+    <changeSet id="1110-project-low-poly-earth" author="danchuo">
+        <update tableName="project">
+            <column name="model_url" value="/assets/3d/low-poly-earth.glb"/>
+            <where>title = 'danchuo.world'</where>
+        </update>
+        <rollback>
+            <update tableName="project">
+                <column name="model_url" value="/assets/3d/wireframe-globe.glb"/>
+                <where>title = 'danchuo.world'</where>
+            </update>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

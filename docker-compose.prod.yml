@@ -130,6 +130,10 @@ services:
       API_INTERNAL_URL: http://backend:8080
       SITE_URL: https://danchuo.world
     # No published ports: only caddy talks to it, over the compose network.
+    volumes:
+      # The AVIF photos the optimizer already encoded: a deploy must not send it back to the
+      # backend for every frame at once (PRD §8).
+      - imgcache:/app/.next/cache/images
 
   caddy:
     # Custom build (caddy/Dockerfile): stock caddy:2 has neither a rate limiter nor a cache,
@@ -154,5 +158,6 @@ volumes:
   pgdata:
   filmdata:
   anxdata:
+  imgcache:
   caddy-data:
   caddy-config:

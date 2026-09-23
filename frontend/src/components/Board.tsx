@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { DaySummary, DayView } from "@/lib/api/types";
+import { BACKDROP_DAYS, calendarWeeks } from "@/lib/boardSpine";
 import { anchorOnDay, shiftAnchor } from "@/lib/calendarWindow";
 import { addDays, mskToday } from "@/lib/date";
 import { openBoardGate } from "@/lib/fontGate";
@@ -33,27 +34,6 @@ import { WaveSwitcher } from "./WaveSwitcher";
 
 type Status = "loading" | "error" | "loaded";
 
-/**
- * The calendar window as whole weeks around today: two past, the current one and the next. Counted
- * in weeks rather than days, because the calendar's grid is Monday-to-Sunday rows and a window
- * from an arbitrary day left a ragged first row with half a week showing. PRD §5.3
- */
-const WEEKS_BEFORE = 2;
-const WEEKS_AFTER = 1;
-
-/**
- * The "field" edition's window does not reach forward at all: a future week held a whole grid row
- * for something that cannot exist. The next week stays reachable by stepping — it lives in the
- * edge, and the edge is only drawn for a shifted window. DESIGN §5.2
- */
-const FIELD_WEEKS_AFTER = 0;
-
-/**
- * Depth of the wave's backdrop — the last two weeks, ALWAYS those, wherever the calendar is
- * scrolled. It first read the calendar's window, but that is ONE widget's state while the backdrop
- * lies under everything: a step repainted the whole page as if the wave had changed. DESIGN §10.2
- */
-const BACKDROP_DAYS = 14;
 
 
 /** The board's data and handlers, passed down into every tile. */
@@ -113,11 +93,9 @@ export function Board() {
   const [anchor, setAnchor] = useState(today);
 
   // The calendar's edge (§5.2) shows REAL neighbouring weeks, so the window is taken a week wider
-  // each side and the calendar trims them. Window size is known here because the board loads it;
-  // which edition the tile wears is the wave's word.
-  const fieldCalendar = layout.tiles.calendar.edition === "field";
-  const edgeWeeks = fieldCalendar ? 1 : 0;
-  const weeksAfter = fieldCalendar ? FIELD_WEEKS_AFTER : WEEKS_AFTER;
+  // each side and the calendar trims them; which edition the tile wears is the wave's word.
+  const weeks = calendarWeeks(layout);
+  const edgeWeeks = layout.tiles.calendar.edition === "field" ? 1 : 0;
 
   const [selected, setSelected] = useState(today);
   // The lens lives on the board, not in a tile: the Today quest map sets it and the calendar reads
@@ -144,7 +122,7 @@ export function Board() {
     shownAnchor,
     canGoBack,
     retry: retryRange,
-  } = useCalendarWindow(anchor, WEEKS_BEFORE + edgeWeeks, weeksAfter + edgeWeeks);
+  } = useCalendarWindow(anchor, weeks.before, weeks.after);
 
   // The charts' range is its own, wider than the calendar's, and FOLLOWS THE SELECTED DAY: the
   // board is a time machine, and a reader gone to June expects June's charts (§7.4). It moves

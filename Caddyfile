@@ -172,7 +172,10 @@ danchuo.world {
 			}
 		}
 
-		cache
+		# The optimizer's photos vary by Accept (AVIF or JPEG), which the cache key does not carry;
+		# they have a cache of their own inside Next. PRD §8
+		@page_cacheable not path /_next/image*
+		cache @page_cacheable
 
 		reverse_proxy frontend:3000 {
 			# The pool that turns an outage back into mere slowness: unbounded, Caddy opens a

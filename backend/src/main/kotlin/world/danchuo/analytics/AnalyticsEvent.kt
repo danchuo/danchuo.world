@@ -69,6 +69,23 @@ class AnalyticsEvent {
     @Column(name = "dwell_ms")
     var dwellMs: Int? = null
 
+    /** Web Vitals as the browser settled them; `null` until a follow-up carries one. PRD §5.11 */
+    @Column(name = "lcp_ms")
+    var lcpMs: Int? = null
+
+    @Column(name = "inp_ms")
+    var inpMs: Int? = null
+
+    /** CLS × 1000: the score is a fraction, the column an integer. */
+    @Column(name = "cls_milli")
+    var clsMilli: Int? = null
+
+    @Column(name = "fcp_ms")
+    var fcpMs: Int? = null
+
+    @Column(name = "ttfb_ms")
+    var ttfbMs: Int? = null
+
     @Column(name = "is_bot", nullable = false)
     var isBot: Boolean = false
 

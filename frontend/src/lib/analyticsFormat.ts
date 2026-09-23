@@ -43,3 +43,27 @@ export function periodWindow(days: number, today: string): { from: string; to: s
   from.setUTCDate(from.getUTCDate() - (days - 1));
   return { from: from.toISOString().slice(0, 10), to: today };
 }
+
+export type VitalKey = "lcpMs" | "inpMs" | "cls" | "fcpMs" | "ttfbMs";
+export type VitalGrade = "good" | "needs-improvement" | "poor";
+
+/** Google's field thresholds per metric: `[good ≤, poor >]`. web.dev/articles/vitals */
+const VITAL_THRESHOLDS: Record<VitalKey, readonly [number, number]> = {
+  lcpMs: [2500, 4000],
+  inpMs: [200, 500],
+  cls: [0.1, 0.25],
+  fcpMs: [1800, 3000],
+  ttfbMs: [800, 1800],
+};
+
+export function formatVital(key: VitalKey, p75: number | null): string {
+  if (p75 === null) return "—";
+  if (key === "cls") return p75.toFixed(2);
+  return p75 >= 1000 ? `${(p75 / 1000).toFixed(2)} с` : `${Math.round(p75)} мс`;
+}
+
+export function vitalGrade(key: VitalKey, p75: number | null): VitalGrade | null {
+  if (p75 === null) return null;
+  const [good, poor] = VITAL_THRESHOLDS[key];
+  return p75 <= good ? "good" : p75 <= poor ? "needs-improvement" : "poor";
+}

@@ -54,7 +54,7 @@ class ProjectsResourceTest {
             // A project has TWO planets: the flat sprite always, the 3D one alongside
             // (DESIGN §12.5). Which is worn is the wave's decision, not this record's.
             .body("[0].iconUrl", equalTo("/assets/projects/danchuo-world-px.png"))
-            .body("[0].modelUrl", equalTo("/assets/3d/wireframe-globe.glb"))
+            .body("[0].modelUrl", equalTo("/assets/3d/low-poly-earth.glb"))
             .body("find { it.title == 'proxemics' }.modelUrl", equalTo("/assets/3d/spiral-vortex.glb"))
             .body("find { it.title == 'proxemics' }.endYear", equalTo(2026))
             .body("find { it.title == 'proxemics' }.endQuarter", equalTo(2))

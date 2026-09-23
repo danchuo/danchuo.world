@@ -7,6 +7,13 @@ import { postBeacon, postInteractions } from "@/lib/api/client";
 const postBeaconMock = vi.mocked(postBeacon);
 const postInteractionsMock = vi.mocked(postInteractions);
 
+/** The library measures in a real browser only; here each metric is fed by hand. */
+const vitals = vi.hoisted(() => new Map<string, (metric: { value: number }) => void>());
+vi.mock("web-vitals", () => {
+  const on = (name: string) => (cb: (metric: { value: number }) => void) => vitals.set(name, cb);
+  return { onLCP: on("LCP"), onINP: on("INP"), onCLS: on("CLS"), onFCP: on("FCP"), onTTFB: on("TTFB") };
+});
+
 /** jsdom fixes visibilityState; the beacon's whole exit path hangs off changing it. */
 function setVisibility(state: "visible" | "hidden") {
   Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
@@ -142,5 +149,21 @@ describe("AnalyticsBeacon", () => {
     expect(click.tileId).toBeNull();
     expect(click.offsetXPct).toBeCloseTo(0.25);
     expect(click.offsetYPct).toBeCloseTo(0.5);
+  });
+
+  it("carries the settled Web Vitals on the exit flush, CLS in thousandths", async () => {
+    render(<AnalyticsBeacon />);
+    await waitFor(() => expect(postBeaconMock).toHaveBeenCalledTimes(1));
+
+    vitals.get("LCP")?.({ value: 1234.6 });
+    vitals.get("LCP")?.({ value: 1800.2 }); // a later candidate replaces the first
+    vitals.get("CLS")?.({ value: 0.0426 });
+    vitals.get("INP")?.({ value: 96 });
+    vitals.get("FCP")?.({ value: 700.4 });
+    vitals.get("TTFB")?.({ value: 120.9 });
+    setVisibility("hidden");
+
+    const exit = postBeaconMock.mock.calls[1][0];
+    expect(exit).toMatchObject({ lcpMs: 1800, clsMilli: 43, inpMs: 96, fcpMs: 700, ttfbMs: 121 });
   });
 });

@@ -1,3 +1,4 @@
+import { photoUrl } from "@/lib/api/media";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -261,7 +262,7 @@ describe("TodaySheet", () => {
     render(<TodaySheet day={day({ photo })} today="2026-09-18" />);
 
     const img = screen.getByRole("button", { name: "Фото дня" }).querySelector("img")!;
-    expect(img.getAttribute("src")).toBe("/p/web");
+    expect(img.getAttribute("src")).toBe(photoUrl("/p/web"));
   });
 
   it("the photo opens at full size and closes again", async () => {
@@ -270,7 +271,7 @@ describe("TodaySheet", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Фото дня" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("dialog").querySelector("img")!.getAttribute("src")).toBe("/p/web");
+    expect(screen.getByRole("dialog").querySelector("img")!.getAttribute("src")).toBe(photoUrl("/p/web"));
 
     await userEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     expect(screen.queryByRole("dialog")).toBeNull();

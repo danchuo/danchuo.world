@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { boxesAt } from "@/lib/artifactHighlight";
-import { mediaUrl } from "@/lib/api/media";
+import { photoUrl } from "@/lib/api/media";
 import {
   nearestFrameIndex,
   startFrameIndex,
@@ -169,7 +169,7 @@ export function DropRoll({
       const half = peek.offsetWidth / 2;
       const row = peek.parentElement?.clientWidth ?? 0;
       peek.style.left = `${row > peek.offsetWidth ? Math.max(half, Math.min(row - half, x)) : x}px`;
-      const src = mediaUrl(photo.thumbUrl);
+      const src = photoUrl(photo.thumbUrl);
       if (peekImgRef.current && peekImgRef.current.getAttribute("src") !== src) {
         peekImgRef.current.setAttribute("src", src);
       }
@@ -302,7 +302,7 @@ export function DropRoll({
         readyRef.current.add(src);
         bumpReady((n) => n + 1);
       };
-      img.src = mediaUrl(src);
+      img.src = photoUrl(src);
       dying.push(img);
     }
     return () => {
@@ -428,7 +428,7 @@ export function DropRoll({
               preloaded, so while paging it is usually never seen. */}
           {!readyRef.current.has(photo.imageUrl) && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img data-morph-face src={mediaUrl(photo.thumbUrl)} alt="" aria-hidden className="drop-roll__thumb" />
+            <img data-morph-face src={photoUrl(photo.thumbUrl)} alt="" aria-hidden className="drop-roll__thumb" />
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -436,7 +436,7 @@ export function DropRoll({
             // The hero's "face" — the layer clipped during the flight (common.css). For a drop that
             // is the photo itself; for the rides map its container plays the part.
             data-morph-face
-            src={mediaUrl(photo.imageUrl)}
+            src={photoUrl(photo.imageUrl)}
             alt=""
             decoding="async"
             fetchPriority="high"
@@ -448,7 +448,7 @@ export function DropRoll({
             className="drop-roll__photo"
           />
           {ratio && (
-            <ArtifactBoxes boxes={boxes} shown={under} aside shot={mediaUrl(photo.imageUrl)} />
+            <ArtifactBoxes boxes={boxes} shown={under} aside shot={photoUrl(photo.imageUrl)} />
           )}
           {/* The magnifier sits ON the frame, not in the scene's corner: the button belongs to the
               shot being looked at and moves with it when the proportion changes its size. */}
@@ -501,7 +501,7 @@ export function DropRoll({
               {/* `decoding="async"` is not a micro-optimisation: the ribbon opens in the same frame
                   as the developing animation, and a synchronous decode eats its first frames. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mediaUrl(p.thumbUrl)} alt="" loading="lazy" decoding="async" />
+              <img src={photoUrl(p.thumbUrl)} alt="" loading="lazy" decoding="async" />
             </button>
           );
         })}

@@ -33,13 +33,13 @@ describe("Artifact3D", () => {
   it("mounts the scene into its own canvas", async () => {
     const h = handle();
     mountMock.mockResolvedValue(h);
-    const { container } = render(<Artifact3D src="/assets/3d/wireframe-globe.glb" />);
+    const { container } = render(<Artifact3D src="/assets/3d/low-poly-earth.glb" />);
 
     const canvas = container.querySelector("canvas");
     expect(canvas).toBeInTheDocument();
     await waitFor(() => expect(mountMock).toHaveBeenCalledTimes(1));
     expect(mountMock.mock.calls[0][0]).toBe(canvas);
-    expect(mountMock.mock.calls[0][1]).toMatchObject({ src: "/assets/3d/wireframe-globe.glb" });
+    expect(mountMock.mock.calls[0][1]).toMatchObject({ src: "/assets/3d/low-poly-earth.glb" });
   });
 
   it("the canvas buffer is measured by layout, not by how the item is currently scaled", async () => {

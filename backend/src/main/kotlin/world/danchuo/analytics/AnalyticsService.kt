@@ -36,6 +36,27 @@ data class Totals(
     val avgScrollPct: Int?,
 )
 
+/** One visit's Web Vitals as the beacon reported them, before the plausibility check. */
+data class WebVitalsSample(
+    val lcpMs: Int? = null,
+    val inpMs: Int? = null,
+    val clsMilli: Int? = null,
+    val fcpMs: Int? = null,
+    val ttfbMs: Int? = null,
+)
+
+/** The 75th percentile over visits that reported the metric — Google's threshold statistic. */
+data class VitalP75(val p75: Double?, val samples: Int)
+
+/** Field Web Vitals of the period, bots excluded. CLS is the score itself, not thousandths. */
+data class WebVitals(
+    val lcpMs: VitalP75,
+    val inpMs: VitalP75,
+    val cls: VitalP75,
+    val fcpMs: VitalP75,
+    val ttfbMs: VitalP75,
+)
+
 /** The KPI row of the dashboard. */
 data class SummaryTotals(
     val visits: Int,
@@ -54,6 +75,7 @@ data class AnalyticsSummary(
     val totals: SummaryTotals,
     val days: List<DailyPoint>,
     val breakdowns: Map<String, List<BreakdownRow>>,
+    val vitals: WebVitals,
 )
 
 /**
@@ -86,6 +108,7 @@ class AnalyticsService(
         waveKey: String?,
         viewportW: Int?,
         viewportH: Int?,
+        vitals: WebVitalsSample,
         ip: String,
         userAgent: String?,
         acceptLanguage: String?,
@@ -105,6 +128,11 @@ class AnalyticsService(
             this.viewportH = viewportH?.takeIf { it in 1..MAX_VIEWPORT }
             this.scrollPct = scrollPct?.coerceIn(0, 100)
             this.dwellMs = dwellMs?.takeIf { it >= 0 }
+            this.lcpMs = vitals.lcpMs.plausible(MAX_VITAL_MS)
+            this.inpMs = vitals.inpMs.plausible(MAX_VITAL_MS)
+            this.clsMilli = vitals.clsMilli.plausible(MAX_CLS_MILLI)
+            this.fcpMs = vitals.fcpMs.plausible(MAX_VITAL_MS)
+            this.ttfbMs = vitals.ttfbMs.plausible(MAX_VITAL_MS)
             this.isBot = bots.isBot(userAgent, acceptLanguage)
             this.visitId = visitId
         }
@@ -136,6 +164,7 @@ class AnalyticsService(
             ),
             days = repository.daily(zone.id, fromInstant, toInstant, engagedMs),
             breakdowns = dimensions,
+            vitals = repository.vitals(fromInstant, toInstant),
         )
     }
 
@@ -145,8 +174,13 @@ class AnalyticsService(
         ?.removePrefix("www.")
         ?.takeIf { it.isNotBlank() && it.length <= AnalyticsLimits.REFERRER_HOST }
 
+    /** A metric outside `0..max` is a broken reporter, not a slow visit: dropped, not clamped. */
+    private fun Int?.plausible(max: Int): Int? = this?.takeIf { it in 0..max }
+
     private companion object {
         const val MAX_VIEWPORT = 100_000
+        const val MAX_VITAL_MS = 120_000
+        const val MAX_CLS_MILLI = 100_000
     }
 }
 

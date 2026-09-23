@@ -13,13 +13,30 @@ function iconLinks(): HTMLLinkElement[] {
   return [link];
 }
 
-/** Frames already fetched and decoded this page load: a wave swap back must not warm them again. */
-const warmed = new Set<string>();
+/**
+ * Frame file → object URL, kept for the page's lifetime. A network href is revalidated on EVERY
+ * swap — ten requests a second per tab, enough for the edge to 429 the whole site. DESIGN §10.3
+ */
+const frameUrls = new Map<string, string>();
+
+function loadFrame(src: string): Promise<string | null> {
+  const known = frameUrls.get(src);
+  if (known) return Promise.resolve(known);
+  return fetch(src)
+    .then((res) => (res.ok ? res.blob() : null))
+    .then((blob) => {
+      if (!blob) return null;
+      const url = URL.createObjectURL(blob);
+      frameUrls.set(src, url);
+      return url;
+    })
+    .catch(() => null); // a missing frame must not hold the whole turn back
+}
 
 /**
  * Spins the Earth in the tab icon; renders nothing. A turn is a swap of the icon's href over
- * ready-cut frame files — the only way to animate a tab icon in Chrome and Safari, which refuse
- * an animated GIF there. It degrades silently to the static planet. DESIGN §10.3
+ * ready-cut frames held as object URLs — the only way to animate a tab icon in Chrome and Safari,
+ * which refuse an animated GIF there. It degrades silently to the static planet. DESIGN §10.3
  */
 export function FaviconSpinner() {
   const [wave, setWave] = useState<string | null>(() =>
@@ -44,28 +61,16 @@ export function FaviconSpinner() {
     const links = iconLinks();
     const show = (href: string) => links.forEach((link) => (link.href = href));
 
-    /* The turn starts only once every frame is in the cache: an href pointing at a file still on
+    /* The turn starts only once every frame is in memory: an href pointing at a file still on
        its way leaves the tab blank, and at ten frames a second that reads as a flickering icon. */
-    const warm = frames.map(
-      (src) =>
-        new Promise<boolean>((done) => {
-          if (warmed.has(src)) return done(true);
-          const image = new Image();
-          image.onload = () => {
-            warmed.add(src);
-            done(true);
-          };
-          image.onerror = () => done(false); // a missing frame must not hold the whole turn back
-          image.src = src;
-        }),
-    );
-
-    void Promise.all(warm).then((ok) => {
+    void Promise.all(frames.map(loadFrame)).then((urls) => {
       if (cancelled) return;
       // The frames never arrived: the static planet in `<head>` is a complete answer, and pointing
       // the tab at a file that 404s would replace it with a blank square. DESIGN §10.3
-      if (!ok[0]) return;
-      show(frames[0]);
+      const first = urls[0];
+      if (!first) return;
+      const ready = urls.map((url) => url ?? first);
+      show(first);
       if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
       const startedAt = Date.now();
@@ -78,7 +83,7 @@ export function FaviconSpinner() {
         const frame = faviconFrameAt(Date.now() - startedAt, sprite);
         if (frame === shown) return;
         shown = frame;
-        show(frames[frame]);
+        show(ready[frame]);
       }, sprite.frameMs);
     });
 

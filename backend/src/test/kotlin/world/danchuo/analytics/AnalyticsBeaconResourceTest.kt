@@ -179,4 +179,35 @@ class AnalyticsBeaconResourceTest {
     fun `beacon requires a path`() {
         beacon("""{"visitId":"no-path"}""").then().statusCode(400)
     }
+
+    /** Samples of one vital over today; tests run one at a time, so a delta is this case's own. */
+    private fun vitalSamples(vital: String): Int =
+        summary().statusCode(200).extract().path<Int>("vitals.$vital.samples")
+
+    @Test
+    fun `web vitals ride the follow-ups and count once per visit`() {
+        val before = vitalSamples("lcpMs")
+        val id = visit()
+        beacon("""{"visitId":"$id","path":"/"}""").then().statusCode(204)
+        beacon("""{"visitId":"$id","path":"/","lcpMs":1800,"clsMilli":40,"inpMs":120}""").then().statusCode(204)
+        // A later flush reports the settled value; it replaces the first, it is not a second sample.
+        beacon("""{"visitId":"$id","path":"/","lcpMs":2100,"fcpMs":900,"ttfbMs":150}""").then().statusCode(204)
+
+        assert(vitalSamples("lcpMs") == before + 1) { "one visit is one LCP sample" }
+        summary().statusCode(200)
+            .body("vitals.lcpMs.p75", not(equalTo(null)))
+            .body("vitals.cls.samples", greaterThanOrEqualTo(1))
+            .body("vitals.ttfbMs.samples", greaterThanOrEqualTo(1))
+    }
+
+    @Test
+    fun `impossible vitals are dropped, the visit itself still counts`() {
+        val key = campaign()
+        val before = vitalSamples("inpMs")
+        beacon("""{"visitId":"${visit()}","path":"/","utmCampaign":"$key","inpMs":-5,"lcpMs":999999999}""")
+            .then().statusCode(204)
+
+        assert(vitalSamples("inpMs") == before) { "a negative INP is not a sample" }
+        assert(campaignStat(key, "visits") == 1) { "the visit survives its junk vitals" }
+    }
 }

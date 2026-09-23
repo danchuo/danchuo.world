@@ -4532,7 +4532,6 @@ button.sleep-echo:focus-visible {
    Sittings are equal square frames with their covers filling them; the discipline ledger runs as
    named plates along the foot. Structure only — how much plate is left is the wave's word. */
 .today-sheet {
-  --sheet-frame: 104px;
   container-type: inline-size;
   display: flex;
   flex-direction: column;
@@ -4572,12 +4571,26 @@ button.sleep-echo:focus-visible {
   text-overflow: ellipsis;
 }
 
-/* Frames start at the left and stop where they stop: the empty right is deliberate, and a row
-   that stretched would make one podcast look like a full day. The halo needs room INSIDE the
-   scroll box, which clips what leaves it; the negative margin hands that padding back. */
+/* Frames start at the left and stop where they stop: the empty right is deliberate. The halo
+   needs room INSIDE the scroll box, which clips what leaves it; the negative margin hands it back. */
 .today-sheet__frames {
+  /* Caption zone under a frame: two 6px gaps, the 2px track, the 11px·1.3 name line. */
+  --sheet-caption: calc(14px + 11px * 1.3);
+  /* The side is the TILE's: the row's height, capped so the whole row fits its width. DESIGN §4.3 */
+  --sheet-frame: max(
+    104px,
+    min(
+      100cqh - var(--sheet-caption),
+      (100cqw - var(--sheet-caption) * var(--sheet-photo, 0) - 12px * var(--sheet-gaps, 0)) /
+        (var(--sheet-n, 1) + var(--sheet-photo, 0))
+    )
+  );
+  container-type: size;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   justify-content: flex-start;
+  align-items: flex-end;
   gap: 12px;
   min-width: 0;
   overflow-x: auto;
@@ -4586,6 +4599,16 @@ button.sleep-echo:focus-visible {
   padding: 12px;
 }
 .today-sheet__frames::-webkit-scrollbar { display: none; }
+/* On a weekday the frames sit ON the ledge, so any spare height gathers under the name instead of
+   between the pictures and the ledge. With no ledge on a weekend they stand centred. DESIGN §4.3 */
+.today-sheet.is-rest .today-sheet__frames {
+  align-items: center;
+  justify-content: safe center;
+}
+/* In the stack the tile has no height to hand down, and a size container would fold to zero. */
+.board-stack .today-sheet__frames {
+  aspect-ratio: 5 / 2;
+}
 
 /* A frame is the cover, the track and the name STACKED — nothing lies on the picture, so its
    lower edge is not darkened and the cover stays whole. */
@@ -4669,7 +4692,6 @@ button.sleep-echo:focus-visible {
 /* The FIXED row: one column per item, always the same count in the same order, so the row keeps
    its shape from day to day and an item is found by place. Equal columns, never wrapping. */
 .today-sheet__sockets {
-  margin-top: auto;
   display: grid;
   grid-template-columns: repeat(var(--sheet-sockets, 6), minmax(0, 1fr));
   gap: 8px;
@@ -4738,11 +4760,12 @@ button.sleep-echo:focus-visible {
   height: 62%;
   color: var(--accent);
 }
-/* The photo has no caption, so its slot is a neighbour's frame PLUS its caption zone (two 6px gaps,
-   the 2px track, the 11px·1.3 name line). Proportions are fractions of that slot, seated at its foot. */
+/* The photo has no caption, so its slot is a neighbour's frame PLUS its caption zone. Proportions
+   are fractions of that slot, seated at its foot. */
 .today-sheet__photo {
-  --sheet-slot: calc(var(--sheet-frame) + 14px + 11px * 1.3);
+  --sheet-slot: calc(var(--sheet-frame) + var(--sheet-caption));
   width: calc(var(--sheet-slot) * var(--photo-w, 1));
+  height: var(--sheet-slot);
   justify-content: flex-end;
 }
 .today-sheet__photo .today-sheet__shot {

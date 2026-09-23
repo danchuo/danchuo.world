@@ -264,6 +264,7 @@ export function Board() {
                 orientation={span.orientation}
                 edition={span.edition}
                 planet={span.planet}
+                platforms={span.platforms}
                 gallery={layout.gallery}
                 style={box.tile}
               />
@@ -285,6 +286,7 @@ export function Board() {
                 data={data}
                 edition={layout.tiles[id]?.edition}
                 planet={layout.tiles[id]?.planet}
+                platforms={layout.tiles[id]?.platforms}
                 gallery={layout.gallery}
               />
             </div>
@@ -305,6 +307,7 @@ function BoardTile({
   orientation,
   edition,
   planet,
+  platforms,
   gallery,
   style,
   className,
@@ -317,6 +320,8 @@ function BoardTile({
   edition?: string;
   /** How the wave dresses project planets — in both modes as well. */
   planet?: string;
+  /** The link tile's platform choice from the wave's layout. */
+  platforms?: readonly string[];
   /** The drop GALLERY's edition, shared per wave: both drop tiles open it. */
   gallery?: string;
   style?: CSSProperties;
@@ -401,7 +406,7 @@ function BoardTile({
     case "ride":
       return <RideTile wave={data.wave} edition={edition} style={style} className={className} />;
     case "social":
-      return <SocialTile edition={edition} style={style} className={className} />;
+      return <SocialTile edition={edition} platforms={platforms} style={style} className={className} />;
     /* One mark per tile: the wave scatters the four over the board's leftover cells instead of
        gathering them on one plate. The platform is the BINDING, not a position in the list —
        the order of links is data (PRD §5.8) and must not decide which cell a mark lands in. */

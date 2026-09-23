@@ -55,6 +55,8 @@ export interface TileSpan {
    * edition is about the ROW's layout while this is about the ICON's material. DESIGN §12.5
    */
   planet?: string;
+  /** Platforms a link tile keeps, by their key; absent ⇒ every link the data has. DESIGN §10.2 */
+  platforms?: readonly string[];
   /**
    * The tile's edition: the name of one of several layouts the tile knows itself. A string rather
    * than an enum here, because the set of editions is the TILE's knowledge and the registry knows
@@ -197,6 +199,7 @@ export interface WaveTileSpan {
   orientation?: TileOrientation;
   edition?: string;
   planet?: string;
+  platforms?: readonly string[];
 }
 
 /** A wave's layout block (`Wave.layout`); every field is optional and falls back below. */
@@ -247,6 +250,7 @@ export function resolveLayout(wave?: WaveLayout | null): ResolvedLayout {
       orientation: ov?.orientation ?? base.orientation,
       edition: ov?.edition ?? base.edition,
       planet: ov?.planet ?? base.planet,
+      platforms: ov?.platforms ?? base.platforms,
     };
   }
 

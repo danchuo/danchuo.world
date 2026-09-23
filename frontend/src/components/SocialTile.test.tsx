@@ -42,6 +42,14 @@ async function grid(platforms: string[]): Promise<HTMLElement> {
 }
 
 describe("SocialTile", () => {
+  it("a wave's platform list keeps only those marks, in the data's order", async () => {
+    getSocialLinksMock.mockResolvedValue(["github", "telegram", "x", "instagram"].map(link));
+    const { container } = render(<SocialTile platforms={["instagram", "telegram"]} />);
+    await within(container).findByLabelText("telegram");
+    const labels = [...container.querySelectorAll("a")].map((a) => a.getAttribute("aria-label"));
+    expect(labels).toEqual(["telegram", "instagram"]);
+  });
+
   /**
    * The column count arrives as a VARIABLE rather than an inline `grid-template-columns`: in the
    * mobile stack the square grid becomes one row, and CSS cannot override an inline style without

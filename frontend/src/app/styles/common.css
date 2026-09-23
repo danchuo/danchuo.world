@@ -70,6 +70,10 @@ body {
   /* Five frames fall into 2-3 rows; 4:3 gives them height without eating the phone screen. */
   aspect-ratio: 4 / 3;
 }
+.artifact-shaft {
+  /* Every object stands in an absolute layer; square, as the objects themselves are. */
+  aspect-ratio: 1;
+}
 .board-stack .music-recent {
   /* Height is a line count: five tracks (RECENT_WHEN_IDLE) at 1.4em plus 2px gaps, plus 12px
      slack. useFitOverflow hides a row whose bottom comes within FIT_MARGIN of the edge, and a
@@ -3853,9 +3857,10 @@ button.sleep-echo:focus-visible {
   position: absolute;
   inset: 0;
 }
+/* Bottom-LEFT: on a narrow screen the finds column folds into the bottom-right corner. */
 .drop-roll__zoom {
   position: absolute;
-  right: 8px;
+  left: 8px;
   bottom: 8px;
   display: inline-flex;
   align-items: center;

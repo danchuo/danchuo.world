@@ -299,10 +299,10 @@
 
 /* A card rather than a strip, but not the board's: at the 1536 reference the board card is 3:5, and that
    ratio in the stack gave a row as tall as the music tile above it. The stack gives a card more width than
-   the board does, so 4:5 keeps it portrait and a quarter shorter. */
+   the board does, so a square keeps it a card at well under the music tile's height. */
 :root[data-wave="wave-03"] .board-stack .wave-chip {
   height: auto;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 1;
 }
 /* At the bottom of the stack the switcher is a FOOTER, not a widget: a card does not choose its own
    size (see the gutter below), so the row is capped and centred and the cards shrink with it. Full
@@ -1600,6 +1600,16 @@
 :root[data-wave="wave-03"] .t-feedback__call {
   text-indent: 2ch;
 }
+/* In the stack the tile spans the screen, so the call takes its middle and the band hugs the line. */
+:root[data-wave="wave-03"] .board-stack .t-feedback__button {
+  padding-block: 0.625rem;
+}
+:root[data-wave="wave-03"] .board-stack .t-feedback__body {
+  justify-content: center;
+}
+:root[data-wave="wave-03"] .board-stack .t-feedback__call {
+  text-indent: 0;
+}
 
 /* One word of the title carries the wave's code green — the same hue the board's call wears, so
    the window and the tile that opened it answer to each other. */
@@ -1644,18 +1654,16 @@
 
 /* The develop belongs to the find itself: the hand has to be ON its square, not merely on the
    photograph. `data-shown` is judged by the point (`boxesAt`), since finds overlap and `:hover`
-   reaches only the topmost. Touch sets no such state, and there the negative simply stands. */
-@media (hover: hover) {
-  :root[data-wave="wave-03"] .drop-roll__stage:has(.artifact-box[data-shown]) .artifact-union {
-    opacity: 0;
-  }
-  :root[data-wave="wave-03"] .drop-roll__stage:has(.artifact-box[data-shown])::after {
-    opacity: 1;
-  }
-  /* Only what is under the hand comes back sharp; the other finds are dimmed with the frame. */
-  :root[data-wave="wave-03"] .artifact-box[data-shown]::after {
-    opacity: 1;
-  }
+   reaches only the topmost; on touch a tap sets it, so no hover media gate here. */
+:root[data-wave="wave-03"] .drop-roll__stage:has(.artifact-box[data-shown]) .artifact-union {
+  opacity: 0;
+}
+:root[data-wave="wave-03"] .drop-roll__stage:has(.artifact-box[data-shown])::after {
+  opacity: 1;
+}
+/* Only what is under the hand comes back sharp; the other finds are dimmed with the frame. */
+:root[data-wave="wave-03"] .artifact-box[data-shown]::after {
+  opacity: 1;
 }
 
 /* Order around the veil: finds and the scene's own controls stand above it, the photograph under. */

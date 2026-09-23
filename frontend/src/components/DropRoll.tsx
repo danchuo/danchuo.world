@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { boxesAt } from "@/lib/artifactHighlight";
@@ -379,7 +378,7 @@ export function DropRoll({
   // point rather than a box's `:hover`, since boxes overlap and only the top one would get it.
   const [under, setUnder] = useState<number[]>([]);
   useEffect(() => setUnder([]), [current]);
-  const trackPointer = (e: ReactMouseEvent<HTMLElement>) => {
+  const trackPointer = (e: ReactPointerEvent<HTMLElement>) => {
     if (boxes.length === 0) return;
     const r = e.currentTarget.getBoundingClientRect();
     if (!r.width || !r.height) return;
@@ -408,11 +407,21 @@ export function DropRoll({
           // seam finds the frame by it in any gallery edition.
           data-morph-hero
           style={ratio ? { aspectRatio: ratio } : undefined}
-          onMouseMove={trackPointer}
-          onMouseLeave={() => setUnder([])}
           onPointerDown={onStagePointerDown}
-          onPointerMove={onStagePointerMove}
-          onPointerUp={endSwipe}
+          onPointerMove={(e) => {
+            // Hover is the mouse's alone: compatibility mouse events after a tap would undo the tap.
+            if (e.pointerType === "mouse") trackPointer(e);
+            onStagePointerMove(e);
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType === "mouse") setUnder([]);
+          }}
+          onPointerUp={(e) => {
+            // A finger has no hover: a tap that did not turn into a swipe is its hand on a find.
+            const swipe = swipeRef.current;
+            if (swipe?.id === e.pointerId && !swipe.locked) trackPointer(e);
+            endSwipe();
+          }}
           onPointerCancel={endSwipe}
         >
           {/* The thumbnail backs the frame only while the full one is NOT cached. Neighbours are

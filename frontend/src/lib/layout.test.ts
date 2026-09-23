@@ -69,6 +69,12 @@ describe("resolveLayout", () => {
     expect(r.tiles.music.planet).toBeUndefined();
   });
 
+  it("a wave may narrow a tile to some platforms (platforms); by default it is unset", () => {
+    const r = resolveLayout({ tiles: { social: { platforms: ["telegram", "instagram"] } } });
+    expect(r.tiles.social.platforms).toEqual(["telegram", "instagram"]);
+    expect(r.tiles.music.platforms).toBeUndefined();
+  });
+
 });
 
 /**

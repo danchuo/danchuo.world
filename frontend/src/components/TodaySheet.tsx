@@ -25,6 +25,7 @@ import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
 import type { SummarySubject } from "@/lib/summarySubject";
 import { SummaryModal } from "./SummaryModal";
+import { isWeekend } from "@/lib/weekend";
 
 /* The plate's own geometry only — the frame's real side comes from `--sheet-frame` in CSS, which
    scales the plate and its mark with the sheet. This sets the mark's proportion inside it. */
@@ -51,6 +52,16 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
   const sessions = sheetSessions(day);
   const cells = sheetCells(day);
   const monster = sheetMonsterCard(day);
+  const activities = dayActivities(day);
+  // Every item is a weekday one: on a weekend the ledge could only print misses. PRD §5.6
+  const rest = isWeekend(day.date);
+  const photoWidth = day.photo ? photoFrame(day.photo.width, day.photo.height).width : 0;
+  const squares = sessions.length + activities.length + 1;
+  const row = {
+    "--sheet-n": squares,
+    "--sheet-photo": Number(photoWidth.toFixed(3)),
+    "--sheet-gaps": squares - (day.photo ? 0 : 1),
+  } as CSSProperties;
 
   /* The name is the only line in full voice and it owns the body's width alone, fitted to ONE
      line of that width: mono's (1/0.6)·94 worst case with a hair of slack. Its size is therefore
@@ -84,19 +95,19 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
   };
 
   return (
-    <div className="today-sheet">
+    <div className={rest ? "today-sheet is-rest" : "today-sheet"}>
       <div className="today-sheet__body">
         <p className="today-sheet__voice" style={{ fontSize: voiceSize }}>
           {voice}
         </p>
 
-        {/* Sittings, the day's activities, its photo, and the monster closing the row: every one
-            a frame's square, so the row keeps one baseline. DESIGN §4.3 */}
-        <div className="today-sheet__frames">
+        {/* Sittings, activities, the photo and the monster closing the row, all on one baseline.
+            The row's make-up fits the frame's side to the tile in CSS. DESIGN §4.3 */}
+        <div className="today-sheet__frames" style={row}>
           {sessions.map((session) => (
             <Frame key={session.key} session={session} onOpen={setRetold} />
           ))}
-          {dayActivities(day).map((activity) => (
+          {activities.map((activity) => (
             <ActivityCard
               key={activity.key}
               activity={activity}
@@ -116,21 +127,23 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
 
         {/* The row's column count is DATA: a new discipline item widens the row rather than
             wrapping onto a second one, which would break the shape the eye has learnt. */}
-        <div
-          className="today-sheet__sockets"
-          style={{ "--sheet-sockets": cells.length } as CSSProperties}
-          {...leave}
-        >
-          {cells.map((cell) => (
-            <Cell
-              key={cell.key}
-              cell={cell}
-              active={lens?.key === cell.key}
-              onPick={() => pick(cellLens(cell))}
-              hover={hover(cellLens(cell))}
-            />
-          ))}
-        </div>
+        {!rest && (
+          <div
+            className="today-sheet__sockets"
+            style={{ "--sheet-sockets": cells.length } as CSSProperties}
+            {...leave}
+          >
+            {cells.map((cell) => (
+              <Cell
+                key={cell.key}
+                cell={cell}
+                active={lens?.key === cell.key}
+                onPick={() => pick(cellLens(cell))}
+                hover={hover(cellLens(cell))}
+              />
+            ))}
+          </div>
+        )}
 
         {/* The date closes the foot at its far end: the whole top belongs to the day's name,
             which the stamp is not allowed to compete with. DESIGN §4.3 */}

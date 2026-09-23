@@ -10,7 +10,7 @@ function item(over: Partial<DisciplineItemView> & { key: string }): DisciplineIt
 
 function day(over: Partial<DayView> = {}): DayView {
   return {
-    date: "2026-09-19",
+    date: "2026-09-18",
     title: null,
     hasData: true,
     health: { steps: null, sleepMinutes: null },
@@ -32,7 +32,7 @@ const withBook = (over = {}) =>
             title: "Пятая гора",
             author: "Пауло Коэльо",
             coverUrl: "https://i/book.jpg",
-            startedAt: "2026-09-19T12:00:00Z",
+            startedAt: "2026-09-18T12:00:00Z",
             readMinutes: 24,
             startPercent: 0.43,
             endPercent: 0.58,
@@ -47,27 +47,27 @@ const withBook = (over = {}) =>
 
 describe("TodaySheet", () => {
   it("prints the day in the ribbon's grammar rather than a split header", () => {
-    render(<TodaySheet day={day({ title: "суббота длиною в год" })} today="2026-09-19" />);
+    render(<TodaySheet day={day({ title: "суббота длиною в год" })} today="2026-09-18" />);
 
-    expect(screen.getByText("суббота 19.09")).toBeInTheDocument();
+    expect(screen.getByText("пятница 18.09")).toBeInTheDocument();
     expect(screen.getByText("суббота длиною в год")).toBeInTheDocument();
   });
 
   // The date closes the FOOT strip; the whole top is the day's name, which it may not compete
   // with. A named day does not also print "today" — the name has already said which day. §4.3
   it("stamps the date in the foot strip and gives the top to the name", () => {
-    const { container } = render(<TodaySheet day={day({ title: "суббота длиною в год" })} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={day({ title: "суббота длиною в год" })} today="2026-09-18" />);
 
-    expect(container.querySelector(".today-sheet__foot .today-sheet__stamp")!.textContent).toBe("суббота 19.09");
+    expect(container.querySelector(".today-sheet__foot .today-sheet__stamp")!.textContent).toBe("пятница 18.09");
     expect(container.querySelector(".today-sheet__voice")!.textContent).toBe("суббота длиною в год");
     expect(screen.queryByText("сегодня")).toBeNull();
   });
 
   it("gives the voice to the relative word when the day has no name", () => {
-    const { container } = render(<TodaySheet day={day()} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={day()} today="2026-09-18" />);
 
     expect(container.querySelector(".today-sheet__voice")!.textContent).toBe("сегодня");
-    expect(container.querySelector(".today-sheet__foot .today-sheet__stamp")!.textContent).toBe("суббота 19.09");
+    expect(container.querySelector(".today-sheet__foot .today-sheet__stamp")!.textContent).toBe("пятница 18.09");
   });
 
   // A sitting whose retelling never assembled is not a dead picture: the frame leads to the
@@ -101,18 +101,18 @@ describe("TodaySheet", () => {
         ],
       });
 
-    const { container } = render(<TodaySheet day={withEpisode({})} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={withEpisode({})} today="2026-09-18" />);
     const link = container.querySelector("a.today-sheet__frame") as HTMLAnchorElement;
     expect(link.href).toBe("https://open.spotify.com/episode/x");
     expect(link.getAttribute("rel")).toBe("noreferrer");
 
-    const homeless = render(<TodaySheet day={withEpisode({ episodeUrl: null })} today="2026-09-19" />);
+    const homeless = render(<TodaySheet day={withEpisode({ episodeUrl: null })} today="2026-09-18" />);
     expect(homeless.container.querySelector("a.today-sheet__frame")).toBeNull();
   });
 
   it("sizes the name from its own length, so a long one stays loud", () => {
-    const short = render(<TodaySheet day={day({ title: "экстрадень" })} today="2026-09-19" />);
-    const long = render(<TodaySheet day={day({ title: "т".repeat(74) })} today="2026-09-19" />);
+    const short = render(<TodaySheet day={day({ title: "экстрадень" })} today="2026-09-18" />);
+    const long = render(<TodaySheet day={day({ title: "т".repeat(74) })} today="2026-09-18" />);
 
     const size = (r: { container: HTMLElement }) =>
       (r.container.querySelector(".today-sheet__voice") as HTMLElement).style.fontSize;
@@ -121,7 +121,7 @@ describe("TodaySheet", () => {
   });
 
   it("shows the covered chunk as a run on a track, not as percentages", () => {
-    const { container } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
 
     expect(screen.getByText("Пятая гора")).toBeInTheDocument();
     expect(screen.queryByText("43% → 58%")).toBeNull();
@@ -131,7 +131,7 @@ describe("TodaySheet", () => {
   });
 
   it("speaks the covered chunk in the frame's label, since the track is decoration", () => {
-    render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    render(<TodaySheet day={withBook()} today="2026-09-18" />);
 
     expect(
       screen.getByRole("button", { name: "Что было в прочитанном куске: Пятая гора, 43% → 58%" }),
@@ -141,14 +141,14 @@ describe("TodaySheet", () => {
   // Nothing is ever hidden from the fixed row: the item whose sittings became frames keeps its
   // socket and says so, rather than dropping out and shifting every socket to its right. §4.3
   it("keeps the socket of an item that already has a frame, marked as framed", () => {
-    const { container } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
 
     expect(screen.getByRole("button", { name: "Чтение: есть свои кадры" })).toBeInTheDocument();
     expect(container.querySelector(".today-sheet__cell.is-framed")).not.toBeNull();
   });
 
   it("opens a sitting that has a retelling, and leaves one without it unopenable", () => {
-    const { unmount } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    const { unmount } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
     expect(screen.getByRole("button", { name: /Что было в прочитанном куске/ })).toBeInTheDocument();
     unmount();
 
@@ -174,7 +174,7 @@ describe("TodaySheet", () => {
         }),
       ],
     });
-    render(<TodaySheet day={mute} today="2026-09-19" />);
+    render(<TodaySheet day={mute} today="2026-09-18" />);
 
     expect(screen.queryByRole("button", { name: /Что было в прочитанном куске/ })).toBeNull();
     expect(screen.getByText("Пятая гора")).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe("TodaySheet", () => {
   // the row never collapses, and the sheet is never an empty rectangle. DESIGN §4.3
   it("keeps the frame row on a day with no sittings, the monster standing alone in it", () => {
     const { container } = render(
-      <TodaySheet day={day({ discipline: [item({ key: "stretch", count: 1 })] })} today="2026-09-19" />,
+      <TodaySheet day={day({ discipline: [item({ key: "stretch", count: 1 })] })} today="2026-09-18" />,
     );
 
     const row = container.querySelector(".today-sheet__frames")!;
@@ -195,7 +195,7 @@ describe("TodaySheet", () => {
 
   // The monster CLOSES the row rather than floating away at its far right edge.
   it("puts the monster last in the frame row, after every sitting", () => {
-    const { container } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
 
     const kids = [...container.querySelector(".today-sheet__frames")!.children];
     expect(kids).toHaveLength(2);
@@ -206,7 +206,7 @@ describe("TodaySheet", () => {
   it("stands the activities, then the day's photo, before the monster", () => {
     const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
     const { container } = render(
-      <TodaySheet day={withBook({ activities: ["bouldering", "squash"], photo })} today="2026-09-19" />,
+      <TodaySheet day={withBook({ activities: ["bouldering", "squash"], photo })} today="2026-09-18" />,
     );
 
     const kids = [...container.querySelector(".today-sheet__frames")!.children];
@@ -228,7 +228,7 @@ describe("TodaySheet", () => {
     const { rerender } = render(
       <TodaySheet
         day={day({ activities: ["squash"] })}
-        today="2026-09-19"
+        today="2026-09-18"
         onLensChange={onLensChange}
         onLensPreview={onLensPreview}
       />,
@@ -244,19 +244,19 @@ describe("TodaySheet", () => {
     expect(onLensChange).toHaveBeenCalledWith(lens);
     expect(card).toHaveAttribute("aria-pressed", "false");
 
-    rerender(<TodaySheet day={day({ activities: ["squash"] })} today="2026-09-19" lens={lens} />);
+    rerender(<TodaySheet day={day({ activities: ["squash"] })} today="2026-09-18" lens={lens} />);
     expect(screen.getByRole("button", { name: "сквош" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("no activity cards and no photo on a day without them", () => {
-    const { container } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-18" />);
     expect(container.querySelector(".today-sheet__activity")).toBeNull();
     expect(container.querySelector(".today-sheet__photo")).toBeNull();
   });
 
   it("the photo opens at full size and closes again", async () => {
     const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
-    render(<TodaySheet day={day({ photo })} today="2026-09-19" />);
+    render(<TodaySheet day={day({ photo })} today="2026-09-18" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Фото дня" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe("TodaySheet", () => {
   // Esc and a click past the photo leave focus where it was: a ring left around it reads as a selection.
   it("closing the photo leaves no focus on its card", async () => {
     const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
-    render(<TodaySheet day={day({ photo })} today="2026-09-19" />);
+    render(<TodaySheet day={day({ photo })} today="2026-09-18" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Фото дня" }));
     await userEvent.keyboard("{Escape}");
@@ -279,7 +279,7 @@ describe("TodaySheet", () => {
 
   it("the photo carries no caption: the whole card is the picture", () => {
     const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
-    const { container } = render(<TodaySheet day={day({ photo })} today="2026-09-19" />);
+    const { container } = render(<TodaySheet day={day({ photo })} today="2026-09-18" />);
 
     expect(screen.queryByText("фото дня")).toBeNull();
     expect(container.querySelector(".today-sheet__photo")!.children).toHaveLength(1);
@@ -297,7 +297,7 @@ describe("TodaySheet", () => {
             item({ key: "office", label: "Офис", target: 1, count: 0 }),
           ],
         })}
-        today="2026-09-19"
+        today="2026-09-18"
       />,
     );
 
@@ -313,7 +313,7 @@ describe("TodaySheet", () => {
         day={day({
           discipline: [item({ key: "reading", label: "Чтение", target: 2, count: 1, occurrenceStreaks: [6, 0] })],
         })}
-        today="2026-09-19"
+        today="2026-09-18"
       />,
     );
 
@@ -325,7 +325,7 @@ describe("TodaySheet", () => {
     render(
       <TodaySheet
         day={day({ discipline: [item({ key: "office", label: "Офис по расписанию", count: 1, occurrenceStreaks: [14] })] })}
-        today="2026-09-19"
+        today="2026-09-18"
       />,
     );
 
@@ -340,7 +340,7 @@ describe("TodaySheet", () => {
     const { rerender } = render(
       <TodaySheet
         day={day({ discipline: [item({ key: "stretch", label: "Растяжка", count: 1 })] })}
-        today="2026-09-19"
+        today="2026-09-18"
         onLensChange={onLensChange}
       />,
     );
@@ -351,7 +351,7 @@ describe("TodaySheet", () => {
     rerender(
       <TodaySheet
         day={day({ discipline: [item({ key: "stretch", label: "Растяжка", count: 1 })] })}
-        today="2026-09-19"
+        today="2026-09-18"
         lens={lens}
         onLensChange={onLensChange}
       />,
@@ -369,7 +369,7 @@ describe("TodaySheet", () => {
     render(
       <TodaySheet
         day={day({ discipline: [item({ key: "stretch", label: "Растяжка", count: 1 })] })}
-        today="2026-09-19"
+        today="2026-09-18"
         onLensPreview={onLensPreview}
       />,
     );
@@ -398,7 +398,7 @@ describe("TodaySheet", () => {
             item({ key: "water", label: "Вода", count: 1 }),
           ],
         })}
-        today="2026-09-19"
+        today="2026-09-18"
         onLensPreview={onLensPreview}
       />,
     );
@@ -421,7 +421,7 @@ describe("TodaySheet", () => {
   it("offers the monster's lens from the figure, not from the canvas around it", () => {
     const onLensPreview = vi.fn();
     const { container } = render(
-      <TodaySheet day={day()} today="2026-09-19" onLensPreview={onLensPreview} />,
+      <TodaySheet day={day()} today="2026-09-18" onLensPreview={onLensPreview} />,
     );
     const shot = container.querySelector(".today-sheet__monster .today-sheet__shot") as HTMLElement;
     // jsdom lays nothing out, so the square states its own size.
@@ -447,7 +447,7 @@ describe("TodaySheet", () => {
   // The monster is a card among the frames, not a socket: an unreported day shows the figure and
   // says "no data", because a silent monster is not a clean one (PRD §5.6).
   it("gives the monster a card of its own, naming the silence on a day with no record", () => {
-    const { container, unmount } = render(<TodaySheet day={day()} today="2026-09-19" />);
+    const { container, unmount } = render(<TodaySheet day={day()} today="2026-09-18" />);
     expect(screen.getByRole("button", { name: "Монстр: пока не пил" })).toBeInTheDocument();
     // The line under the figure NAMES the silence instead of standing empty.
     expect(screen.getByText("пока не пил")).toBeInTheDocument();
@@ -457,12 +457,53 @@ describe("TodaySheet", () => {
     unmount();
 
     const clean = render(
-      <TodaySheet day={day({ monsterDrunk: false, monsterCleanStreak: 14 })} today="2026-09-19" />,
+      <TodaySheet day={day({ monsterDrunk: false, monsterCleanStreak: 14 })} today="2026-09-18" />,
     );
     expect(clean.container.querySelector(".today-sheet__monstersay")!.textContent).toBe("14 дней не пил");
 
-    const drunk = render(<TodaySheet day={day({ monsterDrunk: true })} today="2026-09-19" />);
+    const drunk = render(<TodaySheet day={day({ monsterDrunk: true })} today="2026-09-18" />);
     expect(drunk.container.querySelector(".today-sheet__monster.is-drunk")).not.toBeNull();
     expect(drunk.getByText("пил")).toBeInTheDocument();
+  });
+
+  // Every item is a weekday one, so on a weekend the ledge would only print misses: it goes, and
+  // the frames take the whole height. PRD §5.6, DESIGN §4.3
+  it("drops the ledge on a weekend and keeps the frames", () => {
+    const weekend = day({ date: "2026-09-19", discipline: [item({ key: "stretch", label: "Растяжка" })] });
+    const { container } = render(<TodaySheet day={weekend} today="2026-09-19" />);
+
+    expect(container.querySelector(".today-sheet__sockets")).toBeNull();
+    expect(container.querySelector(".today-sheet.is-rest")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Монстр: пока не пил" })).toBeInTheDocument();
+    expect(container.querySelector(".today-sheet__stamp")!.textContent).toBe("суббота 19.09");
+  });
+
+  it("keeps the ledge on a weekday", () => {
+    const { container } = render(
+      <TodaySheet day={day({ discipline: [item({ key: "stretch" })] })} today="2026-09-18" />,
+    );
+    expect(container.querySelector(".today-sheet__sockets")).not.toBeNull();
+    expect(container.querySelector(".today-sheet.is-rest")).toBeNull();
+  });
+
+  // The frame's side is fitted to the row in CSS, which needs the row's make-up as data: how many
+  // square frames, how wide the photo runs in frame units, how many gaps. DESIGN §4.3
+  it("hands the row its make-up so the frames can be fitted to the tile", () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    const { container } = render(
+      <TodaySheet day={withBook({ activities: ["squash"], photo })} today="2026-09-18" />,
+    );
+    const row = container.querySelector(".today-sheet__frames") as HTMLElement;
+
+    // Book, squash and the monster are squares; the photo runs 4:3 of a frame.
+    expect(row.style.getPropertyValue("--sheet-n")).toBe("3");
+    expect(row.style.getPropertyValue("--sheet-photo")).toBe("1.333");
+    expect(row.style.getPropertyValue("--sheet-gaps")).toBe("3");
+
+    const bare = render(<TodaySheet day={day()} today="2026-09-18" />);
+    const lone = bare.container.querySelector(".today-sheet__frames") as HTMLElement;
+    expect(lone.style.getPropertyValue("--sheet-n")).toBe("1");
+    expect(lone.style.getPropertyValue("--sheet-photo")).toBe("0");
+    expect(lone.style.getPropertyValue("--sheet-gaps")).toBe("0");
   });
 });

@@ -35,6 +35,7 @@ describe("blocks' own height in the mobile stack (DESIGN §8)", () => {
     [".sleep-echo", "промер ночи во всю плитку — рисунок absolute, своего контента по высоте нет"],
     [".stats-ghosts", "график «призраки» во всю плитку — SVG absolute, высоту брать не с чего"],
     [".artifact-shaft", "the artifacts shaft: every object is absolute, so the stack tile flattened into a strip"],
+    [".board-stack .today-sheet__frames", "the sheet's frame row: a size container, sized by the tile in bento and by nobody in the stack"],
   ])("%s carries its own height (%s)", (selector) => {
     expect(ruleBody(selector)).toMatch(intrinsic);
   });

@@ -12,7 +12,7 @@ afterEach(() => vi.clearAllMocks());
 function mount() {
   const onOpen = vi.fn();
   const { container } = render(<ArtifactShaft artifacts={ARTIFACTS} onOpen={onOpen} />);
-  const box = container.firstElementChild as HTMLElement;
+  const box = container.querySelector(".artifact-shaft > .tile-frame") as HTMLElement;
   // jsdom lays nothing out, and a zero-height box makes the drag notch zero — the gesture dies.
   Object.defineProperty(box, "clientHeight", { value: 400 });
   const capture = vi.fn();

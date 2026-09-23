@@ -73,7 +73,8 @@ export const WAVE_03: Wave = {
       ride: { hidden: true },
       hero: { hidden: true },
       // Two marks side by side over the projects, splitting its width with one track between them.
-      social: { only: "stack", edition: "peek" },
+      // The stack keeps the same two marks the board scatters, not the whole plate.
+      social: { only: "stack", edition: "peek", platforms: ["telegram", "instagram"] },
       socialTelegram: { col: 34, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
       socialInstagram: { col: 38, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
       socialGithub: { hidden: true },

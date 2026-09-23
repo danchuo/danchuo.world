@@ -21,6 +21,8 @@ interface SocialTileProps {
    * board gives each tile its platform. Unknown name ⇒ nothing to show, not a broken tile. §10.1
    */
   platform?: string;
+  /** Keep only these platforms, in the data's order — a wave's cut of the plate. §10.2 */
+  platforms?: readonly string[];
   style?: CSSProperties;
   className?: string;
 }
@@ -52,13 +54,15 @@ const BRAND_MARKS: Partial<Record<string, string>> = {
  * at once and nothing flickers. Column count keeps the grid square. The sprite is a CSS mask
  * painted by a token, so it follows the active wave; a skin may swap in its own art. PRD §5.8
  */
-export function SocialTile({ edition, platform, style, className }: SocialTileProps) {
+export function SocialTile({ edition, platform, platforms, style, className }: SocialTileProps) {
   const { phase, data, retry } = useTileData<SocialLinkView[]>(
     useCallback((signal) => getSocialLinks({ signal }), []),
     "social-links",
   );
   const all = data ?? [];
-  const links = platform ? all.filter((l) => l.platform === platform) : all;
+  const links = all.filter(
+    (l) => (!platform || l.platform === platform) && (!platforms || platforms.includes(l.platform)),
+  );
   const isEmpty = phase === "loaded" && links.length === 0;
 
   // Peeks are fetched only if the edition shows them — other waves make no requests at all. Empty

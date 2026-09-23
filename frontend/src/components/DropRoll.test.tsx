@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { DropRoll } from "./DropRoll";
@@ -37,6 +37,34 @@ describe("DropRoll", () => {
 
     expect(screen.getByText("находок: 1")).toBeInTheDocument();
     expect(screen.getByText("футболка")).toBeInTheDocument();
+  });
+
+  /* A phone has no hover: a tap is the finger's "hand on the find", and a tap beside it lets go. */
+  it("a touch tap on a find takes it into focus, a tap past every find releases it", () => {
+    const { container } = render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    const stage = container.querySelector(".drop-roll__stage") as HTMLElement;
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
+    const tap = (x: number, y: number) => {
+      fireEvent.pointerDown(stage, { pointerId: 1, pointerType: "touch", clientX: x, clientY: y });
+      fireEvent.pointerUp(stage, { pointerId: 1, pointerType: "touch", clientX: x, clientY: y });
+    };
+    const find = () => container.querySelector(".artifact-box") as HTMLElement;
+
+    tap(30, 45);
+    expect(find()).toHaveAttribute("data-shown");
+    tap(90, 90);
+    expect(find()).not.toHaveAttribute("data-shown");
+  });
+
+  it("the compatibility mouseleave a browser sends after a tap does not drop the focus", () => {
+    const { container } = render(<DropRoll photos={photos} startAt="/api/film-media/1/2/web" onZoom={() => {}} />);
+    const stage = container.querySelector(".drop-roll__stage") as HTMLElement;
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
+    fireEvent.pointerDown(stage, { pointerId: 1, pointerType: "touch", clientX: 30, clientY: 45 });
+    fireEvent.pointerUp(stage, { pointerId: 1, pointerType: "touch", clientX: 30, clientY: 45 });
+    fireEvent.mouseLeave(stage);
+
+    expect(container.querySelector(".artifact-box")).toHaveAttribute("data-shown");
   });
 
   it("a single control: there is no separate scrollbar above the comb any more", () => {

@@ -35,6 +35,7 @@ describe("blocks' own height in the mobile stack (DESIGN §8)", () => {
     [".ride-frame", "карта во всю плитку (редакция `map`) — та же беда Leaflet, только на весь виджет"],
     [".sleep-echo", "промер ночи во всю плитку — рисунок absolute, своего контента по высоте нет"],
     [".stats-ghosts", "график «призраки» во всю плитку — SVG absolute, высоту брать не с чего"],
+    [".artifact-shaft", "the artifacts shaft: every object is absolute, so the stack tile flattened into a strip"],
   ])("%s carries its own height (%s)", (selector) => {
     expect(ruleBody(selector)).toMatch(intrinsic);
   });

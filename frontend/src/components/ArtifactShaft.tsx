@@ -119,70 +119,74 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
   const front = artifacts[frontIndex];
 
   return (
-    /* `tile-frame` is what makes this the container the caption's `cqw` sizes count from; without it
-       they latch onto a distant ancestor and hit the clamp ceiling. DESIGN §8.1 */
-    <div
-      ref={boxRef}
-      className="tile-frame absolute touch-none select-none"
-      /* `inset` breaks out of the shell's padding: the object is the widget, not a framed picture.
-         ⚠️ `isolation` is load-bearing — PRIME strips the plate, so without a stacking context of its
-         own the shaft's depth z-indexes outrank the card. DESIGN §7.5 */
-      style={{ inset: -16, cursor: "grab", isolation: "isolate" }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-    >
-      {shaftWindow(position, count).map((i) => {
-        const look = shaftLook(i - position);
-        if (!look) return null;
-        const isFront = i === frontIndex;
-        return (
-          <div
-            key={artifacts[i].name}
-            aria-hidden
-            data-shaft-front={isFront ? "" : undefined}
-            onClick={isFront ? () => open(i) : undefined}
-            className="absolute flex items-center justify-center"
-            style={{
-              left: `${36 + look.drift * 100}%`,
-              top: `${42 - look.rise * 100}%`,
-              height: `${SHAFT_FRONT_HEIGHT * 100}%`,
-              aspectRatio: "1",
-              transform: `translate(-50%, -50%) scale(${look.scale})`,
-              opacity: look.opacity,
-              filter: look.blur ? `blur(${look.blur}px)` : undefined,
-              zIndex: look.zIndex,
-              // Only the front object answers the cursor; the rest are depth, not targets.
-              pointerEvents: isFront ? "auto" : "none",
-              // The shaft as a whole is dragged; the object under the cursor also opens.
-              cursor: isFront ? "pointer" : undefined,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={artifacts[i].imageUrl}
-              alt=""
-              draggable={false}
-              className="h-full w-full"
-              style={{ objectFit: "contain" }}
-            />
-          </div>
-        );
-      })}
+    /* The sizer: fills the tile in bento and, in the stack where nothing gives it a height, takes
+       its own from `aspect-ratio` (common.css, DESIGN §8). */
+    <div className="artifact-shaft relative h-full w-full">
+      {/* `tile-frame` is what makes this the container the caption's `cqw` sizes count from; without it
+         they latch onto a distant ancestor and hit the clamp ceiling. DESIGN §8.1 */}
+      <div
+        ref={boxRef}
+        className="tile-frame absolute touch-none select-none"
+        /* `inset` breaks out of the shell's padding: the object is the widget, not a framed picture.
+           ⚠️ `isolation` is load-bearing — PRIME strips the plate, so without a stacking context of its
+           own the shaft's depth z-indexes outrank the card. DESIGN §7.5 */
+        style={{ inset: -16, cursor: "grab", isolation: "isolate" }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        {shaftWindow(position, count).map((i) => {
+          const look = shaftLook(i - position);
+          if (!look) return null;
+          const isFront = i === frontIndex;
+          return (
+            <div
+              key={artifacts[i].name}
+              aria-hidden
+              data-shaft-front={isFront ? "" : undefined}
+              onClick={isFront ? () => open(i) : undefined}
+              className="absolute flex items-center justify-center"
+              style={{
+                left: `${36 + look.drift * 100}%`,
+                top: `${42 - look.rise * 100}%`,
+                height: `${SHAFT_FRONT_HEIGHT * 100}%`,
+                aspectRatio: "1",
+                transform: `translate(-50%, -50%) scale(${look.scale})`,
+                opacity: look.opacity,
+                filter: look.blur ? `blur(${look.blur}px)` : undefined,
+                zIndex: look.zIndex,
+                // Only the front object answers the cursor; the rest are depth, not targets.
+                pointerEvents: isFront ? "auto" : "none",
+                // The shaft as a whole is dragged; the object under the cursor also opens.
+                cursor: isFront ? "pointer" : undefined,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={artifacts[i].imageUrl}
+                alt=""
+                draggable={false}
+                className="h-full w-full"
+                style={{ objectFit: "contain" }}
+              />
+            </div>
+          );
+        })}
 
-      {front && (
-        <div
-          className="artifact-shaft__caption absolute bottom-0 left-0 right-0 flex p-4"
-          style={{ zIndex: 1100 }}
-        >
-          {/* The name is the tile's only text and its keyboard control: the card stays reachable
-              without a pointer, and the date belongs to the card, where there is room to read it. */}
-          <button type="button" onClick={() => open(frontIndex)} className="artifact-shaft__name">
-            {front.name}
-          </button>
-        </div>
-      )}
+        {front && (
+          <div
+            className="artifact-shaft__caption absolute bottom-0 left-0 right-0 flex p-4"
+            style={{ zIndex: 1100 }}
+          >
+            {/* The name is the tile's only text and its keyboard control: the card stays reachable
+                without a pointer, and the date belongs to the card, where there is room to read it. */}
+            <button type="button" onClick={() => open(frontIndex)} className="artifact-shaft__name">
+              {front.name}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

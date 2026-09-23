@@ -69,6 +69,11 @@ jobs:
       - name: Check the comment budget
         run: node scripts/check-comment-budget.mjs
 
+      # Doc references (CLAUDE.md "Text density"): a backticked path or code name in the docs
+      # that the code no longer has turns the PR red, so a rename cannot leave the docs behind.
+      - name: Check doc references
+        run: node scripts/check-doc-refs.mjs
+
       # Tests (Vitest), type check and the production Next.js build.
       - name: Tests and build
         working-directory: frontend

@@ -72,9 +72,9 @@ object FeedbackPolicy {
             if ((raw?.trim()?.length ?: 0) > limit) return FeedbackOutcome.Rejected("too_long", field)
         }
 
-        val likedMost = req.likedMost.clean()
-        val wouldChange = req.wouldChange.clean()
-        val missingBlock = req.missingBlock.clean()
+        val likedMost = req.likedMost.answer()
+        val wouldChange = req.wouldChange.answer()
+        val missingBlock = req.missingBlock.answer()
         if (likedMost == null && wouldChange == null && missingBlock == null) {
             return FeedbackOutcome.Rejected("empty", null)
         }
@@ -100,6 +100,15 @@ object FeedbackPolicy {
     /** Trim to null, then cut to [limit] — context only; the visitor's words are checked first. */
     private fun String?.clean(limit: Int = Int.MAX_VALUE): String? =
         this?.trim()?.takeIf { it.isNotEmpty() }?.take(limit)
+
+    /** Trimmed, and null unless something in it is visible: `trim()` keeps zero-width and filler chars. */
+    private fun String?.answer(): String? = clean()?.takeIf { text -> text.any { !it.isInvisible() } }
+
+    private fun Char.isInvisible(): Boolean =
+        isWhitespace() || Character.getType(this) == Character.FORMAT.toInt() || this in BLANK_FILLERS
+
+    /** Letters by category that render as nothing (Hangul fillers, the blank Braille cell). */
+    private val BLANK_FILLERS = setOf('ᅟ', 'ᅠ', '⠀', 'ㅤ', 'ﾠ')
 
     private fun Int?.pixels(): Int? = this?.takeIf { it in 1..FeedbackLimits.MAX_PIXELS }
 

@@ -63,6 +63,11 @@ export function DropRoll({
   // state set: neighbour preloading writes here, and a redraw is needed only to drop the blur.
   const readyRef = useRef<Set<string>>(new Set());
   const [, bumpReady] = useState(0);
+  const markReady = useCallback((src: string) => {
+    if (readyRef.current.has(src)) return;
+    readyRef.current.add(src);
+    bumpReady((n) => n + 1);
+  }, []);
   // The last REQUESTED frame: smooth scrolling takes several painted frames, and a chain of wheel
   // clicks counting from the visible one would mark time. Cleared when the ribbon arrives, and
   // when a hand takes hold of it — the request is moot by then.
@@ -298,10 +303,7 @@ export function DropRoll({
       const src = photos[i]?.imageUrl;
       if (!src || readyRef.current.has(src)) continue;
       const img = new Image();
-      img.onload = () => {
-        readyRef.current.add(src);
-        bumpReady((n) => n + 1);
-      };
+      img.onload = () => markReady(src);
       img.src = photoUrl(src);
       dying.push(img);
     }
@@ -312,7 +314,7 @@ export function DropRoll({
         img.onload = null;
       });
     };
-  }, [current, photos]);
+  }, [current, photos, markReady]);
 
   // Arrow keys page the reel. We listen on the window rather than the ribbon: focus is more often
   // on the zoom button or the modal itself, and demanding "click the ribbon first" would hide the
@@ -372,6 +374,14 @@ export function DropRoll({
   }, [photo, onCurrent]);
   const boxes = photo?.artifacts ?? [];
   const ratio = photo?.width && photo?.height ? `${photo.width} / ${photo.height}` : undefined;
+  // A frame without dimensions borrows the thumbnail's: the stage hugs the picture, and with the
+  // full frame unshown until whole it would otherwise fold to 0×0. Finds still need real ones.
+  const [thumbRatio, setThumbRatio] = useState<{ src: string; ratio: string } | null>(null);
+  const stageRatio = ratio ?? (thumbRatio?.src === photo?.imageUrl ? thumbRatio?.ratio : undefined);
+  const takeThumbRatio = (img: HTMLImageElement | null, src: string) => {
+    if (!img?.naturalWidth || !img.naturalHeight || thumbRatio?.src === src) return;
+    setThumbRatio({ src, ratio: `${img.naturalWidth} / ${img.naturalHeight}` });
+  };
   const zoomRef = useRef<HTMLButtonElement>(null);
 
   // Which detections are under the cursor — the same mechanics as the mosaic: computed from the
@@ -406,7 +416,7 @@ export function DropRoll({
           // match the photo's, because it takes its ratio from it. An attribute, not a class: the
           // seam finds the frame by it in any gallery edition.
           data-morph-hero
-          style={ratio ? { aspectRatio: ratio } : undefined}
+          style={stageRatio ? { aspectRatio: stageRatio } : undefined}
           onPointerDown={onStagePointerDown}
           onPointerMove={(e) => {
             // Hover is the mouse's alone: compatibility mouse events after a tap would undo the tap.
@@ -428,7 +438,19 @@ export function DropRoll({
               preloaded, so while paging it is usually never seen. */}
           {!readyRef.current.has(photo.imageUrl) && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img data-morph-face src={photoUrl(photo.thumbUrl)} alt="" aria-hidden className="drop-roll__thumb" />
+            <img
+              data-morph-face
+              src={photoUrl(photo.thumbUrl)}
+              alt=""
+              aria-hidden
+              className="drop-roll__thumb"
+              ref={(img) => {
+                if (!ratio && img?.complete) takeThumbRatio(img, photo.imageUrl);
+              }}
+              onLoad={(e) => {
+                if (!ratio) takeThumbRatio(e.currentTarget, photo.imageUrl);
+              }}
+            />
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -436,18 +458,22 @@ export function DropRoll({
             // The hero's "face" — the layer clipped during the flight (common.css). For a drop that
             // is the photo itself; for the rides map its container plays the part.
             data-morph-face
+            // Unshown until whole: a half-downloaded JPEG paints top-down over the blurred stand-in.
+            data-ready={readyRef.current.has(photo.imageUrl) || undefined}
+            // A cached frame may finish before `onLoad` is attached, and would never fire it. §7.5
+            ref={(img) => {
+              if (img?.complete && img.naturalWidth > 0) markReady(photo.imageUrl);
+            }}
             src={photoUrl(photo.imageUrl)}
             alt=""
             decoding="async"
             fetchPriority="high"
-            onLoad={() => {
-              if (readyRef.current.has(photo.imageUrl)) return;
-              readyRef.current.add(photo.imageUrl);
-              bumpReady((n) => n + 1);
-            }}
+            onLoad={() => markReady(photo.imageUrl)}
             className="drop-roll__photo"
           />
-          {ratio && (
+          {/* Finds paint the full shot as their own ground: over the blurred stand-in they would
+              stand out as half-loaded patches, so they wait for the frame. */}
+          {ratio && readyRef.current.has(photo.imageUrl) && (
             <ArtifactBoxes boxes={boxes} shown={under} aside shot={photoUrl(photo.imageUrl)} />
           )}
           {/* The magnifier sits ON the frame, not in the scene's corner: the button belongs to the
@@ -470,11 +496,6 @@ export function DropRoll({
         <span className="drop-roll__no">
           кадр {String(current + 1).padStart(2, "0")} / {photos.length}
         </span>
-        {photo.width && photo.height && (
-          <span>
-            {photo.width} × {photo.height}
-          </span>
-        )}
         {boxes.length > 0 && <span className="drop-roll__found">находок: {boxes.length}</span>}
       </div>
 

@@ -679,7 +679,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
+  /* The strip is too thin to hold a digit clear of the weekday row: it speaks in light, and the
+     number shows under the hand or on the selected day. The date stays in `aria-label`. */
+  color: transparent;
   padding: 0;
   border: 0;
   background: none;
@@ -725,6 +727,7 @@ body {
 /* A selected day that has drifted past the field edge stays visible in place, with the same accent
    ring as in the grid. Without it the home pill would return selection from nowhere. */
 .cal-edge-cell[data-selected] {
+  color: var(--text-primary);
   outline: var(--cal-field-ring, 1px) solid var(--accent);
   outline-offset: -1px;
 }
@@ -2778,6 +2781,15 @@ button.sleep-echo:focus-visible {
   font-size: var(--fs-band-meta);
   color: var(--text-tertiary);
 }
+/* Holding the moon to spin it: Safari would select it as text after a second and offer its
+   image menu. The moon is an object to turn, not content to copy. */
+.sleep-empty,
+.sleep-echo__moon {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
 /* The empty night's own height (DESIGN §8) and the mark's size container. ⚠️ NOT sized from
    `--fs-sleep-total`: the only other container is `.sleep-echo`, which an empty night never
    renders, so its `cqw` counted from the viewport and its cap pinned the Moon. DESIGN §7.7 */
@@ -3597,11 +3609,17 @@ button.sleep-echo:focus-visible {
      rounding so it does not snap its corners on landing. Outside it there is no variable and its own stands. */
   border-radius: var(--drop-morph-radius, var(--radius-sm));
 }
-/* Thumbnail as an opaque ground while the full frame loads. No blur: it is small already, and `filter` would
-   bleed past the stage edges as a halo — the same gap that was treated in the tile. */
+/* The stand-in is blurred so its low resolution never reads as the shot; `clip-path` trims the
+   blur's halo to the frame. The full frame appears only whole, over it. DESIGN §7.5 */
 .drop-roll__thumb {
   position: absolute;
   inset: 0;
+  filter: blur(14px) saturate(1.05);
+  clip-path: inset(0 round var(--drop-morph-radius, var(--radius-sm)));
+}
+/* No fade: the stand-in unmounts in the same commit, and a fade would show the ground through. */
+.drop-roll__photo:not([data-ready]) {
+  opacity: 0;
 }
 /* Bottom-LEFT: on a narrow screen the finds column folds into the bottom-right corner. */
 .drop-roll__zoom {
@@ -4578,7 +4596,7 @@ button.sleep-echo:focus-visible {
   --sheet-caption: calc(14px + 11px * 1.3);
   /* The side is the TILE's: the row's height, capped so the whole row fits its width. DESIGN §4.3 */
   --sheet-frame: max(
-    104px,
+    var(--sheet-floor, 104px),
     min(
       100cqh - var(--sheet-caption),
       (100cqw - var(--sheet-caption) * var(--sheet-photo, 0) - 12px * var(--sheet-gaps, 0)) /
@@ -4608,6 +4626,9 @@ button.sleep-echo:focus-visible {
 /* In the stack the tile has no height to hand down, and a size container would fold to zero.
    ⚠️ `flex: none`: with a zero flex basis the column sizes the row, not the aspect ratio. */
 .board-stack .today-sheet__frames {
+  /* A phone is narrower than the row of a plain day: with the bento floor the monster left the
+     screen and its verdict read cut. 80px keeps a caption line and stays over the 44px target. */
+  --sheet-floor: 80px;
   flex: none;
   aspect-ratio: 5 / 2;
 }
@@ -4980,6 +5001,60 @@ button.sleep-echo:focus-visible {
 .t-feedback.pixel-tile,
 .t-feedback.muted-tile {
   padding: 0;
+}
+
+/* The intro edition: the board explained above a rule, the button below it. The button keeps
+   only its own band, so the text is not a control. PRD §5.19, DESIGN §7.11 */
+.t-feedback__intro {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 1rem 1rem 0.875rem;
+  border-bottom: 1px solid var(--border-tile);
+}
+.t-feedback__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(14px, calc(7px + 0.62vw), 24px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+}
+.t-feedback__text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(10px, calc(5.5px + 0.4vw), 16px);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+/* A terminal caret after the title: it marks the heading as the board's first line. */
+.t-feedback__caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.95em;
+  margin-left: 0.25em;
+  vertical-align: -0.1em;
+  background: currentColor;
+  animation: feedback-caret 1.1s steps(1, end) infinite;
+}
+@keyframes feedback-caret {
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t-feedback__caret { animation: none; }
+}
+/* A phone's `vw` is a third of a desktop's: the chrome scale would set this text at 10px. */
+.board-stack .t-feedback__title { font-size: 19px; }
+.board-stack .t-feedback__text { font-size: 13px; }
+.t-feedback--intro .t-feedback__button {
+  flex: none;
+  height: auto;
+  padding-block: 0.75rem;
 }
 
 .t-feedback__button {

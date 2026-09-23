@@ -9,7 +9,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 /** The board's mono face; satori reads woff, not woff2. Prerendered, so this runs at build time. */
-function font(weight: 400 | 700): Promise<Buffer> {
+function font(weight: 700): Promise<Buffer> {
   return readFile(join(process.cwd(), `node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-${weight}-normal.woff`));
 }
 
@@ -22,7 +22,7 @@ export default async function OpengraphImage() {
   const accent = tokens["accent"];
   const ink = tokens["text-primary"] ?? "#ffffff";
   const edge = tokens["glass-edge"] ?? alpha(accent, 0.2);
-  const [regular, bold] = await Promise.all([font(400), font(700)]);
+  const bold = await font(700);
 
   return new ImageResponse(
     (
@@ -43,7 +43,7 @@ export default async function OpengraphImage() {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            padding: "58px 84px 54px",
+            padding: "56px 84px",
             borderRadius: 32,
             border: `1px solid ${edge}`,
             backgroundColor: tokens["glass-tint"] ?? alpha(accent, 0.06),
@@ -58,26 +58,13 @@ export default async function OpengraphImage() {
               fontWeight: 700,
               letterSpacing: -4,
               color: ink,
-              textShadow: `0 0 6px ${alpha(accent, 0.55)}, 0 0 28px ${alpha(accent, 0.45)}, 0 0 72px ${alpha(accent, 0.35)}`,
+              textShadow: `0 0 5px ${alpha(accent, 0.4)}, 0 0 22px ${alpha(accent, 0.3)}, 0 0 56px ${alpha(accent, 0.22)}`,
             }}
           >
             danchuo
-            <span style={{ color: accent, textShadow: `0 0 10px ${alpha(accent, 0.9)}, 0 0 36px ${alpha(accent, 0.7)}, 0 0 96px ${alpha(accent, 0.5)}` }}>
+            <span style={{ color: accent, textShadow: `0 0 8px ${alpha(accent, 0.65)}, 0 0 28px ${alpha(accent, 0.48)}, 0 0 72px ${alpha(accent, 0.32)}` }}>
               .world
             </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              width: 640,
-              height: 2,
-              marginTop: 26,
-              backgroundImage: `linear-gradient(90deg, ${alpha(accent, 0)} 0%, ${accent} 50%, ${alpha(accent, 0)} 100%)`,
-              boxShadow: `0 0 18px ${alpha(accent, 0.8)}`,
-            }}
-          />
-          <div style={{ display: "flex", marginTop: 26, fontSize: 28, letterSpacing: 1, color: alpha(ink, 0.62) }}>
-            public real-time bento board of my life
           </div>
         </div>
       </div>
@@ -85,7 +72,6 @@ export default async function OpengraphImage() {
     {
       ...size,
       fonts: [
-        { name: "JetBrains Mono", data: regular, weight: 400, style: "normal" },
         { name: "JetBrains Mono", data: bold, weight: 700, style: "normal" },
       ],
     },

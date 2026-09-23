@@ -28,7 +28,7 @@ export function TelegramPeek({ profile, href }: { profile: TelegramProfileView; 
 
       <div className="tg-peek__action">
         <a className="tg-peek__button" href={href} target="_blank" rel="noreferrer" tabIndex={-1}>
-          Send Message
+          Написать
         </a>
       </div>
     </div>

@@ -20,11 +20,19 @@ interface FeedbackTileProps {
  * Glyph, words, or both. The pairing is what needs choosing per wave: an envelope beside a line of
  * type reads well on one board and as clutter on another. DESIGN §7.11
  */
-const FACES: Record<string, { glyph: boolean; call: string | null }> = {
+interface Face {
+  glyph: boolean;
+  call: string | null;
+  intro?: boolean;
+}
+
+const FACES: Record<string, Face> = {
   call: { glyph: true, call: "написать мне" },
   word: { glyph: false, call: "обратная связь" },
+  // What the board is, for a visitor meeting it cold, over the call. PRD §5.19
+  intro: { glyph: false, call: "обратная связь", intro: true },
 };
-const GLYPH_ONLY = { glyph: true, call: null };
+const GLYPH_ONLY: Face = { glyph: true, call: null };
 
 /**
  * The envelope: the only tile that asks rather than tells. It fetches nothing, so it is always
@@ -48,9 +56,23 @@ export function FeedbackTile({
       <TileShell
         state="loaded"
         ariaLabel="Написать автору"
+        fluid={face.intro}
         style={style}
-        className={`t-feedback ${className ?? ""}`}
+        className={`t-feedback${face.intro ? " t-feedback--intro" : ""} ${className ?? ""}`}
       >
+        {face.intro && (
+          <div className="t-feedback__intro">
+            {/* The page's only `h1`: without it the board had no heading at all. */}
+            <h1 className="t-feedback__title">
+              danchuo.world
+              <span className="t-feedback__caret" aria-hidden />
+            </h1>
+            <p className="t-feedback__text">
+              дашборд для поддержания дисциплины со всяким, советую повыбирать и другие дни в календаре на
+              изучение
+            </p>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setOpen(true)}

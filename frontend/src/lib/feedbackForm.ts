@@ -20,9 +20,12 @@ export type Answers = Record<AnswerKey, string>;
 
 export const EMPTY_ANSWERS: Answers = { likedMost: "", wouldChange: "", missingBlock: "" };
 
-/** One non-blank answer is the whole bar: a signature alone is not a note. PRD §5.19. */
+/** Whitespace, format characters (zero-width, BOM) and the blank-looking fillers `trim()` keeps. */
+const INVISIBLE = /[\s\p{Cf}ᅟᅠ⠀ㅤﾠ]/gu;
+
+/** One answer with a visible character is the whole bar: a signature alone is not a note. PRD §5.19. */
 export function canSubmit(answers: Answers): boolean {
-  return Object.values(answers).some((value) => value.trim().length > 0);
+  return Object.values(answers).some((value) => value.replace(INVISIBLE, "").length > 0);
 }
 
 /**

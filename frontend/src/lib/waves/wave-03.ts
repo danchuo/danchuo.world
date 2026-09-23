@@ -68,7 +68,7 @@ export const WAVE_03: Wave = {
       // calendar and one row shorter.
       waveSwitcher: { col: 30, row: 22, colSpan: 3, rowSpan: 6, orientation: "vertical" },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
-      photoDrops: { col: 32, row: 9, colSpan: 8, rowSpan: 10, edition: "carousel" },
+      photoDrops: { col: 12, row: 21, colSpan: 7, rowSpan: 8, edition: "carousel" },
       stats: { col: 2, row: 20, colSpan: 9, rowSpan: 8, hidden: false, edition: "ghosts" },
       sleep: { col: 33, row: 1, colSpan: 8, rowSpan: 7, hidden: false, edition: "echo" },
       today: { col: 14, row: 9, colSpan: 16, rowSpan: 11, hidden: false, edition: "sheet" },
@@ -84,11 +84,12 @@ export const WAVE_03: Wave = {
       socialGithub: { hidden: true },
       socialX: { hidden: true },
       marquee: { col: 25, row: 1, colSpan: 7, rowSpan: 7, hidden: false, edition: "shaft" },
-      // Left of the calendar, level with its middle. Words only here — an envelope next to type
-      // is clutter on glass.
-      feedback: { col: 14, row: 24, colSpan: 4, rowSpan: 3, edition: "word" },
+      // Right column under the sleep tile, three tracks of air above and below: what the board is,
+      // then the call for a note under a rule. DESIGN §7.11
+      feedback: { col: 33, row: 11, colSpan: 8, rowSpan: 6, edition: "intro" },
     },
     mobileOrder: [
+      "feedback",
       "today",
       "calendar",
       "sleep",

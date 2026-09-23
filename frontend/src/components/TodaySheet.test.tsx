@@ -222,6 +222,17 @@ describe("TodaySheet", () => {
     expect(screen.getByText("сквош")).toBeInTheDocument();
   });
 
+  it("stands the pull-up bar as a model and a kind without one as a pictogram", () => {
+    const { container } = render(
+      <TodaySheet day={day({ activities: ["pullups", "squash"] })} today="2026-09-18" />,
+    );
+
+    const [pullups, squash] = container.querySelectorAll(".today-sheet__activity");
+    expect(pullups.querySelector("canvas.today-sheet__monsterbody")).not.toBeNull();
+    expect(pullups.querySelector(".today-sheet__glyph")).toBeNull();
+    expect(squash.querySelector(".today-sheet__glyph")).not.toBeNull();
+  });
+
   it("an activity card is a lens of its own: a press names it, a hover tries it on", async () => {
     const onLensChange = vi.fn();
     const onLensPreview = vi.fn();

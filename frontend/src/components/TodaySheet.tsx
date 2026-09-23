@@ -15,7 +15,7 @@ import {
   type SheetMonsterCard,
   type SheetSession,
 } from "@/lib/daySheet";
-import { Artifact3D } from "./Artifact3D";
+import { Artifact3D, type Artifact3DProps } from "./Artifact3D";
 import { dayActivities, type ActivityCard as Activity } from "@/lib/activities";
 import { photoUrl } from "@/lib/api/media";
 import type { DayPhotoView } from "@/lib/api/types";
@@ -354,7 +354,7 @@ function MonsterCard({
 
 /**
  * An activity of the day in the monster's frame geometry, and its lens: the calendar lights the
- * days it happened, with no streak. Bouldering is the 3D shoe, the rest line pictograms. DESIGN §4.3
+ * days it happened, with no streak. A kind with a model stands in 3D, the rest as pictograms. DESIGN §4.3
  */
 function ActivityCard({
   activity,
@@ -368,6 +368,7 @@ function ActivityCard({
   onTry: (on: boolean) => void;
 }) {
   const boulder = activity.key === "bouldering";
+  const model = ACTIVITY_MODELS[activity.key];
   const mouse = (on: boolean) => (e: PointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse") onTry(on);
   };
@@ -382,14 +383,14 @@ function ActivityCard({
       onPointerLeave={mouse(false)}
     >
       <span className="today-sheet__shot today-sheet__shot--bare">
-        {boulder ? (
+        {model ? (
           <Artifact3D
-            src={BOULDER_MODEL_SRC}
+            src={model.src}
             className="today-sheet__monsterbody"
             rpm={MONSTER_RPM}
-            pose={BOULDER_POSE}
-            padding={BOULDER_PADDING}
-            brightness={BOULDER_BRIGHTNESS}
+            pose={model.pose}
+            padding={model.padding}
+            brightness={model.brightness}
           />
         ) : (
           <ActivityGlyph activity={activity.key} className="today-sheet__glyph" />
@@ -463,16 +464,20 @@ const MONSTER_RPM = 4;
 /** Off-axis at rest: face-on the can is a flat rectangle, and a turned one reads as a body. */
 const MONSTER_POSE = { yaw: 10, pitch: -12 };
 
-const BOULDER_MODEL_SRC = "/assets/3d/climbing-shoe.glb";
+interface ActivityModel {
+  src: string;
+  pose: Artifact3DProps["pose"];
+  padding: number;
+  brightness: number;
+}
 
-/** Nose down at an angle, so the long shoe stands upright like the can beside it. */
-const BOULDER_POSE = { yaw: 30, pitch: -12, roll: 70 };
-
-/** The sphere fit makes a long shoe look larger than the can; this evens their heights. */
-const BOULDER_PADDING = 0.62;
-
-/** The shoe's texture is lighter than the can's: dimmed to sit in the same light. */
-const BOULDER_BRIGHTNESS = 0.57;
+/** Activity kinds that stand as a model; padding evens each one's height with the can's. */
+const ACTIVITY_MODELS: Readonly<Record<string, ActivityModel>> = {
+  // Nose down at an angle so the long shoe stands upright; its lighter texture is dimmed.
+  bouldering: { src: "/assets/3d/climbing-shoe.glb", pose: { yaw: 30, pitch: -12, roll: 70 }, padding: 0.62, brightness: 0.57 },
+  // Seen from in front and above: the bar with its grips reads over the wall brackets.
+  pullups: { src: "/assets/3d/pull-up-bar.glb", pose: { yaw: 30, pitch: -25 }, padding: 0.8, brightness: 1 },
+};
 
 /** The photographer's vocabulary: its own frames above, kept, still open, a select owed to nobody. */
 const CELL_MARK: Readonly<Record<SheetCellState, string>> = {

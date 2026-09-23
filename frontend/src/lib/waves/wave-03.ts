@@ -62,7 +62,7 @@ export const WAVE_03: Wave = {
       identity: { hidden: true },
       latestDrop: { col: 1, row: 1, colSpan: 11, rowSpan: 16, edition: "frame" },
       freshness: { hidden: true },
-      waveSwitcher: { col: 12, row: 25, colSpan: 6, rowSpan: 2 },
+      waveSwitcher: { col: 13, row: 22, colSpan: 6, rowSpan: 2 },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
       photoDrops: { col: 32, row: 9, colSpan: 8, rowSpan: 10, edition: "carousel" },
       stats: { col: 2, row: 20, colSpan: 9, rowSpan: 8, hidden: false, edition: "ghosts" },

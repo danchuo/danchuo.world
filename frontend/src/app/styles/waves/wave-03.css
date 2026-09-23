@@ -228,108 +228,82 @@
   mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
 }
 
-/* Wave switcher: full-tile chips (DESIGN §2.6). This edits the row ON PRIME'S BOARD (the
- * `:root[data-wave="wave-03"]` wrapper), not this wave's chip on someone else's board — that block is below
- * and keys off `[data-chip-wave]`. */
-
-/* The row stops being a line of small swatches: three cards split the tile evenly and stretch to its height.
- * The wave tile is now the only widget on the board, and small squares in the middle of an empty screen read
- * as a badge rather than a choice. A large card shows a wave as what it is: canvas, edge, accent. */
-
-/* `flex: 1 1 0` instead of a width from `--chip-size`: a share of the container rather than a `cqw` clamp —
- * the card has to split the tile evenly at any zoom, whereas the §8.1 damper would keep it smaller than the
- * row. `aspect-ratio` is dropped deliberately: the square was the swatch's shape, a card takes the tile's. */
+/* Wave switcher on PRIME'S BOARD: three canvases sewn into one gapless strip — equal cards at an equal pitch
+ * read as the keys of a remote. This wave's chip on another board is below, keyed off `[data-chip-wave]`.
+ * Rejected: fan, cascade, index tabs, cover flow. DESIGN §10.2 */
 :root[data-wave="wave-03"] .wave-chip-row {
-  gap: var(--chip-gutter, 8px);
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md, 10px);
+  box-shadow: 0 0 0 1px var(--border-tile), 0 10px 26px -12px rgba(0, 0, 0, 0.8);
 }
 
+/* The selected wave opens to 2.8 shares, the others stay a slice of their canvas. Order never moves, only width. */
 :root[data-wave="wave-03"] .wave-chip {
   flex: 1 1 0;
   width: auto;
   height: 100%;
-  /* A height floor, insuring against a host with NO height of its own: `height: 100%` of a content-height row
-     resolves to zero, and the card is drawn entirely in absolute layers with no content to prop it up. That is
-     how the admin header's switcher collapsed into an empty strip of zero-height, unreachable buttons. */
+  /* The slice floor is the touch target: below 44px a slice stops being a button. */
+  min-width: 44px;
+  /* A height floor for a host with NO height of its own: the card is drawn entirely in absolute layers, and
+     `height: 100%` of a content-height row resolves to zero (the admin header collapsed into a blank strip). */
   min-height: 20px;
   aspect-ratio: auto;
-  /* The box's side is the only carrier of a wave's signal colour (see the note in common.css). On a card four
-     times the old swatch a two-pixel strip vanished altogether, so the depth grows with the card and the
-     choice still reads as both shape and colour. */
-  --chip-depth: 5px;
-  /* The silhouette's step comes FROM THE ROW'S WIDTH rather than a constant: the base 2/4px were drawn for a
-     34px swatch and degenerate into a rounded corner on a card of eighty-odd, while a fixed 8px cut eats a
-     quarter of each corner on a narrow card and brings back the "cross" from the §2.6 note. */
-
-  /* Three cards with gaps split the row, so a card is about a third of its width and a step about a tenth of a
-     card. `round(down, …, 1px)` is mandatory: a half-step falls between physical pixels and vanishes into
-     antialiasing at the edge. This bears on wave 01 only — waves 02 and 03 draw their own edge. */
-  --chip-step: clamp(2px, 3.2cqw, 5px);
-  --chip-step: round(down, clamp(2px, 3.2cqw, 5px), 1px);
-  --chip-cut: calc(var(--chip-step) * 2);
-  --chip-corners: polygon(
-    0 var(--chip-cut),
-    var(--chip-step) var(--chip-cut),
-    var(--chip-step) var(--chip-step),
-    var(--chip-cut) var(--chip-step),
-    var(--chip-cut) 0,
-    calc(100% - var(--chip-cut)) 0,
-    calc(100% - var(--chip-cut)) var(--chip-step),
-    calc(100% - var(--chip-step)) var(--chip-step),
-    calc(100% - var(--chip-step)) var(--chip-cut),
-    100% var(--chip-cut),
-    100% calc(100% - var(--chip-cut)),
-    calc(100% - var(--chip-step)) calc(100% - var(--chip-cut)),
-    calc(100% - var(--chip-step)) calc(100% - var(--chip-step)),
-    calc(100% - var(--chip-cut)) calc(100% - var(--chip-step)),
-    calc(100% - var(--chip-cut)) 100%,
-    var(--chip-cut) 100%,
-    var(--chip-cut) calc(100% - var(--chip-step)),
-    var(--chip-step) calc(100% - var(--chip-step)),
-    var(--chip-step) calc(100% - var(--chip-cut)),
-    0 calc(100% - var(--chip-cut))
-  );
+  /* Side depth in the artifact's proportion: at 9px on a 55px strip the band outweighed the canvas above it. */
+  --chip-depth: 4px;
+  /* No width transition: the strip only ever changes width when the whole board swaps wave, and there it read
+     as the old wave shrinking. */
+  transition: opacity 180ms ease;
 }
 :root[data-wave="wave-03"] .wave-chip[data-active="true"] {
-  --chip-depth: 9px;
+  flex-grow: 2.8;
+  --chip-depth: 6px;
+}
+/* The seam between two canvases; it belongs to the right-hand card, so the left edge of the strip has none. */
+:root[data-wave="wave-03"] .wave-chip + .wave-chip {
+  box-shadow: -1px 0 0 rgba(0, 0, 0, 0.55);
+}
+/* A lift would tear a segment out of the shared frame, so hover only restores full strength. */
+@media (hover: hover) {
+  :root[data-wave="wave-03"] .wave-chip:hover {
+    transform: none;
+  }
 }
 
-/* Wave card in the mobile stack: its own height (DESIGN §8, §2.6). The same §8 contract as its neighbours in
-   common.css — the card is drawn in ABSOLUTE layers with no content of its own, so `height: 100%` of a row
-   nobody sizes in the stack falls through to the `min-height: 20px` prop and the row became a strip. */
-
-/* A card rather than a strip, but not the board's: at the 1536 reference the board card is 3:5, and that
-   ratio in the stack gave a row as tall as the music tile above it. The stack gives a card more width than
-   the board does, so a square keeps it a card at well under the music tile's height. */
-:root[data-wave="wave-03"] .board-stack .wave-chip {
-  height: auto;
-  aspect-ratio: 1;
+/* Inside the frame each wave's own edge comes off (step, cloud rounding, glass rim): the frame is the only edge,
+   and the wave is recognised by its canvas. Specificity beats the `[data-chip-wave]` shape rules on purpose. */
+:root[data-wave="wave-03"] .wave-chip .wave-chip__slab,
+:root[data-wave="wave-03"] .wave-chip .wave-chip__face,
+:root[data-wave="wave-03"] .wave-chip .wave-chip__face::after {
+  clip-path: none;
+  border-radius: 0;
 }
-/* At the bottom of the stack the switcher is a FOOTER, not a widget: a card does not choose its own
-   size (see the gutter below), so the row is capped and centred and the cards shrink with it. Full
-   width put three portrait cards the size of the board's own tiles under the last of the content. */
+/* Wave 01's clay line plate would draw a border around its segment: the fill covers the whole face instead. */
+:root[data-wave="wave-03"] .wave-chip .wave-chip__face::after {
+  inset: 0;
+}
+:root[data-wave="wave-03"] .wave-chip[data-chip-wave="wave-03"] .wave-chip__face {
+  box-shadow: none;
+}
+
+/* Mobile stack (DESIGN §8): nobody sizes the row there, so the STRIP holds the proportion and the cards take its
+   height — a per-card `aspect-ratio` would give three heights at three widths. Capped and centred: a footer. */
 :root[data-wave="wave-03"] .board-stack .wave-chip-row {
   max-width: 62%;
+  height: auto;
+  aspect-ratio: 3;
   margin-inline: auto;
 }
 
-/* ONE number for both the gap between cards and the SIDE inset from the tile edge: the row reads as a single
-   grid rather than "content inside layout padding". The tile's `p-4` will not do — it was set for a caption
-   above, which PRIME does not have. The number lives on the TILE, so the admin header keeps its own fallback. */
-
-/* A card does not choose its size, it takes whatever is left of the tile, so the gutter is the only handle on
-   its growth at an unchanged tile: a wider gap means smaller cards. */
+/* ONE number for the strip's side inset from the tile edge. The number lives on the TILE, so the admin header
+   keeps its own fallback. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] {
   --chip-gutter: 14px;
 }
-/* The cards run the tile's full HEIGHT: the slab is gone (see below), so there is no edge to inset from, while
-   the inset itself ate more than half the tile — 28px of 52. Across the row it stays, matching the gutter, or
-   the outer cards would sit tighter to the board than to their neighbours. */
+/* The strip runs the tile's full HEIGHT: the slab is gone (see below), so there is no edge to inset from. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .pixel-tile {
   padding-block: 0;
   padding-inline: var(--chip-gutter);
-  /* The card rises on hover, and at full tile height it rose straight into the tile's clip: the lift read
-     as a crop off the top. There is no slab here to clip anything to, so the box lets it out. */
-  overflow: visible;
 }
 
 /* Drops rail with no slab (DESIGN §7.5, §10.2): no border, ground, shadow, blur passes or padding — the

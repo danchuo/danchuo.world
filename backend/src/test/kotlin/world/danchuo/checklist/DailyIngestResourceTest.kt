@@ -231,6 +231,9 @@ class DailyIngestResourceTest {
 
         given().get(thumbUrl).then().statusCode(200).contentType("image/jpeg")
         given().get("/api/days/$date/photo/web").then().statusCode(200).contentType("image/jpeg")
+        // The calendar's range says only THAT there is one: the photo's lens lights those days.
+        given().get("/api/days?from=$date&to=$date").then().statusCode(200)
+            .body("[0].hasPhoto", equalTo(true))
     }
 
     @Test
@@ -248,5 +251,6 @@ class DailyIngestResourceTest {
 
         given().get("/api/days/$date").then().body("photo", nullValue())
         given().get("/api/days/$date/photo/thumb").then().statusCode(404)
+        given().get("/api/days?from=$date&to=$date").then().body("[0].hasPhoto", equalTo(false))
     }
 }

@@ -37,4 +37,6 @@ data class DaySummary(
     val monsterDrunk: Boolean?,
     /** The day's activity keys in catalogue order, for the calendar's activity lens; empty when none. */
     val activities: List<String>,
+    /** Whether the day has a photo; the calendar's photo lens needs only that. PRD §5.3 */
+    val hasPhoto: Boolean,
 )

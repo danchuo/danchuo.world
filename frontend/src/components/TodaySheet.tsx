@@ -20,7 +20,7 @@ import type { DayPhotoView } from "@/lib/api/types";
 import { photoFrame } from "@/lib/dayPhoto";
 import { ActivityGlyph } from "./ActivityGlyph";
 import { DayPhotoModal } from "./DayPhotoModal";
-import { activityLens, MONSTER_LENS_KEY, type DisciplineLens } from "@/lib/disciplineLens";
+import { activityLens, MONSTER_LENS_KEY, PHOTO_LENS, type DisciplineLens } from "@/lib/disciplineLens";
 import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
 import type { SummarySubject } from "@/lib/summarySubject";
@@ -116,7 +116,13 @@ export function TodaySheet({ day, today, lens, onLensChange, onLensPreview }: To
               onTry={(on) => onLensPreview?.(on ? activityLens(activity.key, activity.label) : null)}
             />
           ))}
-          {day.photo && <PhotoCard photo={day.photo} onOpen={() => setPhotoOpen(true)} />}
+          {day.photo && (
+            <PhotoCard
+              photo={day.photo}
+              onOpen={() => setPhotoOpen(true)}
+              onTry={(on) => onLensPreview?.(on ? PHOTO_LENS : null)}
+            />
+          )}
           <MonsterCard
             card={monster}
             active={lens?.key === MONSTER_LENS_KEY}
@@ -371,9 +377,20 @@ function ActivityCard({
 
 /**
  * The day's photo in its own proportions ([photoFrame]), with no caption: it takes the neighbours'
- * caption line too. Focus is dropped on open, or Esc would leave a ring around it. DESIGN §4.3
+ * caption line too. Hover tries its calendar lens on; focus is dropped on open. DESIGN §4.3
  */
-function PhotoCard({ photo, onOpen }: { photo: DayPhotoView; onOpen: () => void }) {
+function PhotoCard({
+  photo,
+  onOpen,
+  onTry,
+}: {
+  photo: DayPhotoView;
+  onOpen: () => void;
+  onTry: (on: boolean) => void;
+}) {
+  const mouse = (on: boolean) => (e: PointerEvent<HTMLElement>) => {
+    if (e.pointerType === "mouse") onTry(on);
+  };
   const frame = photoFrame(photo.width, photo.height);
   const size = {
     "--photo-w": frame.width.toFixed(3),
@@ -388,6 +405,8 @@ function PhotoCard({ photo, onOpen }: { photo: DayPhotoView; onOpen: () => void 
         e.currentTarget.blur();
         onOpen();
       }}
+      onPointerEnter={mouse(true)}
+      onPointerLeave={mouse(false)}
       style={size}
     >
       <span className="today-sheet__shot">

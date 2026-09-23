@@ -3,6 +3,7 @@ import type { DaySummary } from "@/lib/api/types";
 import {
   MONSTER_LENS_KEY,
   activityLens,
+  PHOTO_LENS,
   lensMatch,
   lensNote,
   lensRun,
@@ -225,5 +226,23 @@ describe("the activity lens", () => {
   it("carries no streak: an activity is a fact of the day, not a discipline", () => {
     const days = [day({ date: "2026-07-19", activities: ["bouldering"] }), day({ activities: ["bouldering"] })];
     expect(lensRun(days, BOULDERING, "2026-07-20").marks.size).toBe(0);
+  });
+});
+
+describe("the photo lens", () => {
+  it("matches the days that have a photo; an older backend without the flag answers nothing", () => {
+    expect(lensMatch(day({ hasPhoto: true }), PHOTO_LENS)).toBe("yes");
+    expect(lensMatch(day({ hasPhoto: false }), PHOTO_LENS)).toBe("no");
+    expect(lensMatch(day({ hasPhoto: true, hasData: false }), PHOTO_LENS)).toBe("unknown");
+    expect(lensMatch(day({ hasPhoto: undefined }), PHOTO_LENS)).toBe("unknown");
+  });
+
+  it("lights its days in the plain lens tone, with no run accented", () => {
+    expect(lensTone("yes", PHOTO_LENS)).toBe("match");
+    expect(lensTone("no", PHOTO_LENS)).toBeNull();
+    const days = [day({ date: "2026-07-19", hasPhoto: true }), day({ hasPhoto: true })];
+    expect(lensRun(days, PHOTO_LENS, "2026-07-20").marks.size).toBe(0);
+    expect(lensNote("yes", PHOTO_LENS)).toBe("фото дня: есть");
+    expect(lensNote("no", PHOTO_LENS)).toBe("фото дня: нет");
   });
 });

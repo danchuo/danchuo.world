@@ -26,6 +26,7 @@ rclone delete "$REMOTE" --min-age "${KEEP_DAYS}d"
 
 # `copy`, not `sync`: a file deleted on the server stays in the backup. Outside $REMOTE, so no rotation.
 for dir in days artifacts; do
+    [ -d "$FILM_DIR/$dir" ] || continue  # days/ appears with the first day photo
     rclone copy "$FILM_DIR/$dir" "$MEDIA_REMOTE/$dir"
 done
 

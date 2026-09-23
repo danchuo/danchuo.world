@@ -31,6 +31,7 @@ const FILES = [
   { path: "docker-compose.yml", lang: "hash" },
   { path: "docker-compose.prod.yml", lang: "hash" },
   { path: "Caddyfile", lang: "hash" },
+  { path: "ops/backup.sh", lang: "hash" },
   { path: "frontend/next.config.ts", lang: "slash" },
   { path: "frontend/vitest.config.ts", lang: "slash" },
   { path: "frontend/playwright.config.ts", lang: "slash" },

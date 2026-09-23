@@ -316,15 +316,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Keep the compose file, Caddyfile and WebDAV config on the VPS in sync with the repo,
-      # so an edge config change deploys itself and nobody edits the server copies by hand.
-      - name: Sync compose + Caddyfile + webdav config to the VPS
+      # Keep the compose file, Caddyfile, WebDAV config and backup script on the VPS in sync with
+      # the repo, so an edge config change deploys itself and nobody edits the server copies by hand.
+      - name: Sync compose + Caddyfile + webdav config + backup script to the VPS
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml,Caddyfile,webdav.yml"
+          source: "docker-compose.prod.yml,Caddyfile,webdav.yml,ops/backup.sh"
           target: /opt/danchuoworld
 
       - name: Pull new images and restart

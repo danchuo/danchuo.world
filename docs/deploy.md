@@ -73,9 +73,7 @@ Docker + базовая гигиена уже сделаны для proxemics �
 - [ ] **ghcr.io**: на VPS уже есть `docker login ghcr.io` от proxemics (тот же владелец,
       scope `read:packages`) — новые пакеты подтянутся им же. Альтернатива — сделать
       пакеты публичными.
-- [ ] **Бэкапы**: по образцу `proxemics/ops/backup.sh` — дамп постгреса danchuoworld
-      (`docker exec danchuoworld-postgres pg_dump ...`) **плюс том `filmdata`**
-      (кадры фото-дропов — единственные невоспроизводимые файлы).
+- [ ] **Бэкапы**: пароль шифрования и строка в cron — §6.
 
 ## 2. GitHub (репозиторий)
 
@@ -131,7 +129,7 @@ Gradle-зависимости + бинарник) с выгрузкой слоё
 - [ ] iOS-шорткаты → `https://danchuo.world/api/ingest/*` с прод-токеном; прогнать ingest.
 - [ ] `/admin` с прод-токеном: загрузить реальный фото-дроп, проверить обложку.
 - [ ] `robots.txt` / `sitemap.xml` / OG-картинка отдаются с прод-URL.
-- [ ] Настроить бэкапы (§1) и один раз проверить восстановление.
+- [ ] Настроить бэкапы (§6) и один раз проверить восстановление.
 
 ## 5. Обновление и откат
 
@@ -178,3 +176,43 @@ Gradle-зависимости + бинарник) с выгрузкой слоё
   встроенного in-memory хранилища достаточно, внешнее не заводим.
 - **Мониторинг руками**: `ssh -L 8081:localhost:8081 <vps>` → локально
   `curl localhost:8081/q/health`.
+
+## 6. Бэкапы
+
+Раз в сутки `ops/backup.sh` снимает `pg_dump -Fc` всей базы, шифрует его gpg (AES256) и кладёт
+на Google Drive в `danchuoworld-backups`, копии старше 30 дней удаляет. Следом докопирует в
+`danchuoworld-media` файлы тома `filmdata`, которых больше нигде нет: `days/` (фото дня) и
+`artifacts/` (картинки и 3D-модели артефактов). Это `rclone copy` без шифрования (файлы и так
+публичны на сайте) и без ротации: едут только новые, удалённое на сервере в копии остаётся. Схема та же, что у
+proxemics на этом VPS, и rclone-remote `gdrive` у них общий. Скрипт приезжает в
+`/opt/danchuoworld/ops/` с каждым деплоем.
+
+**Что в копии, а чего нет.** Дамп — вся база целиком, включая аналитику и шифрованные
+OAuth-токены. Не копируются:
+- **кадры дропов** (`filmdata/<dropId>/…`): их автор хранит сам. Строки дропов и разметка артефактов в дампе есть, но ссылаются на кадры по id
+  (`/data/film/<dropId>/<n>/web.jpg`) — после восстановления без файлов они битые, а повторная
+  загрузка дропа через админку даёт новые id, и старая разметка к нему не привязывается;
+- **`.env`**: без `*_TOKEN_KEY` строки токенов в дампе бесполезны (заново OAuth), без
+  `DANCHUO_ANALYTICS_SALT` рвётся непрерывность хешей посетителей. Его копия — в менеджере
+  паролей, не на Drive;
+- `anxdata` (главная копия полки — на телефоне) и `caddy-data` (серты перевыпустятся).
+
+**Настройка (раз):**
+```bash
+openssl rand -base64 32 > /root/.danchuoworld-backup-pass && chmod 600 /root/.danchuoworld-backup-pass
+# копию пароля — в менеджер паролей: без него бэкапы не прочитать
+crontab -e   # proxemics в 03:10, мы следом:
+20 3 * * * bash /opt/danchuoworld/ops/backup.sh >> /var/log/danchuoworld-backup.log 2>&1
+```
+Прогнать скрипт руками и убедиться, что файл появился на Drive. Утром проверять лог.
+
+**Восстановление** (один раз проверить заранее — в отдельную базу, а не в боевую):
+```bash
+rclone copy gdrive:danchuoworld-backups/danchuoworld_<STAMP>.dump.gpg /tmp/
+gpg --decrypt --batch --passphrase-file /root/.danchuoworld-backup-pass     /tmp/danchuoworld_<STAMP>.dump.gpg > /tmp/restore.dump
+docker exec -i danchuoworld-postgres pg_restore -U danchuo -d danchuo     --clean --if-exists < /tmp/restore.dump
+# файлы — обратно в том по тем же путям
+FILM=$(docker volume inspect -f '{{.Mountpoint}}' danchuoworld_filmdata)
+rclone copy gdrive:danchuoworld-media/days "$FILM/days"
+rclone copy gdrive:danchuoworld-media/artifacts "$FILM/artifacts"
+```

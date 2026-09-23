@@ -64,15 +64,15 @@ export const WAVE_03: Wave = {
       identity: { hidden: true },
       latestDrop: { col: 1, row: 1, colSpan: 11, rowSpan: 16, edition: "frame" },
       freshness: { hidden: true },
-      // Between the calendar and the projects, one track clear of each; top-aligned with the
+      // Between the calendar and the projects, one track clear of each; bottom-aligned with the
       // calendar and one row shorter.
       waveSwitcher: { col: 30, row: 22, colSpan: 3, rowSpan: 6, orientation: "vertical" },
       music: { col: 13, row: 1, colSpan: 10, rowSpan: 6 },
-      photoDrops: { col: 12, row: 21, colSpan: 7, rowSpan: 8, edition: "carousel" },
-      stats: { col: 2, row: 20, colSpan: 9, rowSpan: 8, hidden: false, edition: "ghosts" },
+      photoDrops: { col: 32, row: 9, colSpan: 8, rowSpan: 9, edition: "carousel" },
+      stats: { col: 2, row: 19, colSpan: 10, rowSpan: 9, hidden: false, edition: "ghosts" },
       sleep: { col: 33, row: 1, colSpan: 8, rowSpan: 7, hidden: false, edition: "echo" },
       today: { col: 14, row: 9, colSpan: 16, rowSpan: 11, hidden: false, edition: "sheet" },
-      calendar: { col: 20, row: 22, colSpan: 9, rowSpan: 7, hidden: false, edition: "field" },
+      calendar: { col: 20, row: 21, colSpan: 9, rowSpan: 7, hidden: false, edition: "field" },
       projects: { col: 34, row: 23, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
       ride: { hidden: true },
       hero: { hidden: true },
@@ -83,10 +83,10 @@ export const WAVE_03: Wave = {
       socialInstagram: { col: 38, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
       socialGithub: { hidden: true },
       socialX: { hidden: true },
-      marquee: { col: 25, row: 1, colSpan: 7, rowSpan: 7, hidden: false, edition: "shaft" },
-      // Right column under the sleep tile, three tracks of air above and below: what the board is,
-      // then the call for a note under a rule. DESIGN §7.11
-      feedback: { col: 33, row: 11, colSpan: 8, rowSpan: 6, edition: "intro" },
+      marquee: { col: 13, row: 21, colSpan: 7, rowSpan: 8, hidden: false, edition: "shaft" },
+      // Top row between the music and the sleep tile: what the board is, then the call for a note
+      // under a rule. DESIGN §7.11
+      feedback: { col: 25, row: 1, colSpan: 7, rowSpan: 7, edition: "intro" },
     },
     mobileOrder: [
       "feedback",

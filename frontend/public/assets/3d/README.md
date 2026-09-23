@@ -15,6 +15,8 @@
 `KHR_materials_ior`/`KHR_materials_specular` (из-за них three строит тяжёлый `MeshPhysicalMaterial`,
 а `ior: 1000` физического смысла не имеет) и `doubleSided`. Перед этим модель переводили из
 `KHR_materials_pbrSpecularGlossiness`, который three больше не понимает (`docs/pitfalls.md`).
+Тот же путь прошёл `pull-up-bar.glb` (экспорт Sketchfab): `gltf-transform metalrough`, затем сняты те же
+расширения и `doubleSided`.
 
 ## Лицензии и авторство
 
@@ -27,6 +29,7 @@
 | `the-moon.glb` | [The Moon](https://sketchfab.com/3d-models/the-moon-9916fcec59f04b07b3e8d7f077dc3ded) (Sketchfab) | SebastianSosnowski | **CC-BY-4.0** — требует указания авторства |
 | `white-monster.glb` | передана владельцем (3D-скан банки) | — | происхождение уточнить: модель стоит на борде крупно, в шахте артефактов (DESIGN §7.2) |
 | `climbing-shoe.glb` | передана владельцем (экспорт Sketchfab, скальная туфля Ocun) | уточнить | **уточнить** — у моделей Sketchfab обычно CC-BY, тогда нужна атрибуция |
+| `pull-up-bar.glb` | передана владельцем (экспорт Sketchfab, настенный турник) | уточнить | **уточнить** — у моделей Sketchfab обычно CC-BY, тогда нужна атрибуция |
 
 ⚠️ **CC-BY означает обязательство.** Пока модель стоит только в плитке проектов мелким слотом,
 атрибуция живёт здесь и в DESIGN §12.5. Если артефакт станет заметной частью страницы (герой,

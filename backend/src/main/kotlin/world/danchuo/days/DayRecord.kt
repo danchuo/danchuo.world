@@ -4,6 +4,8 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.time.LocalDate
 
@@ -59,6 +61,22 @@ class DayRecord {
      */
     @Column(name = "contributions")
     var contributions: Int? = null
+
+    /** Keys of the day's activities (`checklist.Activity`), a snapshot of the last manual entry. */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "activities", nullable = false)
+    var activities: MutableList<String> = mutableListOf()
+
+    /** Size of the photo's web variant; all three photo fields are null when there is no photo. */
+    @Column(name = "photo_width")
+    var photoWidth: Int? = null
+
+    @Column(name = "photo_height")
+    var photoHeight: Int? = null
+
+    /** When the photo arrived: it versions the photo's URL, as a re-upload keeps the same key. */
+    @Column(name = "photo_updated_at")
+    var photoUpdatedAt: Instant? = null
 
     @Column(name = "created_at", nullable = false)
     lateinit var createdAt: Instant

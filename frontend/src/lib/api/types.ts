@@ -114,8 +114,18 @@ export interface DayView {
   monsterDrunk?: boolean | null;
   /** Consecutive Monster-free days through yesterday; missing cached values mean no streak. */
   monsterCleanStreak?: number;
-  /** Whether there was bouldering; null or absent = unknown. Not sent by the backend yet. */
-  bouldered?: boolean | null;
+  /** Activity keys in catalogue order (bouldering, squash, …); absent from an older backend. PRD §5.6. */
+  activities?: string[];
+  /** The day's photo; null when none was sent. */
+  photo?: DayPhotoView | null;
+}
+
+/** URLs are versioned by the photo's arrival; width and height are the web variant's. */
+export interface DayPhotoView {
+  thumbUrl: string;
+  webUrl: string;
+  width: number;
+  height: number;
 }
 
 // Spotify DTOs mirror world.danchuo.spotify.SpotifyViews. PRD §5.5.

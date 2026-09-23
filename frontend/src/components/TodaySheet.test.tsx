@@ -203,21 +203,59 @@ describe("TodaySheet", () => {
     expect(kids[1].className).toContain("today-sheet__monster");
   });
 
-  it("puts the bouldering shoe before the monster on a day it happened", () => {
-    const { container } = render(<TodaySheet day={withBook({ bouldered: true })} today="2026-09-19" />);
+  it("stands the activities, then the day's photo, before the monster", () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    const { container } = render(
+      <TodaySheet day={withBook({ activities: ["bouldering", "squash"], photo })} today="2026-09-19" />,
+    );
 
     const kids = [...container.querySelector(".today-sheet__frames")!.children];
     expect(kids.map((k) => k.className.split(" ")[0])).toEqual([
       "today-sheet__frame",
-      "today-sheet__boulder",
+      "today-sheet__activity",
+      "today-sheet__activity",
+      "today-sheet__photo",
       "today-sheet__monster",
     ]);
     expect(screen.getByText("болдеринг")).toBeInTheDocument();
+    expect(screen.getByText("сквош")).toBeInTheDocument();
   });
 
-  it("no shoe without bouldering", () => {
-    const { container } = render(<TodaySheet day={withBook({ bouldered: false })} today="2026-09-19" />);
-    expect(container.querySelector(".today-sheet__boulder")).toBeNull();
+  it("no activity cards and no photo on a day without them", () => {
+    const { container } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
+    expect(container.querySelector(".today-sheet__activity")).toBeNull();
+    expect(container.querySelector(".today-sheet__photo")).toBeNull();
+  });
+
+  it("the photo opens at full size and closes again", async () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    render(<TodaySheet day={day({ photo })} today="2026-09-19" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Фото дня" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("dialog").querySelector("img")!.getAttribute("src")).toBe("/p/web");
+
+    await userEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  // Esc and a click past the photo leave focus where it was: a ring left around it reads as a selection.
+  it("closing the photo leaves no focus on its card", async () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    render(<TodaySheet day={day({ photo })} today="2026-09-19" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Фото дня" }));
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Фото дня" })).not.toHaveFocus();
+  });
+
+  it("the photo carries no caption: the whole card is the picture", () => {
+    const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
+    const { container } = render(<TodaySheet day={day({ photo })} today="2026-09-19" />);
+
+    expect(screen.queryByText("фото дня")).toBeNull();
+    expect(container.querySelector(".today-sheet__photo")!.children).toHaveLength(1);
   });
 
   // The row's shape is what the eye learns, so its column count follows the items rather than

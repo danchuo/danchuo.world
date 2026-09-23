@@ -76,13 +76,23 @@ class DayRecordService(
         }
 
     /**
-     * Applies the day's manual meta (PRD §5.6): the day name. Drops the `day-view` projection
+     * Applies the day's manual meta (PRD §5.6): the day name and activities. Drops the `day-view` projection
      * cache — `ingest/daily` always passes through here, so the invalidation also covers the
      * discipline marks written by the same request, and streaks recompute.
      */
     @CacheInvalidateAll(cacheName = "day-view")
-    fun applyDailyMeta(date: LocalDate, title: String?): DayRecord = upsert(date) { day ->
-        day.title = title?.takeIf { it.isNotBlank() }
+    fun applyDailyMeta(date: LocalDate, title: String?, activities: List<String>): DayRecord =
+        upsert(date) { day ->
+            day.title = title?.takeIf { it.isNotBlank() }
+            day.activities = activities.toMutableList()
+        }
+
+    /** Records that the day's photo was (re)stored, with its web size. [DayPhotoService] */
+    @CacheInvalidateAll(cacheName = "day-view")
+    fun applyPhoto(date: LocalDate, width: Int, height: Int): DayRecord = upsert(date) { day ->
+        day.photoWidth = width
+        day.photoHeight = height
+        day.photoUpdatedAt = Instant.now(clock)
     }
 
     /**

@@ -130,7 +130,17 @@ class DayAggregator(
             discipline = discipline,
             monsterDrunk = drunkOn(date),
             monsterCleanStreak = monsterCleanStreak,
+            activities = record?.activities.orEmpty(),
+            photo = record?.let(::photoOf),
         )
+    }
+
+    private fun photoOf(record: DayRecord): DayPhotoView? {
+        val width = record.photoWidth ?: return null
+        val height = record.photoHeight ?: return null
+        val version = record.photoUpdatedAt?.epochSecond ?: return null
+        val base = "/api/days/${record.date}/photo"
+        return DayPhotoView("$base/thumb?v=$version", "$base/web?v=$version", width, height)
     }
 
     /**

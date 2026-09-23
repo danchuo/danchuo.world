@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      The day's activities and photo, both sent by ingest/daily (PRD §5.6). Activities are catalogue keys
+      (the Activity enum), stored as a set on the day itself. The photo's bytes live in the film storage;
+      the row keeps its size and the moment it arrived, which versions its URL.
+    -->
+    <changeSet id="1090-day-activities-photo" author="danchuo">
+        <sql>ALTER TABLE day_record ADD COLUMN activities TEXT[] NOT NULL DEFAULT '{}'</sql>
+        <addColumn tableName="day_record">
+            <column name="photo_width" type="INT"/>
+            <column name="photo_height" type="INT"/>
+            <column name="photo_updated_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="day_record" columnName="photo_updated_at"/>
+            <dropColumn tableName="day_record" columnName="photo_height"/>
+            <dropColumn tableName="day_record" columnName="photo_width"/>
+            <dropColumn tableName="day_record" columnName="activities"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

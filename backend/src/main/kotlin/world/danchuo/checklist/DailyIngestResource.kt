@@ -1,5 +1,6 @@
 package world.danchuo.checklist
 
+import com.fasterxml.jackson.annotation.JsonFormat
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
@@ -9,16 +10,19 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import world.danchuo.core.config.MskTime
+import world.danchuo.days.DayPhotoService
 import java.time.LocalDate
+import java.util.Base64
 
 /**
- * `POST /api/ingest/daily` — the one-tap iOS shortcut: day name, discipline progress, monster.
- * Idempotent by date, and the date is clamped to the manual-entry window
+ * `POST /api/ingest/daily` — the iOS shortcut: day name, progress, activities, photo. Idempotent
+ * by date, and the date is clamped to the manual-entry window
  * (`danchuo.checklist.ingest-window-days`), so a typo on the phone is a 400. PRD §5.6, §12
  */
 @Path("/api/ingest/daily")
 class DailyIngestResource(
     private val dailyIngestService: DailyIngestService,
+    private val dayPhotos: DayPhotoService,
     private val mskTime: MskTime,
     @param:ConfigProperty(name = "danchuo.checklist.ingest-window-days") private val windowDays: Long,
 ) {
@@ -34,6 +38,11 @@ class DailyIngestResource(
          * renaming the field would break it for nothing. Flavours themselves are gone (§5.6).
          */
         val monsterFlavorKey: String? = null,
+        /** [Activity] keys or labels, the monster among them; one newline-joined string is a list too. */
+        @field:JsonFormat(with = [JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY])
+        val activities: List<String>? = null,
+        /** The day's photo, base64 JPEG or PNG (line breaks allowed); absent keeps the stored one. */
+        val photo: String? = null,
     )
 
     @POST
@@ -55,11 +64,21 @@ class DailyIngestResource(
                 .build()
         }
 
+        val photo = req.photo?.let { raw ->
+            runCatching { Base64.getMimeDecoder().decode(raw) }.getOrNull()?.let(dayPhotos::process)
+                ?: return Response.status(Response.Status.BAD_REQUEST)
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity(mapOf("error" to "bad_photo"))
+                    .build()
+        }
+
         dailyIngestService.ingest(
             date = date,
             title = req.title,
             items = req.items,
             monster = req.monsterFlavorKey,
+            activities = req.activities.orEmpty(),
+            photo = photo,
         )
 
         return Response.ok(mapOf("date" to date.toString())).build()

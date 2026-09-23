@@ -22,9 +22,6 @@ ENV API_PROXY_TARGET=$API_PROXY_TARGET
 # (build-arg), not only in the runtime env. Defaults to the prod domain; locally compose sends localhost.
 ARG SITE_URL=https://danchuo.world
 ENV SITE_URL=$SITE_URL
-# "1" marks today as a bouldering day until the backend sends it; only the local compose sets it.
-ARG NEXT_PUBLIC_DEMO_BOULDERING=
-ENV NEXT_PUBLIC_DEMO_BOULDERING=$NEXT_PUBLIC_DEMO_BOULDERING
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

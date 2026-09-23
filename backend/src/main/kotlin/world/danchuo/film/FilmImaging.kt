@@ -56,13 +56,16 @@ class FilmImaging(
     @param:ConfigProperty(name = "danchuo.film.jpeg-quality") private val jpegQuality: Float,
 ) {
 
-    /** Processes frame bytes; `null` when ImageIO cannot decode them (HEIC, a corrupt file). */
-    fun process(bytes: ByteArray): ProcessedImage? {
+    /**
+     * Processes frame bytes; `null` when ImageIO cannot decode them (HEIC, a corrupt file). The web
+     * side and quality default to the drop frame's; the day photo asks for more (PRD §5.6).
+     */
+    fun process(bytes: ByteArray, webMax: Int = webMaxPx, quality: Float = jpegQuality): ProcessedImage? {
         val src = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
         val oriented = applyOrientation(src, readOrientation(bytes))
-        val web = scaleToRgb(oriented, webMaxPx)
+        val web = scaleToRgb(oriented, webMax)
         val thumb = scaleToRgb(oriented, thumbMaxPx)
-        return ProcessedImage(toJpeg(web), toJpeg(thumb), web.width, web.height)
+        return ProcessedImage(toJpeg(web, quality), toJpeg(thumb, quality), web.width, web.height)
     }
 
     /**
@@ -72,7 +75,7 @@ class FilmImaging(
      */
     fun rotate(bytes: ByteArray, rotation: FrameRotation): ByteArray? {
         val src = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
-        return toJpeg(rotateCw(src, rotation.cwDegrees))
+        return toJpeg(rotateCw(src, rotation.cwDegrees), jpegQuality)
     }
 
     /** Clockwise rotation by 90, 180 or 270 degrees. */
@@ -150,11 +153,11 @@ class FilmImaging(
         return dst
     }
 
-    private fun toJpeg(img: BufferedImage): ByteArray {
+    private fun toJpeg(img: BufferedImage, quality: Float): ByteArray {
         val writer = ImageIO.getImageWritersByFormatName("jpeg").next()
         val param = writer.defaultWriteParam.apply {
             compressionMode = ImageWriteParam.MODE_EXPLICIT
-            compressionQuality = jpegQuality
+            compressionQuality = quality
         }
         val baos = ByteArrayOutputStream()
         ImageIO.createImageOutputStream(baos).use { ios ->

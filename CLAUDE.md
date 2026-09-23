@@ -38,13 +38,15 @@ external source entirely to itself; the core knows nothing about it.
 | `days` | the day's core: `DayRecord`, `DayRecordService` (single write point, genesis guard), `DayAggregator`, freshness | `GET /api/days/{date}`, `GET /api/days?from=&to=`, `GET /api/freshness` |
 | `health` | ingest from the iOS shortcut: steps, sleep sessionisation (`SleepSessionizer`), journal (`JournalDetector`) | `POST /api/ingest/health` |
 | `checklist` | discipline items and their marks; the monster is a boolean fact marked through the `monster` item (ingest treats any non-empty value as drunk) | `POST /api/ingest/daily` |
-| `spotify` | OAuth, refresh encrypted at rest, Caffeine cache; podcast poller (`@Scheduled` 60s → `podcast_session`, the `podcasts` item derived from minutes; a session also remembers the CHUNK of an episode: `start_progress_ms`→`last_progress_ms`); `PodcastSummarySource` — the text of what was heard: Apple catalogue → RSS → audio windows by `Range` → transcription | `GET /api/spotify/{now-playing,recent,top}` |
+| `spotify` | OAuth, refresh encrypted at rest, Caffeine cache; podcast poller (`@Scheduled` → `podcast_session`, the `podcasts` item derived from minutes; a session also remembers the CHUNK of an episode: `start_progress_ms`→`last_progress_ms`); `PodcastSummarySource` — the text of what was heard: Apple catalogue → RSS → audio windows by `Range` → transcription | `GET /api/spotify/{now-playing,recent,top}` |
 | `github` | contributions from the profile's HTML fragment, `@Scheduled`; does not move the freshness lamp | travel in `DaySummary` |
-| `reading` | the Anx Reader shelf over WebDAV: the reader's SQLite → reading sessions (`@Scheduled` 5m → `reading_session`, the `reading` item derived from minutes); `ReadingSummarySource` — where the text of what was read comes from (an epub on the shelf) | `GET /api/reading/cover/{id}` |
-| `summary` | retelling the chunk covered in a sitting, **shared across sources**: queue and attempts (`content_summary`, keyed by `kind`+`sessionId`), pure `SummaryPolicy`/`SummaryWindows`, a prompt with a per-kind vocabulary, one `SummaryPoller` (`@Scheduled` 2m, the LLM's free lane) for all of them. Slices supply text through `SummarySource` | `GET /api/summary/{kind}/{id}` |
+| `reading` | the Anx Reader shelf over WebDAV: the reader's SQLite → reading sessions (`@Scheduled` → `reading_session`, the `reading` item derived from minutes); `ReadingSummarySource` — where the text of what was read comes from (an epub on the shelf) | `GET /api/reading/cover/{id}` |
+| `summary` | retelling the chunk covered in a sitting, **shared across sources**: queue and attempts (`content_summary`, keyed by `kind`+`sessionId`), pure `SummaryPolicy`/`SummaryWindows`, a prompt with a per-kind vocabulary, one `SummaryPoller` (`@Scheduled`, the LLM's free lane) for all of them. Slices supply text through `SummarySource` | `GET /api/summary/{kind}/{id}` |
 | `bike` | Velobike: rides, tariff purchases, station geocoding (Nominatim) | `GET /api/rides`, `/api/rides/stats`, `/api/rides/month-summary` |
 | `film` | photo drops: zip → web+thumb, frame rotation through an LLM, artifact detection | `GET /api/drops`, `/api/film-media/…` |
 | `llm` | a client for external LLMs behind `LlmClient` (Groq + Gemini); two **lanes** — the main one (which may be paid) and the free `LlmLane.FREE` for background work; speech recognition (`transcribe`, multipart, its own limit in audio-seconds); with no key, a quiet `null` | — |
+| `instagram` | the latest post under hover: OAuth (token refresh), `@Scheduled` poller, a stored snapshot served as images | `GET /api/instagram/latest`, `/api/instagram-media/{kind}` |
+| `telegram` | a profile card under hover, scraped from the public t.me page on a schedule | `GET /api/telegram/{profile,avatar}` |
 | `projects`, `social` | board content (projects, social links, artifacts) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
 | `analytics` | a cookieless beacon plus a per-tile heatmap (private summary behind a bearer) | `POST /api/analytics/{beacon,interactions}` |
 | `feedback` | a visitor's note to the author: three optional answers behind one public POST, read and deleted only by the owner; rules live in the pure `FeedbackPolicy` | `POST /api/feedback` |
@@ -106,7 +108,7 @@ appendix of `docs/journal.md`.
     alike. In CI (`process.env.CI`) the usual by-name list is used: there the log is read after the
     fact, with nobody to ask.
 - shadcn is not wired in yet — we will add it when its components are needed.
-- **To try photo drops:** raise the backend (`quarkusDev`) and the frontend (`npm run dev`), open `/admin`, enter the bearer token (`danchuo.ingest.token`, defaulting to `dev-ingest-token-change-me` in dev), upload a zip of JPEG/PNG plus a title and a date, then pick a cover by clicking. Frames land in `danchuo.film.storage-dir` (default `backend/data/film`).
+- **To try photo drops:** raise the backend (`quarkusDev`) and the frontend (`npm run dev`), open `/admin`, enter the bearer token (`danchuo.ingest.token`, defaulting to `dev-ingest-token-change-me` in dev), upload a zip of JPEG/PNG plus a title and a date, then pick a cover by clicking. Frames land in `danchuo.film.storage-dir` (default `./data/film` under the backend's working directory).
 
 ## The local stack is the project's shop window (**localhost:3000 is always live**)
 
@@ -154,7 +156,7 @@ A decoupled monolith, **not** microservices:
 - **The genesis date** in the config is where data starts; before it there is nothing. Future days render empty.
 - **All data is public to read.** What is protected is not the content but the **write credentials**: mutating endpoints (`/api/ingest/*`) sit behind a static bearer token in `Authorization`, while every GET is public. Ingest is idempotent (upsert by date).
 - **Data from the phone is pushed, not pulled.** iOS shortcuts post to ingest (Health automatically at 12/18/24 MSK; checklist, monster and day name through an interactive shortcut). Apple has no cloud API.
-- **Spotify** is polled live; the refresh token is encrypted at rest; the Caffeine cache absorbs the load (now-playing TTL ~20s).
+- **Spotify** is polled live; the refresh token is encrypted at rest; the Caffeine cache absorbs the load (TTLs in `application.properties`).
 
 ### Design architecture (DESIGN.md is the truth)
 
@@ -168,12 +170,12 @@ A decoupled monolith, **not** microservices:
   gesture, ground and the sizes of inner cards all arrive as tokens or variables — a wave may take
   the default, override it or decline, without touching a neighbouring wave's rule. Which wave is
   active and how it is dressed lives **only** in DESIGN §10.2, not here.
-- **Bento 20×14**, with the "Today" tile as the dominant; the board is visible without scrolling at ≥1440px. Per-tile states (loading/empty/error/loaded), with no shared spinner. On touch devices it becomes a single-column stack, and the calendar in it is **the same one** as in bento (the former `WeekStrip` was removed — it showed one week, i.e. answered a different question; a measurement confirmed that 7 columns fit, a cell being ≈44px at 360px).
+- **Bento 20×14**, with the "Today" tile as the dominant; the board is visible without scrolling at ≥1440px. Per-tile states (loading/empty/error/loaded), with no shared spinner. On touch devices it becomes a single-column stack, and the calendar in it is **the same one** as in bento (rejected: a separate one-week strip — it answers a different question, and 7 columns fit anyway, a cell being ≈44px at 360px).
 
 ## Known limits / settled questions
 
-- **Screen time (Apple) is not available programmatically.** It is not in HealthKit, and the Screen Time API (DeviceActivity) renders its report inside a sandboxed extension and **does not hand out raw numbers**. Until there is a real channel for taking the data off the iPhone, **do not create an entity, an endpoint or a column for it**. A placeholder column `screen_time_minutes` was already here and stood empty for a year — it has been removed. See PRD §9 (backlog B2).
-- Whoosh/Urent, book progress and podcast history are likewise without a public API → manual entry or research (PRD §9).
+- **Screen time (Apple) is not available programmatically.** It is not in HealthKit, and the Screen Time API (DeviceActivity) renders its report inside a sandboxed extension and **does not hand out raw numbers**. Until there is a real channel for taking the data off the iPhone, **do not create an entity, an endpoint or a column for it**. A placeholder column `screen_time_minutes` was already here and stood empty for a year — it has been removed. See PRD §9.7 (I-05).
+- Whoosh/Urent have no public API and no route track. Reading and podcast history had none either, and are built by the backend itself (the Anx Reader shelf, the podcast poller — PRD §5.6, §5.16).
 
 ## Tool pitfalls
 
@@ -275,6 +277,23 @@ retelling of the neighbouring paragraph always is.
 - **One broad pass instead of a series of narrow ones.** A section is rewritten whole rather than
   grown by appendices: each appendix makes the reader re-read the ones before it, and the section
   ends up answering the same question twice, in two tenses.
+- **A document describes the current state, not the road to it.** Sequences of past states — "grew
+  4×4 → 8×5", "the tile stood hidden, then returned", "first X, then Y, now Z" — are a chronicle, and
+  the chronicle lives in PRs and the frozen `docs/journal.md`. Keep only what holds now, plus one line
+  per genuinely rejected alternative ("considered and rejected: X, because Y"). Existing historical
+  passages (PRD §12 M1–M3, the history bullets in DESIGN §10.2) stay as they are, but are not extended.
+- **A value the code owns is cited by address, not copied.** A token's hex, a shadow, a poll
+  interval, a TTL, a limit — the doc names where it lives (`lib/waves/wave-01.ts`,
+  `danchuo.days.photo-max-px`) and why it is what it is; the value stays in the code, where a change
+  cannot leave a stale copy behind. A number stays in the doc when the doc is its source: an
+  acceptance criterion, a measurement with its conditions, a number that is itself the argument
+  ("the lying frame is 2.53× larger"). Rule of thumb — would changing the code make this sentence
+  false without anyone noticing? Then it is an address, not a value.
+- **Code names in a document go in backticks** — files, symbols, config keys, CSS variables.
+  `node scripts/check-doc-refs.mjs` (a gate in the PR build) checks every backticked name against
+  the repository: a rename or a removal turns the PR red until the doc follows. A removed name is
+  rewritten out of the doc, never allowlisted; `scripts/doc-refs-allow.txt` is for names from outside
+  the repository only (platform APIs, library internals, file formats).
 - **Fails closed.** A shortening that does not make the text shorter, or that costs a fact, is rolled
   back and the text stays as it was. Brevity is not the goal — the goal is that nothing in the text
   is derivable from the text.

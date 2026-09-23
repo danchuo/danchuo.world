@@ -1,0 +1,21 @@
+# Names a document may cite although this repository's code does not contain them.
+# ONLY names from outside the repository: platform APIs, library internals, file formats.
+# A removed name of our own code never goes here — rewrite the doc to the current state instead.
+# One per line: name — whose it is.
+HKCategoryValueSleepAnalysis — Apple HealthKit
+DeviceActivity — Apple Screen Time API
+contributionsCollection — GitHub GraphQL API
+getChat — Telegram Bot API
+removeBackground — Recraft API
+MeshPhysicalMaterial — three.js
+canvas.measureText() — DOM Canvas API
+getImageData — DOM Canvas API
+toBlob — DOM Canvas API
+_updateCompact — MapLibre GL internals
+_updateCompactMinimize — MapLibre GL internals
+doubleSided — glTF material field
+KHR_materials_pbrSpecularGlossiness — glTF extension
+specularGlossiness — glTF extension field
+pbrMetallicRoughness — glTF material field
+baseColorTexture — glTF material field
+extensionsUsed — glTF root field

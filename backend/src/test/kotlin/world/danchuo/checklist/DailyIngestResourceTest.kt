@@ -181,6 +181,9 @@ class DailyIngestResourceTest {
         given().get("/api/days/$date").then().statusCode(200)
             .body("activities", contains("bouldering", "gym"))
             .body("monsterDrunk", equalTo(true))
+        // The calendar's range carries them too: an activity is a lens over the grid.
+        given().get("/api/days?from=$date&to=$date").then().statusCode(200)
+            .body("[0].activities", contains("bouldering", "gym"))
     }
 
     @Test

@@ -173,6 +173,7 @@ class DayAggregator(
                     // "item exists, not done" from "no such item".
                     disciplineCounts = items.associate { it.key to (counts[it.id] ?: 0) },
                     monsterDrunk = monsterDrunk,
+                    activities = record?.activities.orEmpty(),
                 )
             }
             .toList()

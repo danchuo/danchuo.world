@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DaySummary } from "@/lib/api/types";
 import {
   MONSTER_LENS_KEY,
+  activityLens,
   lensMatch,
   lensNote,
   lensRun,
@@ -196,5 +197,33 @@ describe("the lens's live streak", () => {
 
     expect(run.length).toBe(0);
     expect(run.marks.size).toBe(0);
+  });
+});
+
+describe("the activity lens", () => {
+  const BOULDERING = activityLens("bouldering", "болдеринг");
+
+  it("matches a day by the activity's presence; an older backend without the list answers nothing", () => {
+    expect(lensMatch(day({ activities: ["squash", "bouldering"] }), BOULDERING)).toBe("yes");
+    expect(lensMatch(day({ activities: ["squash"] }), BOULDERING)).toBe("no");
+    expect(lensMatch(day({ activities: ["bouldering"], hasData: false }), BOULDERING)).toBe("unknown");
+    expect(lensMatch(day({ activities: undefined }), BOULDERING)).toBe("unknown");
+  });
+
+  it("never collides with a checklist item of the same key", () => {
+    const gym = activityLens("gym", "зал");
+    expect(lensMatch(day({ disciplineCounts: { gym: 1 }, activities: [] }), gym)).toBe("no");
+  });
+
+  it("is marked in its own tone, only on the days it happened", () => {
+    expect(lensTone("yes", BOULDERING)).toBe("activity");
+    expect(lensTone("no", BOULDERING)).toBeNull();
+    expect(lensNote("yes", BOULDERING)).toBe("болдеринг: было");
+    expect(lensNote("no", BOULDERING)).toBe("болдеринг: не было");
+  });
+
+  it("carries no streak: an activity is a fact of the day, not a discipline", () => {
+    const days = [day({ date: "2026-07-19", activities: ["bouldering"] }), day({ activities: ["bouldering"] })];
+    expect(lensRun(days, BOULDERING, "2026-07-20").marks.size).toBe(0);
   });
 });

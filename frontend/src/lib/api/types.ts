@@ -457,6 +457,8 @@ export interface DaySummary {
   disciplineCounts?: Record<string, number>;
   /** Same tri-state as DayView: absent/null = unreported, true = consumed, false = abstained. */
   monsterDrunk?: boolean | null;
+  /** Activity keys of the day; absent from an older backend, which a lens must read as unknown. */
+  activities?: string[];
 }
 
 /** Admin artifact form: /api/ingest/artifacts. PRD §5.8. */

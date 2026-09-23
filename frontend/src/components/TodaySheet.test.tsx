@@ -221,6 +221,33 @@ describe("TodaySheet", () => {
     expect(screen.getByText("сквош")).toBeInTheDocument();
   });
 
+  it("an activity card is a lens of its own: a press names it, a hover tries it on", async () => {
+    const onLensChange = vi.fn();
+    const onLensPreview = vi.fn();
+    const lens = { key: "activity:squash", occurrence: 1, label: "сквош" };
+    const { rerender } = render(
+      <TodaySheet
+        day={day({ activities: ["squash"] })}
+        today="2026-09-19"
+        onLensChange={onLensChange}
+        onLensPreview={onLensPreview}
+      />,
+    );
+
+    const card = screen.getByRole("button", { name: "сквош" });
+    fireEvent.pointerOver(card, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenLastCalledWith(lens);
+    fireEvent.pointerOut(card, { pointerType: "mouse" });
+    expect(onLensPreview).toHaveBeenLastCalledWith(null);
+
+    await userEvent.click(card);
+    expect(onLensChange).toHaveBeenCalledWith(lens);
+    expect(card).toHaveAttribute("aria-pressed", "false");
+
+    rerender(<TodaySheet day={day({ activities: ["squash"] })} today="2026-09-19" lens={lens} />);
+    expect(screen.getByRole("button", { name: "сквош" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("no activity cards and no photo on a day without them", () => {
     const { container } = render(<TodaySheet day={withBook()} today="2026-09-19" />);
     expect(container.querySelector(".today-sheet__activity")).toBeNull();

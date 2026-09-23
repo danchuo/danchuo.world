@@ -30,16 +30,61 @@ function tileReducer<T>(state: TileState<T>, action: TileAction<T>): TileState<T
     case "loading":
       return { ...state, phase: "loading", settled: false };
     case "resolved":
+      // The same state object lets React skip the render: a remount's first frame already has it.
+      if (state.settled && !state.stale && state.data === action.data) return state;
       return { phase: "loaded", data: action.data, stale: false, settled: true };
     case "failed":
       return { ...state, phase: action.hasCopy ? "loaded" : "error", settled: true };
   }
 }
 
+/** How long an answer serves a remount without asking again: a wave swap remounts the board. §7 */
+const ANSWER_FRESH_MS = 30_000;
+
+/** Answers by `cacheKey`: in flight (shared by every tile on the key) or settled with its time. */
+const answers = new Map<string, { promise: Promise<unknown>; at: number | null; data?: unknown }>();
+
+/** Test isolation only: module state outlives a test's render tree. */
+export function forgetTileAnswers(): void {
+  answers.clear();
+}
+
+function freshAnswer<T>(key: string | undefined): { data: T } | null {
+  const hit = key ? answers.get(key) : undefined;
+  if (!hit || hit.at === null || Date.now() - hit.at > ANSWER_FRESH_MS) return null;
+  return { data: hit.data as T };
+}
+
 /**
- * The shared data-loading seam for a tile: fetches with an `AbortController` and returns phase,
- * data and `retry`. Emptiness is the tile's own call. `cacheKey` IDENTIFIES THE REQUEST — change
- * it and the tile asks again — and turns on stale-while-revalidate, so a failure keeps the copy. §7
+ * One request per key however many tiles ask; it is never aborted by one of them, so an unmount
+ * mid-flight hands the answer to the next mount instead of paying for it twice.
+ */
+function shareRequest<T>(key: string, fetcher: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const pending = answers.get(key);
+  if (pending && pending.at === null) return pending.promise as Promise<T>;
+  const entry: { promise: Promise<unknown>; at: number | null; data?: unknown } = {
+    promise: Promise.resolve(),
+    at: null,
+  };
+  const promise = fetcher(new AbortController().signal).then(
+    (data) => {
+      if (answers.get(key) === entry) Object.assign(entry, { at: Date.now(), data });
+      return data;
+    },
+    (error: unknown) => {
+      if (answers.get(key) === entry) answers.delete(key);
+      throw error;
+    },
+  );
+  entry.promise = promise;
+  answers.set(key, entry);
+  return promise;
+}
+
+/**
+ * A tile's data seam: phase, data and `retry`; emptiness is the tile's own call. `cacheKey`
+ * IDENTIFIES THE REQUEST (change it and the tile asks again) and turns on stale-while-revalidate,
+ * request sharing and a fresh answer in the FIRST render of a remount. DESIGN §7
  */
 export function useTileData<T>(
   fetcher: (signal: AbortSignal) => Promise<T>,
@@ -52,11 +97,11 @@ export function useTileData<T>(
   retry: () => void;
 } {
   // Phase/data/stale always change together — one reducer transition instead of three setStates.
-  const [state, dispatch] = useReducer(tileReducer<T>, {
-    phase: "loading",
-    data: null,
-    stale: false,
-    settled: false,
+  const [state, dispatch] = useReducer(tileReducer<T>, cacheKey, (key): TileState<T> => {
+    const fresh = freshAnswer<T>(key);
+    return fresh
+      ? { phase: "loaded", data: fresh.data, stale: false, settled: true }
+      : { phase: "loading", data: null, stale: false, settled: false };
   });
   const [nonce, setNonce] = useState(0);
 
@@ -68,13 +113,23 @@ export function useTileData<T>(
   useEffect(() => {
     const ctrl = new AbortController();
 
+    // A fresh answer already sits in the state (initial render) or goes there now (key change);
+    // retry is the one path that always reaches the network.
+    const fresh = nonce === 0 ? freshAnswer<T>(cacheKey) : null;
+    if (fresh) {
+      dispatch({ type: "resolved", data: fresh.data });
+      return;
+    }
+    if (cacheKey && nonce > 0) answers.delete(cacheKey);
+
     // Seeded from the cache synchronously inside the effect (client-only, so no hydration
     // mismatch): the copy shows instantly, with no flash of a loader, while we revalidate.
     const cached = cacheKey ? readCache<T>(cacheKey) : null;
     if (cached !== null) dispatch({ type: "seeded", data: cached });
     else dispatch({ type: "loading" });
 
-    latest.current(ctrl.signal)
+    const request = cacheKey ? shareRequest(cacheKey, latest.current) : latest.current(ctrl.signal);
+    request
       .then((d) => {
         if (ctrl.signal.aborted) return;
         dispatch({ type: "resolved", data: d });

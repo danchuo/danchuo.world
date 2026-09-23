@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  startTransition,
   use,
   useCallback,
   useEffect,
@@ -44,7 +45,9 @@ export function WaveProvider({ initialWave, children }: { initialWave: Wave; chi
   const layout = useMemo(() => resolveLayout(wave.layout), [wave]);
 
   const applyWave = useCallback((next: Wave) => {
-    setWave(next);
+    // A swap re-renders the whole board: as a transition it renders in slices instead of one long
+    // task, and the skin still lands with the layout in a single commit (the layout effect below).
+    startTransition(() => setWave(next));
     // Persist the pick so a reload re-renders the same wave via SSR (see waveCookie.ts).
     rememberWave(next.key);
   }, []);

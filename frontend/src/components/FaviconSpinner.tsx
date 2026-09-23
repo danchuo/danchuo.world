@@ -13,6 +13,9 @@ function iconLinks(): HTMLLinkElement[] {
   return [link];
 }
 
+/** Frames already fetched and decoded this page load: a wave swap back must not warm them again. */
+const warmed = new Set<string>();
+
 /**
  * Spins the Earth in the tab icon; renders nothing. A turn is a swap of the icon's href over
  * ready-cut frame files — the only way to animate a tab icon in Chrome and Safari, which refuse
@@ -46,8 +49,12 @@ export function FaviconSpinner() {
     const warm = frames.map(
       (src) =>
         new Promise<boolean>((done) => {
+          if (warmed.has(src)) return done(true);
           const image = new Image();
-          image.onload = () => done(true);
+          image.onload = () => {
+            warmed.add(src);
+            done(true);
+          };
           image.onerror = () => done(false); // a missing frame must not hold the whole turn back
           image.src = src;
         }),

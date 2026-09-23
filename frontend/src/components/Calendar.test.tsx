@@ -140,7 +140,7 @@ describe("Calendar (window of whole weeks)", () => {
     }
   });
 
-  it("another month's figure is not dimmed — it is the same signal as the removed fill", () => {
+  it("another month's figure is not dimmed: the month is told by the seam, not by tone", () => {
     const stride = "2026-07-02";
     render(
       <Calendar
@@ -158,8 +158,7 @@ describe("Calendar (window of whole weeks)", () => {
   });
 
   it("a weekend stays a weekend in any month of the window", () => {
-    // A regression anchor: dropping the month fill must not disturb the Sat/Sun column, which
-    // used to break inside a foreign month and which has its own token because of it.
+    // A regression anchor: the Sat/Sun column keeps its own token inside a foreign month too.
     const stride = "2026-07-02";
     render(
       <Calendar
@@ -377,7 +376,7 @@ describe("Calendar (window of whole weeks)", () => {
     expect(onLensChange).toHaveBeenCalledWith(null);
   });
 
-  it("the monster lens label names the lens's subject: the cells themselves now carry the polarity", () => {
+  it("the monster lens label names the lens's subject: the cells themselves carry the polarity", () => {
     // Inverting to "monster not drunk" was a crutch for a one-sided mark — see `lensTitle`.
     render(
       <Calendar
@@ -854,7 +853,7 @@ describe("Calendar — the \"field\" edition (§5.2)", () => {
   });
 })
 
-describe("Calendar — edge instead of arrows (§5.2)", () => {
+describe("Calendar — paging by edge weeks (§5.2)", () => {
   /** A window a week wider than the grid on each side — exactly what the board sends this edition. */
   function buildWideWindow(today: string = TODAY): DaySummary[] {
     const { from, to } = weekWindowAround(today, 3, 2);

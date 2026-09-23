@@ -26,13 +26,6 @@ interface RideMapProps {
    * would fly an empty rectangle across the screen. It never fires if the map failed to start.
    */
   onReady?: () => void;
-  /**
-   * How many pixels at the top of the map are covered by something over it. Framing lifts the
-   * route out from under that band, or a long ride would push its start pin beneath the text. The
-   * number arrives MEASURED, not as a constant: CSS owns that height and must own it alone.
-   */
-  padTop?: number;
-  className?: string;
 }
 
 /**
@@ -155,8 +148,6 @@ export function RideMap({
   startLabel,
   finishLabel,
   onReady,
-  padTop,
-  className,
 }: RideMapProps) {
   const ref = useRef<HTMLDivElement>(null);
   const interactive = !!interactivePins;
@@ -164,12 +155,6 @@ export function RideMap({
   // one, so standing in an effect's dependencies it would rebuild the whole map for nothing.
   const readyRef = useRef(onReady);
   readyRef.current = onReady;
-  // The reserve under the band goes through a ref too: it changes with every measurement of the band,
-  // and in an effect's dependencies it would rebuild the map on every window resize.
-  const padTopRef = useRef(padTop);
-  padTopRef.current = padTop;
-  /** Refit of the live map's framing — published by the build effect, called from outside. */
-  const refitRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -247,10 +232,10 @@ export function RideMap({
         const box = el.getBoundingClientRect();
         if (box.width < 40 || box.height < 40) return;
         // Air around the route is a share of the frame rather than pixels, so it reads the same on the
-        // tile and in the window. The data band (`padTop`) and the pin's height are added on top: a
+        // tile and in the window. The pin's height is added on top: a
         // pixel pin hangs its head ABOVE its point and the top edge would cut it without the slack.
         const breathe = Math.min(box.width, box.height) * 0.14;
-        const top = breathe + (padTopRef.current ?? 0) + (pins ? 34 : 0) + (interactive ? 18 : 0);
+        const top = breathe + (pins ? 34 : 0) + (interactive ? 18 : 0);
         // Ceiling on the padding: framing into a negative remainder is impossible, and on a narrow
         // tile the sum could easily eat the whole frame.
         const capY = box.height * 0.4;
@@ -341,7 +326,6 @@ export function RideMap({
         addDot(finish, "#e03131", finishLabel);
       }
 
-      refitRef.current = refit;
       // The control is added AFTER the zoomer and also top-left: controls in one corner stack in the
       // order they are added, so "reset the view" lands under `+`/`−`, as asked.
       if (interactive) map.addControl(resetViewControl(refit), "top-left");
@@ -355,17 +339,11 @@ export function RideMap({
 
     return () => {
       cancelled = true;
-      refitRef.current = null;
       if (ro) ro.disconnect();
       if (attribWatch) attribWatch.disconnect();
       if (map) map.remove();
     };
   }, [startLat, startLon, finishLat, finishLon, wave, interactive, startLabel, finishLabel]);
-
-  // The band has been measured (or has grown), so the assembled map is reframed without a rebuild.
-  useEffect(() => {
-    refitRef.current?.();
-  }, [padTop]);
 
   // `isolation: isolate` gives a stacking context of its own: the map's internal z-indexes otherwise
   // leak to the root and paint OVER modals (z-50). Isolation locks them inside the tile, so any fixed
@@ -373,9 +351,8 @@ export function RideMap({
   return (
     <div
       ref={ref}
-      // `ride-map` is the permanent hook for a wave's skin. Placement in the layout stays with the
-      // caller's `className`.
-      className={className ? `ride-map ${className}` : "ride-map"}
+      // `ride-map` is the permanent hook for a wave's skin.
+      className="ride-map"
       // pointer-events: `none` in the tile, where the map is static and a click passes through it to
       // the "open the map" button; `auto` in the modal, where the map is dragged and pins catch hover.
       style={{

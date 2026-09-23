@@ -24,11 +24,6 @@ interface RidesModalProps {
   /** The active wave, passed into the map to pick the pixel pins (DESIGN §12). */
   wave?: string | null;
   /**
-   * Widget edition (see `RideEdition` in [RideTile]): `map` unfolds the window into a spread — map
-   * left, list right — and anything else keeps the former column. Taken as a string.
-   */
-  edition?: string;
-  /**
    * The board tile's map, which the window's map grows from (develop transition, DESIGN §7.5).
    * Whether the movement plays is decided by the wave's skin (`--drop-morph`); only the source is here.
    */
@@ -46,19 +41,15 @@ const hasCoords = (r: RideView | undefined): r is RideView =>
 
 /**
  * The Velobike rides modal, the same shape as the photo-drop one: the selected ride's map, a
- * selectable list and a month summary. The `map` edition lays those three as a SPREAD, because in
- * that edition the tile is all map and a narrow strip above a list would read as a step back.
+ * month summary and a selectable list, in one column.
  */
-export function RidesModal({ rides, today, wave, edition, origin, preview, onClose }: RidesModalProps) {
-  const spread = edition === "map";
+export function RidesModal({ rides, today, wave, origin, preview, onClose }: RidesModalProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
   const [selectedId, setSelectedId] = useState<number | null>(rides[0]?.id ?? null);
   const [summary, setSummary] = useState<RideMonthSummaryView | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [atEnd, setAtEnd] = useState(true);
   const selected = useMemo(
     () => rides.find((r) => r.id === selectedId) ?? rides[0],
     [rides, selectedId],
@@ -92,24 +83,6 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
   // The system Back closes the window rather than leaving the site (DESIGN §9).
   useBackToClose(true, requestClose);
 
-  // Is the list scrolled to the end? The bottom row's fade depends on it, and "it all fits" counts
-  // as true so no fade appears. Recomputed on scroll AND on column resize: the spread reaches its
-  // real size only after opening, so a measurement on mount is not final.
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const measure = () => setAtEnd(el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
-    measure();
-    el.addEventListener("scroll", measure, { passive: true });
-    if (typeof ResizeObserver === "undefined") return () => el.removeEventListener("scroll", measure);
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", measure);
-      ro.disconnect();
-    };
-  }, [rides]);
-
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -136,19 +109,14 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
     return () => window.removeEventListener("keydown", onKey);
   }, [requestClose]);
 
-  // The selected ride's map. THE SAME NODE in both editions — only where it is placed changes. It
-  // is also the develop transition's hero and its face, the layer clipped during the flight; for a
-  // drop the face is the photo, here it is the map itself.
+  // The selected ride's map is the develop transition's hero and its face, the layer clipped during
+  // the flight; for a drop the face is the photo, here it is the map itself.
   const map = (
     <div
-      className={spread ? "ride-modal__map" : "shrink-0"}
+      className="shrink-0"
       data-morph-hero
       data-morph-face
-      style={
-        spread
-          ? undefined
-          : { position: "relative", height: "var(--modal-map-h)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }
-      }
+      style={{ position: "relative", height: "var(--modal-map-h)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: 10 }}
     >
       {hasCoords(selected) ? (
         <RideMap
@@ -200,42 +168,10 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
     </div>
   );
 
-  /**
-   * The SELECTED ride's figures in the spread's header, in place of the word "rides": the header
-   * answers "how much" and the list "when and where". While the figures sat in every list row,
-   * both answers shared one column and it shimmered. Spread only — a column has nowhere else.
-   */
-  const headline = selected && (
-    <div className="ride-modal__headline flex min-w-0 flex-wrap items-baseline">
-      <span className="ride-modal__headline-km">{formatKm(selected.distanceMeters)}</span>
-      <span className="ride-modal__headline-meta">
-        {formatDuration(selected.durationSeconds)}
-        {selected.calories != null && selected.calories > 0 ? ` · ${selected.calories} ккал` : ""}
-        {formatRideCost(selected) ? ` · ${formatRideCost(selected)}` : ""}
-      </span>
-    </div>
-  );
-
-  /* Scrollable list: a row is a selection button, the selected one highlighted. In the spread the
-     scrollbar is removed and the bottom row dissolves under the column's edge instead (`--fade`,
-     common.css) — the knowledge that the list is longer than the window has to survive its removal. */
-
-  /* Row structure in the spread: day name, its kilometres beside it, the date small on the right, and
-     the stations below. Kilometres are the ONLY figure repeated from the header, because "how far" is
-     the first question asked of someone else's row. */
-
-  /* Time, calories and money stay in the header by the map: all of them at once made the list read as
-     a table of equally loud rows. In the column layout the figures stay in the row, there being no
-     other header there. */
-
-  /* A spread row is a third smaller than a column one (`--ride-row-scale`): the column's width went to
-     the map, and text at the former size would live there entirely in ellipses. */
+  // Scrollable list: a row is a selection button, the selected one highlighted.
   const list = (
     <ul
-      ref={listRef}
-      className={`ride-modal__list flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto ${
-        spread ? `scroll-invisible ride-modal__list--fade ${atEnd ? "is-at-end" : ""}` : ""
-      }`}
+      className="ride-modal__list flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto"
       role="listbox"
       aria-label="Выбор поездки"
     >
@@ -252,48 +188,28 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
               }`}
             >
               <div className="flex min-w-0 items-baseline justify-between gap-2">
-                {/* The day's name and the kilometres are ONE group on the left: they are about one
-                    ride and read in sequence. The date holds the row's right edge, and the space
-                    between is given up by the name — the only part of variable length. */}
-                <span className="ride-modal__when flex min-w-0 items-baseline">
-                  <span
-                    className="ride-modal__day"
-                    style={{ color: isSel ? "var(--accent)" : "var(--text-primary)" }}
-                  >
-                    {relativeDayRu(r.rideDate, today)}
-                  </span>
-                  {spread && <span className="ride-modal__row-km">{formatKm(r.distanceMeters)}</span>}
+                {/* The date holds the row's right edge; the day name, the only part of variable
+                    length, gives up the space. */}
+                <span
+                  className="ride-modal__day"
+                  style={{ color: isSel ? "var(--accent)" : "var(--text-primary)" }}
+                >
+                  {relativeDayRu(r.rideDate, today)}
                 </span>
                 <span className="ride-modal__date shrink-0">{r.rideDate}</span>
               </div>
-              {!spread && (
-                <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>
-                  {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
-                  {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
-                  {cost ? ` · ${cost}` : ""}
+              <div style={{ ...mono, color: "var(--text-secondary)", fontSize: "var(--fs-modal-meta)" }}>
+                {formatKm(r.distanceMeters)} · {formatDuration(r.durationSeconds)}
+                {r.calories != null && r.calories > 0 ? ` · ${r.calories} ккал` : ""}
+                {cost ? ` · ${cost}` : ""}
+              </div>
+              {(r.startAddress || r.finishAddress) && (
+                <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-modal-note)" }}>
+                  {(formatStationAddress(r.startAddress) ?? "?") +
+                    " → " +
+                    (formatStationAddress(r.finishAddress) ?? "?")}
                 </div>
               )}
-              {(r.startAddress || r.finishAddress) &&
-                (spread ? (
-                  /* Two stations on TWO lines, each a single line with an ellipsis. On one line a long
-                     pair wrapped differently for every ride and the list went in ragged blocks of
-                     different heights, with nothing for the eye to search by. */
-                  <div className="ride-modal__stations">
-                    <span className="ride-modal__station">{formatStationAddress(r.startAddress) ?? "?"}</span>
-                    <span className="ride-modal__station">
-                      <span className="ride-modal__arrow" aria-hidden>
-                        →{" "}
-                      </span>
-                      {formatStationAddress(r.finishAddress) ?? "?"}
-                    </span>
-                  </div>
-                ) : (
-                  <div style={{ ...mono, color: "var(--text-tertiary)", fontSize: "var(--fs-modal-note)" }}>
-                    {(formatStationAddress(r.startAddress) ?? "?") +
-                      " → " +
-                      (formatStationAddress(r.finishAddress) ?? "?")}
-                  </div>
-                ))}
             </button>
           </li>
         );
@@ -315,7 +231,7 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
         role="dialog"
         aria-modal="true"
         aria-label="Прошлые поездки"
-        className={`ride-modal__panel pixel-tile flex w-full flex-col p-4 ${spread ? "max-w-[64rem]" : "max-w-2xl"}`}
+        className="ride-modal__panel pixel-tile flex w-full max-w-2xl flex-col p-4"
         style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -324,11 +240,7 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
         <span className="pixel-slab" aria-hidden />
         <span className="pixel-lid" aria-hidden />
         <div className="ride-modal__head mb-3 flex shrink-0 items-center justify-between gap-3">
-          {spread && headline ? (
-            headline
-          ) : (
-            <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>поездки</span>
-          )}
+          <span style={{ fontSize: "var(--fs-modal-title)", color: "var(--text-primary)" }}>поездки</span>
           <button
             ref={closeRef}
             type="button"
@@ -343,18 +255,6 @@ export function RidesModal({ rides, today, wave, edition, origin, preview, onClo
 
         {rides.length === 0 ? (
           <p style={monoTertiary}>поездок пока нет</p>
-        ) : spread ? (
-          <>
-            {/* The spread: map left, list right, both halves shrinking with the window, with the
-                summary as a full-width row beneath them. */}
-            <div className="ride-modal__body flex min-h-0 flex-1">
-              {/* The map and its button are one column: the button acts on the map and must stand
-                  with it rather than drift under the list. */}
-              <div className="ride-modal__mapcol flex min-h-0 flex-col">{map}</div>
-              {list}
-            </div>
-            {summaryLine}
-          </>
         ) : (
           <>
             {map}

@@ -404,7 +404,7 @@ function BoardTile({
         />
       );
     case "ride":
-      return <RideTile wave={data.wave} edition={edition} style={style} className={className} />;
+      return <RideTile wave={data.wave} style={style} className={className} />;
     case "social":
       return <SocialTile edition={edition} platforms={platforms} style={style} className={className} />;
     /* One mark per tile: the wave scatters the four over the board's leftover cells instead of

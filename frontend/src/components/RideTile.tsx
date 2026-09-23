@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useRef, useState, type CSSProperties } from "react";
 import { getRides } from "@/lib/api/client";
 import type { RideView } from "@/lib/api/types";
 import { mskToday } from "@/lib/date";
@@ -11,24 +11,11 @@ import { RidesModal } from "./RidesModal";
 import { TileShell } from "./TileShell";
 import { useTileData } from "./useTileData";
 
-/**
- * Editions of the widget, chosen by the WAVE through its layout; an unknown value falls back to
- * `card`. `card` is a dossier with a mini-map above the figures, `map` is a full-tile map with the
- * data lying on it. The edition is SHARED with the modal — two sides of one widget. DESIGN §10.1
- */
-export type RideEdition = "card" | "map";
-
 interface RideTileProps {
   /** The active wave, passed into the mini-map to pick the pixel pins (DESIGN §12). */
   wave?: string | null;
-  /** Edition from the wave's layout (taken as a string and validated here). */
-  edition?: string;
   style?: CSSProperties;
   className?: string;
-}
-
-function resolveEdition(value: string | undefined): RideEdition {
-  return value === "map" ? "map" : "card";
 }
 
 const mono = { fontFamily: "var(--font-mono)" } satisfies CSSProperties;
@@ -48,12 +35,11 @@ function snapshotMap(host: HTMLElement | null): string | null {
 }
 
 /**
- * The latest Velobike ride. There are only two geo points, and both editions show them on a map;
- * they differ in what surrounds it. Both lead to the same modal, which inherits the edition.
- * Empty until the first ingest is a quiet empty, and there are no hardcoded colours. DESIGN §7.6
+ * The latest Velobike ride: a mini-map of its two geo points above the figures, leading into the
+ * rides modal. Empty until the first ingest is a quiet empty, and there are no hardcoded colours.
+ * DESIGN §7.6
  */
-export function RideTile({ wave, edition: editionRaw, style, className }: RideTileProps) {
-  const edition = resolveEdition(editionRaw);
+export function RideTile({ wave, style, className }: RideTileProps) {
   const { phase, data, retry } = useTileData<RideView[]>(
     useCallback((signal) => getRides({ signal }), []),
     "rides",
@@ -81,32 +67,6 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
    */
   const mapCardRef = useRef<HTMLButtonElement>(null);
 
-  /**
-   * Whether the map's first tiles arrived. The tile waits for the map and appears WITH it, hidden
-   * by OPACITY rather than unmounting — the map must be in the markup to start loading at all.
-   * Readiness remembers WHICH WAVE's map was shown, since [RideMap] rebuilds on a wave change.
-   */
-  const [readyWave, setReadyWave] = useState<string | null>(null);
-  const waveKey = wave ?? "";
-  const mapReady = readyWave === waveKey;
-
-  /**
-   * The data band's height, MEASURED rather than written as a number: CSS owns it, and the map
-   * must lift the route out from under exactly what the band took. The node lives in state via a
-   * callback ref — the band appears AFTER the network answer, so a phase-keyed measure misses it.
-   */
-  const [bandEl, setBandEl] = useState<HTMLElement | null>(null);
-  const [bandH, setBandH] = useState(0);
-  useEffect(() => {
-    if (!bandEl) return;
-    const measure = () => setBandH(bandEl.getBoundingClientRect().height);
-    measure();
-    if (typeof ResizeObserver === "undefined") return; // jsdom tests have no ResizeObserver
-    const ro = new ResizeObserver(measure);
-    ro.observe(bandEl);
-    return () => ro.disconnect();
-  }, [bandEl]);
-
   return (
     <>
       <TileShell
@@ -116,55 +76,9 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
         label="велобайк"
         ariaLabel="Последняя поездка на Велобайке"
         style={style}
-        className={`${edition === "map" ? "ride-card--map" : ""}${
-          edition === "map" && (mapReady || !hasCoords) ? " is-ready" : ""
-        } ${className ?? ""}`}
+        className={className}
       >
-      {phase === "loaded" && !isEmpty && latest && edition === "map" && (
-        // A full-tile map with the data as a blurred band ON it, the same thought as the drop
-        // tile's caption band: this widget has no margins and no second column — the map is its
-        // whole subject. The entire tile is one button, so "previous" needs no row of its own.
-        <button
-          ref={mapCardRef}
-          type="button"
-          onClick={openModal}
-          className="ride-frame"
-          aria-label="Открыть карту поездок"
-        >
-          {hasCoords ? (
-            <RideMap
-              className="ride-frame__map"
-              startLat={latest.startLat!}
-              startLon={latest.startLon!}
-              finishLat={latest.finishLat!}
-              finishLon={latest.finishLon!}
-              wave={wave}
-              padTop={bandH}
-              onReady={() => setReadyWave(waveKey)}
-            />
-          ) : (
-            <span className="ride-frame__map" style={{ background: "var(--bg-surface-muted)" }} aria-hidden />
-          )}
-          {/* The strip's blur is TWO `backdrop-filter` passes across the whole tile, masked open
-              only at the top. Full height is deliberate: the sampling clamps at its own box's
-              edges, and a strip its own height would smear along the bottom (docs/pitfalls.md). */}
-          <span className="ride-frame__blur ride-frame__blur--soft" aria-hidden />
-          <span className="ride-frame__blur ride-frame__blur--deep" aria-hidden />
-          {/* The caption is ONE line, by the same device as a drop frame's (`.drop-frame__caption`):
-              the big thing left, the rest in small mono beside it. The kinship is not cosmetic —
-              both strips lie on progressive blur over someone else's picture, side by side. */}
-          <span ref={setBandEl} className="ride-frame__band">
-            <span className="ride-frame__caption">
-              <span className="ride-frame__km">{formatKm(latest.distanceMeters)}</span>
-              <span className="ride-frame__meta">
-                {relativeDayRu(latest.rideDate, today)} · {formatDuration(latest.durationSeconds)}
-              </span>
-            </span>
-          </span>
-        </button>
-      )}
-
-      {phase === "loaded" && !isEmpty && latest && edition === "card" && (
+      {phase === "loaded" && !isEmpty && latest && (
         <div className="tile-frame flex h-full flex-col gap-2">
           {hasCoords && (
             // A click on the map opens the rides modal (the map is static with pointer-events: none,
@@ -235,9 +149,8 @@ export function RideTile({ wave, edition: editionRaw, style, className }: RideTi
           rides={rides}
           today={today}
           wave={wave}
-          edition={editionRaw}
-          // The tile's map is what the modal's map grows from (DESIGN §7.5). The ref is always given:
-          // whether the transition plays is decided by the wave's skin, not by the edition.
+          // The tile's map is what the modal's map grows from (DESIGN §7.5); whether the transition
+          // plays is decided by the wave's skin.
           origin={mapCardRef}
           preview={preview}
           onClose={() => setModalOpen(false)}

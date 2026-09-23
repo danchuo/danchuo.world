@@ -1,6 +1,6 @@
 {
   "name": "danchuo-world-frontend",
-  "version": "1.55.1",
+  "version": "1.55.2",
   "private": true,
   "description": "danchuo.world — public frontend + admin (B1: photo drops; B2: click heatmap in /admin; B4: Velobike rides widget)",
   "scripts": {

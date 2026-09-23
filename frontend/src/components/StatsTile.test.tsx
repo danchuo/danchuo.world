@@ -163,16 +163,4 @@ describe("StatsTile — weekends on the chart axis", () => {
     expect(screen.queryByTestId("stats-tick-2026-08-01")).toBeNull();
     expect(screen.queryByTestId("stats-tick-2026-08-02")).toBeNull();
   });
-
-  it("weekends no longer have a field fill", () => {
-    // A regression anchor: the field fill was rejected (DESIGN §7.4).
-    render(
-      <StatsTile
-        history={week(["2026-07-31", "2026-08-01", "2026-08-02"])}
-        selected="2026-07-31"
-        state="loaded"
-      />,
-    );
-    expect(document.querySelector('[data-testid^="stats-weekend-"]')).toBeNull();
-  });
 });

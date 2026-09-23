@@ -20,7 +20,7 @@ function dayFixture(over: Partial<DayView> = {}): DayView {
 }
 
 describe("TodayTile", () => {
-  it("renders the date, the day name and the discipline trail map (stats moved, the monster is the map's detour)", () => {
+  it("renders the date, the day name and the discipline trail map with the monster as its detour", () => {
     render(<TodayTile day={dayFixture()} today="2026-06-18" state="loaded" />);
 
     expect(screen.getByTestId("today-date")).toHaveTextContent("18 июня 2026");
@@ -94,14 +94,14 @@ describe("TodayTile", () => {
     expect(title.style.fontSize).toBe("clamp(max(2.2cqw, 11px), 5.05cqw, min(4cqw, 40px))");
   });
 
-  it("a very long day name stays readable: twice as large as before and not below the floor", () => {
-    // A real day name from production (2026-09-01), 74 characters — the one the owner called too small.
+  it("a very long day name wraps onto two lines at 192/length cqw, above the floor", () => {
+    // A real day name from production (2026-09-01).
     const long =
       "тройной пресс на работе еще и люстру не починили а она и не ломалась кстати";
     expect(long).toHaveLength(75);
     render(<TodayTile day={dayFixture({ title: long })} today="2026-06-18" state="loaded" />);
 
-    // It was 96/75 ≈ 1.28cqw on one line; now 192/75 = 2.56cqw on two — exactly twice as large.
+    // Two lines of budget: 192/75 = 2.56cqw.
     expect(screen.getByTestId("today-title").style.fontSize).toBe(
       "clamp(max(2.2cqw, 11px), 2.56cqw, min(4cqw, 40px))",
     );

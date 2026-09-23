@@ -63,7 +63,7 @@ describe("ProjectsTile", () => {
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("an old wave does not ask for volume — the old flat sprite stays", async () => {
+  it("a wave without `planet: model` keeps the flat sprite", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "/assets/projects/danchuo-world-px.png", modelUrl: "/assets/3d/wireframe-globe.glb" }),
     ]);
@@ -107,7 +107,7 @@ describe("ProjectsTile", () => {
     expect(smooth.parentElement).toHaveClass("project-slot");
   });
 
-  it("a third-party favicon is the legacy look (smaller than a sprite, with rounding)", async () => {
+  it("a third-party favicon is drawn smaller than a sprite, with rounding", async () => {
     getProjectsMock.mockResolvedValue([
       project({ iconUrl: "https://example.com/favicon.ico" }),
     ]);
@@ -284,7 +284,7 @@ describe("ProjectsTile", () => {
       expect(branches).toEqual(["head", "tee", "corner"]);
     });
 
-    it("an unknown edition → the old list, without the prompt and paths", async () => {
+    it("an unknown edition → the plain list, without the prompt and paths", async () => {
       getProjectsMock.mockResolvedValue([project()]);
       const { container } = render(<ProjectsTile edition="катушка" />);
       await screen.findByText("danchuo.world");

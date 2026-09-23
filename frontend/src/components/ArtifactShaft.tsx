@@ -148,7 +148,9 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
               onClick={isFront ? () => open(i) : undefined}
               className="absolute flex items-center justify-center"
               style={{
-                left: `${36 + look.drift * 100}%`,
+                // The front slot's centre is a skin parameter: in a square shaft 36% puts the left
+                // edge of a wide object past the box. DESIGN §7.2
+                left: `calc(var(--shaft-x, 36%) + ${look.drift * 100}%)`,
                 top: `${42 - look.rise * 100}%`,
                 height: `${SHAFT_FRONT_HEIGHT * 100}%`,
                 aspectRatio: "1",

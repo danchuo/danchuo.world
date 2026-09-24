@@ -1,5 +1,7 @@
 package world.danchuo.spotify
 
+import world.danchuo.summary.SummaryWindows
+
 /** A file chunk to download: inclusive byte bounds for the `Range` header. */
 data class ByteWindow(val from: Long, val to: Long) {
 
@@ -46,4 +48,11 @@ object AudioWindows {
             ByteWindow(at, at + windowBytes - 1)
         }
     }
+
+    /**
+     * The windows' text joined across marked gaps — only when EVERY window came back. A partial
+     * one is not a shorter truth: a rate limit kept only the intro, and the summary told the ads.
+     */
+    fun transcript(parts: List<String?>): String? =
+        if (parts.isEmpty() || parts.any { it == null }) null else parts.joinToString(SummaryWindows.GAP)
 }

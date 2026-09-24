@@ -79,8 +79,9 @@ object SummaryPrompt {
         // An ad insert lands in the middle of a listened stretch, not only at its edges, so
         // refusing by rule 6 is not enough: without this rule the model spends a whole summary
         // point on sponsors (measured on a live episode).
-        skip = "Рекламные вставки и упоминания спонсоров содержанием выпуска не считаются — " +
-            "пропускай их молча и пункта из них не делай.",
+        skip = "Рекламные вставки и упоминания спонсоров содержанием выпуска не считаются, как и " +
+            "реклама самого шоу: платная подписка, сбор пожертвований, промокоды, мерч. " +
+            "Пропускай их молча и пункта из них не делай.",
     )
 
     fun vocabularyOf(kind: SummaryKind): SummaryVocabulary = when (kind) {

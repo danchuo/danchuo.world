@@ -1605,6 +1605,9 @@
 /* The title glows in its own cyan, the same soft light the link preview gives the name. */
 :root[data-wave="wave-03"] .t-feedback__title {
   text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+  /* A relative nudge moves the title alone: the blurb under it keeps its lines. */
+  position: relative;
+  top: 3px;
 }
 :root[data-wave="wave-03"] .t-feedback__call {
   text-align: center;

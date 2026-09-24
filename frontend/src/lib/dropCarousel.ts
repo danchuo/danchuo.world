@@ -17,7 +17,7 @@ export const CAROUSEL_FAR_BLUR_PX = 1.9;
 /** Keep the central frame and immediate neighbors sharp. DESIGN §7.5. */
 export const CAROUSEL_SHARP_PX = CAROUSEL_SLOT_PX + CAROUSEL_GAP_PX;
 /** Per-frame remaining-distance fraction; vertical photos need slower motion. DESIGN §7.5. */
-export const CAROUSEL_MOTION_RATE = 0.09;
+export const CAROUSEL_MOTION_RATE = 0.13;
 /** Click-to-open motion is faster than browsing motion. DESIGN §7.5. */
 export const CAROUSEL_OPEN_RATE = 0.42;
 /** Bound opening delay: end frames may never reach the viewport center due to scroll clamping. */

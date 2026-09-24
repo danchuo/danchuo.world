@@ -106,6 +106,13 @@ object PodcastDayRollup {
     }
 
 
+    /**
+     * Whether nothing more can glue onto the sitting: the glue pause has passed since its last
+     * sample. Only then is it summarised — a live one re-transcribed every step. PRD §5.16.1
+     */
+    fun settled(run: PodcastRun, now: Instant, gapMinutes: Long): Boolean =
+        Duration.between(run.endedAt, now) > Duration.ofMinutes(gapMinutes)
+
     /** Whether a session extends into [next]: the same episode, and a pause within the glue threshold. */
     private fun PodcastRun.joins(next: PodcastRun, gapMinutes: Long): Boolean =
         episodeId == next.episodeId &&

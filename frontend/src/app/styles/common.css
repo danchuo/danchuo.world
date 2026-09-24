@@ -5012,7 +5012,7 @@ button.sleep-echo:focus-visible {
   justify-content: center;
   gap: 8px;
   min-height: 0;
-  padding: 1rem 1rem 0.875rem;
+  padding: 1rem 0.75rem 0.875rem;
   border-bottom: 1px solid var(--border-tile);
 }
 .t-feedback__title {
@@ -5029,6 +5029,8 @@ button.sleep-echo:focus-visible {
   font-family: var(--font-mono);
   font-size: clamp(10px, calc(5.5px + 0.4vw), 16px);
   line-height: 1.45;
+  /* Tracking and the narrower padding buy the ~4% that sets the blurb in three lines at 1536. §7.11 */
+  letter-spacing: -0.02em;
   color: var(--text-secondary);
   text-wrap: pretty;
 }

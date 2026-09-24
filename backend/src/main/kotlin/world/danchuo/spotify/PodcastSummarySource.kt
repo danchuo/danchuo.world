@@ -11,7 +11,7 @@ import world.danchuo.summary.SummaryExcerpt
 import world.danchuo.summary.SummaryKind
 import world.danchuo.summary.SummarySource
 import world.danchuo.summary.SummaryTarget
-import world.danchuo.summary.SummaryWindows
+import java.time.Instant
 
 /**
  * Where the text of a listened passage comes from — the half of summarising that knows podcasts.
@@ -42,8 +42,11 @@ class PodcastSummarySource(
     @Transactional
     override fun candidates(): List<SummaryTarget> {
         val gap = config.podcast().runGapMinutes()
+        val now = Instant.now()
         return sessions.datesWithWindow(mskTime.today(), HISTORY_DAYS).flatMap { date ->
-            PodcastDayRollup.runs(listens.runsOn(date), gap).mapNotNull(::targetOf)
+            PodcastDayRollup.runs(listens.runsOn(date), gap)
+                .filter { PodcastDayRollup.settled(it, now, gap) }
+                .mapNotNull(::targetOf)
         }
     }
 
@@ -104,12 +107,15 @@ class PodcastSummarySource(
         ).filter { it.length in 1..settings.maxSliceBytes() }
         if (windows.isEmpty()) return give("окно прослушанного пустое или не влезает в потолок куска")
 
-        val parts = windows.mapNotNull { transcribe(remote, it) }
-        if (parts.isEmpty()) return give("ни одно окно не расшифровалось (${windows.size} шт.)")
-
-        // Gaps between windows carry the same marker as a book's: the model must see the break
-        // rather than invent a bridge across it.
-        val text = parts.joinToString(SummaryWindows.GAP)
+        // Stop at the first lost window: the rest would only burn the audio-seconds limit.
+        val parts = mutableListOf<String?>()
+        for (window in windows) {
+            val part = transcribe(remote, window)
+            parts += part
+            if (part == null) break
+        }
+        val text = AudioWindows.transcript(parts)
+            ?: return give("расшифровано ${parts.count { it != null }} из ${windows.size} окон — пересказ по части врал бы")
         log.infof(
             "podcast: расшифровано %d окон выпуска «%s» (%d знаков)",
             parts.size,

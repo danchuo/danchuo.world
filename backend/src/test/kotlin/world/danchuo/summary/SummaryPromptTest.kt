@@ -167,6 +167,8 @@ class SummaryPromptTest {
         // Ads sit in the MIDDLE of the listened chunk, so "it is all ads" is not enough: without
         // its own rule the model spends a bullet on sponsors. A book needs no such rule.
         assertTrue(system.contains("спонсоров"), system)
+        // The show's own pledge drive is an ad too: the model kept a bullet on a promo code.
+        assertTrue(system.contains("промокод"), system)
         assertFalse(SummaryPrompt.system(SummaryKind.READING).contains("спонсоров"))
         // The rules are the same across kinds; only the nouns differ.
         assertTrue(system.contains(SummaryPrompt.REFUSAL))

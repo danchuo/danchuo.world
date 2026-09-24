@@ -8,6 +8,7 @@ import {
   stepShaft,
   type ShaftArtifact,
 } from "@/lib/artifactShaft";
+import { initialWheelState, wheelStep, wheelTravel } from "@/lib/wheelPaging";
 
 /** How much of a drag counts as one step, as a fraction of the tile's height. */
 const DRAG_NOTCH = 0.3;
@@ -68,14 +69,18 @@ export function ArtifactShaft({ artifacts, onOpen }: ArtifactShaftProps) {
 
   // The wheel is the shaft's own gesture, so the page must not scroll with it. A passive listener
   // cannot call preventDefault, and React's onWheel is passive — hence the native registration.
+  // The calendar's arithmetic: a click is one object, a trackpad's inertia cannot fire a volley. §7.2
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
+    let wheel = initialWheelState();
     const onWheel = (e: WheelEvent) => {
-      const step = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      if (!step) return;
+      const travel = wheelTravel(e.deltaX, e.deltaY, e.deltaMode);
+      if (!travel) return;
       e.preventDefault();
-      setTarget((cur) => stepShaft(cur, step > 0 ? 1 : -1, count));
+      const next = wheelStep(wheel, travel, Date.now());
+      wheel = next.state;
+      if (next.step !== 0) setTarget((cur) => stepShaft(cur, next.step, count));
     };
     box.addEventListener("wheel", onWheel, { passive: false });
     return () => box.removeEventListener("wheel", onWheel);

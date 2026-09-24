@@ -86,7 +86,7 @@ export const WAVE_03: Wave = {
       marquee: { col: 13, row: 21, colSpan: 7, rowSpan: 8, hidden: false, edition: "shaft" },
       // Top row between the music and the sleep tile: what the board is, then the call for a note
       // under a rule. DESIGN §7.11
-      feedback: { col: 25, row: 1, colSpan: 7, rowSpan: 7, edition: "intro" },
+      feedback: { col: 25, row: 1, colSpan: 7, rowSpan: 5, edition: "intro" },
     },
     mobileOrder: [
       "feedback",

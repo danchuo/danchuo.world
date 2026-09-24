@@ -3,6 +3,7 @@ package world.danchuo.spotify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import world.danchuo.summary.SummaryWindows
 
 /**
  * Where to cut audio to transcribe the listened chunk (PRD §5.16.1). We cut BEFORE transcribing:
@@ -82,6 +83,13 @@ class AudioWindowsTest {
 
     private fun windows(from: Double, to: Double) =
         AudioWindows.windows(total, duration, from, to, COUNT, WINDOW_MS)
+
+    @Test
+    fun `a transcript is whole or nothing - a lost window would leave only the intro to retell`() {
+        assertEquals("раз" + SummaryWindows.GAP + "два", AudioWindows.transcript(listOf("раз", "два")))
+        assertEquals(null, AudioWindows.transcript(listOf("вступление и реклама", null, null, null)))
+        assertEquals(null, AudioWindows.transcript(emptyList()))
+    }
 
     private companion object {
         const val COUNT = 4

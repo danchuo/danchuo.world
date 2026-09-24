@@ -196,4 +196,14 @@ class PodcastDayRollupTest {
     fun `listened minutes floor to whole minutes`() {
         assertEquals(49, PodcastDayRollup.listenedMinutes(2_999_000))
     }
+
+    @Test
+    fun `a sitting is settled only once the glue pause has passed since its last sample`() {
+        val sitting = run("a", minutes = 60, at = morning)
+        val lastSample = sitting.endedAt
+
+        assertEquals(false, PodcastDayRollup.settled(sitting, lastSample.plusSeconds(60), gapMinutes = 45))
+        assertEquals(false, PodcastDayRollup.settled(sitting, lastSample.plusSeconds(45 * 60), gapMinutes = 45))
+        assertEquals(true, PodcastDayRollup.settled(sitting, lastSample.plusSeconds(46 * 60), gapMinutes = 45))
+    }
 }

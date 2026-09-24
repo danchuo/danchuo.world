@@ -74,4 +74,18 @@ describe("ArtifactShaft", () => {
     const srcs = [...container.querySelectorAll("img")].map((img) => img.getAttribute("src"));
     expect(srcs).toEqual(["/a/Кас.png", "/a/Рак.png"]);
   });
+
+  it("pages by the calendar's wheel arithmetic: a trackpad volley is one step, not one per event", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const three = [...ARTIFACTS, { id: 12, name: "Кеды", imageUrl: "/a/Ке.png", firstMentionedOn: "2026-04-01" }];
+    const { container } = render(<ArtifactShaft artifacts={three} onOpen={vi.fn()} />);
+    const box = container.querySelector(".artifact-shaft > .tile-frame") as HTMLElement;
+
+    for (let i = 0; i < 5; i++) fireEvent.wheel(box, { deltaY: 30 });
+
+    expect(screen.getByRole("button", { name: "Ракетка" })).toBeTruthy();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 });

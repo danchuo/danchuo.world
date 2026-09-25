@@ -48,6 +48,7 @@ external source entirely to itself; the core knows nothing about it.
 | `instagram` | the latest post under hover: OAuth (token refresh), `@Scheduled` poller, a stored snapshot served as images | `GET /api/instagram/latest`, `/api/instagram-media/{kind}` |
 | `telegram` | a profile card under hover, scraped from the public t.me page on a schedule | `GET /api/telegram/{profile,avatar}` |
 | `projects`, `social` | board content (projects, social links, artifacts) | `GET /api/projects`, `/api/social-links`, `/api/artifacts` |
+| `tierlist` | the shirt tier list: visitors publish a placement under a nick, the shelf is public; the server checks the shape only, the shirt catalogue lives in the frontend (`lib/tierlist.ts`); moderation behind the bearer | `GET/POST /api/tierlists` |
 | `analytics` | a cookieless beacon plus a per-tile heatmap (private summary behind a bearer) | `POST /api/analytics/{beacon,interactions}` |
 | `feedback` | a visitor's note to the author: three optional answers behind one public POST, read and deleted only by the owner; rules live in the pure `FeedbackPolicy` | `POST /api/feedback` |
 | `core` | bearer filter on `/api/ingest/*`, a soft rate limit (three buckets per client: reads, drop frames and notes; SSR is marked `X-Danchuo-Internal` and is not limited), the visitor primitives every public endpoint shares (`VisitorHash`, `BotHeuristics`), MSK and genesis config, the cache seam | — |
@@ -74,7 +75,7 @@ container over the local network (`--network danchuoworld_default`).
   `useDayRange`: while new data travels, the previous data stays on screen (DESIGN §7 — a loader is
   right only when there is nothing to show).
 - `src/app/admin/` — the private admin (bearer in sessionStorage, noindex), with sections for drops,
-  artifacts, rides, statistics and visitor feedback; it follows waves like the public board.
+  artifacts, rides, statistics, visitor feedback and tier lists; it follows waves like the public board.
 - `e2e/` — Playwright, per-tile visual regression; baselines are taken **in Docker**
   (`npm run e2e:docker[:update]`), and a first run with `--update-snapshots` reports diverged
   snapshots as failed — only a second, clean run counts as green.

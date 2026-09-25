@@ -11,6 +11,7 @@ import { DropList } from "./DropList";
 import { DropUploadForm } from "./DropUploadForm";
 import { FeedbackSection } from "./FeedbackSection";
 import { StatsSection } from "./StatsSection";
+import { TierlistSection } from "./TierlistSection";
 import { PhotoGrid } from "./PhotoGrid";
 import { TOKEN_KEY, describe, mono } from "./adminUi";
 import type { AdminTabId } from "./adminUi";
@@ -324,6 +325,8 @@ export default function AdminPage() {
       {tab === "stats" && <StatsSection token={token} />}
 
       {tab === "feedback" && <FeedbackSection token={token} />}
+
+      {tab === "tierlists" && <TierlistSection token={token} />}
     </main>
   );
 }

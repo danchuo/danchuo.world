@@ -5289,3 +5289,368 @@ button.sleep-echo:focus-visible {
   text-align: center;
   padding: 18px 4px 8px;
 }
+
+/* ── Tier list: the door tile and the tiermaker window (PRD §5.20, DESIGN §7.12) ─────────────── */
+
+/* The button is the tile edge to edge, as the envelope: a miss anywhere on the tile reads as dead. */
+.t-tierlist.pixel-tile,
+.t-tierlist.muted-tile {
+  padding: 0;
+}
+
+.t-tierlist__button {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(8px, calc(4px + 2cqw), 18px);
+  width: 100%;
+  height: 100%;
+  padding: clamp(6px, calc(3px + 1.5cqw), 12px);
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.t-tierlist__ladder {
+  flex: 0 0 34%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.t-tierlist__words {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35em;
+  min-width: 0;
+}
+
+.t-tierlist__title {
+  font-family: var(--font-mono);
+  font-size: clamp(11px, calc(8px + 2.6cqw), 22px);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.t-tierlist__lead {
+  font-size: clamp(9px, calc(6px + 2.2cqw), 16px);
+  line-height: 1.2;
+  color: var(--text-secondary);
+}
+.t-tierlist__button:hover .t-tierlist__lead,
+.t-tierlist__button:focus-visible .t-tierlist__lead {
+  color: var(--accent);
+}
+
+/* A rung: the coloured letter cell, then the dark band tiermaker lays the items on. */
+.t-tierlist__rung {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  padding-left: 3px;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: clamp(6px, calc(4px + 1.9cqw), 12px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--tier-ink);
+  white-space: nowrap;
+  transition: width 220ms ease;
+}
+.t-tierlist__rung[data-tier="S"] { background: var(--tier-s); }
+.t-tierlist__rung[data-tier="A"] { background: var(--tier-a); }
+.t-tierlist__rung[data-tier="B"] { background: var(--tier-b); }
+.t-tierlist__rung[data-tier="C"] { background: var(--tier-c); }
+.t-tierlist__rung[data-tier="D"] { background: var(--tier-d); }
+
+/* At rest the rungs step down S to D, a ranked ladder; hover levels them, as if inviting a re-rank. */
+.t-tierlist__rung[data-tier="A"] { width: 84%; }
+.t-tierlist__rung[data-tier="B"] { width: 68%; }
+.t-tierlist__rung[data-tier="C"] { width: 52%; }
+.t-tierlist__rung[data-tier="D"] { width: 36%; }
+/* A worded rung never clips its words: the band grows to them past its step. */
+.t-tierlist__rung { min-width: max-content; padding-right: 4px; }
+.t-tierlist__button:hover .t-tierlist__rung,
+.t-tierlist__button:focus-visible .t-tierlist__rung { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .t-tierlist__rung { transition: none; }
+}
+
+/* The window wears tiermaker's page, not the wave's glass: its ground and black rules are the genre. */
+.tier-modal {
+  /* The second term fits seven cell rows (five tiers, a two-row pool) plus the chrome into the screen. */
+  --tier-cell: clamp(52px, min(calc(30px + 3.6vw), calc((100dvh - 180px) / 7)), 112px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(100px, 8vw, 150px);
+  gap: clamp(14px, 1.4vw, 24px);
+  width: min(1240px, 96vw);
+  padding: clamp(14px, 1.3vw, 24px);
+  background: var(--tier-ground);
+  border: 1px solid var(--tier-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-3);
+  color: var(--text-primary);
+}
+
+.tier-modal__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tier-modal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  padding-right: 28px;
+}
+
+.tier-modal__title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-modal-title);
+}
+
+.tier-modal__lead,
+.tier-modal__quiet,
+.tier-modal__left {
+  font-size: var(--fs-modal-meta);
+  color: var(--text-tertiary);
+}
+
+.tier-modal__left[data-warn] {
+  color: var(--accent);
+}
+
+.tier-modal__back {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-modal-meta);
+  cursor: pointer;
+}
+
+/* The ladder: rows share black rules, as on tiermaker, with no gap between them. */
+.tier-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--tier-line);
+  background: var(--tier-line);
+  gap: 2px;
+}
+
+.tier-row {
+  display: flex;
+  min-height: var(--tier-cell);
+  background: var(--tier-ground);
+}
+
+.tier-row__label {
+  flex: none;
+  width: var(--tier-cell);
+  border: none;
+  padding: 4px;
+  font-family: var(--font-sans);
+  /* Every tier is worded: the words wrap inside the square, sized off the cell. */
+  font-size: calc(var(--tier-cell) * 0.15);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  color: var(--tier-ink);
+  cursor: default;
+}
+.tier-row__label[data-tier="S"] { background: var(--tier-s); }
+.tier-row__label[data-tier="A"] { background: var(--tier-a); }
+.tier-row__label[data-tier="B"] { background: var(--tier-b); }
+.tier-row__label[data-tier="C"] { background: var(--tier-c); }
+.tier-row__label[data-tier="D"] { background: var(--tier-d); }
+
+.tier-row__items,
+.tier-pool {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+/* The pool: the same dark ground under the ladder, a shirt-row tall even when emptied. */
+.tier-pool {
+  min-height: var(--tier-cell);
+  border: 1px solid var(--tier-line);
+}
+
+.tier-pool__done {
+  align-self: center;
+  margin: auto;
+  font-size: var(--fs-modal-meta);
+  color: var(--text-tertiary);
+}
+
+/* `touch-action: none` hands the finger to the drag instead of the page scroll. */
+.tier-shirt {
+  flex: none;
+  width: var(--tier-cell);
+  height: var(--tier-cell);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.tier-shirt:disabled {
+  cursor: default;
+}
+.tier-shirt img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  /* The assets carry a 4% transparent margin; the scale spends it on the shirt instead. */
+  scale: 1.08;
+}
+.tier-shirt[data-selected] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tier-shirt[data-lifted] {
+  opacity: 0.25;
+}
+.tier-shirt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tier-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  will-change: transform;
+  pointer-events: none;
+  filter: var(--drop-3);
+  cursor: grabbing;
+}
+/* The scale sits on the image, never beside the wrapper's transform: `scale` would multiply the
+   translate too and walk the shirt off the grab point. */
+.tier-ghost img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  scale: 1.08;
+}
+
+.tier-modal__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.tier-modal__nick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-modal-note);
+  color: var(--text-tertiary);
+}
+.tier-modal__nick input {
+  width: clamp(160px, 16vw, 260px);
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: var(--fs-modal-row);
+  font-family: inherit;
+}
+.tier-modal__nick input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tier-modal__publish {
+  padding: 7px 20px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-size: var(--fs-modal-row);
+  cursor: pointer;
+}
+.tier-modal__publish:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tier-modal__side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-left: clamp(12px, 1.2vw, 20px);
+  border-left: 1px solid var(--border);
+}
+
+.tier-modal__side-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-modal-meta);
+  color: var(--text-secondary);
+  padding-top: 4px;
+}
+
+/* The list scrolls within the window's height rather than stretching it past the ladder. */
+.tier-modal__people {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(var(--tier-cell) * 6);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.tier-modal__person {
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--fs-modal-row);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tier-modal__person:hover,
+.tier-modal__person:focus-visible {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+.tier-modal__person[aria-current] {
+  color: var(--accent);
+}
+
+/* A phone: the people go under the ladder instead of beside it. */
+@media (max-width: 700px) {
+  .tier-modal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tier-modal__side {
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+.tier-pool[data-empty] {
+  align-content: center;
+  justify-content: center;
+}

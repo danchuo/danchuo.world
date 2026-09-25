@@ -16,6 +16,7 @@ import type {
   SleepNightView,
   SocialLinkView,
   SummaryView,
+  TierlistView,
 } from "./types";
 import type { SummaryKind } from "../summarySubject";
 
@@ -224,29 +225,28 @@ export interface FeedbackPayload {
   website?: string;
 }
 
-/** Why the server refused a note; the form turns the code into a line of Russian. */
-export class FeedbackError extends Error {
+/** Why the server refused a hand-made post (a note, a tier list); the form turns the code into Russian. */
+export class PostRefusedError extends Error {
   constructor(
     readonly code: string,
     readonly field?: string,
   ) {
-    super(`Записка отклонена: ${code}`);
-    this.name = "FeedbackError";
+    super(`Отклонено: ${code}`);
+    this.name = "PostRefusedError";
   }
 }
 
 /**
- * Send a note. Unlike the telemetry POSTs this one is AWAITED and may throw: the visitor wrote to
- * the author and must learn whether it arrived, so a failure is never swallowed. PRD §5.19.
+ * A post somebody made by hand. Unlike the telemetry POSTs it is AWAITED and may throw: the
+ * visitor must learn whether it arrived, so a failure is never swallowed. PRD §5.19.
  */
-export async function postFeedback(payload: FeedbackPayload): Promise<void> {
-  const url = `${BASE}/api/feedback`;
-  const res = await fetch(url, {
+async function postAwaited(path: string, payload: unknown): Promise<Response> {
+  const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (res.ok) return;
+  if (res.ok) return res;
   let code = "unknown";
   let field: string | undefined;
   try {
@@ -257,7 +257,29 @@ export async function postFeedback(payload: FeedbackPayload): Promise<void> {
     // A non-JSON failure (429 from the edge, a proxy error) has no application code.
     code = res.status === 429 ? "rate_limited" : `http_${res.status}`;
   }
-  throw new FeedbackError(code, field);
+  throw new PostRefusedError(code, field);
+}
+
+export async function postFeedback(payload: FeedbackPayload): Promise<void> {
+  await postAwaited("/api/feedback", payload);
+}
+
+/** A tier list to publish; `website` is the honeypot, as in the note. PRD §5.20. */
+export interface TierlistPayload {
+  nick?: string;
+  tiers: Record<string, string[]>;
+  website?: string;
+}
+
+/** Resolves to the stored list's id; 0 when the server kept nothing to point at. */
+export async function postTierlist(payload: TierlistPayload): Promise<{ id: number }> {
+  const res = await postAwaited("/api/tierlists", payload);
+  const body = (await res.json().catch(() => ({}))) as { id?: number };
+  return { id: body.id ?? 0 };
+}
+
+export function getTierlists(init?: RequestInit): Promise<TierlistView[]> {
+  return getJson<TierlistView[]>("/api/tierlists", init);
 }
 
 /** Where a path is fetched from; a preload names the same URL or it is wasted. */

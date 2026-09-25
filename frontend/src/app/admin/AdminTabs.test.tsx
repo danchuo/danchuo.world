@@ -13,6 +13,7 @@ describe("AdminTabs — the admin section row (§5.14, I-64)", () => {
       "велопоездки",
       "статистика",
       "обратная связь",
+      "тирлисты",
     ]);
     expect(ADMIN_TABS).toHaveLength(tabs.length);
   });

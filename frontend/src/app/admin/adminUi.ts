@@ -181,6 +181,7 @@ export const ADMIN_TABS = [
   { id: "rides", label: "велопоездки" },
   { id: "stats", label: "статистика" },
   { id: "feedback", label: "обратная связь" },
+  { id: "tierlists", label: "тирлисты" },
 ] as const;
 
 export type AdminTabId = (typeof ADMIN_TABS)[number]["id"];

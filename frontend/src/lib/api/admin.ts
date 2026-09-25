@@ -1,5 +1,5 @@
 import type { BoxRect } from "@/lib/artifactHighlight";
-import type { AdminArtifactView, AdminDropView, AdminPhotoView, AnalyticsSummaryView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, FeedbackNoteView, HeatmapView, OrientationStatusView, UploadResultView } from "./types";
+import type { AdminArtifactView, AdminDropView, AdminPhotoView, AnalyticsSummaryView, ArtifactInput, ArtifactScanRunView, ArtifactScanStatusView, BikeImportResultView, FeedbackNoteView, HeatmapView, TierlistAdminView, OrientationStatusView, UploadResultView } from "./types";
 
 /** Owner API uses an explicit bearer from /admin sessionStorage. Public reads use client.ts. PRD §5.12, §9.8. */
 
@@ -373,6 +373,22 @@ export async function listFeedback(token: string): Promise<FeedbackNoteView[]> {
 /** Delete one note; 404 means it was already gone. */
 export async function deleteFeedback(token: string, id: number): Promise<void> {
   const res = await fetch(`${BASE}/api/ingest/feedback/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return parseError(res);
+}
+
+/** Every published tier list, bot-marked included. PRD §5.20. */
+export async function listTierlists(token: string): Promise<TierlistAdminView[]> {
+  const res = await fetch(`${BASE}/api/ingest/tierlists`, { headers: authHeaders(token) });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as TierlistAdminView[];
+}
+
+/** Take a tier list off the public shelf; 404 means it was already gone. */
+export async function deleteTierlist(token: string, id: number): Promise<void> {
+  const res = await fetch(`${BASE}/api/ingest/tierlists/${id}`, {
     method: "DELETE",
     headers: authHeaders(token),
   });

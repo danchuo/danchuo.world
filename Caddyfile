@@ -83,16 +83,16 @@ danchuo.world {
 		}
 
 		# A note is three answers of 2000 chars; in Cyrillic UTF-8 that is ~12KB, so 64KB is
-		# fourfold and still far under the ingest tier. Its own matcher, not the telemetry one:
-		# overlapping `request_body` matchers silently keep only the last ceiling. PRD §5.19
-		@feedback_post path /api/feedback
+		# fourfold and still far under the ingest tier; a tier list (§5.20) is a few KB of ids. Its own
+		# matcher, not the telemetry one: overlapping `request_body` matchers keep only the last ceiling.
+		@feedback_post path /api/feedback /api/tierlists
 		request_body @feedback_post {
 			max_size 64KB
 		}
 
 		# Everything else is the owner's ingest behind the bearer — generous, since an artifact
 		# picture and a day of sleep chunks pass here, but no longer unbounded.
-		@api_rest not path /api/ingest/drops* /api/analytics/* /api/feedback
+		@api_rest not path /api/ingest/drops* /api/analytics/* /api/feedback /api/tierlists
 		request_body @api_rest {
 			max_size 8MB
 		}
@@ -115,7 +115,7 @@ danchuo.world {
 			zone feedback {
 				match {
 					method POST
-					path /api/feedback
+					path /api/feedback /api/tierlists
 				}
 				key {remote_host}
 				events 60

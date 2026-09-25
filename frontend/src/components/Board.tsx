@@ -12,6 +12,7 @@ import { tileBox, type TileId, type TileOrientation } from "@/lib/layout";
 import { ArtifactMarquee } from "./ArtifactMarquee";
 import { Calendar } from "./Calendar";
 import { FeedbackTile } from "./FeedbackTile";
+import { TierlistTile } from "./TierlistTile";
 import { FreshnessTile } from "./FreshnessTile";
 import { HeroTile } from "./HeroTile";
 import { LatestDropTile } from "./LatestDropTile";
@@ -422,6 +423,8 @@ function BoardTile({
           className={className}
         />
       );
+    case "tierlist":
+      return <TierlistTile style={style} className={className} />;
     case "waveSwitcher":
       // The switcher receives EXACTLY the range the board's backdrop does: a wave whose background
       // is made of data shows a piece of that background, not a lookalike pattern. DESIGN §2.6

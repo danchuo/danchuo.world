@@ -26,7 +26,8 @@ export type TileId =
   | "socialX"
   | "socialGithub"
   | "marquee"
-  | "feedback";
+  | "feedback"
+  | "tierlist";
 
 /**
  * A tile's content orientation. A field of its own rather than a deduction from span proportions:
@@ -120,6 +121,8 @@ export const TILE_LAYOUT: Record<TileId, TileSpan> = {
   socialTelegram: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
   socialX: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
   socialGithub: { col: 1, row: 1, colSpan: 1, rowSpan: 1, hidden: true },
+  // The shirt tier list: a wave opts in with its own cell. PRD §5.20
+  tierlist: { col: 1, row: 1, colSpan: 2, rowSpan: 2, hidden: true },
 };
 
 /** Order of the single-column stack on mobile (<640px, DESIGN §8). */
@@ -138,6 +141,7 @@ export const MOBILE_ORDER: TileId[] = [
   "marquee",
   "waveSwitcher",
   "feedback",
+  "tierlist",
   "freshness",
 ];
 

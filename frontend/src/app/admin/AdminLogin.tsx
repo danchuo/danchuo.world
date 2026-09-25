@@ -28,7 +28,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main className="safe-area-pad flex min-h-screen items-center justify-center p-6 [--safe-pad:1.5rem]">
       <form onSubmit={onSubmit} className="flex w-full max-w-xs flex-col gap-3">
         <input
           id="admin-token"

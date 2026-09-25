@@ -68,6 +68,20 @@
     rgba(8, 11, 16, 0.88) 100%
   );
 }
+/* ⚠️ Phone stack: iOS 26 Safari paints no `fixed` layer under its floating toolbar, so a pinned vignette ends
+   above the buttons and the ribbon under them shows lit. Here it is page content, sides only. DESIGN §10.2 */
+@media not ((hover: hover) and (pointer: fine)) {
+  :root[data-wave="wave-03"] .wave-backdrop::after {
+    position: absolute;
+    background: linear-gradient(
+      to right,
+      rgba(8, 11, 16, 0.72) 0%,
+      rgba(8, 11, 16, 0) 30%,
+      rgba(8, 11, 16, 0) 70%,
+      rgba(8, 11, 16, 0.72) 100%
+    );
+  }
+}
 
 /* GLASS ON THE TILES. The edge is a skin parameter (see "how a wave chooses its edge" in wave-01.css):
  * PRIME takes the second path, drawing its own and hiding wave 01's step layers. */

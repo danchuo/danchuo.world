@@ -243,7 +243,7 @@ export default function AdminPage() {
   const marking = markingId === null ? null : (photos.find((p) => p.id === markingId) ?? null);
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl p-6">
+    <main className="safe-area-pad mx-auto min-h-screen max-w-5xl p-6 [--safe-pad:1.5rem]">
       {/* One header for everything: sections on the left, utilities on the right. There is
           deliberately no page title — the row of sections IS the header, so the top of the screen
           carries one line instead of two. */}

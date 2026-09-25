@@ -5736,6 +5736,12 @@ button.sleep-echo:focus-visible {
   color: var(--text-tertiary);
   font-size: var(--fs-modal-meta);
   cursor: default;
+  container-type: inline-size;
+}
+/* A cell too narrow for the word (phones) keeps only the glass, grown to fill it; the label stays in `aria-label`. */
+@container (max-width: 88px) {
+  .tier-zoom-well span { display: none; }
+  .tier-zoom-well svg { width: 46cqw; height: 46cqw; }
 }
 .tier-zoom-well[data-armed] {
   border-color: var(--accent);

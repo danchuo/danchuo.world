@@ -8,6 +8,14 @@ body {
   margin: 0;
 }
 
+/* An open overlay freezes the page: a swipe over a window with nothing to scroll must not move
+   the site behind it (`useScrollLock`). DESIGN §9 */
+html[data-scroll-locked],
+html[data-scroll-locked] body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Quiet tile meta-caption (DESIGN §3): reads active-wave tokens, so a skin may
    restyle or hide it (wave-02 hides it). */
 .tile-label {
@@ -4882,10 +4890,9 @@ button.sleep-echo:focus-visible {
 /* Green, not the accent: the accent would read "did this N days running", which is the opposite
    of what a clean run means. Same token and same reason as the trail map's verdict. DESIGN §4.1 */
 .today-sheet__monster.is-clean .today-sheet__monstersay { color: var(--accent-clean); }
-/* "No data" is the absence of a verdict, so it speaks quieter than one — it names the silence
-   where an empty line used to read as a defect. */
+/* "So far" is a verdict not yet given: the clean green, muted, and quieter than the sure one. */
 .today-sheet__monster.is-unreported .today-sheet__monstersay {
-  color: var(--text-tertiary);
+  color: color-mix(in srgb, var(--accent-clean) 72%, transparent);
   font-weight: 400;
 }
 /* The lens answers in LIGHT and in the verdict's OWN colour, never by repainting it: this line
@@ -5701,7 +5708,12 @@ button.sleep-echo:focus-visible {
   color: var(--accent);
 }
 
-/* A phone: the people go under the ladder instead of beside it. */
+/* The fold toggle exists for phones only; beside the ladder the title stands as it is. */
+.tier-modal__side-toggle {
+  display: none;
+}
+
+/* A phone: the people go under the ladder, folded behind a toggle until asked for. DESIGN §7.12 */
 @media (max-width: 700px) {
   .tier-modal {
     grid-template-columns: minmax(0, 1fr);
@@ -5711,6 +5723,33 @@ button.sleep-echo:focus-visible {
     padding-top: 12px;
     border-left: none;
     border-top: 1px solid var(--border);
+  }
+  .tier-modal__side-title {
+    display: none;
+  }
+  .tier-modal__side-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: var(--fs-modal-meta);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .tier-modal__side-caret {
+    display: inline-block;
+    transition: transform var(--dur-fast, 150ms) ease;
+  }
+  .tier-modal__side[data-open] .tier-modal__side-caret {
+    transform: rotate(180deg);
+  }
+  .tier-modal__side:not([data-open]) .tier-modal__side-body {
+    display: none;
   }
 }
 

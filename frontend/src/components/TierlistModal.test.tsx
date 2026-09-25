@@ -122,6 +122,19 @@ describe("TierlistModal — shirt tier list (§5.20)", () => {
     expect(screen.getByRole("heading", { name: "чужие листы" })).toBeInTheDocument();
   });
 
+  // A phone stacks the lists under the ladder; CSS keeps them folded until this toggle opens them.
+  it("the others' lists fold behind a toggle that names their count", async () => {
+    render(<TierlistModal onClose={() => {}} />);
+    const toggle = await screen.findByRole("button", { name: "чужие листы · 1" });
+    const side = screen.getByRole("complementary", { name: "чужие листы" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(side).not.toHaveAttribute("data-open");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(side).toHaveAttribute("data-open");
+  });
+
   it("the list hides its scrollbar and fades its bottom only while more lies below", async () => {
     render(<TierlistModal onClose={() => {}} />);
     await screen.findByRole("button", { name: "аня" });

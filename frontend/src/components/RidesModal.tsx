@@ -16,6 +16,7 @@ import { formatDuration, formatKm, formatRideCost, formatStationAddress, pluralR
 import { Icon } from "./Icon";
 import { RideMap } from "./RideMap";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 import { useDropMorph } from "./useDropMorph";
 
 interface RidesModalProps {
@@ -82,6 +83,7 @@ export function RidesModal({ rides, today, wave, origin, preview, onClose }: Rid
 
   // The system Back closes the window rather than leaving the site (DESIGN §9).
   useBackToClose(true, requestClose);
+  useScrollLock(true);
 
   useEffect(() => {
     closeRef.current?.focus();

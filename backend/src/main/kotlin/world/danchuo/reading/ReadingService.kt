@@ -170,8 +170,7 @@ class ReadingService(
 
     /** Recomputes the item's mark from the minutes total; a manual [ReadingMarker] is left alone. */
     private fun remark(date: LocalDate) {
-        val target = marker.target() ?: return
-        marker.mark(date, ReadingDayRollup.occurrences(secondsOn(date), target))
+        marker.mark(date, ReadingDayRollup.occurrences(secondsOn(date)))
     }
 
     /** The day's credited total across all books — the item's marks are computed from it. */

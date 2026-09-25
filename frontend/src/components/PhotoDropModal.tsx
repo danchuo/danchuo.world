@@ -27,6 +27,7 @@ import { ArtifactBoxes } from "./ArtifactBoxes";
 import { DropRoll } from "./DropRoll";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 import { useCoarsePointer } from "./useCoarsePointer";
 import { useDropMorph } from "./useDropMorph";
 import { useTileData } from "./useTileData";
@@ -125,6 +126,7 @@ export function PhotoDropModal({
   // The system Back closes the window rather than leaving the site (DESIGN §9). There are two layers,
   // and the order of declaration is the order of closing: the full-screen frame first, the gallery next.
   useBackToClose(true, requestClose);
+  useScrollLock(true);
   useBackToClose(zoomed !== null, closeZoom);
 
   // Initial focus once, at mount: reopening a frame must not pull focus back into the header.

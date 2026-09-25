@@ -25,6 +25,7 @@ import {
 } from "@/lib/tierlist";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 
 interface TierlistModalProps {
   onClose: () => void;
@@ -83,6 +84,9 @@ export function TierlistModal({ onClose }: TierlistModalProps) {
   const ghost = useRef<HTMLDivElement>(null);
   const ghostAt = useRef("");
 
+  // Phones only: the lists under the ladder stay folded until asked for (CSS ignores it wider).
+  const [othersOpen, setOthersOpen] = useState(false);
+
   // No scrollbar on the list: while more lies below, its bottom row fades out instead. DESIGN §7.12
   const peopleRef = useRef<HTMLUListElement>(null);
   const [more, setMore] = useState(false);
@@ -92,6 +96,7 @@ export function TierlistModal({ onClose }: TierlistModalProps) {
   }, []);
 
   useBackToClose(true, onClose);
+  useScrollLock(true);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -382,40 +387,53 @@ export function TierlistModal({ onClose }: TierlistModalProps) {
           )}
         </div>
 
-        <aside className="tier-modal__side" aria-label="чужие листы">
+        <aside className="tier-modal__side" aria-label="чужие листы" data-open={othersOpen || undefined}>
           <h3 className="tier-modal__side-title">чужие листы</h3>
-          {lists === null && !listsFailed && <p className="tier-modal__quiet">загрузка…</p>}
-          {listsFailed && (
-            <button type="button" className="tier-modal__back" onClick={() => void loadLists()}>
-              не загрузилось — ещё раз
-            </button>
-          )}
-          {lists?.length === 0 && <p className="tier-modal__quiet">пока никто — будь первым</p>}
-          {lists && lists.length > 0 && (
-            <ul
-              ref={peopleRef}
-              className="tier-modal__people scroll-invisible"
-              data-more={more || undefined}
-              onScroll={checkMore}
-            >
-              {lists.map((list) => (
-                <li key={list.id}>
-                  <button
-                    type="button"
-                    className="tier-modal__person"
-                    aria-current={viewing?.id === list.id || undefined}
-                    onClick={() => {
-                      setSelected(null);
-                      setViewing(list);
-                    }}
-                  >
-                    <span className="tier-modal__person-nick">{list.nick ?? "аноним"}</span>
-                    <TierMini tiers={list.tiers} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <button
+            type="button"
+            className="tier-modal__side-toggle"
+            aria-expanded={othersOpen}
+            onClick={() => setOthersOpen((open) => !open)}
+          >
+            {lists && lists.length > 0 ? `чужие листы · ${lists.length}` : "чужие листы"}
+            <span className="tier-modal__side-caret" aria-hidden>
+              ▾
+            </span>
+          </button>
+          <div className="tier-modal__side-body">
+            {lists === null && !listsFailed && <p className="tier-modal__quiet">загрузка…</p>}
+            {listsFailed && (
+              <button type="button" className="tier-modal__back" onClick={() => void loadLists()}>
+                не загрузилось — ещё раз
+              </button>
+            )}
+            {lists?.length === 0 && <p className="tier-modal__quiet">пока никто — будь первым</p>}
+            {lists && lists.length > 0 && (
+              <ul
+                ref={peopleRef}
+                className="tier-modal__people scroll-invisible"
+                data-more={more || undefined}
+                onScroll={checkMore}
+              >
+                {lists.map((list) => (
+                  <li key={list.id}>
+                    <button
+                      type="button"
+                      className="tier-modal__person"
+                      aria-current={viewing?.id === list.id || undefined}
+                      onClick={() => {
+                        setSelected(null);
+                        setViewing(list);
+                      }}
+                    >
+                      <span className="tier-modal__person-nick">{list.nick ?? "аноним"}</span>
+                      <TierMini tiers={list.tiers} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </aside>
       </div>
 

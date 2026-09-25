@@ -114,6 +114,8 @@ export interface DayView {
   monsterDrunk?: boolean | null;
   /** Consecutive Monster-free days through yesterday; missing cached values mean no streak. */
   monsterCleanStreak?: number;
+  /** An unreported day's soft run: days not drunk up to yesterday, unmarked ones included. PRD §5.6. */
+  monsterSoFarStreak?: number;
   /** Activity keys in catalogue order (bouldering, squash, …); absent from an older backend. PRD §5.6. */
   activities?: string[];
   /** The day's photo; null when none was sent. */

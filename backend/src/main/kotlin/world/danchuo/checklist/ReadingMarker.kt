@@ -14,9 +14,6 @@ class ReadingMarker(
     private val checklistEntries: ChecklistEntryRepository,
 ) {
 
-    /** How many stops the reading item has; `null` when the item is gone or deactivated. */
-    fun target(): Int? = checklistItems.findByKey(READING_ITEM_KEY)?.target
-
     /**
      * Marks [occurrences] closed stops for [date]. `true` when written; `false` when the item is
      * missing, or the day was already decided by hand.

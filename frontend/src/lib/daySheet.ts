@@ -248,10 +248,14 @@ function cellTail(item: DisciplineItemView, framed: boolean): string | null {
 export function sheetMonsterCard(day: DayView): SheetMonsterCard {
   const { verdict, streak } = sheetMonster(day);
   if (verdict === "drunk") return { verdict, caption: "пил", ariaLabel: "Монстр: выпит сегодня" };
-  // Unreported reads as a day that has not gone wrong YET rather than as an absent record: the
-  // tense carries the caveat, and the day can still end either way. DESIGN §4.3
-  if (verdict === "unreported")
-    return { verdict, caption: "пока не пил", ariaLabel: "Монстр: пока не пил" };
+  // Unreported reads as a day that has not gone wrong YET: the tense carries the caveat, and its
+  // soft run counts unmarked days too. DESIGN §4.3
+  if (verdict === "unreported") {
+    const soFar = day.monsterSoFarStreak ?? 0;
+    const caption =
+      soFar >= STREAK_SHOWN_FROM ? `пока не пил ${soFar} ${pluralDays(soFar)}` : "пока не пил";
+    return { verdict, caption, ariaLabel: `Монстр: ${caption}` };
+  }
   const caption =
     streak >= STREAK_SHOWN_FROM ? `${streak} ${pluralDays(streak)} не пил` : "не пил";
   return { verdict, caption, ariaLabel: `Монстр: ${caption}` };

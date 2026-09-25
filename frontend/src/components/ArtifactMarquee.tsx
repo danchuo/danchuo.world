@@ -12,6 +12,7 @@ import { ArtifactShaft } from "./ArtifactShaft";
 import { Icon } from "./Icon";
 import { TileShell } from "./TileShell";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 import { useMarqueeDrag } from "./useMarqueeDrag";
 import { useTileData } from "./useTileData";
 
@@ -149,6 +150,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
 
   // The system Back closes the menu instead of leaving the site (DESIGN §9).
   useBackToClose(active !== null, () => setActive(null));
+  useScrollLock(active !== null);
 
   // The menu is a centred modal; Esc closes it (backdrop and repeat clicks are handled below).
   useEffect(() => {

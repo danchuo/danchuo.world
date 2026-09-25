@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Shirt 19 joined the catalogue after lists were published: they get it at the end of D,
+         so an old list still reads as complete (PRD §5.20). Text match, not jsonpath: the `@?`
+         operator fails with a syntax error under this runner. -->
+    <changeSet id="1130-tierlist-shirt-19" author="danchuo">
+        <sql>
+            UPDATE tierlist_entry
+            SET placements = jsonb_set(
+                placements::jsonb, '{D}', COALESCE(placements::jsonb -> 'D', '[]'::jsonb) || '"19"'::jsonb
+            )::text
+            WHERE placements NOT LIKE '%"19"%'
+        </sql>
+        <rollback>
+            UPDATE tierlist_entry
+            SET placements = jsonb_set(placements::jsonb, '{D}', (placements::jsonb -> 'D') - '19')::text
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

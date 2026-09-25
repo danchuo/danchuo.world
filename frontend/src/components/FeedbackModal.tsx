@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FeedbackError, postFeedback } from "@/lib/api/client";
+import { PostRefusedError, postFeedback } from "@/lib/api/client";
 import {
   ANSWER_MAX,
   canSubmit,
@@ -74,7 +74,7 @@ export function FeedbackModal({ waveKey, selectedDay, onClose }: FeedbackModalPr
       // The answers are NOT cleared: a refusal must never cost somebody their words.
       setPhase("form");
       setError(
-        e instanceof FeedbackError
+        e instanceof PostRefusedError
           ? feedbackErrorText(e.code, e.field)
           : feedbackErrorText("network"),
       );

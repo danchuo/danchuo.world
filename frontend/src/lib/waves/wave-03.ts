@@ -57,6 +57,15 @@ export const WAVE_03: Wave = {
     "tile-line": "1px",
     "tile-slab-1": "#1b2530",
     "tile-slab-2": "#121a23",
+    // The tier list keeps tiermaker's own ladder: the colours ARE the genre. PRD §5.20
+    "tier-s": "#ff7f7f",
+    "tier-a": "#ffbf7f",
+    "tier-b": "#ffdf7f",
+    "tier-c": "#ffff7f",
+    "tier-d": "#bfff7f",
+    "tier-ground": "#1a1a17",
+    "tier-line": "#000000",
+    "tier-ink": "#111111",
   },
   layout: {
     gallery: "roll",
@@ -76,17 +85,19 @@ export const WAVE_03: Wave = {
       projects: { col: 34, row: 23, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
       ride: { hidden: true },
       hero: { hidden: true },
-      // Two marks side by side over the projects, splitting its width with one track between them.
-      // The stack keeps the same two marks the board scatters, not the whole plate.
+      // Two bare marks: Telegram in the two-track gap between the music and the feedback, Instagram
+      // right of "Today", centred over the wave switcher. The stack keeps the same two marks, not the whole plate.
       social: { only: "stack", edition: "peek", platforms: ["telegram", "instagram"] },
-      socialTelegram: { col: 34, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
-      socialInstagram: { col: 38, row: 20, colSpan: 3, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialTelegram: { col: 23, row: 2, colSpan: 2, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialInstagram: { col: 31, row: 19, colSpan: 1, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
       socialGithub: { hidden: true },
       socialX: { hidden: true },
       marquee: { col: 13, row: 21, colSpan: 7, rowSpan: 8, hidden: false, edition: "shaft" },
       // Top row between the music and the sleep tile: what the board is, then the call for a note
       // under a rule. DESIGN §7.11
       feedback: { col: 25, row: 1, colSpan: 7, rowSpan: 5, edition: "intro" },
+      // The shirt tier list: a wide door over the projects, the ladder plus words saying it is shirts.
+      tierlist: { col: 34, row: 19, colSpan: 7, rowSpan: 3, hidden: false },
     },
     mobileOrder: [
       "feedback",
@@ -100,6 +111,7 @@ export const WAVE_03: Wave = {
       "social",
       "projects",
       "marquee",
+      "tierlist",
       "waveSwitcher",
     ],
   },

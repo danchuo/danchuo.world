@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { FeedbackError } from "@/lib/api/client";
+import { PostRefusedError } from "@/lib/api/client";
 import { FeedbackModal } from "./FeedbackModal";
 
 const postFeedback = vi.hoisted(() => vi.fn());
@@ -84,7 +84,7 @@ describe("FeedbackModal — a note to the author (§5.19)", () => {
   });
 
   it("the error is shown inside the form and does NOT erase the input", async () => {
-    postFeedback.mockRejectedValue(new FeedbackError("rate_limited"));
+    postFeedback.mockRejectedValue(new PostRefusedError("rate_limited"));
     open();
     answer(LIKED, "очень длинный ответ про календарь");
     fireEvent.click(screen.getByRole("button", { name: "отправить" }));

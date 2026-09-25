@@ -1185,6 +1185,18 @@
   display: none;
 }
 
+/* Tier list door: no plate either, the ladder and its words stand on the canvas like the shaft. */
+:root[data-wave="wave-03"] [data-tile-id="tierlist"] .pixel-tile {
+  background: none;
+  box-shadow: none;
+  border: none;
+}
+:root[data-wave="wave-03"] [data-tile-id="tierlist"] .pixel-tile::before,
+:root[data-wave="wave-03"] [data-tile-id="tierlist"] .pixel-tile .pixel-lid,
+:root[data-wave="wave-03"] [data-tile-id="tierlist"] .pixel-tile::after {
+  display: none;
+}
+
 /* The name lights up rather than merely brightening: the accent works as LIGHT on this wave (§10.2),
    the same device as the tile's edge and the lit calendar day. */
 :root[data-wave="wave-03"] .artifact-shaft__name:hover,

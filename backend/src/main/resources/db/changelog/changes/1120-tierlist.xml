@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Published shirt tier lists (PRD §5.20). The nick width equals TierlistPolicy.NICK_MAX. -->
+    <changeSet id="1120-tierlist-entry-table" author="danchuo">
+        <createTable tableName="tierlist_entry">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="submitted_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nick" type="VARCHAR(40)"/>
+            <column name="placements" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="visitor_day_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_bot" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="tierlist_entry" indexName="idx_tierlist_submitted_at">
+            <column name="submitted_at"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- A nick names one list: case-insensitive, anonymous (NULL) rows exempt. TierlistRepository.nickTaken -->
+    <changeSet id="1120-tierlist-nick-unique" author="danchuo">
+        <sql>CREATE UNIQUE INDEX uq_tierlist_nick ON tierlist_entry (lower(nick)) WHERE nick IS NOT NULL</sql>
+        <rollback>DROP INDEX uq_tierlist_nick</rollback>
+    </changeSet>
+</databaseChangeLog>

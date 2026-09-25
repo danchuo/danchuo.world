@@ -544,3 +544,16 @@ export interface FeedbackNoteView {
   /** Marked by the server's heuristics; the row is kept as spam evidence, not hidden. */
   isBot: boolean;
 }
+
+/** A published shirt tier list: shirt ids per tier, best first. PRD §5.20. */
+export interface TierlistView {
+  id: number;
+  submittedAt: string;
+  nick: string | null;
+  tiers: Record<string, string[]>;
+}
+
+/** The owner's moderation row. */
+export interface TierlistAdminView extends TierlistView {
+  isBot: boolean;
+}

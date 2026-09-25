@@ -36,18 +36,18 @@ class RateLimitFilter(
         if (!ctx.getHeaderString(INTERNAL_HEADER).isNullOrBlank()) return
 
         val path = ctx.uriInfo.path.trim('/')
-        // Limit public reads (GET) and the public POSTs — telemetry and notes. Anything else is an
-        // owner mutation under /api/ingest and out of this contour.
+        // Limit public reads (GET) and the public POSTs — telemetry and hand-made posts (notes, tier
+        // lists). Anything else is an owner mutation under /api/ingest and out of this contour.
         val isPublicGet = ctx.method == "GET"
         val isAnalyticsPost = ctx.method == "POST" && path.startsWith("api/analytics")
-        val isFeedbackPost = ctx.method == "POST" && path.startsWith("api/feedback")
-        if (!isPublicGet && !isAnalyticsPost && !isFeedbackPost) return
+        val isNotePost = ctx.method == "POST" && (path.startsWith("api/feedback") || path.startsWith("api/tierlists"))
+        if (!isPublicGet && !isAnalyticsPost && !isNotePost) return
         if (!path.startsWith("api/") || path.startsWith("api/ingest")) return
 
         // Three zones, each with its own allowance AND its own window: frames are many and cheap,
         // notes are few and hand-written, so a reader's budget would be a spammer's budget too.
         val zone = when {
-            isFeedbackPost -> Zone("feedback", maxFeedbackRequests, feedbackWindowSeconds)
+            isNotePost -> Zone("feedback", maxFeedbackRequests, feedbackWindowSeconds)
             path.startsWith("api/film-media") -> Zone("media", maxMediaRequests, windowSeconds)
             else -> Zone("public", maxRequests, windowSeconds)
         }

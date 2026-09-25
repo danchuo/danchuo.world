@@ -22,6 +22,8 @@ export interface Shirt {
   /** A two-digit number: the id travels to the server, which refuses anything but `[a-z0-9-]`. */
   id: string;
   image: string;
+  /** The source at its own resolution (up to 1200px), for the magnifier only. */
+  large: string;
 }
 
 /** Equal to `TierlistPolicy.NICK_MAX` on the server. */
@@ -30,7 +32,7 @@ export const NICK_MAX = 40;
 /** The catalogue, hard-coded: shirts go by number only, in the pool's order. Art is trimmed and centred square. */
 export const SHIRTS: readonly Shirt[] = Array.from({ length: 18 }, (_, i) => {
   const id = String(i + 1).padStart(2, "0");
-  return { id, image: `/assets/tierlist/${id}.webp` };
+  return { id, image: `/assets/tierlist/${id}.webp`, large: `/assets/tierlist/large/${id}.webp` };
 });
 
 /** What a screen reader hears for a shirt; the number is its only public name. */

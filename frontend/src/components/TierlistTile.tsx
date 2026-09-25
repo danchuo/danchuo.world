@@ -40,7 +40,7 @@ export function TierlistTile({ style, className }: TierlistTileProps) {
           <span className="t-tierlist__words">
             <span className="t-tierlist__title">тирлист футболок</span>
             <span className="t-tierlist__lead">
-              расставь <span aria-hidden>→</span>
+              расставить <span aria-hidden>→</span>
             </span>
           </span>
         </button>

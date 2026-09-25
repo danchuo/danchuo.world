@@ -5398,7 +5398,7 @@ button.sleep-echo:focus-visible {
   /* The second term fits seven cell rows (five tiers, a two-row pool) plus the chrome into the screen. */
   --tier-cell: clamp(52px, min(calc(30px + 3.6vw), calc((100dvh - 180px) / 7)), 112px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(100px, 8vw, 150px);
+  grid-template-columns: minmax(0, 1fr) clamp(150px, 13vw, 230px);
   gap: clamp(14px, 1.4vw, 24px);
   width: min(1240px, 96vw);
   padding: clamp(14px, 1.3vw, 24px);
@@ -5566,6 +5566,10 @@ button.sleep-echo:focus-visible {
   gap: 10px 16px;
 }
 
+.tier-modal__foot[data-end] {
+  justify-content: flex-end;
+}
+
 .tier-modal__nick {
   display: flex;
   align-items: center;
@@ -5588,12 +5592,15 @@ button.sleep-echo:focus-visible {
   border-color: var(--accent);
 }
 
+/* The accent deepened under white text: the light accent itself cannot carry either light or dark ink well. */
 .tier-modal__publish {
+  --tier-button: color-mix(in srgb, var(--accent) 52%, #000);
   padding: 7px 20px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--tier-button);
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--bg-base);
+  background: var(--tier-button);
+  color: #fff;
+  font-weight: 500;
   font-size: var(--fs-modal-row);
   cursor: pointer;
 }
@@ -5618,17 +5625,25 @@ button.sleep-echo:focus-visible {
   padding-top: 4px;
 }
 
-/* The list scrolls within the window's height rather than stretching it past the ladder. */
+/* The list scrolls within the window's height rather than stretching it past the ladder. With no bar,
+   the bottom row dissolves while more lies below — gone at the end, so a cut never reads as the last. */
 .tier-modal__people {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   max-height: calc(var(--tier-cell) * 6);
   overflow-y: auto;
-  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+.tier-modal__people[data-more] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 72px), transparent);
 }
 
 .tier-modal__person {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   width: 100%;
   padding: 6px 8px;
   border: none;
@@ -5637,10 +5652,46 @@ button.sleep-echo:focus-visible {
   color: var(--text-primary);
   font-size: var(--fs-modal-row);
   text-align: left;
+  cursor: pointer;
+}
+.tier-modal__person-nick {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
+}
+
+/* The miniature ladder under a nick: tier colour stubs and shirt thumbs, read from across the room. */
+.tier-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 1px;
+  background: var(--tier-line);
+}
+.tier-mini__row {
+  display: flex;
+  min-height: 16px;
+  background: var(--tier-ground);
+}
+.tier-mini__label {
+  flex: none;
+  width: 8px;
+}
+.tier-mini__label[data-tier="S"] { background: var(--tier-s); }
+.tier-mini__label[data-tier="A"] { background: var(--tier-a); }
+.tier-mini__label[data-tier="B"] { background: var(--tier-b); }
+.tier-mini__label[data-tier="C"] { background: var(--tier-c); }
+.tier-mini__label[data-tier="D"] { background: var(--tier-d); }
+.tier-mini__items {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.tier-mini__items img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  scale: 1.08;
 }
 .tier-modal__person:hover,
 .tier-modal__person:focus-visible {
@@ -5661,6 +5712,70 @@ button.sleep-echo:focus-visible {
     border-left: none;
     border-top: 1px solid var(--border);
   }
+}
+
+/* The magnifier sits at the pool's end: a shirt dropped (or tapped) in opens large over the window. */
+.tier-pool-row {
+  display: flex;
+  gap: 8px;
+}
+.tier-pool-row .tier-pool {
+  flex: 1;
+}
+.tier-zoom-well {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: var(--tier-cell);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-tertiary);
+  font-size: var(--fs-modal-meta);
+  cursor: default;
+}
+.tier-zoom-well[data-armed] {
+  border-color: var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.tier-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-base) 70%, transparent);
+}
+.tier-zoom__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: clamp(14px, 1.3vw, 24px);
+  background: var(--tier-ground);
+  border: 1px solid var(--tier-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-3);
+}
+.tier-zoom__card img {
+  width: min(72vmin, 640px);
+  height: min(72vmin, 640px);
+  object-fit: contain;
+}
+.tier-zoom__close {
+  padding: 7px 20px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-modal-row);
+  cursor: pointer;
 }
 
 .tier-pool[data-empty] {

@@ -37,7 +37,7 @@ describe("TierlistModal — shirt tier list (§5.20)", () => {
 
     for (const shirt of SHIRTS.slice(0, -1)) placeByTap(shirtLabel(shirt.id), "очень сок");
     expect(publish).toBeDisabled();
-    expect(screen.getByText("осталось расставить: 1")).toBeInTheDocument();
+    expect(screen.queryByText(/осталось расставить/)).not.toBeInTheDocument();
 
     placeByTap(shirtLabel(SHIRTS[SHIRTS.length - 1].id), "навечно");
     expect(publish).toBeEnabled();
@@ -55,7 +55,8 @@ describe("TierlistModal — shirt tier list (§5.20)", () => {
     expect(screen.getAllByRole("button", { name: shirtLabel(SHIRTS[0].id) })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "← к моему" }));
-    expect(screen.getByText(`осталось расставить: ${SHIRTS.length}`)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: shirtLabel(SHIRTS[0].id) })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "опубликовать" })).toBeDisabled();
     expect(screen.getByPlaceholderText("аноним")).toHaveValue("");
   });
 
@@ -67,8 +68,11 @@ describe("TierlistModal — shirt tier list (§5.20)", () => {
     expect(screen.queryByRole("button", { name: "опубликовать" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: shirtLabel(SHIRTS[0].id) })).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "← к моему" }));
+    const back = screen.getByRole("button", { name: "← к моему" });
+    expect(back.closest(".tier-modal__foot")).not.toBeNull();
+    fireEvent.click(back);
     expect(screen.getByRole("button", { name: "опубликовать" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /тирлист/ })).toBeNull();
   });
 
   it("a nick already on the shelf is flagged as typed, without touching the placement", async () => {
@@ -106,5 +110,65 @@ describe("TierlistModal — shirt tier list (§5.20)", () => {
     getTierlists.mockResolvedValue([]);
     render(<TierlistModal onClose={() => {}} />);
     expect(await screen.findByText("пока никто — будь первым")).toBeInTheDocument();
+  });
+
+  it("each list on the right carries a miniature of its ladder under the nick", async () => {
+    render(<TierlistModal onClose={() => {}} />);
+    const person = await screen.findByRole("button", { name: "аня" });
+    const rows = person.querySelectorAll(".tier-mini__row");
+    expect(rows).toHaveLength(5);
+    expect(rows[0].querySelectorAll("img")).toHaveLength(1);
+    expect(rows[4].querySelectorAll("img")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "чужие листы" })).toBeInTheDocument();
+  });
+
+  it("the list hides its scrollbar and fades its bottom only while more lies below", async () => {
+    render(<TierlistModal onClose={() => {}} />);
+    await screen.findByRole("button", { name: "аня" });
+    const list = screen.getByRole("list");
+    expect(list).toHaveClass("scroll-invisible");
+    Object.defineProperty(list, "scrollHeight", { configurable: true, value: 600 });
+    Object.defineProperty(list, "clientHeight", { configurable: true, value: 300 });
+    fireEvent.scroll(list);
+    expect(list).toHaveAttribute("data-more");
+    list.scrollTop = 300;
+    fireEvent.scroll(list);
+    expect(list).not.toHaveAttribute("data-more");
+  });
+
+  it("a shirt put into the magnifier shows large, and closing it returns the shirt to the pool", () => {
+    render(<TierlistModal onClose={() => {}} />);
+    const id = SHIRTS[2].id;
+    placeByTap(shirtLabel(id), "навечно");
+    fireEvent.click(screen.getByRole("button", { name: shirtLabel(id) }));
+    fireEvent.click(screen.getByRole("button", { name: "рассмотреть крупно" }));
+
+    expect(screen.getByRole("img", { name: `${shirtLabel(id)} крупно` })).toHaveAttribute("src", SHIRTS[2].large);
+    expect(screen.queryByRole("button", { name: shirtLabel(id) })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "вернуться" }));
+    expect(screen.queryByRole("img", { name: `${shirtLabel(id)} крупно` })).not.toBeInTheDocument();
+    const back = screen.getByRole("button", { name: shirtLabel(id) });
+    expect(back.closest("[data-slot]")).toHaveAttribute("data-slot", "pool");
+  });
+
+  it("Escape closes the magnifier before the window", () => {
+    const onClose = vi.fn();
+    render(<TierlistModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: shirtLabel(SHIRTS[0].id) }));
+    fireEvent.click(screen.getByRole("button", { name: "рассмотреть крупно" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("img", { name: `${shirtLabel(SHIRTS[0].id)} крупно` })).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("someone else's shirt opens large on a tap, and closing leaves their list untouched", async () => {
+    render(<TierlistModal onClose={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: "аня" }));
+    fireEvent.click(screen.getByRole("button", { name: shirtLabel(SHIRTS[0].id) }));
+    expect(screen.getByRole("img", { name: `${shirtLabel(SHIRTS[0].id)} крупно` })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "закрыть" }));
+    const shirt = screen.getByRole("button", { name: shirtLabel(SHIRTS[0].id) });
+    expect(shirt.closest("[data-slot]")).toHaveAttribute("data-slot", "S");
   });
 });

@@ -14,9 +14,9 @@ import {
 } from "./tierlist";
 
 const shirts: Shirt[] = [
-  { id: "a", image: "/a.svg" },
-  { id: "b", image: "/b.svg" },
-  { id: "c", image: "/c.svg" },
+  { id: "a", image: "/a.svg", large: "/a-large.svg" },
+  { id: "b", image: "/b.svg", large: "/b-large.svg" },
+  { id: "c", image: "/c.svg", large: "/c-large.svg" },
 ];
 
 describe("place", () => {

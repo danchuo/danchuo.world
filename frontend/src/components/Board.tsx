@@ -201,7 +201,7 @@ export function Board() {
     /* `relative` anchors the wave's backdrop layer: it spans `main`, that is the whole scrollable
        page, and travels with the board as one layer. Without it the layer would be measured from
        the viewport and, in the phone stack, lag behind the tiles by the entire scroll. */
-    <main className="relative min-h-screen p-4">
+    <main className="safe-area-pad relative min-h-screen p-4">
       {/* The wave's backdrop layer (DESIGN §10.2): off by default, switched on by a wave's skin. */}
       <WaveBackdrop summaries={backdropDays} today={today} wave={activeKey} />
 

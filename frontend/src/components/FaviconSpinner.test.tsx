@@ -51,8 +51,8 @@ describe("FaviconSpinner", () => {
     stubFrames();
     render(<FaviconSpinner />);
     await waitFor(() => expect(link()?.href).toContain("earth-spin-00.png"));
-    // Slack in the timeout: a frame holds for 80ms, but timers drift under the shared run.
-    await waitFor(() => expect(link()?.href).toContain("earth-spin-01.png"), { timeout: 3000 });
+    // Any frame past the first: frames follow elapsed time, so a stalled runner skips straight past 01.
+    await waitFor(() => expect(link()?.href).toMatch(/earth-spin-(?!00)\d+\.png$/), { timeout: 3000 });
   });
 
   it("with prefers-reduced-motion keeps a single frame", async () => {
@@ -76,7 +76,7 @@ describe("FaviconSpinner", () => {
   it("turns the planet without touching the network: each frame is fetched once", async () => {
     const fetchFrame = stubFrames();
     render(<FaviconSpinner />);
-    await waitFor(() => expect(link()?.href).toMatch(/^blob:.*earth-spin-01\.png$/), { timeout: 3000 });
+    await waitFor(() => expect(link()?.href).toMatch(/^blob:.*earth-spin-(?!00)\d+\.png$/), { timeout: 3000 });
     expect(fetchFrame).toHaveBeenCalledTimes(48);
     expect(new Set(fetchFrame.mock.calls.map(([url]) => url)).size).toBe(48);
   });

@@ -40,6 +40,15 @@ body {
   outline-offset: 2px;
 }
 
+/* Under `viewport-fit=cover` the page reaches the screen edges; content keeps its own padding or the
+   safe-area inset, whichever is larger. Off-iPhone every inset is 0 and the padding is unchanged. */
+.safe-area-pad {
+  padding-top: max(var(--safe-pad, 1rem), env(safe-area-inset-top));
+  padding-right: max(var(--safe-pad, 1rem), env(safe-area-inset-right));
+  padding-bottom: max(var(--safe-pad, 1rem), env(safe-area-inset-bottom));
+  padding-left: max(var(--safe-pad, 1rem), env(safe-area-inset-left));
+}
+
 /* Board mode is chosen by POINTER TYPE, not width (DESIGN §8): zoom shrinks the CSS
    viewport, so a width threshold dropped the desktop board into the phone stack one zoom
    step in. Display lives here, not in utilities — a rule outside @layer beats them. */
@@ -4812,6 +4821,10 @@ button.sleep-echo:focus-visible {
   width: calc(var(--sheet-slot) * var(--photo-w, 1));
   height: var(--sheet-slot);
   justify-content: flex-end;
+}
+/* The frame's own ground shows until the new day's photo has loaded, never the previous one. */
+.today-sheet__photo .today-sheet__cover:not([data-loaded]) {
+  visibility: hidden;
 }
 .today-sheet__photo .today-sheet__shot {
   width: 100%;

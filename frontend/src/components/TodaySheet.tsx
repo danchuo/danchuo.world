@@ -437,10 +437,28 @@ function PhotoCard({
       style={size}
     >
       <span className="today-sheet__shot">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photoUrl(photo.webUrl)} alt="" className="today-sheet__cover" loading="lazy" />
+        <DayShot key={photo.webUrl} src={photoUrl(photo.webUrl)} />
       </span>
     </button>
+  );
+}
+
+/** Keyed per photo, so a day switch mounts a fresh image that stays hidden until it loads. DESIGN §4.3 */
+function DayShot({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      ref={(img) => {
+        if (img?.complete && img.naturalWidth > 0) setLoaded(true);
+      }}
+      src={src}
+      alt=""
+      className="today-sheet__cover"
+      data-loaded={loaded ? "" : undefined}
+      loading="lazy"
+      onLoad={() => setLoaded(true)}
+    />
   );
 }
 

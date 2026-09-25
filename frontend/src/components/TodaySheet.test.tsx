@@ -276,6 +276,23 @@ describe("TodaySheet", () => {
     expect(img.getAttribute("src")).toBe(photoUrl("/p/web"));
   });
 
+  // Swapping `src` on one <img> keeps the old picture painted until the new one decodes.
+  it("switching days never shows the previous day's photo while the new one loads", () => {
+    const a = { thumbUrl: "/a/thumb", webUrl: "/a/web", width: 1600, height: 1200 };
+    const b = { thumbUrl: "/b/thumb", webUrl: "/b/web", width: 1200, height: 1600 };
+    const { rerender } = render(<TodaySheet day={day({ photo: a })} today="2026-09-18" />);
+    const shot = () => screen.getByRole("button", { name: "Фото дня" }).querySelector("img")!;
+    fireEvent.load(shot());
+    expect(shot().hasAttribute("data-loaded")).toBe(true);
+
+    rerender(<TodaySheet day={day({ date: "2026-09-17", photo: b })} today="2026-09-18" />);
+    expect(shot().getAttribute("src")).toBe(photoUrl("/b/web"));
+    expect(shot().hasAttribute("data-loaded")).toBe(false);
+
+    fireEvent.load(shot());
+    expect(shot().hasAttribute("data-loaded")).toBe(true);
+  });
+
   it("the photo opens at full size and closes again", async () => {
     const photo = { thumbUrl: "/p/thumb", webUrl: "/p/web", width: 1600, height: 1200 };
     render(<TodaySheet day={day({ photo })} today="2026-09-18" />);

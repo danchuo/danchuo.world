@@ -179,9 +179,7 @@ export function ArtifactMarquee({ style, className, orientation = "horizontal", 
       state={isEmpty ? "empty" : phase}
       emptyText="нет артефактов"
       onRetry={retry}
-      // The shaft fills the tile edge to edge; the full-bleed drop and ride editions drop the
-      // label the same way, the object being the only thing the tile has to say.
-      label={shaft ? undefined : "артефакты"}
+      label="артефакты"
       ariaLabel="Артефакты"
       style={style}
       className={className}

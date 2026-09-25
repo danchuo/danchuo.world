@@ -21,6 +21,8 @@ class RateLimitFilterTest {
             "danchuo.ratelimit.requests" to "3",
             "danchuo.ratelimit.media-requests" to "5",
             "danchuo.ratelimit.window-seconds" to "3600",
+            "danchuo.ratelimit.feedback-requests" to "4",
+            "danchuo.ratelimit.tierlist-requests" to "2",
         )
     }
 
@@ -104,6 +106,30 @@ class RateLimitFilterTest {
         // …and ordinary reads by the same client are untouched: the buckets are independent both ways.
         given().header("X-Forwarded-For", ip).get("/api/artifacts")
             .then().statusCode(200)
+    }
+
+    @Test
+    fun `tier lists spend their own tighter bucket, and draining it leaves notes free`() {
+        val ip = "203.0.113.80"
+        // The body is invalid on purpose: a 400 is the point — the limiter let it through, not 429.
+        repeat(2) {
+            given().header("X-Forwarded-For", ip).contentType("application/json").body("{}")
+                .post("/api/tierlists").then().statusCode(400)
+        }
+        given().header("X-Forwarded-For", ip).contentType("application/json").body("{}")
+            .post("/api/tierlists").then().statusCode(429)
+        given().header("X-Forwarded-For", ip).contentType("application/json").body("{}")
+            .post("/api/feedback").then().statusCode(400)
+    }
+
+    @Test
+    fun `addresses of one IPv6 64 share a bucket`() {
+        repeat(3) { i ->
+            given().header("X-Forwarded-For", "2001:db8:5:6::${i + 1}").get("/api/artifacts")
+                .then().statusCode(200)
+        }
+        given().header("X-Forwarded-For", "2001:db8:5:6:abcd::1").get("/api/artifacts")
+            .then().statusCode(429)
     }
 
     @Test

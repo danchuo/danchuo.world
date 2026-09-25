@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Soft in-memory token bucket over public GETs and the public POSTs, sized to stop a noisy client
- * rather than a real DDoS (edge limits live in `Caddyfile`). Three buckets per client, SSR exempt
+ * rather than a real DDoS (edge limits live in `Caddyfile`). A bucket per zone and client, SSR exempt
  * via [INTERNAL_HEADER], `requests=0` disables it — the numbers and why: PRD §8.
  */
 @Provider
@@ -25,6 +25,7 @@ class RateLimitFilter(
     @param:ConfigProperty(name = "danchuo.ratelimit.window-seconds") private val windowSeconds: Long,
     @param:ConfigProperty(name = "danchuo.ratelimit.feedback-requests") private val maxFeedbackRequests: Int,
     @param:ConfigProperty(name = "danchuo.ratelimit.feedback-window-seconds") private val feedbackWindowSeconds: Long,
+    @param:ConfigProperty(name = "danchuo.ratelimit.tierlist-requests") private val maxTierlistRequests: Int,
 ) : ContainerRequestFilter {
 
     private val buckets = ConcurrentHashMap<String, Bucket>()
@@ -40,13 +41,15 @@ class RateLimitFilter(
         // lists). Anything else is an owner mutation under /api/ingest and out of this contour.
         val isPublicGet = ctx.method == "GET"
         val isAnalyticsPost = ctx.method == "POST" && path.startsWith("api/analytics")
-        val isNotePost = ctx.method == "POST" && (path.startsWith("api/feedback") || path.startsWith("api/tierlists"))
-        if (!isPublicGet && !isAnalyticsPost && !isNotePost) return
+        val isTierlistPost = ctx.method == "POST" && path.startsWith("api/tierlists")
+        val isNotePost = ctx.method == "POST" && path.startsWith("api/feedback")
+        if (!isPublicGet && !isAnalyticsPost && !isNotePost && !isTierlistPost) return
         if (!path.startsWith("api/") || path.startsWith("api/ingest")) return
 
-        // Three zones, each with its own allowance AND its own window: frames are many and cheap,
-        // notes are few and hand-written, so a reader's budget would be a spammer's budget too.
+        // Zones with their own allowance AND window: frames are many and cheap, notes and tier lists
+        // few and hand-made, so a reader's budget would be a spammer's budget too.
         val zone = when {
+            isTierlistPost -> Zone("tierlist", maxTierlistRequests, feedbackWindowSeconds)
             isNotePost -> Zone("feedback", maxFeedbackRequests, feedbackWindowSeconds)
             path.startsWith("api/film-media") -> Zone("media", maxMediaRequests, windowSeconds)
             else -> Zone("public", maxRequests, windowSeconds)

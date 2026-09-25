@@ -115,10 +115,20 @@ danchuo.world {
 			zone feedback {
 				match {
 					method POST
-					path /api/feedback /api/tierlists
+					path /api/feedback
 				}
 				key {remote_host}
 				events 60
+				window 1h
+			}
+			# Tier lists: the same echelon over the app's own tighter bucket (25/hour). PRD §5.20
+			zone tierlist {
+				match {
+					method POST
+					path /api/tierlists
+				}
+				key {remote_host}
+				events 30
 				window 1h
 			}
 			# A note is charged to this zone as well, and that double-charge is deliberate: the

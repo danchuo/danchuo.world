@@ -177,6 +177,14 @@ describe("ArtifactMarquee", () => {
     expect(screen.queryByText("Без рисунка")).toBeNull();
   });
 
+  it("the shaft is captioned like the wave switcher, so the objects read as artifacts", async () => {
+    getArtifactsMock.mockResolvedValue([
+      { id: 1, name: "С рисунком", imageUrl: "/p.png", firstMentionedOn: "2026-03-10" },
+    ]);
+    render(<ArtifactMarquee edition="shaft" />);
+    expect(await screen.findByText("артефакты")).toHaveClass("tile-label");
+  });
+
   it("a click on a shaft item opens a card with its picture", async () => {
     getArtifactsMock.mockResolvedValue([
       { id: 1, name: "Очки", imageUrl: "/p.png", firstMentionedOn: "2026-03-10" },

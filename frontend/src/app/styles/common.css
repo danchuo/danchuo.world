@@ -83,9 +83,9 @@ body {
   /* Every object stands in an absolute layer; square, as the objects themselves are. */
   aspect-ratio: 1;
 }
-/* A square shaft has no width to spare: the front object (80% of the height) centred at the bento
-   36% starts past the left edge, so the stack centres it further right. DESIGN §7.2 */
-.board-stack .artifact-shaft {
+/* A square shaft has no width to spare: at the bento 36% the front object starts past the left edge,
+   so the stack centres it further right. Set on the tile: PRIME's caption leans on it too. DESIGN §7.2 */
+.board-stack [data-tile-id="marquee"] {
   --shaft-x: 45%;
 }
 .board-stack .music-recent {

@@ -599,14 +599,19 @@
 :root[data-wave="wave-03"] .tile-label {
   display: none;
 }
-/* The switcher keeps its word: nameless keys went unpressed. Set in the wave's lowercase mono, like the "Today" heading. */
-:root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .tile-label {
+/* The switcher and the artifact shaft keep their word: nameless keys went unpressed, and a lone shirt
+   read as decor, not a collection. Set in the wave's lowercase mono, like the "Today" heading. */
+:root[data-wave="wave-03"] :is([data-tile-id="waveSwitcher"], [data-tile-id="marquee"]) .tile-label {
   display: block;
   font-family: var(--font-mono);
   text-transform: none;
   letter-spacing: 0.02em;
   text-align: center;
   color: var(--text-secondary);
+}
+/* The shaft's word leans over the front object's axis and a touch up, not over the tile's middle. */
+:root[data-wave="wave-03"] [data-tile-id="marquee"] .tile-label {
+  translate: calc(var(--shaft-x, 36%) - 50%) -0.4em;
 }
 /* One more exception, the same as wave 02's: the calendar's label row carries WEEK PAGING (PRD §5.3),
    which is navigation rather than a caption, and hiding it would take away access to history. Only the

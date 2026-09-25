@@ -228,17 +228,23 @@
   mask-image: linear-gradient(to bottom, transparent 34%, #000 78%);
 }
 
-/* Wave switcher on PRIME'S BOARD: three canvases sewn into one gapless strip — equal cards at an equal pitch
- * read as the keys of a remote. This wave's chip on another board is below, keyed off `[data-chip-wave]`.
- * Rejected: fan, cascade, index tabs, cover flow. DESIGN §10.2 */
+/* Wave switcher on PRIME'S BOARD: separate keys, each a slice of its wave's canvas. The OFFERED waves are the
+ * large bright ones; the current wave shrinks to a dim "you are here" slice, since visitors took the biggest
+ * card for the state and never clicked. Rejected: one seamless strip with the active wave widest. DESIGN §2.6 */
 :root[data-wave="wave-03"] .wave-chip-row {
-  gap: 0;
-  overflow: hidden;
-  border-radius: var(--radius-md, 10px);
-  box-shadow: 0 0 0 1px var(--border-tile), 0 10px 26px -12px rgba(0, 0, 0, 0.8);
+  gap: 4px;
+  /* Hidden while the board swaps in and the keys settle their shares, then faded in: the width transition
+     below would otherwise play on arrival as a twitch. The delay outlasts that transition. */
+  animation: wave-chip-row-in 240ms ease 320ms both;
 }
-
-/* The selected wave opens to 2.8 shares, the others stay a slice of their canvas. Order never moves, only width. */
+@keyframes wave-chip-row-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 :root[data-wave="wave-03"] .wave-chip {
   flex: 1 1 0;
   width: auto;
@@ -249,30 +255,32 @@
      `height: 100%` of a content-height row resolves to zero (the admin header collapsed into a blank strip). */
   min-height: 20px;
   aspect-ratio: auto;
+  overflow: hidden;
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 0 0 1px var(--border-tile), 0 8px 20px -12px rgba(0, 0, 0, 0.8);
   /* Side depth in the artifact's proportion: at 9px on a 55px strip the band outweighed the canvas above it. */
-  --chip-depth: 4px;
-  /* No width transition: the strip only ever changes width when the whole board swaps wave, and there it read
-     as the old wave shrinking. */
-  transition: opacity 180ms ease;
+  --chip-depth: 5px;
+  opacity: 1;
+  transition: flex-grow 280ms ease, opacity 180ms ease, box-shadow 180ms ease;
 }
+/* Current wave: a third of an offer's share along the strip and 72% across it, centred, at full strength and
+   ringed in the accent — small but plainly "you are here". Dimming it lost the dark PRIME card on the dark board. */
 :root[data-wave="wave-03"] .wave-chip[data-active="true"] {
-  flex-grow: 2.8;
-  --chip-depth: 6px;
+  flex-grow: 0.35;
+  --chip-depth: 3px;
+  height: 72%;
+  cursor: default;
+  box-shadow: 0 0 0 1.5px var(--accent), 0 0 12px -2px color-mix(in srgb, var(--accent) 55%, transparent);
 }
-/* The seam between two canvases; it belongs to the right-hand card, so the left edge of the strip has none. */
-:root[data-wave="wave-03"] .wave-chip + .wave-chip {
-  box-shadow: -1px 0 0 rgba(0, 0, 0, 0.55);
-}
-/* The strip stood upright: the cards fill its width, the slice floor becomes a height, and the seam
-   runs across. In the column the DOM-next card stands above, so its seam is its lower edge. */
 :root[data-wave="wave-03"] .wave-chip-row.flex-col-reverse .wave-chip {
   width: 100%;
   height: auto;
   min-width: 0;
-  min-height: 44px;
+  min-height: 24px;
 }
-:root[data-wave="wave-03"] .wave-chip-row.flex-col-reverse .wave-chip + .wave-chip {
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+:root[data-wave="wave-03"] .wave-chip-row.flex-col-reverse .wave-chip[data-active="true"] {
+  width: 72%;
+  min-height: 16px;
 }
 /* Upright, the signal side runs down the RIGHT edge: under a stacked card the lower side would read
    as the seam to the next one. */
@@ -282,15 +290,19 @@
 :root[data-wave="wave-03"] .wave-chip-row.flex-col-reverse .wave-chip__face {
   inset: 0 var(--chip-depth) 0 0;
 }
-/* A lift would tear a segment out of the shared frame, so hover only restores full strength. */
+/* Hover opens an offer smoothly and lights its rim white (the accent rim is the current wave's). */
 @media (hover: hover) {
   :root[data-wave="wave-03"] .wave-chip:hover {
     transform: none;
   }
+  :root[data-wave="wave-03"] .wave-chip[data-active="false"]:hover {
+    flex-grow: 1.7;
+    box-shadow: 0 0 0 1px var(--text-primary), 0 8px 20px -12px rgba(0, 0, 0, 0.8);
+  }
 }
 
-/* Inside the frame each wave's own edge comes off (step, cloud rounding, glass rim): the frame is the only edge,
-   and the wave is recognised by its canvas. Specificity beats the `[data-chip-wave]` shape rules on purpose. */
+/* Inside the key each wave's own edge comes off (step, cloud rounding, glass rim): the key's rim is the only
+   edge, and the wave is recognised by its canvas. Specificity beats the `[data-chip-wave]` shape rules on purpose. */
 :root[data-wave="wave-03"] .wave-chip .wave-chip__slab,
 :root[data-wave="wave-03"] .wave-chip .wave-chip__face,
 :root[data-wave="wave-03"] .wave-chip .wave-chip__face::after {
@@ -319,9 +331,10 @@
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] {
   --chip-gutter: 14px;
 }
-/* The strip runs the tile's full HEIGHT: the slab is gone (see below), so there is no edge to inset from. */
+/* No slab to inset from, but the tile still clips: the bottom inset keeps the current key's accent ring and
+   glow inside it. */
 :root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .pixel-tile {
-  padding-block: 0;
+  padding-block: 0 8px;
   padding-inline: var(--chip-gutter);
 }
 
@@ -572,7 +585,16 @@
 :root[data-wave="wave-03"] .tile-label {
   display: none;
 }
-/* Exactly one exception, the same as wave 02's: the calendar's label row carries WEEK PAGING (PRD §5.3),
+/* The switcher keeps its word: nameless keys went unpressed. Set in the wave's lowercase mono, like the "Today" heading. */
+:root[data-wave="wave-03"] [data-tile-id="waveSwitcher"] .tile-label {
+  display: block;
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--text-secondary);
+}
+/* One more exception, the same as wave 02's: the calendar's label row carries WEEK PAGING (PRD §5.3),
    which is navigation rather than a caption, and hiding it would take away access to history. Only the
    control row returns; the word itself, the month name and the lens stay hidden like every meta label. */
 :root[data-wave="wave-03"] .tile-label:has(.cal-nav) {

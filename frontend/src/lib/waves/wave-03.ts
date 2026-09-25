@@ -85,11 +85,11 @@ export const WAVE_03: Wave = {
       projects: { col: 34, row: 23, colSpan: 7, rowSpan: 6, edition: "console", planet: "model" },
       ride: { hidden: true },
       hero: { hidden: true },
-      // Two bare marks: Telegram in the two-track gap between the music and the feedback, Instagram
-      // right of "Today", centred over the wave switcher. The stack keeps the same two marks, not the whole plate.
+      // Two bare marks stacked in the two-track gap between the music and the feedback, one empty row
+      // between them. The stack keeps the same two marks, not the whole plate.
       social: { only: "stack", edition: "peek", platforms: ["telegram", "instagram"] },
-      socialTelegram: { col: 23, row: 2, colSpan: 2, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
-      socialInstagram: { col: 31, row: 19, colSpan: 1, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialTelegram: { col: 23, row: 1, colSpan: 2, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
+      socialInstagram: { col: 23, row: 4, colSpan: 2, rowSpan: 2, hidden: false, only: "bento", edition: "peek" },
       socialGithub: { hidden: true },
       socialX: { hidden: true },
       marquee: { col: 13, row: 21, colSpan: 7, rowSpan: 8, hidden: false, edition: "shaft" },

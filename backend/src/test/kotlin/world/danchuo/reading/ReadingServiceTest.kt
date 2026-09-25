@@ -113,9 +113,9 @@ class ReadingServiceTest {
     @Test
     fun `a position carried over from another reader is not counted as read today`() {
         // The owner read elsewhere and moved the position by hand, so the reader sees 47% at once
-        // with no past counters. Three minutes cannot be half a book: the start stays unknown
+        // with no past counters. A few minutes cannot be half a book: the start stays unknown
         // rather than zero, and the card shows only what was reached.
-        service.absorb(shelf(seconds = 170, percent = 0.4765), today, evening)
+        service.absorb(shelf(seconds = 200, percent = 0.4765), today, evening)
 
         val session = sessions.listByDate(today).single()
         assertNull(session.startPercent)
@@ -204,6 +204,13 @@ class ReadingServiceTest {
     }
 
     @Test
+    fun `under three minutes is still a glance, not a session`() {
+        assertEquals(0, service.absorb(shelf(seconds = 179, percent = 0.01), today, evening))
+        assertEquals(180, service.absorb(shelf(seconds = 180, percent = 0.02), today, evening.plusSeconds(300)))
+        assertEquals(1, sessions.listByDate(today).size)
+    }
+
+    @Test
     fun `seconds held back as noise are not lost - they arrive with the next real reading`() {
         service.absorb(shelf(seconds = 12, percent = 0.01), today, evening)
         service.absorb(shelf(seconds = 1_800, percent = 0.10), today, evening.plusSeconds(300))
@@ -259,6 +266,16 @@ class ReadingServiceTest {
         service.absorb(shelf(seconds = 3_600, percent = 0.42), today, evening.plusSeconds(3 * 3_600))
 
         assertEquals(2, markCount())
+    }
+
+    @Test
+    fun `a third sitting stays a session and the mark counts past the target`() {
+        service.absorb(shelf(seconds = 1_800, percent = 0.30), today, evening)
+        service.absorb(shelf(seconds = 3_600, percent = 0.35), today, evening.plusSeconds(2 * 3_600))
+        service.absorb(shelf(seconds = 5_400, percent = 0.40), today, evening.plusSeconds(4 * 3_600))
+
+        assertEquals(3, service.sessionsOn(today).size)
+        assertEquals(3, markCount(), "90 минут — три остановки при цели 2")
     }
 
     @Test

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useBackToClose } from "@/components/useBackToClose";
+import { useScrollLock } from "@/components/useScrollLock";
 import { deleteArtifactBox, saveArtifactBox } from "@/lib/api/admin";
 import { boxFromDrag, type BoxRect } from "@/lib/artifactHighlight";
 import { mediaUrl } from "@/lib/api/media";
@@ -57,6 +58,7 @@ export function ArtifactMarker({
 
   // Browser Back closes the marker while keeping the admin page. DESIGN §9.
   useBackToClose(true, onClose);
+  useScrollLock(true);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

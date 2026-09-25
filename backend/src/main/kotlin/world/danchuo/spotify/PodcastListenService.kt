@@ -72,14 +72,9 @@ class PodcastListenService(
     /** Total minutes listened in a day — the discipline item's caption. */
     fun minutesOn(date: LocalDate): Int = PodcastDayRollup.listenedMinutes(totalMsOn(date))
 
-    /** A day's cards: the first [max] sittings that closed stops (see [PodcastDayRollup.cards]). */
-    fun cardsOn(date: LocalDate, max: Int): List<PodcastRun> =
-        PodcastDayRollup.cards(runsOn(date), max)
-
     /** Recomputes the item's mark from the minutes total; a manual [PodcastMarker] is left alone. */
     private fun remark(date: LocalDate) {
-        val target = marker.target() ?: return
-        marker.mark(date, PodcastDayRollup.occurrences(totalMsOn(date), target))
+        marker.mark(date, PodcastDayRollup.occurrences(totalMsOn(date)))
     }
 
     /**

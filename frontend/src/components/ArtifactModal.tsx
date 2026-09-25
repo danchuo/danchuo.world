@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { ArtifactView } from "@/lib/api/types";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 
 const RU_MONTHS = [
   "января", "февраля", "марта", "апреля", "мая", "июня",
@@ -32,6 +33,7 @@ interface ArtifactModalProps {
  */
 export function ArtifactModal({ artifact, src, onClose }: ArtifactModalProps) {
   useBackToClose(true, onClose);
+  useScrollLock(true);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

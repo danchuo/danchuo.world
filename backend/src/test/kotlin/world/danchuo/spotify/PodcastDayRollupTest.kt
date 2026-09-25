@@ -5,14 +5,8 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 /**
- * Rolling a day up into marks and cards (PRD §5.6) — two questions counted differently. Marks go
- * by the day's SUM of minutes (every full 25 closes a stop); cards go by SITTINGS, the first two
- * that push the sum past another full 25.
- */
-
-/**
- * The divergence is a consequence, not a bug: a marathon in one sitting gives two marks and ONE
- * card, while the same episode taken there and back gives two marks and TWO cards.
+ * Rolling a day up into marks and sittings (PRD §5.6). Marks go by the day's SUM of minutes (every
+ * full 25 closes a stop, with no ceiling); every sitting is a card of its own.
  */
 class PodcastDayRollupTest {
 
@@ -36,15 +30,12 @@ class PodcastDayRollupTest {
         episodeDurationMs = null,
     )
 
-    private fun occurrences(minutes: Long) = PodcastDayRollup.occurrences(minutes * 60_000, target = 2)
-
-    private fun cardIds(vararg runs: PodcastRun) =
-        PodcastDayRollup.cards(runs.toList(), max = 2).map { it.episodeId }
+    private fun occurrences(minutes: Long) = PodcastDayRollup.occurrences(minutes * 60_000)
 
     private fun merge(vararg runs: PodcastRun, gapMinutes: Long = 45) =
         PodcastDayRollup.runs(runs.toList(), gapMinutes)
 
-    // ── marks: min(target, floor(minutes / 25)) ──
+    // ── marks: floor(minutes / 25), uncapped ──
 
     @Test
     fun `under the threshold closes nothing`() {
@@ -72,15 +63,15 @@ class PodcastDayRollupTest {
     }
 
     @Test
-    fun `a day of podcasts never exceeds the target`() {
-        assertEquals(2, occurrences(300))
+    fun `a day of podcasts keeps counting past the target`() {
+        assertEquals(12, occurrences(300))
     }
 
     @Test
     fun `partial minutes below the threshold do not round up`() {
         // 49:59 is still one podcast; exactly 50:00 is two.
-        assertEquals(1, PodcastDayRollup.occurrences(2_999_000, target = 2))
-        assertEquals(2, PodcastDayRollup.occurrences(3_000_000, target = 2))
+        assertEquals(1, PodcastDayRollup.occurrences(2_999_000))
+        assertEquals(2, PodcastDayRollup.occurrences(3_000_000))
     }
 
     // ── sittings: sessions of one episode, glued across a pause ──
@@ -128,68 +119,6 @@ class PodcastDayRollupTest {
         val evening = run("B", 30, morning.plusSeconds(10 * 3600))
         val early = run("A", 30, morning)
         assertEquals(listOf("A", "B"), merge(evening, early).map { it.episodeId })
-    }
-
-    // ── cards: sittings that pushed the sum past another 25 minutes ──
-
-    @Test
-    fun `one episode taken there and back gives two cards`() {
-        // The owner's main case: 80 minutes of one episode in two sittings — two stops and TWO
-        // cards, because there really were two sittings.
-        val there = run("A", 45, morning)
-        val back = run("A", 35, morning.plusSeconds(10 * 3600))
-        assertEquals(listOf("A", "A"), cardIds(there, back))
-        assertEquals(2, occurrences(80))
-    }
-
-    @Test
-    fun `one long sitting gives a single card even though it closes both stops`() {
-        val long = run("A", 120, morning)
-        assertEquals(listOf("A"), cardIds(long))
-        assertEquals(2, occurrences(120))
-    }
-
-    @Test
-    fun `two qualifying runs give two cards ordered by when they started`() {
-        val evening = run("B", 40, morning.plusSeconds(10 * 3600))
-        val early = run("A", 40, morning)
-        assertEquals(listOf("A", "B"), cardIds(evening, early))
-    }
-
-    @Test
-    fun `a run poked and abandoned earns no card but its minutes still count`() {
-        // 40 minutes plus a 2-minute poke: the second stop is not closed at all (42 < 50), and the
-        // poke has no card — it pushed past no 25-minute mark.
-        val real = run("A", 40, morning)
-        val poked = run("B", 2, morning.plusSeconds(3600))
-        assertEquals(listOf("A"), cardIds(real, poked))
-        assertEquals(1, occurrences(42))
-    }
-
-    @Test
-    fun `a fragmented day still fills both stops`() {
-        // Four 20-minute chunks: none reaches the threshold alone, but two of them pushed the day
-        // past its 25th and 50th minute — those two get the cards.
-        val runs = listOf(
-            run("A", 20, morning),
-            run("B", 20, morning.plusSeconds(2 * 3600)),
-            run("C", 20, morning.plusSeconds(4 * 3600)),
-            run("D", 20, morning.plusSeconds(6 * 3600)),
-        )
-        assertEquals(listOf("B", "C"), PodcastDayRollup.cards(runs, max = 2).map { it.episodeId })
-    }
-
-    @Test
-    fun `a marathon day shows the first two, not the longest`() {
-        val first = run("A", 30, morning)
-        val second = run("B", 30, morning.plusSeconds(3600))
-        val longest = run("C", 90, morning.plusSeconds(7200))
-        assertEquals(listOf("A", "B"), cardIds(first, second, longest))
-    }
-
-    @Test
-    fun `nothing qualifying gives no cards`() {
-        assertEquals(emptyList<String>(), cardIds(run("A", 10, morning)))
     }
 
     @Test

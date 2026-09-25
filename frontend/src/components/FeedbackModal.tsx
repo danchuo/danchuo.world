@@ -15,6 +15,7 @@ import {
 } from "@/lib/feedbackForm";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 
 interface FeedbackModalProps {
   /** The active wave's key, so a note about colour is readable a wave later. */
@@ -42,6 +43,7 @@ export function FeedbackModal({ waveKey, selectedDay, onClose }: FeedbackModalPr
   const panelRef = useRef<HTMLDivElement>(null);
 
   useBackToClose(true, onClose);
+  useScrollLock(true);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 import { Cover } from "./NowPlayingCard";
 import { CoverPlate } from "./SpotifyMark";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 
 interface SummaryModalProps {
   subject: SummarySubject;
@@ -53,6 +54,7 @@ export function SummaryModal({ subject, onClose }: SummaryModalProps) {
 
   // The system Back closes the window rather than leaving the site (DESIGN §9).
   useBackToClose(true, onClose);
+  useScrollLock(true);
 
   useEffect(() => {
     closeRef.current?.focus();

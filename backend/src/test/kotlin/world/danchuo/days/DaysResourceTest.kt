@@ -142,6 +142,35 @@ class DaysResourceTest {
     }
 
     @Test
+    fun `an unmarked day carries a soft so-far run that unmarked days do not break`() {
+        // −5 drunk (the wall), −4 clean, −3 and −2 unmarked: viewed on −2 the soft run is
+        // −4 plus −3 — the day itself does not count. The strict clean streak stays untouched.
+        seedDrunk("${today.minusDays(5)}")
+        seedCleanDay("${today.minusDays(4)}")
+        seedHealthOnlyDay("${today.minusDays(3)}")
+        seedHealthOnlyDay("${today.minusDays(2)}")
+
+        given().get("/api/days/${today.minusDays(3)}")
+            .then().statusCode(200)
+            .body("monsterSoFarStreak", equalTo(1))
+            .body("monsterCleanStreak", equalTo(0))
+        given().get("/api/days/${today.minusDays(2)}")
+            .then().statusCode(200)
+            .body("monsterSoFarStreak", equalTo(2))
+        // A marked day has no "so far" to tell.
+        given().get("/api/days/${today.minusDays(4)}")
+            .then().statusCode(200)
+            .body("monsterSoFarStreak", equalTo(0))
+    }
+
+    /** Monster drunk and nothing else done: a wall for the soft run that leaves discipline alone. */
+    private fun seedDrunk(date: String) {
+        given().auth().oauth2(token).contentType(ContentType.JSON)
+            .body("""{"date":"$date","items":{},"monsterFlavorKey":"mango-loco"}""")
+            .post("/api/ingest/daily").then().statusCode(200)
+    }
+
+    @Test
     fun `today without a monster report does not add to the clean streak — the report does`() {
         // The owner's exact complaint: auto-health for today arrived, the shortcut has not, and the
         // streak already grew a day. Checked as a DELTA — history before today is shared with

@@ -11,12 +11,16 @@ import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.empty
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.nullValue
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import world.danchuo.days.DayRecordRepository
+import world.danchuo.film.PhotoStorage
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Base64
 import javax.imageio.ImageIO
 
@@ -36,9 +40,24 @@ class DailyIngestResourceTest {
     @Inject
     lateinit var checklistEntries: ChecklistEntryRepository
 
+    @Inject
+    lateinit var photos: PhotoStorage
+
     private val token = "dev-ingest-token-change-me"
 
     private val today: LocalDate = LocalDate.now(ZoneId.of("Europe/Moscow"))
+
+    /**
+     * Day photos live on disk, which outlives the run while the dates slide: a photo stored at
+     * −10 turns up two days later at −12, where a test expects none. Before as well as after.
+     */
+    @BeforeEach
+    @AfterEach
+    fun dropDayPhotos() {
+        for (back in 0L..PHOTO_WINDOW_DAYS) {
+            photos.delete("days/${today.minusDays(back).format(DateTimeFormatter.BASIC_ISO_DATE)}")
+        }
+    }
 
     private fun countFor(date: LocalDate, itemKey: String): Int? =
         QuarkusTransaction.requiringNew().call {
@@ -252,5 +271,10 @@ class DailyIngestResourceTest {
         given().get("/api/days/$date").then().body("photo", nullValue())
         given().get("/api/days/$date/photo/thumb").then().statusCode(404)
         given().get("/api/days?from=$date&to=$date").then().body("[0].hasPhoto", equalTo(false))
+    }
+
+    private companion object {
+        /** Every date the ingest window accepts, and one past it. */
+        const val PHOTO_WINDOW_DAYS = 32L
     }
 }

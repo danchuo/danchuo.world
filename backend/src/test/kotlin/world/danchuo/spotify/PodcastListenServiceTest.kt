@@ -101,9 +101,9 @@ class PodcastListenServiceTest {
 
         assertEquals(2, sessionCount())
         assertEquals(60, service.minutesOn(date))
-        // One episode, TWO cards: both stops were closed by different sittings.
-        assertEquals(listOf("A", "A"), service.cardsOn(date, 2).map { it.episodeId })
-        assertEquals(listOf(30, 30), service.cardsOn(date, 2).map { (it.listenedMs / 60_000).toInt() })
+        // One episode, TWO sittings: each is a card of its own.
+        assertEquals(listOf("A", "A"), service.runsOn(date).map { it.episodeId })
+        assertEquals(listOf(30, 30), service.runsOn(date).map { (it.listenedMs / 60_000).toInt() })
     }
 
     @Test
@@ -114,7 +114,7 @@ class PodcastListenServiceTest {
 
         assertEquals(2, sessionCount(), "хранение рвёт по своему порогу")
         assertEquals(60, service.minutesOn(date))
-        assertEquals(listOf("A"), service.cardsOn(date, 2).map { it.episodeId })
+        assertEquals(listOf("A"), service.runsOn(date).map { it.episodeId })
     }
 
     @Test
@@ -123,7 +123,7 @@ class PodcastListenServiceTest {
         listen("B", 30, afterFirst.plusSeconds(600))
 
         assertEquals(60, service.minutesOn(date))
-        assertEquals(listOf("A", "B"), service.cardsOn(date, 2).map { it.episodeId })
+        assertEquals(listOf("A", "B"), service.runsOn(date).map { it.episodeId })
     }
 
     @Test
@@ -136,6 +136,18 @@ class PodcastListenServiceTest {
 
         listen("B", 30, afterFirst.plusSeconds(600))
         assertEquals(2, markedCount(), "60 минут — закрыты обе")
+    }
+
+    @Test
+    fun `short sittings are all kept and a long day marks past the target`() {
+        // Three 20-minute sittings of different episodes: none closes a stop alone, yet each is
+        // a card, and the 60-minute day closes two stops.
+        var at = start
+        for (episode in listOf("A", "B", "C")) at = listen(episode, 20, at).plusSeconds(600)
+        assertEquals(listOf("A", "B", "C"), service.runsOn(date).map { it.episodeId })
+
+        listen("D", 20, at)
+        assertEquals(3, markedCount(), "80 минут — три остановки при цели 2")
     }
 
     @Test

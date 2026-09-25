@@ -6,10 +6,12 @@ import { photoUrl } from "@/lib/api/media";
 import type { DayPhotoView } from "@/lib/api/types";
 import { Icon } from "./Icon";
 import { useBackToClose } from "./useBackToClose";
+import { useScrollLock } from "./useScrollLock";
 
 /** The day's photo alone, at full size, on the artifact modal's scene. DESIGN §4.3 */
 export function DayPhotoModal({ photo, onClose }: { photo: DayPhotoView; onClose: () => void }) {
   useBackToClose(true, onClose);
+  useScrollLock(true);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

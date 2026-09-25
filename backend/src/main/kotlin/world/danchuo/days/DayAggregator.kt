@@ -89,14 +89,12 @@ class DayAggregator(
                     else -> null
                 },
                 episodes = if (item.key == PODCAST_ITEM_KEY) {
-                    PodcastDayRollup.cards(podcastRuns, item.target)
-                        .map { episodeViewOf(it, retoldRuns) }
+                    podcastRuns.map { episodeViewOf(it, retoldRuns) }
                 } else {
                     emptyList()
                 },
                 books = if (item.key == READING_ITEM_KEY) {
-                    ReadingDayRollup.cards(readingSessions, item.target)
-                        .map { readingBookViewOf(it, retoldSessions) }
+                    readingSessions.map { readingBookViewOf(it, retoldSessions) }
                 } else {
                     emptyList()
                 },
@@ -117,6 +115,14 @@ class DayAggregator(
         val monsterCleanStreak = StreakCalculator.streak(date, today, mskTime.genesis) { d ->
             drunkOn(d) == false
         }
+        // The soft "so far" run of an unmarked day: only a drunk day breaks it, counted to the day
+        // before and no deeper than the first monster mark ever. §5.6
+        val monsterSince = monsterItemId?.let(checklistEntries::firstDateOf)
+        val monsterSoFarStreak =
+            if (monsterSince == null || date.isAfter(today) || drunkOn(date) != null) 0
+            else StreakCalculator.streak(date.minusDays(1), today, maxOf(monsterSince, mskTime.genesis)) { d ->
+                drunkOn(d) != true
+            }
 
         return DayView(
             date = date,
@@ -130,6 +136,7 @@ class DayAggregator(
             discipline = discipline,
             monsterDrunk = drunkOn(date),
             monsterCleanStreak = monsterCleanStreak,
+            monsterSoFarStreak = monsterSoFarStreak,
             activities = record?.activities.orEmpty(),
             photo = record?.let(::photoOf),
         )

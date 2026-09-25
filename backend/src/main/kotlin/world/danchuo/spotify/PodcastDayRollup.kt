@@ -40,9 +40,8 @@ data class PodcastRun(
 )
 
 /**
- * Rolls a day of podcasts into item marks and day cards. The two are counted DIFFERENTLY on
- * purpose: marks by the day's total minutes, cards by sittings. They diverge predictably — one
- * marathon is two marks and one card, the same episode there and back is two of each. PRD §5.6
+ * Rolls a day of podcasts into item marks and sittings. Marks go by the day's total minutes, and
+ * every sitting is a card of its own — so 20 + 20 minutes is one mark and two cards. PRD §5.6
  */
 object PodcastDayRollup {
 
@@ -53,11 +52,11 @@ object PodcastDayRollup {
     private const val OCCURRENCE_MS = OCCURRENCE_MINUTES * MS_PER_MINUTE
 
     /**
-     * How many stops the item closes in a day: `min(target, whole thresholds in the sum)`. We
-     * divide milliseconds, not rounded minutes, so 49:59 stays one stop and exactly 50:00 is two.
+     * How many stops the day closes: whole thresholds in the sum, uncapped — a long day reads "3/2".
+     * We divide milliseconds, not rounded minutes, so 49:59 stays one stop and exactly 50:00 is two.
      */
-    fun occurrences(totalListenedMs: Long, target: Int): Int =
-        if (totalListenedMs <= 0) 0 else minOf(target.toLong(), totalListenedMs / OCCURRENCE_MS).toInt()
+    fun occurrences(totalListenedMs: Long): Int =
+        if (totalListenedMs <= 0) 0 else (totalListenedMs / OCCURRENCE_MS).toInt()
 
     /** Minutes listened for the item's caption — rounded down to a whole. */
     fun listenedMinutes(totalListenedMs: Long): Int =
@@ -87,24 +86,6 @@ object PodcastDayRollup {
         }
         return merged
     }
-
-    /**
-     * The day's cards: the first [max] sittings to push the running total past another 25 minutes.
-     * A sitting counts ONCE however many thresholds it crosses — telling the same thing under a
-     * second stop would claim there were two sittings. The trade-off is documented in PRD §5.6.
-     */
-    fun cards(runs: List<PodcastRun>, max: Int): List<PodcastRun> {
-        val cards = mutableListOf<PodcastRun>()
-        var total = 0L
-        for (run in runs.sortedBy { it.startedAt }) {
-            if (cards.size >= max) break
-            val closedBefore = total / OCCURRENCE_MS
-            total += run.listenedMs
-            if (total / OCCURRENCE_MS > closedBefore) cards += run
-        }
-        return cards
-    }
-
 
     /**
      * Whether nothing more can glue onto the sitting: the glue pause has passed since its last

@@ -32,6 +32,11 @@ data class DayView(
      * once its record is picked (see [StreakCalculator]). PRD §5.6
      */
     val monsterCleanStreak: Int,
+    /**
+     * For an unmarked day only (`0` otherwise): days not drunk up to the day before, unmarked ones
+     * included — the "so far" caption. Streaks and lenses keep [monsterCleanStreak]. PRD §5.6
+     */
+    val monsterSoFarStreak: Int,
     /** The day's activity keys (`checklist.Activity`) in catalogue order; empty when none. */
     val activities: List<String>,
     val photo: DayPhotoView?,
@@ -88,15 +93,11 @@ data class DisciplineItemView(
      */
     val measuredMinutes: Int?,
     /**
-     * Hover cards for the stops of `podcasts`; empty for every other item. One card per SESSION,
-     * not per episode, so the length need not match [count]: a single long sitting closes both
-     * stops with one card and the spare stop simply gets no hover. PRD §5.6
+     * Every sitting of `podcasts` for the day, in order; empty for every other item. The length
+     * need not match [count]: marks go by minutes, cards by sittings. PRD §5.6
      */
     val episodes: List<PodcastEpisodeView>,
-    /**
-     * Hover cards for the stops of `reading`; empty for every other item. Handed out by the same
-     * rule as [episodes], including the spare stop left without a hover. PRD §5.13
-     */
+    /** Every reading session of the day, in order; empty for every other item. PRD §5.16 */
     val books: List<ReadingBookView>,
 )
 

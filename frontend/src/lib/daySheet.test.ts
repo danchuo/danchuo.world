@@ -401,6 +401,15 @@ describe("sheetMonsterCard", () => {
     expect(mute.verdict).toBe("unreported");
   });
 
+  // An unmarked day counts the days before it, unmarked ones included; one day is still no run.
+  it("gives an unreported day its soft run up to yesterday", () => {
+    expect(sheetMonsterCard(day({ monsterSoFarStreak: 2, monsterCleanStreak: 0 })).caption).toBe(
+      "пока не пил 2 дня",
+    );
+    expect(sheetMonsterCard(day({ monsterSoFarStreak: 5 })).ariaLabel).toBe("Монстр: пока не пил 5 дней");
+    expect(sheetMonsterCard(day({ monsterSoFarStreak: 1 })).caption).toBe("пока не пил");
+  });
+
   it("names the verdict for a screen reader too", () => {
     expect(sheetMonsterCard(day()).ariaLabel).toBe("Монстр: пока не пил");
     expect(sheetMonsterCard(day({ monsterDrunk: true })).ariaLabel).toBe("Монстр: выпит сегодня");

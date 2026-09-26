@@ -5,9 +5,9 @@
 export const SITE_PROFILE = {
   name: "Данила",
   handle: "danchuo",
-  title: "danchuo.world — Данила",
+  title: "danchuo.world",
   description:
-    "Живая доска жизни Данилы: сон, шаги, музыка, git, фото и дневник каждого дня — в реальном времени.",
+    "живая доска жизни: сон, шаги, музыка, git, фото и дневник каждого дня — в реальном времени",
   sameAs: [
     "https://instagram.com/danchuo_",
     "https://t.me/danchuo",

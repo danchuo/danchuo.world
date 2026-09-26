@@ -157,8 +157,9 @@ export function WaveBackdrop({
     // be rebuilt for the new height (or erased, if the new wave draws no background).
   }, [ribbon, wave]);
 
+  // Decor, not content: the ribbon repeats to fill the wall and must not become a search snippet.
   return (
-    <div className="wave-backdrop" aria-hidden="true">
+    <div className="wave-backdrop" aria-hidden="true" data-nosnippet="">
       <p className="wave-backdrop-ribbon" ref={ref} />
     </div>
   );

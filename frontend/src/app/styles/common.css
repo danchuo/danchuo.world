@@ -5751,6 +5751,12 @@ button.sleep-echo:focus-visible {
   .tier-modal__side:not([data-open]) .tier-modal__side-body {
     display: none;
   }
+  /* A list taller than the screen, or one keeping the swipe at its end, strands the window short of its
+     bottom and the last list under the screen edge. DESIGN §7.12 */
+  .tier-modal__people {
+    max-height: min(calc(var(--tier-cell) * 6), 55dvh);
+    overscroll-behavior: auto;
+  }
 }
 
 /* The magnifier sits at the pool's end: a shirt dropped (or tapped) in opens large over the window. */

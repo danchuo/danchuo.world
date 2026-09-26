@@ -254,6 +254,37 @@ class ReadingServiceTest {
     }
 
     @Test
+    fun `a glance held back yesterday joins yesterday's sitting instead of becoming an empty card`() {
+        val yesterdayEvening = evening.minusSeconds(86_400)
+        val onYesterday = { seconds: Int ->
+            ShelfSnapshot(
+                books = mapOf(1L to book(percent = 0.42)),
+                dayTotals = listOf(ShelfDayTotal(bookId = 1, date = yesterday, seconds = seconds)),
+            )
+        }
+        service.absorb(onYesterday(1_800), yesterday, yesterdayEvening)
+        // Two hours later, a glance under the threshold: held back, the day then ends.
+        service.absorb(onYesterday(1_840), yesterday, yesterdayEvening.plusSeconds(7_200))
+
+        assertEquals(40, service.absorb(onYesterday(1_840), today, evening))
+
+        val session = sessions.listByDate(yesterday).single()
+        assertEquals(1_840, session.readSeconds)
+        assertEquals(ReadingSource.LIVE.code(), session.source)
+    }
+
+    @Test
+    fun `a past day with only a glance leaves no card`() {
+        val glance = ShelfSnapshot(
+            books = mapOf(1L to book(percent = 0.42)),
+            dayTotals = listOf(ShelfDayTotal(bookId = 1, date = yesterday, seconds = 40)),
+        )
+
+        assertEquals(0, service.absorb(glance, today, evening))
+        assertEquals(0, sessions.listByDate(yesterday).size)
+    }
+
+    @Test
     fun `half an hour of reading closes one stop of the item`() {
         service.absorb(shelf(seconds = 1_800, percent = 0.42), today, evening)
 

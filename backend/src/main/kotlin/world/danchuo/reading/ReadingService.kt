@@ -86,7 +86,7 @@ class ReadingService(
         if (credit == 0) return 0
 
         if (total.date.isBefore(today)) {
-            importPast(book, total.date, credit, existing)
+            if (!importPast(book, total.date, credit, existing)) return 0
         } else if (!live(book, total, snapshot, seenBefore, credit, at)) {
             // Opened a book for a glance: no session is started, and the seconds stay uncredited
             // until the next increment (crediting counts off the reader's counter, not off ticks).
@@ -96,20 +96,23 @@ class ReadingService(
     }
 
     /**
-     * A past day: the minutes are known, nothing else is. One imported row per book-day, which
-     * grows on a late sync rather than spawning neighbours: we have nothing to tell about
-     * yesterday's sittings anyway, and extra rows would take up cards for nothing.
+     * A past day: the minutes are known, nothing else is. Any row the book-day already has absorbs
+     * the late seconds — a glance held back yesterday is that sitting's tail, not a card of its own.
+     * A new imported row opens only past the session threshold; `false` = a glance, left uncredited.
      */
-    private fun importPast(book: ShelfBook, date: LocalDate, credit: Int, existing: List<ReadingSession>) {
-        val imported = existing.firstOrNull { it.source == ReadingSource.IMPORTED.code() }
-        if (imported != null) {
-            imported.readSeconds += credit
-            imported.describe(book)
-            return
+    private fun importPast(book: ShelfBook, date: LocalDate, credit: Int, existing: List<ReadingSession>): Boolean {
+        val host = existing.firstOrNull { it.source == ReadingSource.IMPORTED.code() }
+            ?: existing.maxByOrNull { it.endedAt ?: Instant.EPOCH }
+        if (host != null) {
+            host.readSeconds += credit
+            host.describe(book)
+            return true
         }
+        if (credit < config.minSessionSeconds()) return false
         sessions.persist(
             newSession(book, date, credit).apply { source = ReadingSource.IMPORTED.code() },
         )
+        return true
     }
 
     /**

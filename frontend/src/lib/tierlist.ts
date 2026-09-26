@@ -30,7 +30,7 @@ export interface Shirt {
 export const NICK_MAX = 40;
 
 /** The catalogue, hard-coded: shirts go by number only, in the pool's order. Art is trimmed and centred square. */
-export const SHIRTS: readonly Shirt[] = Array.from({ length: 19 }, (_, i) => {
+export const SHIRTS: readonly Shirt[] = Array.from({ length: 21 }, (_, i) => {
   const id = String(i + 1).padStart(2, "0");
   return { id, image: `/assets/tierlist/${id}.webp`, large: `/assets/tierlist/large/${id}.webp` };
 });

@@ -5402,8 +5402,8 @@ button.sleep-echo:focus-visible {
 
 /* The window wears tiermaker's page, not the wave's glass: its ground and black rules are the genre. */
 .tier-modal {
-  /* The second term fits seven cell rows (five tiers, a two-row pool) plus the chrome into the screen. */
-  --tier-cell: clamp(52px, min(calc(30px + 3.6vw), calc((100dvh - 180px) / 7)), 112px);
+  /* The second term fits eight cell rows (five tiers, a pool of up to three) plus the chrome. DESIGN §7.12 */
+  --tier-cell: clamp(52px, min(calc(30px + 3.6vw), calc((100dvh - 180px) / 8)), 112px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(150px, 13vw, 230px);
   gap: clamp(14px, 1.4vw, 24px);

@@ -35,8 +35,6 @@ export const WAVE_03: Wave = {
     "elev-3": "0 2px 4px rgba(0, 0, 0, 0.45), 0 10px 22px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.45)",
     "font-display": "var(--font-mono)",
     "glass-blur": "11px",
-    // The page ground for the link preview image, which cannot read the skin's CSS. PRD §12
-    "og-ground": "radial-gradient(52% 46% at 50% 44%, rgba(80, 132, 196, 0.3) 0%, rgba(48, 88, 142, 0.13) 48%, rgba(10, 16, 26, 0) 80%), radial-gradient(82% 72% at 2% -10%, rgba(46, 76, 160, 0.7) 0%, rgba(32, 54, 116, 0.22) 44%, rgba(10, 16, 26, 0) 72%), radial-gradient(76% 66% at 106% 14%, rgba(16, 112, 128, 0.62) 0%, rgba(14, 78, 92, 0.2) 42%, rgba(10, 16, 26, 0) 70%), radial-gradient(92% 70% at 46% 118%, rgba(86, 38, 116, 0.68) 0%, rgba(56, 28, 80, 0.22) 42%, rgba(10, 16, 26, 0) 72%), linear-gradient(168deg, #0b1018 0%, #0a0f16 55%, #080b10 100%)",
     "glass-edge": "rgba(160, 205, 230, 0.18)",
     "glass-sheen": "rgba(190, 230, 250, 0.22)",
     "glass-tint": "rgba(120, 160, 190, 0.13)",

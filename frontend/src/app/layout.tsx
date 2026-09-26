@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 import { FaviconSpinner } from "@/components/FaviconSpinner";
 import { FONT_GATE_SCRIPT } from "@/lib/fontGate";
+import { SITE_PROFILE, profileJsonLd, serializeJsonLd } from "@/lib/siteProfile";
 import { WAVE_COOKIE, decodeWaveCookie } from "@/lib/waveCookie";
 import { resolveDisplayWave } from "@/lib/waves";
 import { serializeTokensToCss } from "@/lib/waves/tokens";
@@ -25,20 +26,20 @@ const SITE_URL = process.env.SITE_URL ?? "https://danchuo.world";
 // Without a description a search engine cuts its snippet from tile labels. PRD §12
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "danchuo.world",
-  description: "public real-time bento board of my life",
+  title: SITE_PROFILE.title,
+  description: SITE_PROFILE.description,
   applicationName: "danchuo.world",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: "danchuo.world",
-    title: "danchuo.world",
+    title: SITE_PROFILE.title,
     url: "/",
     locale: "ru_RU",
   },
   twitter: {
     card: "summary_large_image",
-    title: "danchuo.world",
+    title: SITE_PROFILE.title,
   },
   robots: { index: true, follow: true },
 };
@@ -64,6 +65,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: FONT_GATE_SCRIPT }} />
         {/* Override the CSS defaults with the resolved wave's tokens. */}
         <style id="wave-tokens" dangerouslySetInnerHTML={{ __html: serializeTokensToCss(wave.tokens) }} />
+        {/* Ties the site to the owner's profiles for search. PRD §12 */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(profileJsonLd(SITE_URL)) }} />
       </head>
       <body>
         {children}
